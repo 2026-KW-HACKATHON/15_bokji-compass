@@ -1,0 +1,81 @@
+# Local environment files; keep empty/sanitized examples trackable.
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*.env.example
+.envrc
+
+# Local credentials and private keys.
+secrets/
+credentials/
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Python environments and caches.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Web dependencies, caches, and generated output.
+node_modules/
+.npm/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+coverage/
+*.tsbuildinfo
+build/
+dist/
+out/
+
+# Android local configuration and generated output.
+.gradle/
+.kotlin/
+local.properties
+*.apk
+*.aab
+
+# Local databases, logs, and runtime files.
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+logs/
+tmp/
+temp/
+
+# Collected/local data; retain the documentation placeholder.
+/backend/data/*
+!/backend/data/readme.md
+
+# Editor and OS files.
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
