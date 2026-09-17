@@ -2,7 +2,7 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
-현재는 폴더와 빈 파일만 준비한 상태이며 각 기능부분을 구현하면서 알맞게 사용하면됩니다.
+현재는 폴더와 빈 코드·설정 파일이 준비되어 있으며, MySQL 백엔드의 구현 전 계획을 문서로 정리했습니다. 각 기능부분을 구현하면서 알맞게 사용하면됩니다.
 
 
 
@@ -17,7 +17,7 @@
 
 1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, 향후 Android 앱은 `frontend/android/`에 구현합니다.
 2. 구현을 시작할 때 해당 폴더의 `readme.md`에 역할, 담당자, 실제 사용법과 검증 방법을 작성합니다. 업무 모듈의 외부 공개 진입점은 `public.py`에 둡니다.
-3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 아래 문서들은 현재 빈 파일이며, 협의 후 내용을 작성합니다.
+3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 백엔드 구현 계획과 해당 작업 기록을 작성했으며, 나머지 문서는 기능 구현에 맞춰 내용을 작성합니다.
 4. 프론트엔드는 백엔드 공개 API로 연결합니다. 서로의 내부 소스, DB 또는 수집 원본을 직접 참조하지 않습니다. 각 영역의 의존성과 실행환경도 분리합니다.
    <br>특히 백엔드와 프론트엔드 구현간에 배포를 고려하여 작성해야합니다.
 5. 환경변수가 필요해지면 `backend/.env.example`에 비밀정보 없는 설정 예시를 작성하고, 복사한 `backend/.env`에 개인 설정을 넣습니다. 다른 영역의 `.env`도 Git에서 제외됩니다.
@@ -28,6 +28,7 @@
 
 | 용도 | 작성할 위치 |
 | --- | --- |
+| Windows·MySQL 백엔드 서버·설치·구현 계획 | [implementation-plan.md](backend/docs/implementation-plan.md) |
 | 전체 구조와 공통 개발 규칙 | [backend/docs/project-structure.md](backend/docs/project-structure.md) |
 | 데이터 계약 | [backend/docs/data-contracts.md](backend/docs/data-contracts.md) |
 | 기능별 README 작성 양식 | [backend/docs/module-readme-template.md](backend/docs/module-readme-template.md) |
@@ -36,7 +37,7 @@
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
 
-백엔드는 Python + FastAPI, Android는 향후 Java 기반 개발을 예정합니다. 웹 프레임워크, DB, LLM 공급자, 배포 환경, 최종 데이터 스키마는 협업 과정에서 결정합니다. `pyproject.toml`, `main.py`, `public.py`도 현재 빈 파일이므로 실행 가능한 프로젝트 설정이나 기능을 제공하지 않습니다.
+백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. `pyproject.toml`, `main.py`, `public.py`는 현재 빈 파일이며, 설치 전 검토할 서버 사양과 의존성 계획은 위 구현 계획 문서에 정리했습니다.
 
 ## 폴더 트리
 
@@ -112,6 +113,7 @@
 |   |   |   `-- readme.md
 |   |   |-- ai-guide.md
 |   |   |-- data-contracts.md
+|   |   |-- implementation-plan.md
 |   |   |-- module-readme-template.md
 |   |   |-- project-structure.md
 |   |   |-- readme.md
@@ -432,4 +434,3 @@ API 명세를 별도 원본처럼 복사하지 않는다.
 2. 문서 진입점과 공통 규칙의 기준 위치.
 3. 실제 수행한 검증과 결과.
 4. 아직 구현하지 않은 기능 및 다음 단계에서 결정할 사항.
-
