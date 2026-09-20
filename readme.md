@@ -61,8 +61,12 @@
 |   |   |-- modules/
 |   |   |   |-- collectors/
 |   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
+|   |   |   |   |   |-- readme.md
+|   |   |   |   |   |-- test_data_go_kr.py
+|   |   |   |   |   `-- test_gov24_services.py
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- data_go_kr.py
+|   |   |   |   |-- gov24_services.py
 |   |   |   |   |-- public.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- llm/
@@ -73,8 +77,10 @@
 |   |   |   |   `-- readme.md
 |   |   |   |-- normalization/
 |   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
+|   |   |   |   |   |-- readme.md
+|   |   |   |   |   `-- test_policy.py
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- policy.py
 |   |   |   |   |-- public.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- parsers/
@@ -107,6 +113,11 @@
 |   |   |-- main.py
 |   |   `-- readme.md
 |   |-- data/
+|   |   `-- readme.md
+|   |-- database/
+|   |   |-- 001_schema.sql
+|   |   |-- 002_seed.sql
+|   |   |-- 003_queries.sql
 |   |   `-- readme.md
 |   |-- docs/
 |   |   |-- api/
