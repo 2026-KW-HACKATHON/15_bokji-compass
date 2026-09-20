@@ -1,3 +1,29 @@
+## 행정안전부 공공데이터포털 API
+
+공공데이터포털에서 발급한 행정안전부 API 키는 다음 환경변수에 저장합니다.
+
+```env
+DATA_GO_KR_API_KEY=발급받은_일반_인증키
+```
+
+제공된 계정 페이지는 공통 API 키 관리 화면이므로, 실제 수집기를 연결하려면
+사용할 행안부 데이터셋의 상세 API URL과 요청 파라미터가 추가로 필요합니다.
+
+현재 명세의 Gov24 공공서비스 목록 API는 다음처럼 최근 목록 10건을 확인할 수
+있습니다. API가 반환하는 첫 페이지 순서를 최신 순서로 사용합니다.
+
+```bash
+set -a && source .env && set +a
+python - <<'PY'
+from app.modules.collectors.gov24_services import (
+	fetch_recent_public_services,
+	format_public_services,
+)
+
+services = fetch_recent_public_services(limit=10)
+print(format_public_services(services))
+PY
+```
 # collectors
 
 ## 목적과 책임
