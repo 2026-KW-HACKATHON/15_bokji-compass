@@ -62,9 +62,11 @@
 |   |   |   |-- collectors/
 |   |   |   |   |-- tests/
 |   |   |   |   |   |-- readme.md
+|   |   |   |   |   |-- test_bokjiro_services.py
 |   |   |   |   |   |-- test_data_go_kr.py
 |   |   |   |   |   `-- test_gov24_services.py
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- bokjiro_services.py
 |   |   |   |   |-- data_go_kr.py
 |   |   |   |   |-- gov24_services.py
 |   |   |   |   |-- public.py
@@ -121,6 +123,8 @@
 |   |   `-- readme.md
 |   |-- docs/
 |   |   |-- api/
+|   |   |   |-- bokjiro_services_api.md
+|   |   |   |-- gov24_services_api.md
 |   |   |   `-- readme.md
 |   |   |-- ai-guide.md
 |   |   |-- data-contracts.md

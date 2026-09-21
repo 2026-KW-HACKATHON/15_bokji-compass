@@ -24,6 +24,27 @@ services = fetch_recent_public_services(limit=10)
 print(format_public_services(services))
 PY
 ```
+
+## 복지로 중앙부처 복지서비스 API
+
+명세서의 `B554287/NationalWelfareInformationsV001` API를 사용합니다.
+인증키는 `.env`의 `BokjiRO_API_KEY`에서 읽습니다.
+
+```bash
+set -a && source .env && set +a
+python - <<'PY'
+from app.modules.collectors.bokjiro_services import fetch_bokjiro_services
+
+services = fetch_bokjiro_services(num_of_rows=10)
+for service in services:
+	print(service["servId"], service["servNm"])
+PY
+```
+
+검색어는 `search_keyword`, 생애주기는 `life_array`, 가구상황은
+`household_situation`, 관심 주제는 `desire`로 전달합니다. 목록 결과의
+`servId`는 `fetch_bokjiro_service_detail("WLF00000001")`에 넣어 상세
+정보를 조회할 수 있습니다. API 오류 코드는 `RuntimeError`로 전달됩니다.
 # collectors
 
 ## 목적과 책임

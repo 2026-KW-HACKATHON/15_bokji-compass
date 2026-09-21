@@ -1,4 +1,10 @@
-"""Shared HTTP client for data.go.kr public APIs."""
+"""Shared HTTP client for data.go.kr public APIs.
+
+This module handles common request concerns such as service-key injection,
+query encoding, and HTTP transport. Dataset-specific collectors such as
+``gov24_services`` and ``bokjiro_services`` remain responsible for parsing
+their own response formats and applying dataset-specific rules.
+"""
 
 import os
 from collections.abc import Mapping
