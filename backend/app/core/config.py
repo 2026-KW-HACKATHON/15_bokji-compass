@@ -1,0 +1,43 @@
+"""Environment configuration; paths are independent of the working directory."""
+
+import os
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field, SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file_encoding="utf-8", extra="ignore")
+
+    app_env: Literal["development", "test", "production"] = "development"
+    server_host: str = "127.0.0.1"
+    server_port: int = Field(default=8000, ge=1, le=65535)
+    cors_origins: list[str] = []
+    db_enabled: bool = False
+    db_host: str = "127.0.0.1"
+    db_port: int = Field(default=3307, ge=1, le=65535)
+    db_name: str = "bokji_compass_dev"
+    db_user: str = "bokji_dev"
+    db_password: SecretStr = SecretStr("")
+    db_ssl_ca: str = ""
+
+    @model_validator(mode="after")
+    def check_database_configuration(self) -> "Settings":
+        if self.db_enabled and not all(
+            (self.db_host, self.db_name, self.db_user, self.db_password.get_secret_value())
+        ):
+            raise ValueError("DB_ENABLED requires host, database, user and password")
+        return self
+
+
+def load_settings() -> Settings:
+    config_file = Path(os.environ.get("APP_CONFIG_FILE", BACKEND_ROOT / ".env"))
+    if not config_file.is_absolute():
+        config_file = BACKEND_ROOT / config_file
+    if "APP_CONFIG_FILE" in os.environ and not config_file.is_file():
+        raise ValueError("APP_CONFIG_FILE does not exist")
+    return Settings(_env_file=config_file)

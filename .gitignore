@@ -19,6 +19,8 @@ credentials/
 
 # Python environments and caches.
 .venv/
+.bootstrap/
+.python/
 venv/
 env/
 __pycache__/
