@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Any
 
-
 _DATE_PATTERN = re.compile(r"\b(20\d{2})[./-](\d{1,2})[./-](\d{1,2})\b")
 
 

@@ -1,11 +1,10 @@
 """File-based storage for collected raw documents."""
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from app.contracts.public import RawDocument
-
 
 DEFAULT_STORAGE_PATH = Path(__file__).resolve().parents[3] / "data" / "raw_documents"
 

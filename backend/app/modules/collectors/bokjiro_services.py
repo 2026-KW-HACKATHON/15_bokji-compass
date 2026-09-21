@@ -1,11 +1,11 @@
 """Client for the central-government welfare services API."""
 
 import json
-import os
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from typing import Any
 
+from app.core.config import load_settings
 from app.modules.collectors.data_go_kr import request_data_go_kr
 
 DEFAULT_BOKJIRO_API_BASE_URL = (
@@ -71,7 +71,7 @@ def fetch_bokjiro_service_detail(
 def _request(
     url: str, *, params: Mapping[str, object], api_key: str | None
 ) -> bytes:
-    resolved_key = api_key or os.getenv(BOKJIRO_API_KEY_ENV)
+    resolved_key = api_key or load_settings().bokjiro_api_key.get_secret_value()
     if not resolved_key or not resolved_key.strip():
         raise ValueError(f"api_key or {BOKJIRO_API_KEY_ENV} must be provided")
     return request_data_go_kr(url, params=params, api_key=resolved_key)

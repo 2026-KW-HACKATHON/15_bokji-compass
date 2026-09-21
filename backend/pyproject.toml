@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests", "app/modules"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = [".bootstrap", ".python"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

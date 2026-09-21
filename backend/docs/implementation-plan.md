@@ -1,111 +1,46 @@
 # Windows 서버 기반 조건 검색·정제·MySQL 저장 구현 계획
 
-작성일: 2026-09-17. 상태: 계획 작성 완료 / 설치·기능 구현 미착수.
+최종 수정: 2026-09-21. 상태: 개발환경·팀원 수집/정책 행 변환 통합 완료 / 조건 검색·MySQL 영속 저장 구현 예정.
 
-사용자가 제공한 `Queryable Welfare Conditions, Normalization, and Persistence` 프롬프트를 기준으로 한다. 이후 요청인 **MySQL 사용, Windows 서버 직접 운영, 작업 전 계획 수립**을 우선한다. VMware 등 VM, Ubuntu, WSL, Docker는 설치·개발·테스트·배포 전제에서 제외한다. Python의 `.venv`는 패키지를 분리하는 폴더이며 가상 머신이 아니므로 사용한다. 이 문서의 명령, 경로, 테이블과 인터페이스는 구현 예정이며 현재 실행 가능한 기능을 뜻하지 않는다.
+사용자의 Windows 직접 운영·MySQL 사용·requirements 기반 설치 요구를 반영한다. 현재 사용 가능한 설치·실행 절차는 [개발환경 문서](development.md)가 기준이다. 이 문서의 업무 계약·정제·검색·저장은 후속 계획이다.
 
-## 1. 확인한 사실과 가정
+## 1. 확인한 사실과 현재 범위
 
-| 구분 | 확인 내용 |
-| --- | --- |
-| 저장소 | `backend/`와 `frontend/`가 분리되어 있다. 최초 계획 점검 시 Git 작업 트리는 깨끗했고 현재는 계획·작업 기록·루트 README 변경이 있다. 적용할 `AGENTS.md`는 발견되지 않았다. |
-| 백엔드 | 기존 Python 파일, `pyproject.toml`, 환경변수 예시는 빈 파일이다. 계획·작업 기록 이외 공통 문서는 미작성이다. 재사용할 구현·스키마·마이그레이션·사용자 프로필 모델은 없다. |
-| 프로젝트 지침 | 소문자 `readme.md`에 역할·호출법·반환값을 기록하고, 백엔드 공통 문서는 `backend/docs/`에서 관리한다. |
-| DB | 사용자가 MySQL을 선택했다. 원문 프롬프트의 저장소 미정/JSON 파일 대체안은 기본 구현 방향에서 제외한다. |
-| 서버 OS | 사용자가 Windows 직접 운영을 지정했다. 정확한 Windows 제품·에디션·빌드는 설치 전에 확인한다. |
-| 현재 개발 PC | Windows PowerShell. `python --version`: 3.10.0. `py --list`에는 등록된 Python이 없다. `uv`, `mysql` 명령은 PATH에서 발견되지 않았다. 시스템 전체 미설치를 뜻하지는 않는다. |
-| 기타 도구 | Node 22.19.0, Codex CLI 0.154.0을 확인했다. MySQL 서버 실행 상태와 공급자 인증은 확인하지 않았다. 기존 PC의 도구 설치 여부와 별개로 운영 구성은 Windows 네이티브로 통일한다. |
-| 하드웨어 | 시스템 정보 조회 권한이 없어 현재 PC의 CPU·RAM은 확인하지 못했다. 아래 서버 사양은 현재 PC 사양과 무관한 제안이다. |
-| 미확정 | 서버의 Windows 버전·사양·설치 경로, 기존 MySQL 서버 유무, 원본 데이터 규모, 동시 사용자 수, 일일 처리량, LLM 모델·인증·사용 한도, HTTPS 진입점, 백업 보존 정책. |
+- 백엔드와 프론트엔드는 분리되어 있고 적용할 AGENTS.md는 발견되지 않았다.
+- Python 3.13.5 가상환경, FastAPI 진입점, 환경설정, health/readiness API, 설치·실행·테스트 스크립트를 구성했다.
+- 직접 의존성은 requirements.in과 requirements-dev.in에서 관리하고, 실제 도구가 생성한 requirements.txt와 requirements-dev.txt에 전체 버전·해시를 고정했다.
+- 현재 PC의 MySQL 8.0.44 실행 파일만 재사용해 별도 데이터 디렉터리·포트 3307·개발/테스트 DB·계정을 만들었다. 기존 다른 프로젝트의 MySQL 서비스와 데이터는 변경하지 않았다.
+- 신규 MySQL 설치 기준은 8.4 LTS이며, 버전별 기능 호환성과 정책 테이블은 후속 저장소 구현에서 검증한다.
+- 팀원 구현인 RawDocument 계약, 공고 수집·파일 저장, Gov24 조회·정책/조건 원문 행 변환, 개발 SQL 초안을 통합했다. SQL은 별도 MySQL 8.0.44 테스트 스키마에서 검증했다.
+- 기계 판정용 조건 정규화·검색·판정·정규화 결과의 MySQL 저장·LLM 연동·운영 서비스는 아직 구현하지 않았다.
+- Windows 세부 배포 환경·공급자 모델/계정·원본 보존 정책·외부 HTTPS 진입점은 미확정이다.
 
-계획 가정은 초기 공고 약 1만 건, 하루 정제 최대 1천 건, LLM 동시 호출 1~2건, 조회 부하 시험 10요청/초이다. 이는 사용자가 확정한 요구량이나 성능 보장이 아니다. 먼저 작은 실측 데이터로 처리 시간·메모리·저장량·공급자 사용 한도를 측정한다.
+## 2. 개발환경과 의존성 관리
 
-## 2. 백엔드 서버 사양 제안
+운영체제는 Windows 직접 실행이다. Python .venv로 프로젝트 패키지를 분리하고 전역 환경은 보존한다. 서버는 FastAPI + Uvicorn의 asyncio/h11 조합, MySQL 연결은 SQLAlchemy + PyMySQL, 설정은 Pydantic Settings를 사용한다. Alembic은 후속 마이그레이션용으로 설치되어 있지만 실제 마이그레이션은 아직 없다.
 
-| 환경 | CPU / RAM | 디스크 | 용도 |
-| --- | --- | --- | --- |
-| 팀 개발 PC 권장 | 4코어 이상 / 16GB | 여유 SSD 60GB 이상 | Windows에서 편집기, Python, MySQL을 직접 실행. |
-| 초기 통합 서버 권장 | 4코어 이상 / 16GB | OS 공간 외 프로젝트·데이터용 여유 SSD 100GB 이상 | API, 제한된 정제 실행, MySQL을 Windows 한 대에 직접 설치. 고가용성 구성은 아님. |
-| 데이터·동시 처리 증가 시 | 8코어 이상 / 32GB | 데이터용 SSD 200GB 이상에서 실측 후 확장 | 초기 서버 증설 후보. 요청 처리량을 보장하는 수치가 아님. |
-| 이후 앱·DB 분리 시 | 앱 4코어/16GB, DB 4코어/16GB부터 검토 | 앱 여유 60GB, DB 데이터용 100GB 이상 | 필요한 경우 Windows 장비 두 대로 분리하고 비공개 네트워크로 연결. |
+setup.ps1은 기본적으로 개발 의존성까지 자동 설치한다. RuntimeOnly 옵션은 실행 패키지만 설치한다. pyproject.toml은 pytest·Ruff 설정이며 별도 uv.lock은 만들지 않는다. uv는 requirements 생성과 로컬 설치 도구로 사용한다. .in 변경 후 lock.ps1, setup.ps1, test.ps1을 실행한다.
 
-운영 OS는 Windows x64로 확정한다. 기존 장비의 Windows 버전은 유지 가능한지 먼저 확인하고, 새 전용 서버를 고른다면 Windows Server 2022를 후보로 둔다. Windows 11 x64 장비도 MySQL 8.4 지원 목록에 포함되지만 실제 제품·빌드와 전체 의존성 호환성은 설치 전에 확인한다. OS 재설치나 라이선스 구매는 이번 계획의 실행 작업에 포함하지 않는다. [MySQL 지원 Windows 목록](https://www.mysql.com/support/supportedplatforms/database.html)
+defusedxml·Pillow·Gemini SDK·Codex 실행 계정 제어 등 후속 모듈 의존성은 해당 구현 시 추가한다. 아직 사용하지 않는 도구나 SDK를 현재 서버의 필수 의존성으로 취급하지 않는다.
 
-실행환경은 Windows용 Python 3.13의 설치 시점 최신 패치, DB는 MySQL Community Server 8.4 LTS x64의 지원되는 패치 버전이다. GPU는 외부 LLM 호출 방식에 필요하지 않다. 로컬 모델·OCR 서버를 추가할 경우 다시 산정한다. 기존 3.10 전역 환경은 교체하지 않고 프로젝트 환경을 별도로 만든다. [Python 지원 현황](https://devguide.python.org/versions/), [MySQL LTS 정책](https://dev.mysql.com/doc/refman/8.4/en/mysql-releases.html)
+## 3. 현재 설치·실행 절차
 
-통합 서버에서는 API 프로세스 1개와 정제 동시 실행 1건으로 시작한다. MySQL 버퍼 풀은 약 2GB를 초기 시험값으로 두고 OS·앱·Codex 프로세스의 실제 사용량을 본다. 프로세스 증설 시 메모리와 DB 연결 풀이 각각 늘어나는 점을 함께 계산한다. 초기 SQLAlchemy 풀은 프로세스당 5개, 추가 연결 0개를 제안하며 전체 연결 수는 DB 한도 안에서 조정한다. [FastAPI 프로세스 운영](https://fastapi.tiangolo.com/deployment/server-workers/)
-
-저장량은 `원본 평균 크기 × 건수 × 보존 기간 + JSON/조건 인덱스/개정 이력 + 운영 여유`로 산정한다. 예를 들어 원본 평균 1MB를 하루 1천 건 보관하면 30일에 약 30GB가 추가된다. 따라서 SSD 100GB를 장기 보관 충분 용량으로 간주하지 않는다. 백업은 별도 저장소에 두고 DB와 원본 참조가 함께 복구되는지 검증한다.
-
-운영 연결은 HTTPS를 사용하고 MySQL 3306 포트는 외부에 공개하지 않는다. DB 계정은 앱의 읽기·쓰기 계정과 마이그레이션 계정을 분리한다. Codex 추출 프로세스에는 DB 계정이나 저장소 전체 접근을 전달하지 않는다. 외부 공개는 접근 제어가 마련된 후 수행한다.
-
-## 3. 필요한 의존성과 선택 이유
-
-정확한 패치 버전은 설치 단계에서 호환성을 확인하고 `backend/uv.lock`으로 고정한다. 아래 목록은 설치 계획이며 아직 `pyproject.toml`에 작성하거나 설치하지 않았다.
-
-| 구분 | 예정 의존성 | 목적 |
-| --- | --- | --- |
-| 환경 관리 | Python 3.13, `uv` | 프로젝트별 Python·가상환경·의존성 잠금 관리 |
-| API | `fastapi`, `uvicorn` | Windows에서 `asyncio` 이벤트 루프와 `h11` HTTP 구현으로 실행 |
-| 계약·설정 | `pydantic>=2,<3`, `pydantic-settings` | 정제 계약, 엄격한 타입·의미 검증, 환경변수 설정 |
-| DB | `sqlalchemy>=2,<3`, `pymysql[rsa]` | MySQL 접속, 세션·트랜잭션, 인증에 필요한 RSA 지원 |
-| DB 이력 | `alembic` | 테이블·인덱스 버전 및 마이그레이션 |
-| 입력 | `defusedxml`, `pillow` | XML 외부 엔티티 등 차단, 이미지 형식·크기 검증 |
-| 시간대 | Windows용 `tzdata` | `zoneinfo`를 이용한 한국 시간대 처리 |
-| Gemini 선택 의존성 | `google-genai` (`gemini` extra) | Gemini 요청·응답 어댑터. 기본 mock 실행에는 불필요. |
-| 개발·검증 | `pytest`, `pytest-cov`, `hypothesis`, `httpx`, `ruff`, `mypy` | 단위·API·속성 기반 테스트, 커버리지, 정적 검사 |
-| 별도 실행 도구 | 고정 버전 Codex CLI | 비대화형 추출. Python `subprocess`로 연결하며 OpenAI Python SDK는 필수가 아님. |
-| Windows 필수 런타임 | MySQL 요구사항에 맞는 Microsoft Visual C++ x64 재배포 패키지 | MySQL 8.4의 Windows 실행 전제. C++ 개발 도구 전체를 설치하는 의미는 아님. |
-| Windows 서비스 관리 | WinSW 안정 버전 및 해당 빌드가 요구하는 .NET 런타임 | Uvicorn의 서비스 등록, 자동 시작, 장애 복구·로그 관리. .NET 기존 설치 여부부터 확인. |
-| Windows 프로세스 제어 | `pywin32` (Windows 전용) | Codex 제한 계정 실행 및 Job Object 기반 자식 프로세스 종료 등 Windows API 사용 |
-
-SQLAlchemy + PyMySQL의 동기식 저장소로 시작한다. API에서 DB를 호출하는 경로는 동기 `def` 또는 명시적 스레드 위임을 사용하며 `async def` 안에서 동기 DB/CLI 호출로 이벤트 루프를 막지 않는다. 세션은 요청/작업별로 만들고 스레드 간 공유하지 않는다. [SQLAlchemy MySQL 드라이버](https://docs.sqlalchemy.org/en/20/dialects/mysql.html), [PyMySQL 설치](https://pypi.org/project/PyMySQL/), [FastAPI 동기·비동기 경계](https://fastapi.tiangolo.com/async/)
-
-`json`, `hashlib`, `decimal`, `datetime`, `zoneinfo`, `subprocess`, `tempfile`, `logging`은 표준 라이브러리를 사용한다. Redis, Celery, 벡터 DB, LangChain, 로컬 LLM, OCR, 브라우저 자동화, PDF 파서는 현재 요구를 위해 설치하지 않는다. HTTP 파일 업로드를 범위에 넣을 때만 `python-multipart`를 추가한다.
-
-## 4. Windows 직접 설치·환경 구성 순서
-
-1. 실제 서버의 Windows 버전·x64 여부·관리 권한·여유 디스크·기존 MySQL 서비스/포트를 확인한다. 기존 운영 DB를 테스트에 재사용하지 않는다.
-2. 공식 Windows 배포 경로로 `uv`를 설치한다. 프로젝트용 Python 3.13 x64를 준비하고 `backend/.python-version`에 선택 버전을 기록한다. `backend/.venv/Scripts/python.exe`를 사용해 전역 Python과 분리한다. [uv 설치](https://docs.astral.sh/uv/getting-started/installation/)
-3. `backend/pyproject.toml`에 패키지 구성, Windows 의존성, `gemini` extra, 개발 그룹을 작성한다. `uv lock`으로 실제 잠금 파일을 생성하고 Windows에서 설치·검증한다. `.venv/`는 Git에서 제외한다.
-4. 사용할 MySQL이 없다면 Microsoft Visual C++ x64 재배포 패키지 요건을 확인한 뒤 MySQL Community Server 8.4 x64 MSI와 MySQL Configurator로 설치·초기화한다. Windows 서비스 자동 시작, 데이터 디렉터리, 포트, 계정을 설정한다. 기존 데이터 디렉터리를 재초기화하지 않는다. Workbench는 필요할 때만 설치하는 선택 도구다. [MySQL Windows 설치](https://dev.mysql.com/doc/refman/8.4/en/windows-installation.html)
-5. `backend/.env.example`에 이름과 비밀값 없는 안내를 작성한다. 개인 `.env`는 복사 후 설정한다. 운영 비밀 설정은 서비스 계정만 읽는 외부 설정 파일/보호된 설정으로 전달한다. 설정 파일의 절대 경로를 명시하여 서비스 작업 디렉터리에 따라 다른 `.env`가 읽히지 않게 한다.
-6. MySQL에 `utf8mb4`, InnoDB, 엄격한 SQL 모드, UTC 저장 규칙을 적용하고 별도 개발/테스트 스키마와 계정을 만든다. 단일 장비에서는 DB를 loopback에 바인딩한다. 원문 시각의 시간대 정보는 JSON에 보존한다.
-7. 최초 Alembic 마이그레이션을 생성·검토한 뒤 개발/테스트 DB에 적용한다. mock 정제→저장→조회→판정을 PowerShell에서 확인한다.
-8. WinSW 안정 버전과 해당 런타임을 확인하고 Uvicorn을 Windows 서비스로 등록한다. 실행 파일, 작업 디렉터리, 서비스 계정, 환경설정 경로, 로그 경로를 절대 경로로 지정한다. 등록 단계에만 관리자 권한을 사용하고 앱은 제한된 서비스 계정으로 실행한다.
-9. Windows용 Codex 실행 파일과 Gemini SDK를 각각 검증한다. 서비스 계정의 인증·파일 접근·비대화형 실행을 시험하고 CLI 버전을 고정한다. 사용자 데스크톱에서 실행된다는 이유만으로 서비스에서도 성공한다고 간주하지 않는다.
-10. 재부팅·로그아웃·DB 지연 시작·API 강제 종료·실행 중 취소를 시험하고 자동 복구와 데이터 정합성을 확인한다. 실제 공급자 호출은 별도 연결 시험으로 기록한다.
-
-예정 설정 키는 `APP_ENV`, `APP_CONFIG_FILE`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_CA`, `RAW_STORAGE_DIR`, `LOG_DIR`, `NORMALIZATION_PROVIDER=mock|codex|gemini`, `CODEX_EXECUTABLE`, `CODEX_MODEL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `PROVIDER_TIMEOUT_SECONDS`, `PROVIDER_MAX_CONCURRENCY`, `ALLOW_PROVIDER_FALLBACK`이다. DB 주소・Windows 경로・모델명은 도메인 코드에 넣지 않는다. 기본 공급자는 `mock`, 다른 공급자로의 자동 전환은 기본 비활성으로 둔다.
-
-다음은 **해당 구성 파일과 모듈을 만든 이후** PowerShell에서 실행할 명령 예시다. 현재 빈 프로젝트에서는 실행하지 않는다. 기준 디렉터리는 `backend/`이며 MySQL은 앞 단계에서 Windows 서비스로 설치·시작되어 있어야 한다.
+저장소 루트의 PowerShell에서 다음 명령을 사용한다.
 
 ```powershell
-uv python install 3.13
-uv python pin 3.13
-uv lock
-uv sync --locked --group dev
-uv sync --locked --group dev --extra gemini
-uv run --locked alembic upgrade head
-uv run --locked pytest -m "not integration and not live"
-uv run --locked pytest -m integration
-uv run --locked ruff check .
-uv run --locked mypy app
-uv run --locked python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --loop asyncio --http h11
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/setup.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/setup-mysql.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/start.ps1 -Reload
 ```
 
-Gemini extra 동기화는 Gemini를 사용할 때만 필요하다. pytest 표식도 구현 예정이다. `integration`은 전용 테스트 DB 설정과 격리 검사를 통과해야 실행한다. Windows CI에서 잠금 파일을 임의 갱신하지 않도록 `--locked`를 사용한다. 서버 배포 시에는 개발 의존성 없이 `uv sync --locked --no-dev`로 설치하고, 필요한 경우 `--extra gemini`를 추가한다. [uv 잠금·동기화](https://docs.astral.sh/uv/concepts/projects/sync/)
+setup-mysql.ps1은 설치된 MySQL 바이너리가 필요하며 기존 서비스와 분리된 로컬 개발 DB를 만든다. DB 없이 작업할 경우 이 단계는 생략할 수 있지만 readiness는 503이다. 환경변수·재실행·정상 종료·설치 실패 대응은 [개발환경 문서](development.md)를 따른다.
 
-### Windows 서비스 운영
+## 4. 후속 운영 환경 작업
 
-- MySQL은 자체 Windows 서비스로 등록하고 서비스 이름은 설치 결과에서 확인한다. API는 WinSW로 등록하여 로그인 여부와 무관하게 부팅 후 시작한다. [MySQL 서비스](https://dev.mysql.com/doc/refman/8.4/en/windows-start-service.html), [WinSW](https://github.com/winsw/winsw)
-- WinSW는 설치 시 검증한 안정 버전을 고정한다. 서비스 실행 대상으로 프로젝트 `.venv/Scripts/python.exe`의 절대 경로를 지정하고 `-m uvicorn app.main:app --loop asyncio --http h11 --workers 1` 등 검증된 인자를 넘긴다. 서비스 시작 때 패키지를 다운로드하거나 다시 설치하지 않는다.
-- API 프로세스는 한 개로 시작하고 운영에서는 `--reload`를 사용하지 않는다. Uvicorn의 Windows 호환 루프인 `asyncio`를 명시한다. [Uvicorn 공식 설정](https://raw.githubusercontent.com/encode/uvicorn/master/docs/settings.md)
-- 지연 자동 시작과 실패 후 재시작 정책, 정상 종료 대기 시간, 로그 회전을 설정한다. MySQL 서비스 시작만으로 연결 준비가 끝났다고 보지 않고 앱에서 제한된 재접속과 readiness 상태를 처리한다.
-- 서비스 설정 예시는 추후 `backend/deploy/windows/`, 설치·점검 PowerShell은 `backend/scripts/`에 둔다. 실제 비밀번호·인증 파일은 Git에 포함하지 않는다. 공통 운영 문서는 계속 `backend/docs/`에서 관리한다.
-- 원본·DB 데이터·로그는 배포 소스와 분리한 Windows 데이터 디렉터리에 두고 NTFS 접근 권한을 설정한다. 파일 경로는 `pathlib`로 처리하며 공백·한글 경로도 시험한다. Python/CLI 입출력·로그는 UTF-8을 명시한다.
-- Windows 방화벽은 필요한 수신 포트만 허용한다. 외부 HTTPS 진입점·인증서 갱신 방식을 운영 환경에 맞춰 정하고, 프록시가 같은 장비에 있으면 API는 loopback으로 연결한다. Uvicorn 개발 포트를 그대로 외부 공개하지 않는다.
-- 로그아웃·재부팅 후 복구, Windows 업데이트 재부팅 시간, 절전 방지, 백업·복원 절차를 운영 점검에 포함한다. 백업 자동화가 필요하면 Windows 작업 스케줄러를 사용하되 복지 처리용 업무 스케줄러는 이번 구현에 추가하지 않는다.
+- 현재 개발 DB는 Windows 백그라운드 프로세스이고 API는 개발 실행 스크립트로 시작한다. 재부팅 자동 시작과 WinSW 서비스 등록은 미구현이다.
+- 운영 단계에서 제한된 서비스 계정, 절대 실행 경로, 로그 회전, 비밀정보 보호, 정상 종료·재부팅 복구를 구성한다.
+- 운영 연결은 HTTPS를 사용하고 DB를 외부에 공개하지 않는다. 운영 DB 계정은 업무용과 마이그레이션용을 분리한다.
+- 정제 프로세스에 운영 DB 자격이나 불필요한 저장소 접근을 주지 않는다. 실제 정책 승인·공개 흐름도 후속 구현 범위다.
 
 ## 5. 구현 구조와 영향 범위
 
@@ -157,7 +92,7 @@ evaluate_conditions(record, user_facts, evaluation_context) -> PASS/FAIL/UNKNOWN
 
 장시간 LLM 호출 동안 DB 트랜잭션을 유지하지 않는다. 검증된 후보는 앱 관리 체크포인트에 보존해 저장 실패 재시도에 재사용한다. DB가 내려가면 상태 저장에 성공했다고 보고하지 않고 작업 ID와 실제 실패를 안전한 진단으로 반환한다. 잘못된 출력은 정상 정책 테이블 밖에 격리하고, 유효하지만 불확실한 출력은 `needs_review` 등으로 구분한다. 검증 통과와 공개 승인은 별개다.
 
-최초 마이그레이션은 빈 개발 DB에서 시작한다. 현재 이관할 레코드는 없다. 향후 스키마 변경은 명시적 버전 변환과 인덱스 재생성을 거치며 기존 JSON/근거를 보존한다. 기본 운영 저장소는 MySQL 하나로 두고 테스트용 메모리 대역을 제공한다. JSON 파일 기반 운영 저장소를 동시에 구현하지 않는다.
+현재 `database/001_schema.sql`은 팀 개발용 초안이며 아래 후속 개정·검색 설계와 별개다. 자동 마이그레이션은 아직 없다. 최초 마이그레이션 구현 시 팀원이 이미 적용한 초안과 데이터 유무를 확인하고 이관 경로를 정한다. 향후 스키마 변경은 명시적 버전 변환과 인덱스 재생성을 거치며 기존 JSON/근거를 보존한다. 기본 운영 저장소는 MySQL 하나로 두고 테스트용 메모리 대역을 제공한다. JSON 파일 기반 운영 저장소를 동시에 구현하지 않는다.
 
 ## 7. 조건 계약·검색·판정 원칙
 
@@ -199,7 +134,7 @@ Gemini는 `google-genai` 공식 SDK로 이미지와 구조화 후보를 요청�
 
 | 단계 | 작업 | 통과 기준 |
 | --- | --- | --- |
-| 1 | Windows Python/uv/의존성, 네이티브 MySQL, 환경변수, Windows CI 기반 | 같은 lock으로 환경 재현, 개발/테스트 DB 분리, 비밀파일 제외 |
+| 1 | 개발환경 구성 완료, Windows CI 연결은 후속 | requirements 설치 재현, 개발/테스트 DB 분리, 비밀파일 제외 |
 | 2 | 필드 레지스트리·JSON 계약·합성 원본 fixture·판정기 | 경계값·UNKNOWN·논리식·근거·원본 해시 검증 통과 |
 | 3 | MySQL 저장소·마이그레이션·개정·인덱스 | 실제 테스트 MySQL에서 커밋/롤백/중복/동시성/재시작 후 조회 확인 |
 | 4 | JSON/XML/이미지 입력, mock, 정제·검증·pipeline | mock 입력부터 저장까지 연결, 저장 전 성공 보고 금지, 업무 본문 반환 없음 |
@@ -207,7 +142,6 @@ Gemini는 `google-genai` 공식 SDK로 이미지와 구조화 후보를 요청�
 | 6 | 후보 검색·프로필 어댑터·실행 데모 | AI 호출 0회, PASS/UNKNOWN 후보 누락 없음, 페이지 범위 명확 |
 | 7 | Windows 서비스·통합 검증·문서·운영 준비 | 성능 실측, 재부팅·실패 복구, 영향받은 README/공통 문서/TODO 일치 |
 
-서버 사양 재산정은 단계 3~6에서 한다. 공고 1만 건·10만 건, 입력 크기, 동시 정제 1/2건과 조회 부하별로 p95 응답 시간, 메모리, DB CPU/느린 쿼리, 디스크 증가량을 측정한다. 미달 시 인덱스와 쿼리를 먼저 확인한 뒤 DB 분리·메모리·동시 실행 수를 조정한다.
 
 ## 10. 검증 계획
 
@@ -224,10 +158,10 @@ Gemini는 `google-genai` 공식 SDK로 이미지와 구조화 후보를 요청�
 ## 11. 지속 관리 TODO
 
 - [x] 저장소와 설치된 도구를 읽기 전용으로 점검한다.
-- [x] MySQL 선택을 반영한 서버·의존성·구현 계획을 작성한다.
-- [x] Windows 직접 운영 기준으로 서버 사양·설치·서비스 관리·검증 계획을 수정한다.
-- [ ] 서버의 Windows 버전·설치 경로·기존 MySQL과 실제 데이터·부하 가정을 확인한다.
-- [ ] Windows Python 3.13/uv, 의존성, lock, 개발·테스트 MySQL을 구성한다.
+- [x] MySQL 선택을 반영한 의존성·구현 계획을 작성한다.
+- [x] Windows 직접 운영 기준으로 설치·서비스 관리·검증 계획을 수정한다.
+- [ ] 운영 Windows 버전·설치 경로와 실제 데이터 요구사항을 확인한다.
+- [x] Python 3.13/uv, requirements, 독립 개발·테스트 MySQL을 구성한다.
 - [ ] MySQL·API Windows 서비스와 계정·로그·자동 복구·백업을 구성한다.
 - [ ] 필드 레지스트리, 조건 논리, 버전 계약, 원본 fixture를 구현한다.
 - [ ] 입력 처리, Codex/Gemini 어댑터와 오프라인 mock을 구현한다.
@@ -237,4 +171,4 @@ Gemini는 `google-genai` 공식 SDK로 이미지와 구조화 후보를 요청�
 - [ ] 별도 허용된 환경에서 MySQL 통합 및 공급자별 실제 연결을 검증한다.
 - [ ] 문서·작업 기록·TODO를 실제 완료 상태와 맞춘다.
 
-이번 계획 단계에서 수행한 것은 파일·도구 버전·CLI 도움말 점검과 공식 문서 확인 및 Windows 기준 문서 수정이다. 의존성 설치, Windows 서비스 등록/시작, DB 접속/변경, 모델 호출, 기능 테스트, 부하 시험은 수행하지 않았다.
+최신 설치·검증 결과는 [작업 기록](worklog.md)을 따른다. 업무 기능과 운영 서비스의 미완료 TODO는 그대로 유지한다.

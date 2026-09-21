@@ -1,6 +1,7 @@
 -- 개발 전용 초안. MySQL 8.4 / UTF-8. 기존 DB 삭제 및 변경 없음.
--- 새 bokji_compass_dev DB에서 최초 1회만 실행합니다.
-CREATE DATABASE bokji_compass_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+-- 테이블이 없는 bokji_compass_dev DB에서 최초 1회만 실행합니다.
+-- setup-mysql.ps1이 미리 만든 빈 개발 DB도 사용할 수 있습니다.
+CREATE DATABASE IF NOT EXISTS bokji_compass_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE bokji_compass_dev;
 
 CREATE TABLE regions (

@@ -2,7 +2,7 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
-현재는 폴더와 빈 코드·설정 파일이 준비되어 있으며, MySQL 백엔드의 구현 전 계획을 문서로 정리했습니다. 각 기능부분을 구현하면서 알맞게 사용하면됩니다.
+Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 조건 판정과 정규화 결과의 MySQL 저장은 후속 구현 대상입니다.
 
 
 
@@ -17,7 +17,7 @@
 
 1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, 향후 Android 앱은 `frontend/android/`에 구현합니다.
 2. 구현을 시작할 때 해당 폴더의 `readme.md`에 역할, 담당자, 실제 사용법과 검증 방법을 작성합니다. 업무 모듈의 외부 공개 진입점은 `public.py`에 둡니다.
-3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 백엔드 구현 계획과 해당 작업 기록을 작성했으며, 나머지 문서는 기능 구현에 맞춰 내용을 작성합니다.
+3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 개발환경·프로젝트 구조·API·작업 기록을 관리하며 나머지는 기능 구현에 맞춰 작성합니다.
 4. 프론트엔드는 백엔드 공개 API로 연결합니다. 서로의 내부 소스, DB 또는 수집 원본을 직접 참조하지 않습니다. 각 영역의 의존성과 실행환경도 분리합니다.
    <br>특히 백엔드와 프론트엔드 구현간에 배포를 고려하여 작성해야합니다.
 5. 환경변수가 필요해지면 `backend/.env.example`에 비밀정보 없는 설정 예시를 작성하고, 복사한 `backend/.env`에 개인 설정을 넣습니다. 다른 영역의 `.env`도 Git에서 제외됩니다.
@@ -28,7 +28,9 @@
 
 | 용도 | 작성할 위치 |
 | --- | --- |
-| Windows·MySQL 백엔드 서버·설치·구현 계획 | [implementation-plan.md](backend/docs/implementation-plan.md) |
+| 팀원 Git 변경 통합 결과 | [Git 통합 검토](backend/docs/git-sync.md) |
+| 팀원 설치·서버 실행·DB·테스트 | [개발환경 사용법](backend/docs/development.md) |
+| Windows·MySQL 후속 구현 계획 | [implementation-plan.md](backend/docs/implementation-plan.md) |
 | 전체 구조와 공통 개발 규칙 | [backend/docs/project-structure.md](backend/docs/project-structure.md) |
 | 데이터 계약 | [backend/docs/data-contracts.md](backend/docs/data-contracts.md) |
 | 기능별 README 작성 양식 | [backend/docs/module-readme-template.md](backend/docs/module-readme-template.md) |
@@ -37,11 +39,11 @@
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
 
-백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. `pyproject.toml`, `main.py`, `public.py`는 현재 빈 파일이며, 설치 전 검토할 서버 사양과 의존성 계획은 위 구현 계획 문서에 정리했습니다.
+백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. 현재 서버 진입점·개발환경과 원문 수집·파일 저장을 구현했습니다. Gov24 조회는 collectors/gov24_services.py, 정책 행 변환은 normalization/policy.py를 사용하며 각 폴더의 사용법을 따릅니다. 나머지 업무 모듈은 후속 구현용 골격입니다.
 
 ## 폴더 트리
 
-아래는 현재 저장소 구조입니다. `.git/`은 생략했습니다. 빈 폴더도 Git에 남도록 각 폴더에 빈 `readme.md`를 두었습니다.
+아래는 현재 소스 구조입니다. Git 메타데이터·로컬 환경·캐시·비밀 설정·DB 데이터는 생략했습니다. 빈 폴더도 Git에 남도록 각 폴더에 빈 `readme.md`를 두었습니다.
 
 또한 해당 내용은 작업간에 변경하여도 되며, 변경시 해당 파일에서 수정해주시면 감사하겠습니다.
 
@@ -51,12 +53,16 @@
 |   |-- app/
 |   |   |-- api/
 |   |   |   |-- __init__.py
+|   |   |   |-- health.py
 |   |   |   `-- readme.md
 |   |   |-- contracts/
 |   |   |   |-- __init__.py
+|   |   |   |-- public.py
 |   |   |   `-- readme.md
 |   |   |-- core/
 |   |   |   |-- __init__.py
+|   |   |   |-- config.py
+|   |   |   |-- database.py
 |   |   |   `-- readme.md
 |   |   |-- modules/
 |   |   |   |-- collectors/
@@ -64,7 +70,8 @@
 |   |   |   |   |   |-- readme.md
 |   |   |   |   |   |-- test_bokjiro_services.py
 |   |   |   |   |   |-- test_data_go_kr.py
-|   |   |   |   |   `-- test_gov24_services.py
+|   |   |   |   |   |-- test_gov24_services.py
+|   |   |   |   |   `-- test_public.py
 |   |   |   |   |-- __init__.py
 |   |   |   |   |-- bokjiro_services.py
 |   |   |   |   |-- data_go_kr.py
@@ -124,20 +131,41 @@
 |   |-- docs/
 |   |   |-- api/
 |   |   |   |-- bokjiro_services_api.md
+|   |   |   |-- gov24.md
 |   |   |   |-- gov24_services_api.md
 |   |   |   `-- readme.md
 |   |   |-- ai-guide.md
 |   |   |-- data-contracts.md
+|   |   |-- development.md
+|   |   |-- git-sync.md
 |   |   |-- implementation-plan.md
 |   |   |-- module-readme-template.md
 |   |   |-- project-structure.md
 |   |   |-- readme.md
 |   |   `-- worklog.md
+|   |-- scripts/
+|   |   |-- common.ps1
+|   |   |-- lock.ps1
+|   |   |-- mysql.ps1
+|   |   |-- mysql_dev.py
+|   |   |-- readme.md
+|   |   |-- setup-mysql.ps1
+|   |   |-- setup.ps1
+|   |   |-- start.ps1
+|   |   `-- test.ps1
 |   |-- tests/
-|   |   `-- readme.md
+|   |   |-- readme.md
+|   |   |-- test_bootstrap.py
+|   |   `-- test_mysql_helper.py
 |   |-- .env.example
+|   |-- .python-version
 |   |-- pyproject.toml
-|   `-- readme.md
+|   |-- readme.md
+|   |-- requirements-dev.in
+|   |-- requirements-dev.txt
+|   |-- requirements.in
+|   |-- requirements.txt
+|   `-- server.py
 |-- frontend/
 |   |-- android/
 |   |   `-- readme.md
@@ -171,7 +199,6 @@
 |   |   `-- readme.md
 |   `-- readme.md
 |-- .gitignore
-|-- plan.md
 `-- readme.md
 ```
 트리에 하위 파일이 생략된 기능 폴더에도 반드시 readme.md를 생성한다.
@@ -452,4 +479,4 @@ API 명세를 별도 원본처럼 복사하지 않는다.
 
 ## MySQL 개발용 SQL 초안 (2026-09-18)
 
-사용자가 지정한 Node.js 백엔드와 연결할 수 있는 독립 SQL 초안을 [backend/database/readme.md](backend/database/readme.md)에 추가했습니다. 스키마·가상 데이터·조회 예제를 포함합니다. 기존 문서의 Python/FastAPI 계획과 언어 선택에 차이가 있으며, 기존 Python 골격은 유지했습니다. MySQL 실행 및 Node.js 연결은 아직 검증·구현하지 않았습니다.
+[backend/database/readme.md](backend/database/readme.md)에 프레임워크와 독립적인 스키마·가상 데이터·조회 예제가 있습니다. 현재 통합 서버는 Python/FastAPI이며 SQL 초안은 MySQL 8.0.44의 별도 테스트 스키마에서 검증했습니다(2026-09-21). 정책 저장 연결과 운영 마이그레이션은 후속 작업입니다. 초기 언어 검토 이력은 백엔드 작업 기록에 보존했습니다.

@@ -1,50 +1,41 @@
 ## 행정안전부 공공데이터포털 API
 
-공공데이터포털에서 발급한 행정안전부 API 키는 다음 환경변수에 저장합니다.
+공공데이터포털에서 발급한 인증키를 `backend/.env`의 `DATA_GO_KR_API_KEY`에 입력합니다. 파일은 Git에서 제외됩니다. 수집기는 공통 설정 로더로 `.env`를 읽으며 프로세스 환경변수가 우선합니다. 함수의 `api_key` 인수로 명시한 값이 가장 우선합니다.
 
-```env
-DATA_GO_KR_API_KEY=발급받은_일반_인증키
+설치 후 저장소 루트의 PowerShell에서 아래 명령을 실행하면 실제 Gov24 API 첫 페이지를 최대 10건 조회합니다. 반환 순서를 유지하며 최신순 정렬은 보장하지 않습니다.
+
+```powershell
+Push-Location backend
+try {
+    .\.venv\Scripts\python.exe -c "from app.modules.collectors.gov24_services import fetch_recent_public_services, format_public_services; print(format_public_services(fetch_recent_public_services(limit=10)))"
+} finally {
+    Pop-Location
+}
 ```
 
-제공된 계정 페이지는 공통 API 키 관리 화면이므로, 실제 수집기를 연결하려면
-사용할 행안부 데이터셋의 상세 API URL과 요청 파라미터가 추가로 필요합니다.
-
-현재 명세의 Gov24 공공서비스 목록 API는 다음처럼 최근 목록 10건을 확인할 수
-있습니다. API가 반환하는 첫 페이지 순서를 최신 순서로 사용합니다.
-
-```bash
-set -a && source .env && set +a
-python - <<'PY'
-from app.modules.collectors.gov24_services import (
-	fetch_recent_public_services,
-	format_public_services,
-)
-
-services = fetch_recent_public_services(limit=10)
-print(format_public_services(services))
-PY
-```
+외부 API 경로·요청 인수는 [Gov24 명세](../../../docs/api/gov24_services_api.md)를 참고합니다. 기본 테스트는 실제 외부 API를 호출하지 않습니다.
 
 ## 복지로 중앙부처 복지서비스 API
 
-명세서의 `B554287/NationalWelfareInformationsV001` API를 사용합니다.
-인증키는 `.env`의 `BokjiRO_API_KEY`에서 읽습니다.
+인증키: `backend/.env`의 `BokjiRO_API_KEY`. 공통 설정 로더에서 자동 로드, 프로세스 환경변수 우선. 함수에 명시한 `api_key`가 최우선.
 
-```bash
-set -a && source .env && set +a
-python - <<'PY'
-from app.modules.collectors.bokjiro_services import fetch_bokjiro_services
+설치 후 저장소 루트의 PowerShell에서 실행. 아래 명령은 실제 외부 API 호출.
 
-services = fetch_bokjiro_services(num_of_rows=10)
-for service in services:
-	print(service["servId"], service["servNm"])
-PY
+```powershell
+Push-Location backend
+try {
+    .\.venv\Scripts\python.exe -c "from app.modules.collectors.bokjiro_services import fetch_bokjiro_services; print(fetch_bokjiro_services(num_of_rows=10))"
+} finally {
+    Pop-Location
+}
 ```
 
-검색어는 `search_keyword`, 생애주기는 `life_array`, 가구상황은
-`household_situation`, 관심 주제는 `desire`로 전달합니다. 목록 결과의
-`servId`는 `fetch_bokjiro_service_detail("WLF00000001")`에 넣어 상세
-정보를 조회할 수 있습니다. API 오류 코드는 `RuntimeError`로 전달됩니다.
+- 목록: `fetch_bokjiro_services(...) -> list[dict]`.
+- 필터: `search_keyword`(검색어), `life_array`(생애주기), `household_situation`(가구상황), `desire`(관심 주제).
+- 상세: `fetch_bokjiro_service_detail(service_id) -> dict`. 목록의 `servId` 사용.
+- XML·JSON 응답 처리. API 결과 오류는 `RuntimeError`, 잘못된 인수·응답은 `ValueError` 또는 파서 예외, 전송 실패는 HTTP 계층 예외 전달.
+- [복지로 명세 초안](../../../docs/api/bokjiro_services_api.md) 참고. 이번 통합은 HTTP 대역 테스트만 수행, 실제 API 응답 검증 미실시.
+
 # collectors
 
 ## 목적과 책임

@@ -1,5 +1,9 @@
 # 한국사회보장정보원_중앙부처복지서비스 API 명세서
 
+> 팀원 제공 명세 초안. 이번 통합에서 실제 외부 API 검증 미실시.
+> 현재 수집기 요청: 목록 `callTp=O`, `srchKeyCode=001`, `searchWrd`, `charArray`; 상세 `callTp=D`, `servId`.
+> 아래 초안의 `callParam`·`srchKeyValue`·`charMatArray`와 구현 간 차이 존재. 실제 API 명세·응답 대조는 후속 확인 항목.
+
 ## 1. 개요 (Overview)
 
 * **서비스명**: 한국사회보장정보원_중앙부처복지서비스 API

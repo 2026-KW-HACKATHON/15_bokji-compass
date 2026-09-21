@@ -63,7 +63,11 @@ def test_fetch_bokjiro_service_detail_parses_item() -> None:
 
 
 def test_fetch_bokjiro_services_parses_xml() -> None:
-    response = b"<wantedList><resultCode>0</resultCode><body><servList><servId>WLF-1</servId><servNm>\xeb\xb6\x80\xeb\xaa\xa8\xea\xb8\x89\xec\x97\xac</servNm></servList></body></wantedList>"
+    response = (
+        "<wantedList><resultCode>0</resultCode><body><servList>"
+        "<servId>WLF-1</servId><servNm>부모급여</servNm>"
+        "</servList></body></wantedList>"
+    ).encode()
 
     with patch(
         "app.modules.collectors.bokjiro_services.request_data_go_kr",
@@ -82,3 +86,20 @@ def test_fetch_bokjiro_services_raises_api_error() -> None:
         return_value=json.dumps(response).encode(),
     ), pytest.raises(RuntimeError, match="30"):
         fetch_bokjiro_services(api_key="test-key")
+
+def test_bokjiro_key_loads_from_env_file(tmp_path, monkeypatch) -> None:
+    from app.core import config
+
+    monkeypatch.delenv("BokjiRO_API_KEY", raising=False)
+    monkeypatch.delenv("APP_CONFIG_FILE", raising=False)
+    monkeypatch.setenv("DB_ENABLED", "false")
+    monkeypatch.setattr(config, "BACKEND_ROOT", tmp_path)
+    (tmp_path / ".env").write_text("BokjiRO_API_KEY=bokjiro-test-key\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path.parent)
+    response = b'{"response":{"body":{"items":[]}}}'
+    with patch(
+        "app.modules.collectors.bokjiro_services.request_data_go_kr",
+        return_value=response,
+    ) as mocked:
+        assert fetch_bokjiro_services() == []
+    assert mocked.call_args.kwargs["api_key"] == "bokjiro-test-key"
