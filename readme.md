@@ -2,7 +2,7 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
-Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 복지 업무 기능은 후속 구현 대상입니다.
+Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 조건 판정과 정규화 결과의 MySQL 저장은 후속 구현 대상입니다.
 
 
 
@@ -28,6 +28,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 | 용도 | 작성할 위치 |
 | --- | --- |
+| 팀원 Git 변경 통합 결과 | [Git 통합 검토](backend/docs/git-sync.md) |
 | 팀원 설치·서버 실행·DB·테스트 | [개발환경 사용법](backend/docs/development.md) |
 | Windows·MySQL 후속 구현 계획 | [implementation-plan.md](backend/docs/implementation-plan.md) |
 | 전체 구조와 공통 개발 규칙 | [backend/docs/project-structure.md](backend/docs/project-structure.md) |
@@ -38,7 +39,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
 
-백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. 현재 서버 진입점과 개발환경을 구현했으며, 업무 모듈의 public.py는 후속 구현을 위해 비워두었습니다.
+백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. 현재 서버 진입점·개발환경과 원문 수집·파일 저장을 구현했습니다. Gov24 조회는 collectors/gov24_services.py, 정책 행 변환은 normalization/policy.py를 사용하며 각 폴더의 사용법을 따릅니다. 나머지 업무 모듈은 후속 구현용 골격입니다.
 
 ## 폴더 트리
 
@@ -56,6 +57,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   `-- readme.md
 |   |   |-- contracts/
 |   |   |   |-- __init__.py
+|   |   |   |-- public.py
 |   |   |   `-- readme.md
 |   |   |-- core/
 |   |   |   |-- __init__.py
@@ -65,8 +67,13 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- modules/
 |   |   |   |-- collectors/
 |   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
+|   |   |   |   |   |-- readme.md
+|   |   |   |   |   |-- test_data_go_kr.py
+|   |   |   |   |   |-- test_gov24_services.py
+|   |   |   |   |   `-- test_public.py
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- data_go_kr.py
+|   |   |   |   |-- gov24_services.py
 |   |   |   |   |-- public.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- llm/
@@ -77,8 +84,10 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   `-- readme.md
 |   |   |   |-- normalization/
 |   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
+|   |   |   |   |   |-- readme.md
+|   |   |   |   |   `-- test_policy.py
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- policy.py
 |   |   |   |   |-- public.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- parsers/
@@ -112,12 +121,19 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   `-- readme.md
 |   |-- data/
 |   |   `-- readme.md
+|   |-- database/
+|   |   |-- 001_schema.sql
+|   |   |-- 002_seed.sql
+|   |   |-- 003_queries.sql
+|   |   `-- readme.md
 |   |-- docs/
 |   |   |-- api/
+|   |   |   |-- gov24.md
 |   |   |   `-- readme.md
 |   |   |-- ai-guide.md
 |   |   |-- data-contracts.md
 |   |   |-- development.md
+|   |   |-- git-sync.md
 |   |   |-- implementation-plan.md
 |   |   |-- module-readme-template.md
 |   |   |-- project-structure.md
@@ -456,3 +472,7 @@ API 명세를 별도 원본처럼 복사하지 않는다.
 2. 문서 진입점과 공통 규칙의 기준 위치.
 3. 실제 수행한 검증과 결과.
 4. 아직 구현하지 않은 기능 및 다음 단계에서 결정할 사항.
+
+## MySQL 개발용 SQL 초안 (2026-09-18)
+
+[backend/database/readme.md](backend/database/readme.md)에 프레임워크와 독립적인 스키마·가상 데이터·조회 예제가 있습니다. 현재 통합 서버는 Python/FastAPI이며 SQL 초안은 MySQL 8.0.44의 별도 테스트 스키마에서 검증했습니다(2026-09-21). 정책 저장 연결과 운영 마이그레이션은 후속 작업입니다. 초기 언어 검토 이력은 백엔드 작업 기록에 보존했습니다.

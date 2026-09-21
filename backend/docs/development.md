@@ -36,7 +36,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | 비밀 설정 | `backend/.env`, `backend/data/mysql-dev/credentials.json` — Git 제외 |
 | 로그 | `data/mysql-dev/initialize.log`, `server.log`, `process.log` |
 
-개발·테스트 계정은 각자 해당 스키마에만 권한을 갖습니다. 별도 로컬 관리 계정은 종료에 사용합니다. 생성된 비밀번호는 출력하지 않으며 설정·데이터 디렉터리를 공유하지 않습니다. 업무 테이블은 생성하지 않습니다.
+개발·테스트 계정은 각자 해당 스키마에만 권한을 갖습니다. 별도 로컬 관리 계정은 종료에 사용합니다. 생성된 비밀번호는 출력하지 않으며 설정·데이터 디렉터리를 공유하지 않습니다. 설치 스크립트는 업무 테이블을 자동 생성하지 않습니다. 빈 개발 스키마에 팀 SQL 초안을 적용하는 방법은 [DB 사용법](../database/readme.md)을 따릅니다.
 
 개발 DB는 숨김 백그라운드 프로세스입니다. **Windows 서비스가 아니므로 재부팅 후 `scripts/mysql.ps1 start`로 다시 시작합니다.** API 실행은 DB를 자동 시작하지 않습니다. `mysql.ps1 status`로 확인하고 `mysql.ps1 stop`으로 정상 종료합니다. 종료 전에 실제 `@@datadir`가 프로젝트 경로인지 확인합니다.
 
@@ -55,6 +55,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | `CORS_ORIGINS` | JSON 배열, 예: `["http://localhost:5173"]`. 기본 빈 배열. |
 | `DB_ENABLED` | true이면 MySQL readiness 점검. 필수 설정 누락 시 시작 오류. |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | MySQL 연결 |
+| `DATA_GO_KR_API_KEY` | Gov24 수집용 인증키. 직접 수집 함수를 호출할 때 필요. |
 | `DB_SSL_CA` | 원격 DB의 CA 파일 경로. 지정 시 호스트 인증서 검증. |
 
 `app.main.create_app(settings=None) -> FastAPI`는 동기 앱 생성 함수이며 `app.main:app`이 ASGI 진입점입니다. import 시 외부 접속·DB 쓰기를 하지 않습니다. lifespan에서 풀을 만들고 종료 시 해제합니다. `server.py`는 Uvicorn을 Windows용 `asyncio`/`h11`로 실행하며 production 환경에서 `--reload`를 거부합니다.
@@ -65,8 +66,8 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 `/health`의 200은 서버 응답만 뜻합니다. `/health/ready`는 실제 `SELECT 1` 성공 시 200, 미설정·실패 시 503입니다. 업무 테이블 준비 검사는 아닙니다. `/docs`, `/redoc`, `/openapi.json`은 실제 코드에서 생성됩니다.
 
-`scripts/test.ps1`은 실제 DB·AI 호출 없이 설정·CORS·오류 응답·비밀정보 비노출·풀 종료·다른 데이터 보호를 검증합니다. 실제 MySQL 확인은 별도로 `/health/ready`에서 수행하고 작업 기록에 남깁니다.
+`scripts/test.ps1`은 실제 DB·AI 호출 없이 설정·CORS·오류 응답·비밀정보 비노출·풀 종료·다른 데이터 보호를 검증합니다. 팀원 모듈 테스트도 함께 실행하며 HTTP 요청은 대역으로 검증합니다. 실제 MySQL 확인은 별도로 `/health/ready`에서 수행하고 작업 기록에 남깁니다.
 
 의존성은 `.in` 수정 → `scripts/lock.ps1` → `scripts/setup.ps1` → `scripts/test.ps1`로 갱신합니다. 두 `.txt`는 도구가 생성하며 개발 목록은 런타임 고정 버전을 제약으로 사용합니다. [requirements 생성](https://docs.astral.sh/uv/pip/compile/)
 
-복지 정제·조건 판정·정책 저장, 실제 Alembic 마이그레이션, LLM 어댑터, 운영 서비스는 후속 범위입니다. 관련 도구 설치가 업무 구현 완료를 의미하지 않습니다.
+Gov24 조회·정책/조건 원문 행 변환과 공고 파일 저장은 구현되어 있습니다. 기계 판정용 조건 정규화·자격 판정·정책 MySQL 저장, 실제 Alembic 마이그레이션, LLM 어댑터, 운영 서비스는 후속 범위입니다. 관련 도구 설치가 업무 구현 완료를 의미하지 않습니다.

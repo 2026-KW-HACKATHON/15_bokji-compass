@@ -4,7 +4,9 @@
 - `app/main.py`: FastAPI 조립과 lifespan.
 - `app/core/`: 설정과 MySQL 연결 풀 생성.
 - `app/api/`: health·readiness 라우터.
-- `app/contracts/`, `app/modules/`: 후속 업무 계약·기능용 빈 구조.
+- `app/contracts/`: 수집 원문 `RawDocument` 계약.
+- `app/modules/`: 원문 수집·파일 저장, Gov24 조회·정책 행 변환 및 후속 모듈 구조.
+- `database/`: 개발 스키마·합성 시드·조회 SQL. 설치 시 자동 적용하지 않음.
 - `requirements.in`, `requirements-dev.in`: 직접 의존성 원본.
 - `requirements.txt`, `requirements-dev.txt`: 생성된 전체 의존성 버전·해시.
 - `pyproject.toml`: pytest·Ruff 설정.

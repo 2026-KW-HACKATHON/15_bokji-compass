@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     db_user: str = "bokji_dev"
     db_password: SecretStr = SecretStr("")
     db_ssl_ca: str = ""
+    data_go_kr_api_key: SecretStr = SecretStr("")
 
     @model_validator(mode="after")
     def check_database_configuration(self) -> "Settings":
