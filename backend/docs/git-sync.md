@@ -9,6 +9,7 @@
 | 21e0cfe | 공고문 수집·원문 저장 |
 | 7b8e59e | Gov24 조회·정책 행 변환·문서 |
 | e59c3e9 | bonggyu 브랜치 main 병합 |
+| 14c9507 | bonggyu 신규 복지로 API 연동, 푸시 전 추가 통합 |
 
 ## 통합 변경
 
@@ -22,10 +23,20 @@
 
 ## 검증
 
-- pytest 23개·Ruff 통과, pip check 충돌 없음. 상위 라이브러리 deprecation 경고 2건 잔존.
+- 최초 통합 pytest 23개·Ruff 통과, pip check 충돌 없음. 상위 라이브러리 deprecation 경고 2건 잔존.
 - 별도 MySQL 8.0.44 테스트 스키마에서 스키마·시드·조회 검증: 테이블별 3/2/2/2/4행, 프로필 1행, 조건 4행, 공개 정책 0행. 검증 후 빈 상태 복원.
 - 실제 서버 `/health`, `/health/ready`, `/docs`, `/openapi.json`: HTTP 200. 점검용 API 프로세스 종료.
 - 이번 통합의 실제 Gov24 API 호출 미실시. 정책 MySQL 저장·조건 판정·운영 서비스 미구현.
+
+## 푸시 전 추가 통합
+
+- 원격 재조회 중 `bonggyu`의 `14c9507` 신규 커밋 확인. 원격 main에는 미반영 상태.
+- 복지로 목록·상세 수집기, XML/JSON 처리, 팀원 테스트·API 문서 통합.
+- `.env.example`·collector 사용법·API 진입 문서·루트 트리 충돌 4개 해결. 기존 서버 설정·진입점 유지.
+- 복지로 인증키와 Windows 공통 `.env` 로더 연결, 회귀 테스트 추가.
+- Gov24 명세를 팀원 파일명 `gov24_services_api.md`로 통합, 기존 `gov24.md`는 이동 안내 유지.
+- 복지로 명세 초안과 구현의 요청 인수 차이 명시. 실제 외부 호출 검증 미실시.
+- 추가 통합 검증: pytest 28개·Ruff·pip check 통과. 기존 deprecation 경고 2건 잔존.
 
 ## 푸시 절차
 

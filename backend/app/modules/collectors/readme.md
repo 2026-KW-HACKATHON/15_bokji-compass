@@ -13,7 +13,28 @@ try {
 }
 ```
 
-외부 API 경로·요청 인수는 [Gov24 명세](../../../docs/api/gov24.md)를 참고합니다. 기본 테스트는 실제 외부 API를 호출하지 않습니다.
+외부 API 경로·요청 인수는 [Gov24 명세](../../../docs/api/gov24_services_api.md)를 참고합니다. 기본 테스트는 실제 외부 API를 호출하지 않습니다.
+
+## 복지로 중앙부처 복지서비스 API
+
+인증키: `backend/.env`의 `BokjiRO_API_KEY`. 공통 설정 로더에서 자동 로드, 프로세스 환경변수 우선. 함수에 명시한 `api_key`가 최우선.
+
+설치 후 저장소 루트의 PowerShell에서 실행. 아래 명령은 실제 외부 API 호출.
+
+```powershell
+Push-Location backend
+try {
+    .\.venv\Scripts\python.exe -c "from app.modules.collectors.bokjiro_services import fetch_bokjiro_services; print(fetch_bokjiro_services(num_of_rows=10))"
+} finally {
+    Pop-Location
+}
+```
+
+- 목록: `fetch_bokjiro_services(...) -> list[dict]`.
+- 필터: `search_keyword`(검색어), `life_array`(생애주기), `household_situation`(가구상황), `desire`(관심 주제).
+- 상세: `fetch_bokjiro_service_detail(service_id) -> dict`. 목록의 `servId` 사용.
+- XML·JSON 응답 처리. API 결과 오류는 `RuntimeError`, 잘못된 인수·응답은 `ValueError` 또는 파서 예외, 전송 실패는 HTTP 계층 예외 전달.
+- [복지로 명세 초안](../../../docs/api/bokjiro_services_api.md) 참고. 이번 통합은 HTTP 대역 테스트만 수행, 실제 API 응답 검증 미실시.
 
 # collectors
 

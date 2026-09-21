@@ -56,6 +56,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | `DB_ENABLED` | true이면 MySQL readiness 점검. 필수 설정 누락 시 시작 오류. |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | MySQL 연결 |
 | `DATA_GO_KR_API_KEY` | Gov24 수집용 인증키. 직접 수집 함수를 호출할 때 필요. |
+| `BokjiRO_API_KEY` | 복지로 수집용 인증키. 직접 수집 함수를 호출할 때 필요. |
 | `DB_SSL_CA` | 원격 DB의 CA 파일 경로. 지정 시 호스트 인증서 검증. |
 
 `app.main.create_app(settings=None) -> FastAPI`는 동기 앱 생성 함수이며 `app.main:app`이 ASGI 진입점입니다. import 시 외부 접속·DB 쓰기를 하지 않습니다. lifespan에서 풀을 만들고 종료 시 해제합니다. `server.py`는 Uvicorn을 Windows용 `asyncio`/`h11`로 실행하며 production 환경에서 `--reload`를 거부합니다.
