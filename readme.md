@@ -4,6 +4,8 @@
 
 프론트엔드 시작점은 React 기반 반응형 웹으로 구현했습니다. 홈·혜택 검색/필터·상세·관심 혜택·프로필을 합성 예시 데이터로 체험할 수 있습니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md)를 참고하세요. 실제 정책 API·자격 판정·네이티브 앱은 후속 구현입니다.
 
+백엔드 엔드포인트·응답·포트·CORS·웹/모바일 연동 현황은 루트의 [API 관리대장](api-management.md)에서 관리합니다. [전체 문서 점검 결과](backend/docs/documentation-audit.md)에는 갱신 상태와 보완 내역을 기록합니다.
+
 Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 조건 판정과 정규화 결과의 MySQL 저장은 후속 구현 대상입니다.
 
 
@@ -19,7 +21,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 *반드시 readme.md에 함수 호출 방법 및 반환 값 및 해당 풀더의 역할에대해 정확하게 작성할것.<br>
 *각 모듈별로 작업완료시 /docs/내 파일에 정리해서 다음 작업시 참고할수있도록 할것.
 
-1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, 향후 Android 앱은 `frontend/android/`에 구현합니다.
+1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, 향후 Android 앱은 `frontend/android/`, iOS 앱은 `frontend/ios/`에 구현합니다.
 2. 구현을 시작할 때 해당 폴더의 `readme.md`에 역할, 담당자, 실제 사용법과 검증 방법을 작성합니다. 업무 모듈의 외부 공개 진입점은 `public.py`에 둡니다.
 3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 개발환경·프로젝트 구조·API·작업 기록을 관리하며 나머지는 기능 구현에 맞춰 작성합니다.
 4. 프론트엔드는 백엔드 공개 API로 연결합니다. 서로의 내부 소스, DB 또는 수집 원본을 직접 참조하지 않습니다. 각 영역의 의존성과 실행환경도 분리합니다.
@@ -42,7 +44,9 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 | 전체 구조와 공통 개발 규칙 | [backend/docs/project-structure.md](backend/docs/project-structure.md) |
 | 데이터 계약 | [backend/docs/data-contracts.md](backend/docs/data-contracts.md) |
 | 기능별 README 작성 양식 | [backend/docs/module-readme-template.md](backend/docs/module-readme-template.md) |
-| 공개 API 명세 | [backend/docs/api/readme.md](backend/docs/api/readme.md) |
+| 엔드포인트·설정·클라이언트 통합 관리 | [api-management.md](api-management.md) |
+| 공개 API 상세·외부 공급자 참고 | [backend/docs/api/readme.md](backend/docs/api/readme.md) |
+| 전체 문서 갱신 점검 | [documentation-audit.md](backend/docs/documentation-audit.md) |
 | 프론트엔드 구조와 API 연결 | [architecture.md](frontend/docs/architecture.md), [api-integration.md](frontend/docs/api-integration.md) |
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
@@ -55,6 +59,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 ```text
 15_bokji-compass/
+|-- api-management.md
 |-- backend/
 |   |-- app/
 |   |   |-- api/
@@ -95,7 +100,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   `-- readme.md
 |   |   |   |-- metrics/
 |   |   |   |   |-- __init__.py
-|   |   |   |   `-- kwangwoon.py
+|   |   |   |   |-- kwangwoon.py
+|   |   |   |   `-- readme.md
 |   |   |   |-- normalization/
 |   |   |   |   |-- tests/
 |   |   |   |   |   |-- readme.md
@@ -120,7 +126,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   `-- readme.md
 |   |   |   |-- presentation/
 |   |   |   |   |-- __init__.py
-|   |   |   |   `-- public.py
+|   |   |   |   |-- public.py
+|   |   |   |   `-- readme.md
 |   |   |   |-- storage/
 |   |   |   |   |-- tests/
 |   |   |   |   |   `-- readme.md
@@ -156,6 +163,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- classification-experiment.md
 |   |   |-- data-contracts.md
 |   |   |-- development.md
+|   |   |-- documentation-audit.md
 |   |   |-- git-sync.md
 |   |   |-- implementation-plan.md
 |   |   |-- implementation-status.md

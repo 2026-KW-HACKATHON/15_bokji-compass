@@ -1,5 +1,7 @@
 # 백엔드 API 연동 현황
 
+주소·엔드포인트·응답 예시·CORS·변경 책임은 루트 [API 관리대장](../../api-management.md)에서 통합 관리합니다. 이 문서는 현재 웹 호출자의 구현과 후속 Android/iOS 연동 범위를 기록합니다.
+
 기준: 2026-09-22. 현재 백엔드 공개 경로는 GET /health, GET /health/ready입니다. [HTTP 계약](../../backend/docs/api/readme.md)과 [전체 구현 상태](../../backend/docs/implementation-status.md)를 기준으로 연결합니다.
 
 - health 200: 서버 응답 확인.

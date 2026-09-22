@@ -5,6 +5,8 @@
 - [웹 실행·검증](../web/readme.md)
 - [구조와 Android/iOS 확장](architecture.md)
 - [실제 API 연결 범위](api-integration.md)
+- [루트 API 관리대장](../../api-management.md)
+- [전체 문서 점검 결과](../../backend/docs/documentation-audit.md)
 - [협업 규칙](ai-guide.md)
 - [작업 기록](worklog.md)
 

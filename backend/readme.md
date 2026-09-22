@@ -1,5 +1,7 @@
 # 복지나침반 백엔드
 
+엔드포인트·응답·설정·웹/모바일 연동의 공통 기준은 루트 [API 관리대장](../api-management.md)입니다. [전체 문서 점검](docs/documentation-audit.md)에서 갱신 범위를 확인할 수 있습니다.
+
 Windows에서 직접 실행하는 Python 3.13 + FastAPI 서버입니다. 서버 진입점·설정·MySQL 연결 점검을 구현했으며, 공고 원문 수집·파일 저장, Gov24 조회와 정책/조건 원문 행 변환, MySQL SQL 초안도 포함합니다. 정규화 결과의 MySQL 저장과 자격 판정·추천은 후속 구현 대상입니다.
 
 **DB 접속 설정은 구현, 파싱 결과의 DB 저장은 미구현입니다.** 현재 `parse-raw.ps1`의 결과는 `data/parsed_policies/`에 파일 초안으로 저장됩니다. [현재 구현 상태·DB 연결 범위](docs/implementation-status.md)를 기준으로 확인하세요.

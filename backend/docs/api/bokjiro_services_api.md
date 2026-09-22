@@ -1,8 +1,8 @@
 # 한국사회보장정보원_중앙부처복지서비스 API 명세서
 
-> 팀원 제공 명세 초안. 이번 통합에서 실제 외부 API 검증 미실시.
-> 현재 수집기 요청: 목록 `callTp=O`, `srchKeyCode=001`, `searchWrd`, `charArray`; 상세 `callTp=D`, `servId`.
-> 아래 초안의 `callParam`·`srchKeyValue`·`charMatArray`와 구현 간 차이 존재. 실제 API 명세·응답 대조는 후속 확인 항목.
+> 외부 공급자 참고 초안이며 우리 서버의 공개 API 명세가 아닙니다. 2026-09-21 [실제 표본 조사](../api-data-analysis.md), 2026-09-22 반복·중첩 XML 보존 수정까지 반영된 [현재 수집기](../../app/modules/collectors/bokjiro_services.py)를 우선 확인하세요.
+> 현재 구현은 HTTPS 목록 요청에 `callTp=O`, `srchKeyCode=001`, `searchWrd`, `charArray`, 상세 요청에 `callTp=D`, `servId`를 사용합니다. 실제 표본은 XML, 업무 결과 코드 `0`/메시지 `SUCCESS`, 지원내용 필드 `alwServCn`입니다. 코드가 JSON 대역을 처리한다는 사실은 실제 공급자의 JSON 지원 검증과 다릅니다.
+> 아래 `callParam`·`srchKeyValue`·`charMatArray`·JSON 예시 등은 기존 초안이므로 현재 구현 계약으로 복사하지 않습니다. 개별 필터의 효과·전체 데이터와 최신 외부 명세는 이번 문서 점검에서 재검증하지 않았습니다. 우리 서버의 엔드포인트는 [루트 API 관리대장](../../../api-management.md)에 있습니다.
 
 ## 1. 개요 (Overview)
 

@@ -132,3 +132,12 @@
 - 공식 지역 마스터·신규 마이그레이션·저장소·트랜잭션·MySQL 통합 검증을 후속 단계로 명시.
 - 파서 기능 브랜치와 문서를 main에 통합하는 범위로 진행. 문서 정리 중 업무 코드·로컬 DB 변경 없음.
 - 변경 문서 23개·로컬 링크 111개 검증 통과. 전체 테스트 71개·Ruff·pip check 재검증 통과.
+
+## 2026-09-22 — 전체 문서 점검·루트 API 관리대장
+
+- 기존 Git 문서 63개(백엔드 43·프론트 19·루트 1)의 본문/빈 파일/상대 링크 전수 검색. 최초 상대 파일 링크 140개에서 깨진 경로 없음. Git 제외 생성물 링크 3개는 로컬 산출물로 구분.
+- 빈 문서 9개 보완: parsers 상태, 모듈별 tests 7곳의 실제 검증 위치, README 작성 양식. metrics/presentation README 신규 작성.
+- 루트 [API 관리대장](../../api-management.md)과 [파일별 점검 결과](documentation-audit.md) 신설. 자체 HTTP·자동 문서·웹 proxy·외부 공급자·미구현 API 구분.
+- Gov24/복지로 초안의 실제 필드·요청/응답·검증 시점 안내, collector의 오래된 미검증 문구, normalization의 실제 DB 저장 미구현 설명 보완.
+- 실제 생성 OpenAPI의 `/health`, `/health/ready` 및 TestClient의 health 200/DB 비활성 readiness 503 대조. `tests/test_bootstrap.py` 7개 통과, 기존 deprecation 경고 2개. 실제 MySQL·외부 API·모델 재호출 없음.
+- 문서만 변경. API/업무 코드·DB·환경설정·로컬 데이터 변경 없음. 새 문서 4개를 포함한 총 67개 문서·상대 파일 링크 266개 최종 재점검: 빈 문서 0개, 깨진 경로 0개. `git diff --check` 통과.

@@ -3,6 +3,8 @@
 `app.modules.normalization.policy.normalize_gov24_service`는 Gov24의 한 개
 서비스 응답을 MySQL `policies` 행과 `policy_requirements` 행으로 변환합니다.
 
+이 함수는 행 데이터를 **반환만 하며 실제 INSERT/UPDATE를 실행하지 않습니다.** 아래 저장 순서는 후속 저장소 구현을 위한 설명입니다. 현재 정책 MySQL 저장소는 미구현이며 [구현 상태](../../../docs/implementation-status.md)를 따릅니다.
+
 ```python
 from app.modules.normalization.policy import normalize_gov24_service
 

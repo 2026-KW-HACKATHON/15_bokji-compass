@@ -34,7 +34,7 @@ try {
 - 필터: `search_keyword`(검색어), `life_array`(생애주기), `household_situation`(가구상황), `desire`(관심 주제).
 - 상세: `fetch_bokjiro_service_detail(service_id) -> dict`. 목록의 `servId` 사용.
 - XML·JSON 응답 처리. API 결과 오류는 `RuntimeError`, 잘못된 인수·응답은 `ValueError` 또는 파서 예외, 전송 실패는 HTTP 계층 예외 전달.
-- [복지로 명세 초안](../../../docs/api/bokjiro_services_api.md) 참고. 이번 통합은 HTTP 대역 테스트만 수행, 실제 API 응답 검증 미실시.
+- [복지로 명세 초안](../../../docs/api/bokjiro_services_api.md)은 참고 자료입니다. 2026-09-21 소량 실제 XML 응답을 [조사](../../../docs/api-data-analysis.md)했고, 2026-09-22 반복·중첩 보존을 수정했습니다. 기본 회귀 테스트는 HTTP 대역이며 최신 공급자 상태·개별 필터 효과·전체 데이터 검증과 구분합니다.
 
 # collectors
 
