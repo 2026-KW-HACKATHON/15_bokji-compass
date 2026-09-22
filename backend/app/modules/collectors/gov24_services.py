@@ -30,14 +30,3 @@ def fetch_recent_public_services(
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
         raise ValueError("Gov24 serviceList response must contain a data list")
     return [item for item in payload["data"] if isinstance(item, dict)][:limit]
-
-
-def format_public_services(services: list[dict[str, Any]]) -> str:
-    """Format service names and identifiers for a concise console output."""
-
-    lines = []
-    for index, service in enumerate(services, start=1):
-        service_id = service.get("serviceId", service.get("서비스ID", "-"))
-        service_name = service.get("serviceNm", service.get("서비스명", "이름 없음"))
-        lines.append(f"{index}. {service_name} ({service_id})")
-    return "\n".join(lines)

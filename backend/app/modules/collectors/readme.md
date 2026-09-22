@@ -7,7 +7,7 @@
 ```powershell
 Push-Location backend
 try {
-    .\.venv\Scripts\python.exe -c "from app.modules.collectors.gov24_services import fetch_recent_public_services, format_public_services; print(format_public_services(fetch_recent_public_services(limit=10)))"
+    .\.venv\Scripts\python.exe -c "from app.modules.collectors.gov24_services import fetch_recent_public_services; from app.modules.presentation.public import format_public_services; print(format_public_services(fetch_recent_public_services(limit=10)))"
 } finally {
     Pop-Location
 }
@@ -64,6 +64,34 @@ document = collect_notice_text(
 반환값은 `RawDocument`이며, `document_id`는 URL 기반 식별자입니다.
 
 `collect_notice_from_url(source_url)`은 HTML 공고문을 HTTP로 가져와 `<title>`과 화면 텍스트를 추출한 뒤 같은 저장 경로를 사용합니다. PDF나 로그인·자바스크립트 렌더링 페이지는 아직 지원하지 않습니다.
+
+## 광운대학교 공지
+
+`app.modules.collectors.kwangwoon_notices.collect_kwangwoon_notice`는 광운대학교 공지 상세 URL에서 `[분류] 제목`, 작성일, 화면 텍스트를 추출해 `RawDocument`로 저장합니다. URL의 `srCategoryId`는 항상 `4`로 강제됩니다.
+
+통과한 DUID의 원본 HTML이 필요하면 `fetch_kwangwoon_notice_html(duid)`를 사용합니다. 이 함수는 HTML을 정규화하지 않고 그대로 문자열로 반환합니다.
+
+`collect_kwangwoon_notices(start_duid, end_duid)`는 먼저 `DUID`만 포함한 URL로 게시글 존재 여부를 확인한 뒤, 존재하는 게시글을 `srCategoryId=4` 조건으로 다시 요청합니다. 존재하지 않는 DUID의 HTTP 오류나 공지 형식이 아닌 페이지는 건너뛰고 다음 DUID를 처리합니다.
+
+`app.modules.metrics.kwangwoon.count_kwangwoon_notices(start_duid)`는 전체 공지 목록에서 최신 DUID를 찾은 뒤, 수집기의 조회·파싱 기능을 사용해 `start_duid`부터 최신 DUID까지 순회하고 `srCategoryId=4` 공고의 개수만 반환합니다. `end_duid`를 직접 전달하면 해당 값까지만 검사합니다.
+
+```python
+from app.modules.collectors.kwangwoon_notices import collect_kwangwoon_notice
+
+document = collect_kwangwoon_notice(source_url="https://www.kw.ac.kr/ko/life/notice.jsp?..." )
+```
+
+```python
+from app.modules.collectors.kwangwoon_notices import collect_kwangwoon_notices
+
+documents = collect_kwangwoon_notices(start_duid=53017, end_duid=53030)
+```
+
+```python
+from app.modules.metrics.kwangwoon import count_kwangwoon_notices
+
+count = count_kwangwoon_notices(start_duid=53017)
+```
 
 ## 입력과 반환
 

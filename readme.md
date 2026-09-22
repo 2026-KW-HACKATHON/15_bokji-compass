@@ -43,165 +43,174 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 ## 폴더 트리
 
-아래는 현재 소스 구조입니다. Git 메타데이터·로컬 환경·캐시·비밀 설정·DB 데이터는 생략했습니다. 빈 폴더도 Git에 남도록 각 폴더에 빈 `readme.md`를 두었습니다.
-
-또한 해당 내용은 작업간에 변경하여도 되며, 변경시 해당 파일에서 수정해주시면 감사하겠습니다.
+아래는 현재 프로젝트의 실제 소스 구조를 정리한 트리입니다. 로컬 환경 파일, 캐시, 비밀 설정 파일, 생성된 Python 캐시, DB 데이터는 생략했습니다.
 
 ```text
 15_bokji-compass/
-|-- backend/
-|   |-- app/
-|   |   |-- api/
-|   |   |   |-- __init__.py
-|   |   |   |-- health.py
-|   |   |   `-- readme.md
-|   |   |-- contracts/
-|   |   |   |-- __init__.py
-|   |   |   |-- public.py
-|   |   |   `-- readme.md
-|   |   |-- core/
-|   |   |   |-- __init__.py
-|   |   |   |-- config.py
-|   |   |   |-- database.py
-|   |   |   `-- readme.md
-|   |   |-- modules/
-|   |   |   |-- collectors/
-|   |   |   |   |-- tests/
-|   |   |   |   |   |-- readme.md
-|   |   |   |   |   |-- test_bokjiro_services.py
-|   |   |   |   |   |-- test_data_go_kr.py
-|   |   |   |   |   |-- test_gov24_services.py
-|   |   |   |   |   `-- test_public.py
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- bokjiro_services.py
-|   |   |   |   |-- data_go_kr.py
-|   |   |   |   |-- gov24_services.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- llm/
-|   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- normalization/
-|   |   |   |   |-- tests/
-|   |   |   |   |   |-- readme.md
-|   |   |   |   |   `-- test_policy.py
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- policy.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- parsers/
-|   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- pipeline/
-|   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- storage/
-|   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- validation/
-|   |   |   |   |-- tests/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- __init__.py
-|   |   |   |   |-- public.py
-|   |   |   |   `-- readme.md
-|   |   |   |-- __init__.py
-|   |   |   `-- readme.md
-|   |   |-- __init__.py
-|   |   |-- main.py
-|   |   `-- readme.md
-|   |-- data/
-|   |   `-- readme.md
-|   |-- database/
-|   |   |-- 001_schema.sql
-|   |   |-- 002_seed.sql
-|   |   |-- 003_queries.sql
-|   |   `-- readme.md
-|   |-- docs/
-|   |   |-- api/
-|   |   |   |-- bokjiro_services_api.md
-|   |   |   |-- gov24.md
-|   |   |   |-- gov24_services_api.md
-|   |   |   `-- readme.md
-|   |   |-- ai-guide.md
-|   |   |-- data-contracts.md
-|   |   |-- development.md
-|   |   |-- git-sync.md
-|   |   |-- implementation-plan.md
-|   |   |-- module-readme-template.md
-|   |   |-- project-structure.md
-|   |   |-- readme.md
-|   |   `-- worklog.md
-|   |-- scripts/
-|   |   |-- common.ps1
-|   |   |-- lock.ps1
-|   |   |-- mysql.ps1
-|   |   |-- mysql_dev.py
-|   |   |-- readme.md
-|   |   |-- setup-mysql.ps1
-|   |   |-- setup.ps1
-|   |   |-- start.ps1
-|   |   `-- test.ps1
-|   |-- tests/
-|   |   |-- readme.md
-|   |   |-- test_bootstrap.py
-|   |   `-- test_mysql_helper.py
-|   |-- .env.example
-|   |-- .python-version
-|   |-- pyproject.toml
-|   |-- readme.md
-|   |-- requirements-dev.in
-|   |-- requirements-dev.txt
-|   |-- requirements.in
-|   |-- requirements.txt
-|   `-- server.py
-|-- frontend/
-|   |-- android/
-|   |   `-- readme.md
-|   |-- docs/
-|   |   |-- ai-guide.md
-|   |   |-- api-integration.md
-|   |   |-- architecture.md
-|   |   |-- readme.md
-|   |   `-- worklog.md
-|   |-- web/
-|   |   |-- src/
-|   |   |   |-- app/
-|   |   |   |   `-- readme.md
-|   |   |   |-- features/
-|   |   |   |   |-- notifications/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- policies/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- profile/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   `-- readme.md
-|   |   |   |-- shared/
-|   |   |   |   |-- api/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   |-- ui/
-|   |   |   |   |   `-- readme.md
-|   |   |   |   `-- readme.md
-|   |   |   `-- readme.md
-|   |   |-- tests/
-|   |   |   `-- readme.md
-|   |   `-- readme.md
-|   `-- readme.md
-|-- .gitignore
-`-- readme.md
+├── .gitignore
+├── readme.md
+├── backend/
+│   ├── .env.example
+│   ├── .python-version
+│   ├── pyproject.toml
+│   ├── readme.md
+│   ├── requirements.in
+│   ├── requirements.txt
+│   ├── requirements-dev.in
+│   ├── requirements-dev.txt
+│   ├── server.py
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── readme.md
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── health.py
+│   │   │   └── readme.md
+│   │   ├── contracts/
+│   │   │   ├── __init__.py
+│   │   │   ├── public.py
+│   │   │   └── readme.md
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   └── readme.md
+│   │   └── modules/
+│   │       ├── __init__.py
+│   │       ├── readme.md
+│   │       ├── collectors/
+│   │       │   ├── __init__.py
+│   │       │   ├── bokjiro_services.py
+│   │       │   ├── data_go_kr.py
+│   │       │   ├── gov24_services.py
+│   │       │   ├── kwangwoon_notices.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       ├── readme.md
+│   │       │       ├── test_bokjiro_services.py
+│   │       │       ├── test_data_go_kr.py
+│   │       │       ├── test_gov24_services.py
+│   │       │       ├── test_kwangwoon_notices.py
+│   │       │       └── test_public.py
+│   │       ├── llm/
+│   │       │   ├── __init__.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       └── readme.md
+│   │       ├── metrics/
+│   │       │   ├── __init__.py
+│   │       │   └── kwangwoon.py
+│   │       ├── normalization/
+│   │       │   ├── __init__.py
+│   │       │   ├── policy.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       ├── readme.md
+│   │       │       └── test_policy.py
+│   │       ├── parsers/
+│   │       │   ├── __init__.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       └── readme.md
+│   │       ├── pipeline/
+│   │       │   ├── __init__.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       └── readme.md
+│   │       ├── presentation/
+│   │       │   ├── __init__.py
+│   │       │   └── public.py
+│   │       ├── storage/
+│   │       │   ├── __init__.py
+│   │       │   ├── public.py
+│   │       │   ├── readme.md
+│   │       │   └── tests/
+│   │       │       └── readme.md
+│   │       └── validation/
+│   │           ├── __init__.py
+│   │           ├── public.py
+│   │           ├── readme.md
+│   │           └── tests/
+│   │               └── readme.md
+│   ├── data/
+│   │   ├── raw_documents/
+│   │   └── readme.md
+│   ├── database/
+│   │   ├── 001_schema.sql
+│   │   ├── 002_seed.sql
+│   │   ├── 003_queries.sql
+│   │   └── readme.md
+│   ├── docs/
+│   │   ├── readme.md
+│   │   ├── ai-guide.md
+│   │   ├── data-contracts.md
+│   │   ├── development.md
+│   │   ├── git-sync.md
+│   │   ├── implementation-plan.md
+│   │   ├── module-readme-template.md
+│   │   ├── project-structure.md
+│   │   ├── worklog.md
+│   │   └── api/
+│   │       ├── readme.md
+│   │       ├── bokjiro_services_api.md
+│   │       ├── gov24_services_api.md
+│   │       └── gov24.md
+│   ├── scripts/
+│   │   ├── readme.md
+│   │   ├── common.ps1
+│   │   ├── lock.ps1
+│   │   ├── mysql.ps1
+│   │   ├── mysql_dev.py
+│   │   ├── setup-mysql.ps1
+│   │   ├── setup.ps1
+│   │   ├── start.ps1
+│   │   └── test.ps1
+│   └── tests/
+│       ├── readme.md
+│       ├── test_bootstrap.py
+│       └── test_mysql_helper.py
+├── frontend/
+│   ├── readme.md
+│   ├── android/
+│   │   └── readme.md
+│   ├── docs/
+│   │   ├── readme.md
+│   │   ├── ai-guide.md
+│   │   ├── api-integration.md
+│   │   ├── architecture.md
+│   │   └── worklog.md
+│   └── web/
+│       ├── readme.md
+│       ├── src/
+│       │   ├── readme.md
+│       │   ├── app/
+│       │   │   └── readme.md
+│       │   ├── features/
+│       │   │   ├── readme.md
+│       │   │   ├── notifications/
+│       │   │   │   └── readme.md
+│       │   │   ├── policies/
+│       │   │   │   └── readme.md
+│       │   │   └── profile/
+│       │   │       └── readme.md
+│       │   └── shared/
+│       │       ├── readme.md
+│       │       ├── api/
+│       │       │   └── readme.md
+│       │       └── ui/
+│       │           └── readme.md
+│       └── tests/
+│           └── readme.md
+└── .gitignore
 ```
-트리에 하위 파일이 생략된 기능 폴더에도 반드시 readme.md를 생성한다.
+
+트리 내용은 개발 진행에 따라 조정될 수 있으며, 구조가 변경되면 본 문서도 함께 업데이트하는 것을 원칙으로 합니다.
 
 백엔드의 각 업무 모듈은 다음 기본 형태를 사용한다.
 

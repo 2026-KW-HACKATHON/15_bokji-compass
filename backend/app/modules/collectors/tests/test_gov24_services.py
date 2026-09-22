@@ -1,10 +1,8 @@
 import json
 from unittest.mock import patch
 
-from app.modules.collectors.gov24_services import (
-    fetch_recent_public_services,
-    format_public_services,
-)
+from app.modules.collectors.gov24_services import fetch_recent_public_services
+from app.modules.presentation.public import format_public_services
 
 
 def test_fetch_recent_public_services_returns_ten_requested_rows() -> None:
