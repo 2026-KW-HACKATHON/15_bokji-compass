@@ -8,6 +8,8 @@
 
 `implemented` 상태이며 담당자는 미정입니다. 기본 저장 위치는 `backend/data/raw_documents/`입니다. 실제 원본 데이터는 Git에 추가하지 않습니다.
 
+이 모듈의 구현 범위는 원문 파일 저장·조회입니다. 파싱 초안은 pipeline이 `backend/data/parsed_policies/`에 저장하며, 정책 MySQL 저장소·INSERT/UPDATE·트랜잭션은 미구현입니다. [현재 DB 연결 범위](../../../docs/implementation-status.md).
+
 ## 공개 진입점
 
 - `save_raw_document(document, storage_path) -> RawDocument`

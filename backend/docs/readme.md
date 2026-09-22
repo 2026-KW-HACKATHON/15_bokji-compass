@@ -1,5 +1,6 @@
 # 백엔드 공통 문서
 
+- [현재 구현 상태·DB 연결 범위](implementation-status.md): DB 접속 준비와 정책 저장 미구현 구분. 현재 상태의 기준 문서.
 - [개발환경](development.md): 설치·실행·DB·테스트·의존성 갱신.
 - [프로젝트 구조](project-structure.md): 현재 구성과 협업 경계.
 - [구현 계획](implementation-plan.md): 후속 정제·검색·저장 설계.
@@ -10,4 +11,4 @@
 - [Rawdata 파싱·모델 설정](raw-parsing.md): JSON/XML 입력, Codex CLI 추출·검증·초안 저장.
 - [작업 기록](worklog.md): 실제 변경·검증.
 
-아직 비어 있는 데이터 계약·모듈 문서 양식은 해당 기능 개발 시 작성합니다.
+현재 계약·기능은 각 문서에 기록하며, 빈 기능 골격과 후속 계획은 구현 완료로 취급하지 않습니다.

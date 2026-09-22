@@ -2,6 +2,8 @@
 
 Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 정책 입력으로 변환하고, Codex CLI로 조건을 추출해 검증된 초안 저장. 특정 정책 ID나 앞선 6개 표본에 종속되지 않는 실행 경로.
 
+현재 저장 대상은 JSON 파일이며 MySQL에 연결하지 않음. 기존 DB 접속 설정·readiness와 정책 적재의 구분, 신규 스키마 적용 순서는 [현재 구현 상태·DB 연결 범위](implementation-status.md) 참조.
+
 ## 실행
 
 프로젝트 루트 PowerShell에서 실행. Python 의존성은 기존 `backend/scripts/setup.ps1`로 설치하며 추가 Python 패키지 없음. Codex CLI 설치와 각 팀원의 `codex login`은 별도 필요.

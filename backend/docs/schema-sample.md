@@ -2,6 +2,8 @@
 
 2026-09-21 수집한 Gov24 5개·복지로 1개 정책과 기존 Codex CLI 분석 결과 사용. 실제 DB 변경 없이 제안 스키마로 정렬한 검토용 데이터 생성.
 
+이 문서는 표본 전용 예시입니다. 현재 범용 파서는 [rawdata 파싱](raw-parsing.md), 실제 DB 연동 범위는 [구현 상태](implementation-status.md) 참조. 샘플 JSON 구조와 welfare-parsing-v1 계약을 동일한 DB 스키마로 취급하지 않음.
+
 ## 결과 파일
 
 - [전체 정렬표](../data/schema-samples/20260921/readme.md): 정책별 조건·적용 그룹·미해결 항목.
