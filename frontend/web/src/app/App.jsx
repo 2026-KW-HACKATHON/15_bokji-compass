@@ -172,7 +172,7 @@ export default function App() {
       <aside className="sidebar">
         <a className="brand" href="#home">
           <span className="brand-symbol">
-            <Icon name="compass" size={29} />
+            <img className="brand-image" src="/brand-logo.png" alt="" />
           </span>
           <span>
             복지나침반<small>나를 위한 복지 비서</small>
@@ -206,7 +206,7 @@ export default function App() {
       <div className="main-shell">
         <header className="topbar">
           <a className="mobile-brand" href="#home">
-            <Icon name="compass" size={26} />
+            <img className="mobile-brand-image" src="/brand-logo.png" alt="" />
             복지나침반
           </a>
           <span className="breadcrumb">
@@ -336,7 +336,8 @@ export default function App() {
             <AuthPage key={route.page} type={route.page} />
           )}
           <footer className="page-footer">
-            복지나침반{!easy && <span>추천을 참고하고, 신청 조건은 공식 공고에서 확인하세요.</span>}
+            <span className="footer-brand"><img src="/brand-logo.png" alt="" />복지나침반</span>
+            {!easy && <span>추천을 참고하고, 신청 조건은 공식 공고에서 확인하세요.</span>}
           </footer>
         </main>
       </div>
