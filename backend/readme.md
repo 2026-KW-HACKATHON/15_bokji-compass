@@ -44,3 +44,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/test.ps1
 - `pyproject.toml`은 pytest·Ruff 설정입니다. 별도 `uv.lock`은 사용하지 않습니다.
 
 자세한 환경변수·DB·오류 대응은 [개발환경 사용법](docs/development.md), 후속 업무 구현은 [구현 계획](docs/implementation-plan.md)을 참고합니다.
+
+## 원문 파싱
+
+프로젝트 루트에서 `backend/scripts/parse-raw.ps1 -InputPath 'data/raw_documents/파일.json'` 실행. `.env`의 `CODEX_MODEL`로 Codex CLI 추출·검증·초안 저장. 기본 Luna, 검증 실패 시 설정된 Terra로 한 번 재시도. [입력 형식·모델 설정·검증 범위](docs/raw-parsing.md).

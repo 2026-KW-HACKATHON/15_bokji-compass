@@ -11,6 +11,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.core.config import load_settings
 from experiments.welfare_classification.contracts import BatchAnalysis, validate_evidence
 from experiments.welfare_classification.rules import classify_field
 
@@ -70,6 +71,8 @@ def build_prompt(records: list[dict], baseline: list[dict]) -> str:
 
 
 def run_codex(executable: Path, output: Path, prompt: str, model: str | None) -> dict:
+    settings = load_settings()
+    model = model or settings.codex_model
     if not executable.is_file() or executable.suffix.lower() != ".exe":
         raise ValueError("Pass the absolute path to native Windows codex.exe")
     if not executable.is_absolute():
@@ -91,6 +94,7 @@ def run_codex(executable: Path, output: Path, prompt: str, model: str | None) ->
         "features.skill_search=false", "features.skip_host_skill_discovery=true",
         "features.browser_use=false", "features.computer_use=false",
         "features.image_generation=false", "features.code_mode=false", "mcp_servers={}",
+        f'model_reasoning_effort="{settings.codex_reasoning_effort}"',
     ]:
         args.extend(["-c", config])
     if model:
@@ -101,13 +105,14 @@ def run_codex(executable: Path, output: Path, prompt: str, model: str | None) ->
                "HOMEDRIVE", "HOMEPATH", "USERNAME", "OS"}
     env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
     start = time.monotonic()
-    # Only public policy text is sent; .env/DB credentials are never loaded here.
+    # Only public policy text is sent; loaded Settings and credentials are never sent.
     process = subprocess.Popen(
         args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         env=env, cwd=work, creationflags=subprocess.CREATE_NO_WINDOW,
     )
     try:
-        stdout, stderr = process.communicate(prompt.encode("utf-8"), timeout=480)
+        stdout, stderr = process.communicate(
+            prompt.encode("utf-8"), timeout=settings.codex_timeout_seconds)
     except subprocess.TimeoutExpired:
         subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
                        capture_output=True, check=False, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -136,7 +141,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--samples", type=Path, required=True)
     parser.add_argument("--codex-exe", type=Path)
-    parser.add_argument("--model", help="Omit for CLI default; specify the chosen configured model")
+    parser.add_argument("--model", help="Override CODEX_MODEL from backend/.env")
     args = parser.parse_args()
     output = BACKEND / "data/classification-experiments" / datetime.now(UTC).strftime(
         "%Y%m%dT%H%M%S%fZ")

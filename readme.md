@@ -31,6 +31,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 | 팀원 Git 변경 통합 결과 | [Git 통합 검토](backend/docs/git-sync.md) |
 | 코드·Codex CLI 분류 실증 | [표본 6개 실증 결과](backend/docs/classification-experiment.md) |
 | 제안 스키마 적용 예시 | [실제 데이터 정렬 샘플](backend/docs/schema-sample.md) |
+| Rawdata 파싱·모델 설정 | [JSON/XML 파싱·Codex CLI 사용법](backend/docs/raw-parsing.md) |
 | 팀원 설치·서버 실행·DB·테스트 | [개발환경 사용법](backend/docs/development.md) |
 | Windows·MySQL 후속 구현 계획 | [implementation-plan.md](backend/docs/implementation-plan.md) |
 | 전체 구조와 공통 개발 규칙 | [backend/docs/project-structure.md](backend/docs/project-structure.md) |
@@ -41,7 +42,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
 
-백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. LLM 모델, Windows 세부 버전·설치 경로, 최종 데이터 스키마는 후속 구현 과정에서 결정합니다. 현재 서버 진입점·개발환경과 원문 수집·파일 저장을 구현했습니다. Gov24 조회는 collectors/gov24_services.py, 정책 행 변환은 normalization/policy.py를 사용하며 각 폴더의 사용법을 따릅니다. 나머지 업무 모듈은 후속 구현용 골격입니다.
+백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. 서버 진입점·개발환경·원문 수집·파일 저장과 rawdata 파싱을 구현했습니다. `backend/scripts/parse-raw.ps1`은 `.env`에서 지정한 Codex CLI 모델로 조건을 추출하고 검증된 초안을 저장합니다. 기본 Luna·검증 실패 시 Terra 재시도이며 모델 변경 가능. Gov24 조회는 collectors/gov24_services.py, 기존 SQL 초안 행 변환은 normalization/policy.py를 사용합니다. MySQL 적재·자격 판정·HTTP 분석 API는 후속 구현 대상입니다.
 
 ## 폴더 트리
 
@@ -57,6 +58,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   `-- readme.md
 |   |   |-- contracts/
 |   |   |   |-- __init__.py
+|   |   |   |-- parsing.py
 |   |   |   |-- public.py
 |   |   |   `-- readme.md
 |   |   |-- core/
@@ -96,6 +98,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   |-- __init__.py
 |   |   |   |   |-- policy.py
 |   |   |   |   |-- public.py
+|   |   |   |   |-- raw.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- parsers/
 |   |   |   |   |-- tests/
@@ -107,6 +110,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   |-- tests/
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- __init__.py
+|   |   |   |   |-- __main__.py
 |   |   |   |   |-- public.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- presentation/
@@ -151,6 +155,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- implementation-plan.md
 |   |   |-- module-readme-template.md
 |   |   |-- project-structure.md
+|   |   |-- raw-parsing.md
 |   |   |-- readme.md
 |   |   |-- schema-sample.md
 |   |   `-- worklog.md
@@ -169,6 +174,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- lock.ps1
 |   |   |-- mysql.ps1
 |   |   |-- mysql_dev.py
+|   |   |-- parse-raw.ps1
 |   |   |-- readme.md
 |   |   |-- setup-mysql.ps1
 |   |   |-- setup.ps1
@@ -178,7 +184,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- readme.md
 |   |   |-- test_bootstrap.py
 |   |   |-- test_classification_experiment.py
-|   |   `-- test_mysql_helper.py
+|   |   |-- test_mysql_helper.py
+|   |   `-- test_raw_parsing.py
 |   |-- .env.example
 |   |-- .python-version
 |   |-- pyproject.toml

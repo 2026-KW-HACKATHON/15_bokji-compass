@@ -112,7 +112,7 @@ Pydantic 모델을 권위 있는 검증기로 두고 JSON Schema를 생성한다
 
 ## 8. Codex·Gemini 연동 계획
 
-2026-09-21: [정책 6개 Codex CLI 실증](classification-experiment.md) 완료. `experiments/welfare_classification`에서 실제 후보 추출·원문 근거 검증 확인. 아래 운영용 어댑터·격리 계정·작업 관리·MySQL 연결은 후속 범위 유지.
+2026-09-21: [정책 6개 Codex CLI 실증](classification-experiment.md) 완료. 2026-09-22: [범용 rawdata 파싱·모델 설정](raw-parsing.md) 구현. `app/modules/pipeline`에서 JSON/XML → 설정 모델 → 구조화 검증 → 파일 초안 저장 제공. 아래 제한 계정·Job Object·작업 큐·MySQL 연결은 후속 범위 유지.
 
 Codex CLI 0.154.0의 로컬 도움말에서 `exec`, stdin 입력, `--image`, `--output-schema`, `--output-last-message`, `--json`, `--sandbox read-only`, `--ephemeral`을 확인했다. 공식 문서도 비대화형 실행과 구조화 출력을 설명한다. 실제 이미지·모델·계정 접근은 연동 시험에서 확인해야 한다. [Codex 비대화형 실행](https://learn.chatgpt.com/docs/non-interactive-mode), [CLI 옵션](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
 
