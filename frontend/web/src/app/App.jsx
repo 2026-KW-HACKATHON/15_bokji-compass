@@ -8,7 +8,6 @@ import { readStoredValue, writeStoredValue } from '../shared/storage.js';
 import { checkHealth } from '../shared/api/client.js';
 import Icon from '../shared/ui/Icon.jsx';
 import Modal from '../shared/ui/Modal.jsx';
-import CompassArt from '../shared/ui/CompassArt.jsx';
 
 const navigation = [
   { id: 'home', label: '홈', icon: 'house' },
@@ -140,7 +139,7 @@ export default function App() {
       <aside className="sidebar">
         <a className="brand" href="#home" onClick={() => navigate('home')}>
           <span className="brand-mark">
-            <Icon name="compass" size={27} />
+            <img className="brand-image" src="/brand-logo.png" alt="" />
           </span>
           <span>
             복지나침반<small>나를 위한 혜택의 방향</small>
@@ -194,7 +193,7 @@ export default function App() {
           <div className="breadcrumb">
             <span className="desktop-caption">나를 위한 복지 안내</span>
             <span className="mobile-brand">
-              <Icon name="compass" size={22} />
+              <img className="mobile-brand-image" src="/brand-logo.png" alt="" />
               복지나침반
             </span>{' '}
             <span className="breadcrumb-divider">/</span>{' '}
@@ -238,7 +237,7 @@ export default function App() {
                 </button>
                 <span className="hero-footnote">관심 지역과 분야로 가볍게 시작하세요</span>
               </div>
-              <CompassArt />
+              <img className="hero-brand-image" src="/brand-logo.png" alt="사람과 하트를 감싸는 복지나침반 로고" />
               <span className="hero-coordinate">YOUR EVERYDAY COMPASS ↗</span>
             </section>
           )}
@@ -530,7 +529,7 @@ export default function App() {
           )}
           <footer>
             <div className="footer-brand">
-              <Icon name="compass" size={18} />
+              <img className="footer-brand-image" src="/brand-logo.png" alt="" />
               복지나침반<span>당신의 더 나은 일상을 향해</span>
             </div>
             <button onClick={() => setModal('about')}>
