@@ -2,6 +2,8 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
+프론트엔드 시작점은 React 기반 반응형 웹으로 구현했습니다. 홈·혜택 검색/필터·상세·관심 혜택·프로필을 합성 예시 데이터로 체험할 수 있습니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md)를 참고하세요. 실제 정책 API·자격 판정·네이티브 앱은 후속 구현입니다.
+
 Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 조건 판정과 정규화 결과의 MySQL 저장은 후속 구현 대상입니다.
 
 
@@ -202,6 +204,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |-- frontend/
 |   |-- android/
 |   |   `-- readme.md
+|   |-- ios/
+|   |   `-- readme.md
 |   |-- docs/
 |   |   |-- ai-guide.md
 |   |   |-- api-integration.md
@@ -209,25 +213,46 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- readme.md
 |   |   `-- worklog.md
 |   |-- web/
+|   |   |-- public/favicon.svg
+|   |   |-- index.html
+|   |   |-- package.json
+|   |   |-- package-lock.json
+|   |   |-- vite.config.js
+|   |   |-- playwright.config.js
 |   |   |-- src/
+|   |   |   |-- main.jsx
 |   |   |   |-- app/
+|   |   |   |   |-- App.jsx
+|   |   |   |   |-- styles.css
 |   |   |   |   `-- readme.md
 |   |   |   |-- features/
 |   |   |   |   |-- notifications/
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- policies/
+|   |   |   |   |   |-- demoPolicies.js
+|   |   |   |   |   |-- policyRepository.js
+|   |   |   |   |   |-- PolicyCard.jsx
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- profile/
+|   |   |   |   |   |-- profileModel.js
+|   |   |   |   |   |-- ProfileForm.jsx
 |   |   |   |   |   `-- readme.md
 |   |   |   |   `-- readme.md
 |   |   |   |-- shared/
+|   |   |   |   |-- storage.js
 |   |   |   |   |-- api/
+|   |   |   |   |   |-- client.js
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- ui/
+|   |   |   |   |   |-- Icon.jsx
+|   |   |   |   |   |-- Modal.jsx
+|   |   |   |   |   |-- CompassArt.jsx
 |   |   |   |   |   `-- readme.md
 |   |   |   |   `-- readme.md
 |   |   |   `-- readme.md
 |   |   |-- tests/
+|   |   |   |-- policies.test.js
+|   |   |   |-- e2e/app.spec.js
 |   |   |   `-- readme.md
 |   |   `-- readme.md
 |   `-- readme.md

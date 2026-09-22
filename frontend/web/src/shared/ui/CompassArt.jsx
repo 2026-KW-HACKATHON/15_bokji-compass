@@ -1,0 +1,39 @@
+export default function CompassArt() {
+  return (
+    <svg className="compass-art" viewBox="0 0 370 260" fill="none" aria-hidden="true">
+      <path
+        d="M32 231C2 181 79 143 115 179S197 247 244 192S293 149 350 169"
+        stroke="#aebfad"
+        strokeWidth="1.5"
+        strokeDasharray="4 7"
+      />
+      <path d="M43 99 178 33l144 73-119 97z" fill="#dde6cf" />
+      <path d="m43 99 9 54 150 89 1-39z" fill="#c6d5b8" />
+      <path d="m203 203 119-97-9 57-111 79z" fill="#b4c7a3" />
+      <path d="m66 111 119-56 106 54-93 75z" fill="#f2f1d9" />
+      <path
+        d="m115 89 25 29-28 24m62-80 6 44 45 20-4 41m-147-51 77-7 42 52 69-29"
+        stroke="#d6dec1"
+        strokeWidth="6"
+      />
+      <ellipse cx="198" cy="130" rx="75" ry="59" fill="#849d7b" opacity=".2" />
+      <path d="M265 109v19c0 32-32 57-72 57s-72-25-72-57v-19" fill="#235942" />
+      <ellipse cx="193" cy="108" rx="72" ry="57" fill="#347153" />
+      <ellipse cx="193" cy="105" rx="60" ry="47" fill="#f8f9e9" stroke="#b7cba0" strokeWidth="4" />
+      <ellipse cx="193" cy="105" rx="48" ry="37" stroke="#d6debd" />
+      <path
+        d="m153 75 6 5m67-5-6 5m-69 54 7-4m67 4-6-5m-26-66v8m0 70v8m-55-43h10m90 0h10"
+        stroke="#829477"
+        strokeWidth="2"
+      />
+      <path d="m211 78-6 34-32 24 8-34z" fill="#bfcb9f" />
+      <path d="m211 78-6 34-24-10z" fill="#2a674b" />
+      <circle cx="193" cy="106" r="5" fill="#e4b871" />
+      <path d="M88 47c0-10 8-18 18-18s18 8 18 18-18 29-18 29-18-19-18-29" fill="#e6b974" />
+      <circle cx="106" cy="47" r="6" fill="#fbf4dc" />
+      <path d="m288 62 4-10 4 10 10 4-10 4-4 10-4-10-10-4z" fill="#83a480" />
+      <circle cx="303" cy="197" r="5" fill="#e0b979" />
+      <circle cx="59" cy="189" r="3" fill="#8daa84" />
+    </svg>
+  );
+}
