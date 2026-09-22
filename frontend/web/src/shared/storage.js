@@ -8,10 +8,17 @@ export function readStoredValue(key, fallback, validate) {
     return fallback;
   }
 }
-
 export function writeStoredValue(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+export function removeStoredValue(key) {
+  try {
+    localStorage.removeItem(key);
     return true;
   } catch {
     return false;

@@ -1,47 +1,62 @@
 import Icon from '../../shared/ui/Icon.jsx';
-
-export default function PolicyCard({ policy, saved, onSave, onOpen }) {
+export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy = false, reason }) {
   return (
     <article className="policy-card">
       <div className="card-top">
-        <span className={`policy-icon ${policy.tone}`}>
-          <Icon name={policy.icon} size={24} />
+        <span className={'policy-icon ' + policy.tone}>
+          <Icon name={policy.icon} size={25} />
         </span>
         <span className="category-label">{policy.category}</span>
         <button
-          className={`icon-button save-button ${saved ? 'is-saved' : ''}`}
-          aria-label={`${policy.title} ${saved ? '저장 취소' : '저장'}`}
+          className={'save-button ' + (saved ? 'is-saved' : '')}
+          aria-label={policy.title + (saved ? ' 저장 취소' : ' 저장')}
           aria-pressed={saved}
-          onClick={() => onSave(policy.id)}
+          onClick={() => onSave(policy)}
         >
-          <Icon name="bookmark" fill={saved ? 'currentColor' : 'none'} />
+          <Icon name="bookmark" size={21} fill={saved ? 'currentColor' : 'none'} />
+          <span>{saved ? '저장됨' : '저장'}</span>
         </button>
       </div>
       <p className="card-meta">
-        {policy.region} <span>·</span> {policy.organization}
+        {policy.region} · {policy.organization}
       </p>
       <h3>
         <button className="card-title" onClick={() => onOpen(policy)}>
           {policy.title}
         </button>
       </h3>
-      <p className="card-summary">{policy.summary}</p>
-      <p className="benefit">
-        <Icon name="check" size={16} />
-        {policy.benefit}
-      </p>
+      {reason ? (
+        <div className="recommendation-reason">
+          <span>
+            <Icon name="sparkles" size={17} />
+            추천 이유
+          </span>
+          <p>{reason}</p>
+        </div>
+      ) : (
+        <p className="card-summary">{policy.summary}</p>
+      )}
+      {!easy && (
+        <p className="benefit">
+          <Icon name="check" size={17} />
+          {policy.benefit}
+        </p>
+      )}
       <div className="card-bottom">
-        <div className="tags">
+        <div className="tags" aria-label="이 공고의 태그">
           {policy.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
+            <button key={tag} onClick={() => onTag(tag)} aria-label={tag + ' 태그로 공고 찾기'}>
+              #{tag}
+            </button>
           ))}
         </div>
         <button
           className="detail-link"
-          aria-label={`${policy.title} 자세히 보기`}
           onClick={() => onOpen(policy)}
+          aria-label={policy.title + ' 자세히 보기'}
         >
-          <Icon name="arrow" size={19} />
+          자세히 보기
+          <Icon name="arrow" size={18} />
         </button>
       </div>
     </article>
