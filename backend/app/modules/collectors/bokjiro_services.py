@@ -156,4 +156,15 @@ def _validate_xml_result(root: ET.Element) -> None:
 
 
 def _xml_item(item: ET.Element) -> dict[str, Any]:
-    return {child.tag: child.text or "" for child in item}
+    result: dict[str, Any] = {}
+    repeated: set[str] = set()
+    for child in item:
+        value = _xml_item(child) if len(child) else child.text or ""
+        if child.tag in result:
+            if child.tag not in repeated:
+                result[child.tag] = [result[child.tag]]
+                repeated.add(child.tag)
+            result[child.tag].append(value)
+        else:
+            result[child.tag] = value
+    return result

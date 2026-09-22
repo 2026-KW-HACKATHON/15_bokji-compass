@@ -20,7 +20,7 @@ backend 폴더의 PowerShell에서 실행. 실제 응답 표본은 Git 제외이
 .\.venv\Scripts\python.exe -m experiments.welfare_classification.run --samples data/api-inspection/20260921T021315Z --codex-exe 'C:\설치경로\codex.exe'
 ```
 
-`--codex-exe`는 Windows 네이티브 실행 파일의 절대 경로. `.ps1`·`.cmd` 래퍼 미지원. `--model` 생략 시 CLI 기본 모델, 명시 시 해당 모델 사용. 결과 경로는 실행 후 출력.
+`--codex-exe`는 Windows 네이티브 실행 파일의 절대 경로. `.ps1`·`.cmd` 래퍼 미지원. `--model` 생략 시 `.env`의 `CODEX_MODEL`, 명시 시 해당 모델 사용. reasoning·제한시간도 `.env`의 CODEX 설정 사용. 이 과거 실험 실행기는 자동 모델 재시도 없이 한 번 호출하며, 신규 분석은 [파싱 진입점](../../docs/raw-parsing.md) 사용. 결과 경로는 실행 후 출력.
 
 ## 입출력·역할
 
@@ -39,7 +39,7 @@ JSON 샘플의 중첩 구조는 앞선 조사에서 보존한 결과 사용. 현
 - 사용자 설정 무시, 읽기 전용 샌드박스, 셸·웹·앱·플러그인·훅·다중 에이전트 비활성. 프로젝트 지침 읽기 비활성.
 - 별도 실행 폴더, OS 실행·인증에 필요한 환경변수만 전달. 기존 CLI 인증 사용.
 - 구조화 출력·원문 근거 검증. 도구 실행 이벤트 발견 시 실패 처리.
-- 제한 시간 480초, 초과 시 해당 실행 트리 종료. 로그·결과 Git 제외.
+- 제한 시간 `CODEX_TIMEOUT_SECONDS`(기본 300초), 초과 시 해당 실행 트리 종료. 로그·결과 Git 제외.
 - 실험용 실행기이며 운영용 제한 Windows 계정·Job Object·작업 큐·재시도·영속 상태 관리 미구현.
 
 [OpenAI 비대화형 실행 문서](https://learn.chatgpt.com/docs/non-interactive-mode), [설정 문서](https://learn.chatgpt.com/docs/config-file/config-reference) 기준.

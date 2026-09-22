@@ -2,7 +2,7 @@
 
 ## 설치
 
-현재 범위는 서버 실행·의존성 재현·환경설정·개발 DB 구성입니다. Python 3.10 이상과 인터넷 연결로 설치를 시작합니다. 저장소 루트에서:
+서버 실행·의존성 재현·환경설정·개발 DB 구성의 사용법입니다. 원문 파싱은 별도 CLI로 제공하며 [현재 구현 상태·DB 연결 범위](implementation-status.md)를 먼저 확인합니다. Python 3.10 이상과 인터넷 연결로 설치를 시작합니다. 저장소 루트에서:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/setup.ps1
@@ -58,6 +58,9 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | `DATA_GO_KR_API_KEY` | Gov24 수집용 인증키. 직접 수집 함수를 호출할 때 필요. |
 | `BokjiRO_API_KEY` | 복지로 수집용 인증키. 직접 수집 함수를 호출할 때 필요. |
 | `DB_SSL_CA` | 원격 DB의 CA 파일 경로. 지정 시 호스트 인증서 검증. |
+| `CODEX_EXECUTABLE`, `CODEX_MODEL`, `CODEX_REASONING_EFFORT` | 원문 파싱용 native CLI 경로·모델·추론 수준. 기본 Luna medium. |
+| `CODEX_FALLBACK_MODEL`, `CODEX_TIMEOUT_SECONDS` | 검증 실패 시 1회 재시도 모델·호출별 제한시간. 기본 Terra·300초. |
+| `PARSING_MAX_INPUT_CHARS` | 프롬프트를 포함한 정책별 입력 문자 상한. 기본 60,000. |
 
 `app.main.create_app(settings=None) -> FastAPI`는 동기 앱 생성 함수이며 `app.main:app`이 ASGI 진입점입니다. import 시 외부 접속·DB 쓰기를 하지 않습니다. lifespan에서 풀을 만들고 종료 시 해제합니다. `server.py`는 Uvicorn을 Windows용 `asyncio`/`h11`로 실행하며 production 환경에서 `--reload`를 거부합니다.
 
@@ -71,4 +74,4 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 의존성은 `.in` 수정 → `scripts/lock.ps1` → `scripts/setup.ps1` → `scripts/test.ps1`로 갱신합니다. 두 `.txt`는 도구가 생성하며 개발 목록은 런타임 고정 버전을 제약으로 사용합니다. [requirements 생성](https://docs.astral.sh/uv/pip/compile/)
 
-Gov24 조회·정책/조건 원문 행 변환과 공고 파일 저장은 구현되어 있습니다. 기계 판정용 조건 정규화·자격 판정·정책 MySQL 저장, 실제 Alembic 마이그레이션, LLM 어댑터, 운영 서비스는 후속 범위입니다. 관련 도구 설치가 업무 구현 완료를 의미하지 않습니다.
+Gov24·복지로·공고 수집과 rawdata 파싱·Codex CLI 추출·검증·파일 초안 저장은 구현되어 있습니다. [파싱 사용법](raw-parsing.md)의 `parse-raw.ps1`로 실행하며 HTTP 서버와 별도입니다. DB 접속 설정이나 readiness 통과만으로 정책 저장은 활성화되지 않습니다. 신규 MySQL 스키마·저장소·Alembic 마이그레이션·사용자 판정·업무 API·운영 서비스는 후속 범위입니다.

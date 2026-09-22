@@ -2,6 +2,8 @@
 
 Windows에서 직접 실행하는 Python 3.13 + FastAPI 서버입니다. 서버 진입점·설정·MySQL 연결 점검을 구현했으며, 공고 원문 수집·파일 저장, Gov24 조회와 정책/조건 원문 행 변환, MySQL SQL 초안도 포함합니다. 정규화 결과의 MySQL 저장과 자격 판정·추천은 후속 구현 대상입니다.
 
+**DB 접속 설정은 구현, 파싱 결과의 DB 저장은 미구현입니다.** 현재 `parse-raw.ps1`의 결과는 `data/parsed_policies/`에 파일 초안으로 저장됩니다. [현재 구현 상태·DB 연결 범위](docs/implementation-status.md)를 기준으로 확인하세요.
+
 ## 처음 시작하기
 
 저장소 루트의 PowerShell에서 실행합니다. 최초 준비에는 Python 3.10 이상과 인터넷 연결이 필요합니다.
@@ -44,3 +46,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/test.ps1
 - `pyproject.toml`은 pytest·Ruff 설정입니다. 별도 `uv.lock`은 사용하지 않습니다.
 
 자세한 환경변수·DB·오류 대응은 [개발환경 사용법](docs/development.md), 후속 업무 구현은 [구현 계획](docs/implementation-plan.md)을 참고합니다.
+
+## 원문 파싱
+
+프로젝트 루트에서 `backend/scripts/parse-raw.ps1 -InputPath 'data/raw_documents/파일.json'` 실행. `.env`의 `CODEX_MODEL`로 Codex CLI 추출·검증·초안 저장. 기본 Luna, 검증 실패 시 설정된 Terra로 한 번 재시도. [입력 형식·모델 설정·검증 범위](docs/raw-parsing.md).

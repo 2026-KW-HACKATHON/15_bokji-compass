@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     db_ssl_ca: str = ""
     data_go_kr_api_key: SecretStr = SecretStr("")
     bokjiro_api_key: SecretStr = SecretStr("")
+    codex_executable: str = ""
+    codex_model: str = Field(default="gpt-5.6-luna", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$")
+    codex_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
+    codex_fallback_model: str = Field(
+        default="gpt-5.6-terra", pattern=r"^(?:[a-zA-Z0-9][a-zA-Z0-9._:/-]*)?$"
+    )
+    codex_timeout_seconds: int = Field(default=300, ge=10, le=1800)
+    parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
 
     @model_validator(mode="after")
     def check_database_configuration(self) -> "Settings":

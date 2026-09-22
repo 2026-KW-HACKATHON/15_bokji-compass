@@ -109,6 +109,8 @@ count = count_kwangwoon_notices(start_duid=53017)
 
 ## 테스트와 AI 후속 작업
 
+2026-09-22: 복지로 XML 파서의 반복·중첩 목록 보존 반영. 수집 후 조건 추출은 [rawdata 파싱](../../../docs/raw-parsing.md)에서 수행하며 수집기 책임과 분리.
+
 `backend` 디렉터리에서 `python -m pytest app/modules/collectors/tests`를 실행합니다. 원문 보존, 파일 생성, 필수값 검증을 확인합니다.
 
 후속 작업자는 `backend/docs/data-contracts.md`, `storage/readme.md`, `app/modules/collectors/tests/test_public.py`를 함께 확인해야 합니다. `RawDocument`에 정책 판정 필드를 추가하거나 collector에서 LLM·DB·사용자 정보를 직접 호출하지 않습니다.
