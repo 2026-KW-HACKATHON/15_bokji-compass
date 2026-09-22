@@ -2,7 +2,7 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
-프론트엔드 시작점은 React 기반 반응형 웹으로 구현했습니다. 홈·혜택 검색/필터·상세·관심 혜택·프로필을 합성 예시 데이터로 체험할 수 있습니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md)를 참고하세요. 실제 정책 API·자격 판정·네이티브 앱은 후속 구현입니다.
+프론트엔드는 React 기반 개인비서 추천 웹입니다. 내 정보 입력 → 추천 공고와 이유 확인, 태그 검색·저장, 시니어를 위한 쉬운 화면, 인증 로직 없는 로그인/가입 폼을 제공합니다. 개발 기본값은 합성 예시이며 운영 빌드는 서버 API를 요청합니다. 실제 공고·LLM 추천 서버 API는 후속 구현입니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md), [배포](frontend/docs/deployment.md), [제안 HTTP 계약](frontend/docs/service-contract.md)을 참고하세요.
 
 백엔드 엔드포인트·응답·포트·CORS·웹/모바일 연동 현황은 루트의 [API 관리대장](api-management.md)에서 관리합니다. [전체 문서 점검 결과](backend/docs/documentation-audit.md)에는 갱신 상태와 보완 내역을 기록합니다.
 
@@ -218,9 +218,15 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- ai-guide.md
 |   |   |-- api-integration.md
 |   |   |-- architecture.md
+|   |   |-- deployment.md
+|   |   |-- senior-mode.md
+|   |   |-- service-contract.md
 |   |   |-- readme.md
 |   |   `-- worklog.md
 |   |-- web/
+|   |   |-- deploy/nginx.conf
+|   |   |-- deploy/readme.md
+|   |   |-- public/app-config.js
 |   |   |-- public/favicon.svg
 |   |   |-- index.html
 |   |   |-- package.json
@@ -231,14 +237,25 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |-- main.jsx
 |   |   |   |-- app/
 |   |   |   |   |-- App.jsx
+|   |   |   |   |-- services.js
 |   |   |   |   |-- styles.css
 |   |   |   |   `-- readme.md
 |   |   |   |-- features/
+|   |   |   |   |-- assistant/
+|   |   |   |   |   |-- AssistantHome.jsx
+|   |   |   |   |   |-- recommendationRepository.js
+|   |   |   |   |   `-- readme.md
+|   |   |   |   |-- auth/
+|   |   |   |   |   |-- AuthPage.jsx
+|   |   |   |   |   `-- readme.md
 |   |   |   |   |-- notifications/
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- policies/
 |   |   |   |   |   |-- demoPolicies.js
 |   |   |   |   |   |-- policyRepository.js
+|   |   |   |   |   |-- policyModel.js
+|   |   |   |   |   |-- PolicyExplorer.jsx
+|   |   |   |   |   |-- PolicyDetail.jsx
 |   |   |   |   |   |-- PolicyCard.jsx
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- profile/
@@ -247,9 +264,12 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   |   |   `-- readme.md
 |   |   |   |   `-- readme.md
 |   |   |   |-- shared/
+|   |   |   |   |-- config.js
+|   |   |   |   |-- configModel.js
 |   |   |   |   |-- storage.js
 |   |   |   |   |-- api/
 |   |   |   |   |   |-- client.js
+|   |   |   |   |   |-- httpClient.js
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- ui/
 |   |   |   |   |   |-- Icon.jsx

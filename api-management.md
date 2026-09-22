@@ -2,7 +2,7 @@
 
 최종 확인: 2026-09-22. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
 
-**현재 직접 구현한 HTTP 엔드포인트는 `GET /health`, `GET /health/ready` 두 개입니다.** 정책 목록·상세·검색·사용자 자격 판정·인증·프로필·관심 혜택·알림 API는 아직 없습니다. 웹의 정책 화면은 합성 예시로 동작합니다.
+**현재 직접 구현한 HTTP 엔드포인트는 `GET /health`, `GET /health/ready` 두 개입니다.** 정책 목록·추천·상세·검색·사용자 자격 판정·인증·프로필·저장·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 아래 제안 경로의 호출자와 실패/재시도 화면을 구현했습니다. 서버 연결 실패 시 demo로 대체하지 않습니다.
 
 ## 1. 접속 주소와 경로 규칙
 
@@ -23,7 +23,7 @@
     → 백엔드 GET http://127.0.0.1:8000/health
 ```
 
-`/api`는 현재 웹 프록시 접두사이며 백엔드 라우터의 접두사가 아닙니다. 백엔드에 직접 `/api/health`를 호출하면 해당 라우트가 없습니다. API 버전 접두사도 아직 없습니다. 운영 빌드와 `vite preview`에는 개발 프록시가 적용되지 않으므로 운영 reverse proxy 또는 공개 HTTPS API 주소/CORS를 별도로 구성해야 합니다.
+`/api`는 현재 웹 프록시 접두사이며 백엔드 라우터의 접두사가 아닙니다. 백엔드에 직접 `/api/health`를 호출하면 해당 라우트가 없습니다. 구현된 서버에는 API 버전 접두사도 아직 없습니다. 정적 운영 빌드에는 proxy가 없으므로 운영 reverse proxy 또는 공개 HTTPS API 주소/CORS를 별도로 구성해야 합니다. `vite preview`는 현재 Vite 설정의 proxy를 상속하는 로컬 점검 도구이며 운영 서버 구성과 구분합니다.
 
 휴대폰의 `127.0.0.1`은 휴대폰 자신입니다. 실제 기기 연동 시 접근 가능한 개발 서버 주소와 바인딩·네트워크 구성을 별도로 정합니다. 이 문서는 현재 로컬 서버를 외부에 공개하도록 설정하지 않습니다.
 
@@ -31,7 +31,7 @@
 
 | ID | Method | 백엔드 경로 | 입력 | 인증 | 성공 / 실패 | 구현 / 호출자 |
 |---|---|---|---|---|---|---|
-| health | GET | `/health` | 경로·쿼리·본문 인수 없음 | 없음 | 200 / 연결 실패 시 HTTP 응답 자체가 없을 수 있음 | [liveness](backend/app/api/health.py), 웹 서비스 안내의 연결 확인 |
+| health | GET | `/health` | 경로·쿼리·본문 인수 없음 | 없음 | 200 / 연결 실패 시 HTTP 응답 자체가 없을 수 있음 | [liveness](backend/app/api/health.py), 웹 checkHealth 함수 유지·현재 UI 미호출 |
 | readiness | GET | `/health/ready` | 경로·쿼리·본문 인수 없음 | 없음 | 200 / 503 | [readiness](backend/app/api/health.py), 개발·운영 점검용. 웹 UI에서는 미호출 |
 
 응답은 JSON입니다. `Accept: application/json`을 사용할 수 있으며 현재 Authorization·쿠키·사용자 식별자는 필요하지 않습니다. 두 경로 모두 상태를 변경하지 않습니다. readiness는 MySQL에 `SELECT 1`만 실행합니다.
@@ -82,6 +82,8 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 | `DB_ENABLED` | 백엔드 | `false`; true이면 DB 필수 설정 검사 및 lifespan에서 풀 구성 |
 | `DB_HOST/PORT/NAME/USER/PASSWORD`, `DB_SSL_CA` | 백엔드 | [비밀값 없는 설정 예시](backend/.env.example). MySQL 접속 전용 |
 | `VITE_API_BASE_URL` | 웹 빌드/개발 환경 | `/api`; 브라우저에 공개되는 값 |
+| `VITE_DATA_MODE` | 웹 빌드/개발 환경 | `auto`: 개발 demo / 운영 api. 명시적 api/demo 가능 |
+| `window.__BOKJI_CONFIG__` | 웹 public/app-config.js | 명시된 dataMode/apiBaseUrl은 VITE 값보다 우선. 운영 산출물에서 수정 가능. 비밀값 금지 |
 | `API_PROXY_TARGET` | 웹 개발 환경 | `http://127.0.0.1:8000`; 개발 프록시에만 사용 |
 
 백엔드 설정 우선순위는 프로세스 환경변수 → 설정 파일 → 기본값입니다. 웹 Vite 설정 변경 후에는 개발 서버를 재시작하고, 운영의 `VITE_*` 변경은 다시 빌드해야 합니다.
@@ -108,13 +110,23 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 
 | 기능 | 현재 상태 | 다음 계약에서 정할 사항 |
 |---|---|---|
-| 정책 목록·상세·검색 | 웹 예시만 있음. 서버 경로 미정 | ID, 공개 승인 상태, 필터·정렬·페이지, 응답 모델·원문 URL |
+| 정책 목록·상세·검색 | 서버 미구현. 웹 GET /v1/policies 호출자·demo 있음 | 아래 제안 스키마·필터·cursor·원문 URL 확정 |
+| 개인비서 LLM 추천 | 서버 미구현. 웹 POST /v1/recommendations 호출자 있음 | 사용자 정보 → 서버 LLM → 추천 이유·공고. 인증/비용·보관 정책 확정 |
 | 조건·자격 판정 | 미구현 | 입력 fact, 기준 시점, PASS/FAIL/UNKNOWN 의미와 근거 |
 | 원문 업로드·분석 | CLI만 있음. HTTP 경로 미정 | 입력 제한, 작업 ID·상태, 오류·재시도·결과 접근 권한 |
-| 로그인·프로필·관심 혜택 | 서버 미구현. 웹 설정은 localStorage | 인증·인가, 개인정보 범위, 동기화·삭제 |
+| 로그인·프로필·저장 공고 | 서버 미구현. 로그인/가입은 입력폼만. 프로필은 기억하기 선택 시만 localStorage | 인증·인가, 개인정보 범위, 동기화·삭제 |
 | 알림·푸시 | 미구현 | 동의, Android/iOS 권한·토큰, 발송·해제 계약 |
 
 계획용 URL을 구현된 경로로 기록하지 않습니다. 정책 DB 적재와 공개 승인도 별도 후속 작업이며, 파일 초안 `draft`/`matching_enabled=false`를 공개 정책 응답으로 사용하지 않습니다.
+
+### 프론트에서 사용하는 제안 경로 (서버 미구현)
+
+| Method / Path | 웹 요청 | 입력 / 응답 | 상태 |
+|---|---|---|---|
+| GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 호출자 구현·서버 미구현 |
+| POST /v1/recommendations | /api/v1/recommendations | profile,limit:3 → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
+
+세부 [제안 HTTP 계약](frontend/docs/service-contract.md), [연동 구현](frontend/docs/api-integration.md), [배포 설정](frontend/docs/deployment.md). 공고 요청 제한 15초, 추천 30초. 웹은 키·LLM 직접 호출을 포함하지 않습니다. 개발/운영 모두 동일한 repository 경계로 연결하고 오류에서 합성 자료로 fallback하지 않습니다. 현재 backend CORS는 GET만 허용하므로 교차 출처 POST를 쓰려면 CORS와 인증 계약을 함께 확정해야 합니다.
 
 ## 7. 실행과 검증
 
@@ -161,3 +173,4 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 | 날짜 | 변경 | 근거 |
 |---|---|---|
 | 2026-09-22 | 루트 통합 관리대장 신설. health/readiness, 자동 문서, 웹 proxy/CORS, 외부 수집·미구현 범위 구분 | 실제 라우터·설정·OpenAPI·HTTP 테스트 대조. [전체 문서 점검](backend/docs/documentation-audit.md) |
+| 2026-09-22 | 개인비서 UI·쉬운 화면·인증 폼 및 목록/추천 호출자·배포 설정 추가. 서버 제안 경로와 구현 경로 구분 | [프론트 작업 기록](frontend/docs/worklog.md), [제안 계약](frontend/docs/service-contract.md) |

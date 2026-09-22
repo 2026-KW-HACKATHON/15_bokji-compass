@@ -1,9 +1,10 @@
-# 탐색 프로필
+# 추천용 사용자 정보
 
-담당: 프론트엔드. 개인정보 대신 관심 지역과 분야만 설정합니다.
+담당: 프론트엔드.
 
-- `defaultProfile`: `{region: '전국', interests: []}`.
-- `isProfile(value)` → boolean. 지역과 관심 분야 배열이 허용한 표시값인지 검증하며 브라우저/React에 의존하지 않습니다.
-- `ProfileForm({profile, onSave})` → React form. 입력값은 내부 초안으로 관리하고 제출 시 `onSave({region, interests})`를 호출합니다. 폼 자체는 저장/HTTP를 수행하지 않습니다.
-
-프로필은 자격 판정에 사용하지 않습니다. 앱 조립 계층에서 저장 어댑터로 보관하며 Native 앱에서는 폼과 저장소를 교체할 수 있습니다. 검증: 단위 테스트의 손상 값, E2E의 저장·새로고침·필터 적용.
+- defaultProfile: {region,ageBand,occupation,household,interests}. 미선택은 선택하지 않음.
+- isProfile(value) → boolean. 선택값/배열 손상 검증.
+- recommendationProfile(value) → 선택 필드만 복사한 전송 모델. 미선택 null·중복 관심사 제거. 잘못된 값은 throw.
+- ProfileForm({profile,onSave,easy,remembered,mode}) → React 폼. onSave(profile,remember) 호출. 쉬운 화면은 세 단계.
+  폼 자체는 저장/네트워크를 수행하지 않습니다. app이 메모리 보관 또는 기억하기 선택 시 localStorage 저장 후 추천 요청합니다. 자격 판정용 사실 확정이 아닙니다.
+  검증: Node 모델 테스트와 브라우저 단계 이동·동의 저장·추천.

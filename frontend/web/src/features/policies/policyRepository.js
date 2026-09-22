@@ -1,14 +1,11 @@
 import { demoPolicies } from './demoPolicies.js';
-
-/** UI-only adapter. Replace with a documented public HTTP API when available. */
-export async function listPolicies() {
-  return { items: demoPolicies, source: 'demo' };
-}
-
+import { parsePolicyPage } from './policyModel.js';
+import { ApiError } from '../../shared/api/httpClient.js';
 export function filterPolicies(
   items,
   {
     query = '',
+    tag = '',
     category = '전체',
     region = '전국',
     audience = '전체',
@@ -24,6 +21,7 @@ export function filterPolicies(
         .toLocaleLowerCase('ko');
       return (
         terms.every((term) => text.includes(term)) &&
+        (!tag || item.tags.includes(tag)) &&
         (category === '전체' || item.category === category) &&
         (region === '전국' || item.region === '전국' || item.region === region) &&
         (audience === '전체' || item.audience === '전체' || item.audience === audience) &&
@@ -33,4 +31,37 @@ export function filterPolicies(
     .sort((a, b) =>
       sort === 'name' ? a.title.localeCompare(b.title, 'ko') : b.date.localeCompare(a.date),
     );
+}
+export function createPolicyRepository({ mode, request, path = '/v1/policies' }) {
+  return {
+    async list(filters = {}, { cursor = null, limit = 6, signal } = {}) {
+      if (mode === 'demo') {
+        const all = filterPolicies(demoPolicies, filters);
+        const offset = Number(cursor || 0);
+        return {
+          items: all.slice(offset, offset + limit),
+          total: all.length,
+          nextCursor: offset + limit < all.length ? String(offset + limit) : null,
+          source: 'demo',
+        };
+      }
+      if (mode !== 'api' || !request)
+        throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
+      const params = new URLSearchParams({ limit: String(limit), sort: filters.sort || 'recent' });
+      for (const [key, value] of Object.entries({
+        q: filters.query,
+        tag: filters.tag,
+        category: filters.category,
+        region: filters.region,
+        audience: filters.audience,
+        cursor,
+      })) {
+        const unfiltered =
+          ((key === 'category' || key === 'audience') && value === '전체') ||
+          (key === 'region' && value === '전국');
+        if (value && !unfiltered) params.set(key, value);
+      }
+      return { ...parsePolicyPage(await request(path + '?' + params, { signal })), source: 'api' };
+    },
+  };
 }
