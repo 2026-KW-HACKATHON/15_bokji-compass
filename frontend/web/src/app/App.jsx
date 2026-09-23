@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import AuthPage from '../features/auth/AuthPage.jsx';
+import { authRequest } from '../features/auth/authApi.js';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
@@ -42,6 +43,8 @@ function validSaved(value) {
 }
 export default function App() {
   const [route, setRoute] = useState(readRoute);
+  const [user, setUser] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [easy, setEasy] = useState(() =>
     readStoredValue(easyKey, false, (value) => typeof value === 'boolean'),
   );
@@ -58,6 +61,37 @@ export default function App() {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const main = useRef(null);
+  const authRevision = useRef(0);
+  useEffect(() => {
+    let active = true;
+    const revision = authRevision.current;
+    authRequest('me')
+      .then(({ user: current }) => {
+        if (active && revision === authRevision.current) setUser(current);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  const onLogin = (current) => {
+    authRevision.current += 1;
+    setUser(current);
+    window.location.hash = 'home';
+  };
+  const logout = async () => {
+    authRevision.current += 1;
+    setLoggingOut(true);
+    try {
+      await authRequest('logout', {});
+      setUser(null);
+      window.location.hash = 'home';
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
   useEffect(() => {
     const onHash = () => {
       setRoute(readRoute());
@@ -220,13 +254,24 @@ export default function App() {
               </span>
               쉬운 화면<span className="mode-state">{easy ? '켜짐' : '꺼짐'}</span>
             </button>
-            <a className="login-link" href="#login">
-              로그인
-            </a>
-            {!easy && (
-              <a className="signup-link" href="#signup">
-                회원가입
-              </a>
+            {user ? (
+              <>
+                <span className="auth-username">{user.name || '회원'}님</span>
+                <button className="text-button" onClick={logout} disabled={loggingOut}>
+                  {loggingOut ? '로그아웃 중…' : '로그아웃'}
+                </button>
+              </>
+            ) : (
+              <>
+                <a className="login-link" href="#login">
+                  로그인
+                </a>
+                {!easy && (
+                  <a className="signup-link" href="#signup">
+                    회원가입
+                  </a>
+                )}
+              </>
             )}
           </div>
         </header>
@@ -333,7 +378,7 @@ export default function App() {
             </section>
           )}
           {['login', 'signup'].includes(route.page) && (
-            <AuthPage key={route.page} type={route.page} />
+            <AuthPage key={route.page} type={route.page} onLogin={onLogin} />
           )}
           <footer className="page-footer">
             <span className="footer-brand">

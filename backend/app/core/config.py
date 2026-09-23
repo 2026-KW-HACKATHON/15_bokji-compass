@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     server_host: str = "127.0.0.1"
     server_port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = []
+    auth_enabled: bool = True
+    auth_sms_mode: Literal["development", "disabled"] = "development"
+    auth_sqlite_path: Path = Path("data/auth.sqlite3")
     db_enabled: bool = False
     db_host: str = "127.0.0.1"
     db_port: int = Field(default=3307, ge=1, le=65535)
@@ -37,6 +40,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_database_configuration(self) -> "Settings":
+        if any("*" in origin for origin in self.cors_origins):
+            raise ValueError("Credentialed auth requires explicit CORS origins, not wildcards")
         if self.db_enabled and not all(
             (self.db_host, self.db_name, self.db_user, self.db_password.get_secret_value())
         ):

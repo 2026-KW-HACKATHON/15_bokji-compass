@@ -18,4 +18,4 @@ auto는 Vite 개발 demo / build api. app-config.js는 공개 파일이며 비�
 
 [Nginx 예시](../web/deploy/nginx.conf)는 TLS를 처리하는 상위 proxy 뒤의 정적 호스트 예시입니다. 새 운영 환경을 강제하지 않습니다. Windows backend를 그대로 운영하며 IIS/다른 gateway로도 동일한 /api 규칙을 적용할 수 있습니다. 예시 upstream 127.0.0.1:8000은 frontend proxy와 backend가 같은 호스트일 때만 유효하므로 별도 호스트라면 실제 내부 주소로 변경합니다. 외부 공개/TLS/방화벽은 운영 호스트 확정 후 구성합니다.
 
-다른 출처 HTTPS API를 쓰면 backend CORS Origin과 POST 허용을 추가해야 합니다. 현재 GET만 허용하고 credentials=false입니다. 인증 API가 생기면 쿠키/토큰/CSRF 계약을 별도로 확정합니다. 웹/앱 번들에 DB·수집·LLM 키를 넣지 않습니다.
+다른 출처 HTTPS API를 쓰면 backend CORS Origin을 정확히 설정해야 합니다. 현재 GET/POST와 credentials=true를 허용합니다. 인증은 동일 사이트 API 프록시, HTTPS, HttpOnly/SameSite=Lax 쿠키와 X-Auth-Request 헤더를 사용하며 교차 사이트 쿠키는 지원하지 않습니다. `/v1/auth` 응답은 캐시하지 않습니다. APP_ENV=production에서는 Secure 쿠키가 적용되고 개발용 SMS/SQLite 인증은 차단됩니다. 운영 MySQL 인증 테이블 초기화와 실제 SMS 공급자 연동은 [인증 문서](../../backend/app/modules/auth/readme.md)를 참고하세요. 웹/앱 번들에 DB·수집·LLM 키를 넣지 않습니다.

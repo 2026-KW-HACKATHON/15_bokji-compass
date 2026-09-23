@@ -6,14 +6,14 @@
 
 서버의 `/docs`, `/redoc`, `/openapi.json`에서 실제 코드로 생성한 명세를 확인합니다. 실행은 [개발환경 문서](../development.md)를 따릅니다.
 
-FastAPI의 `/docs/oauth2-redirect`는 Swagger UI 보조 경로이며 인증 구현을 뜻하지 않습니다. 자동 문서 경로들은 자체 구현한 아래 두 엔드포인트와 구분합니다. 백엔드에 `/api` 접두사는 없으며 웹 개발 프록시가 `/api/health`를 `/health`로 변환합니다.
+FastAPI의 `/docs/oauth2-redirect`는 Swagger UI 보조 경로이며 OAuth 구현을 뜻하지 않습니다. 백엔드에 `/api` 접두사는 없으며 웹 개발 프록시가 이를 제거합니다. `/v1/auth`는 계정 인증 경로입니다.
 
 | 경로 | 성공 | 실패 |
 | --- | --- | --- |
 | GET `/health` | 200: 서버 응답 | 프로세스 중지 시 연결 불가 |
 | GET `/health/ready` | 200: status=ready, database=reachable | 503: status=not_ready, database=disabled 또는 unavailable |
 
-현재 readiness는 MySQL 연결 검사이며 업무 테이블·정책 유효성 검사가 아닙니다. 비즈니스 API와 인증은 없습니다. 변경 시 라우터·테스트·이 문서·호출자를 함께 점검하며 별도 가짜 OpenAPI 파일을 유지하지 않습니다.
+현재 readiness는 MySQL 연결 검사이며 업무 테이블·정책 유효성 검사가 아닙니다. `/v1/auth/phone/request`, `/phone/verify`, `/signup`, `/login`, `/logout`은 POST이며 `/v1/auth/me`는 GET입니다. [인증 계약·환경설정](../../app/modules/auth/readme.md)을 참고하세요. 변경 시 라우터·테스트·이 문서·호출자를 함께 점검하며 별도 가짜 OpenAPI 파일을 유지하지 않습니다.
 
 `/health/ready`는 SELECT 1만 실행합니다. HTTP 200이어도 정책 스키마·적재·조회 연결이 완료된 것은 아닙니다. [원문 파싱](../raw-parsing.md)은 내부 함수/CLI로만 제공하고 JSON 파일에 초안을 저장합니다. 업로드·분석 요청·정책 조회·사용자 자격 판정 API는 아직 없습니다. [현재 상태](../implementation-status.md).
 

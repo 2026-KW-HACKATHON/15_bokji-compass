@@ -1881,3 +1881,37 @@ html[data-easy='true'] *::after {
     margin: 0;
   }
 }
+.auth-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.auth-error {
+  color: #a32323;
+}
+.auth-timer,
+.auth-fields small {
+  color: #58645d;
+  font-size: 0.85rem;
+}
+.auth-username {
+  overflow-wrap: anywhere;
+  max-width: 150px;
+}
+@media (max-width: 480px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+  .auth-username {
+    max-width: 85px;
+    font-size: 0.8rem;
+  }
+}

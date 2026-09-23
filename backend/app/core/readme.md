@@ -7,4 +7,4 @@
 
 DB 데이터를 변경하지 않습니다. 설정 예시는 [개발환경 문서](../../docs/development.md)를 따릅니다. backend에서 `.venv/Scripts/python.exe -m pytest tests/test_bootstrap.py`로 검증합니다. 수정 시 진입점·health API·환경 예시·테스트를 함께 점검합니다. 업무 로직은 넣지 않습니다.
 
-Settings에는 CODEX_MODEL·추론 수준·재시도 모델·제한시간도 포함합니다. 파이프라인은 설정만 읽으며 DB 엔진을 사용하지 않습니다. DB 연결 풀의 현재 사용처는 서버 readiness의 SELECT 1입니다. [정책 DB 저장과의 구분](../../docs/implementation-status.md).
+Settings에는 CODEX_MODEL·추론 수준·재시도 모델·제한시간과 AUTH_ENABLED/AUTH_SMS_MODE/AUTH_SQLITE_PATH도 포함합니다. 쿠키 인증 때문에 CORS_ORIGINS 와일드카드를 거부합니다. 파이프라인은 설정만 읽으며 DB 엔진을 사용하지 않습니다. MySQL 풀은 readiness 및 DB_ENABLED=true인 인증 저장소에서 사용합니다. [정책 DB 저장과의 구분](../../docs/implementation-status.md), [인증 저장소](../modules/auth/readme.md).

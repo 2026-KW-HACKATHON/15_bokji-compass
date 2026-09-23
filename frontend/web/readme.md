@@ -19,11 +19,11 @@ npm.cmd run format:check
 - #explore: 검색어 AND 검색, 분야·지역·대상·정렬, 서버 cursor 페이지. 태그 클릭은 #explore?tag=인코딩된값으로 이동.
 - #saved: 현재 브라우저의 공고 스냅샷. 모드별 분리, 최신 내용은 원문 확인.
 - #profile: 지역·연령대·상황·가구·관심 분야. 기본 메모리 보관, 기억하기 선택 시에만 브라우저에 저장.
-- #login / #signup: 이메일·비밀번호·가입 확인 입력폼. 제출 비활성화, 인증·계정 저장·네트워크 요청 없음.
+- #login / #signup: 아이디·비밀번호 로그인. 가입은 비밀번호 확인·만 나이·성별·시도·전화번호 인증. 개발 환경에서는 화면에 인증번호 표시, 실제 문자 발송은 미연결. [설정·서버 계약](../../backend/app/modules/auth/readme.md).
 - 쉬운 화면: 20px 기준 글자, 주요 56px 타깃, 모션 제거, 3단계 입력, 한 개씩 공고 보기, 세부정보 접기. 설정 기억.
 - 상세 dialog, Escape·초점 복귀, 해시 탐색, 로딩·빈 결과·오류·재시도, 취소·시간 초과·응답 검증.
 
-실제 공고·LLM 추천 서버는 미구현입니다. 운영 API 실패 시 예시를 대신 표시하지 않습니다. 인증·푸시·동기화·실제 자격 판정·네이티브 앱도 후속 작업입니다.
+실제 공고·LLM 추천 서버는 미구현입니다. 운영 API 실패 시 예시를 대신 표시하지 않습니다. 실제 SMS·푸시·계정별 프로필/공고 동기화·실제 자격 판정·네이티브 앱은 후속 작업입니다.
 
 ## 구조
 | 경로 | 책임 |
@@ -32,7 +32,7 @@ npm.cmd run format:check
 | src/features/assistant/ | 추천 홈과 추천 repository |
 | src/features/policies/ | 목록 repository, 모델 검증, 태그/검색/카드/상세 |
 | src/features/profile/ | 정보 입력·검증·전송 필드 정규화 |
-| src/features/auth/ | 인증 로직 없는 폼 |
+| src/features/auth/ | 전화번호 인증·회원가입·로그인 폼과 인증 API 클라이언트 |
 | src/shared/ | HTTP, 공개 환경설정, 로컬 저장, DOM UI |
 
 순수 모델/HTTP 계약과 웹 DOM을 분리합니다. Android Java/iOS에서는 같은 HTTP 계약을 사용하며 웹 CSS·localStorage를 직접 재사용하지 않습니다. [구조](../docs/architecture.md).

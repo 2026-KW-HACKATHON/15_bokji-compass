@@ -22,7 +22,8 @@
 | 파싱 결과 저장 | 로컬 파일만 구현 | data/parsed_policies 아래 manifest·draft·시도별 진단 파일 |
 | 정책 DB 저장·조회 | 미구현 | INSERT/UPDATE·중복 처리·개정 이력·조회 저장소·트랜잭션 연결 필요 |
 | 사용자 자격 판정·추천 | 미구현 | 실행 가능한 조건 논리·프로필 대조·후보 검색 필요 |
-| 업무 HTTP API·인증 | 미구현 | 공개 라우트는 health/readiness만 제공 |
+| 계정 인증 | 구현·개발용 문자 인증 | `/v1/auth` 가입·로그인·세션·로그아웃·인증번호. 실제 문자 공급자 미연결. [계약](../app/modules/auth/readme.md) |
+| 정책·추천 업무 HTTP API | 미구현 | health/readiness와 인증 외 업무 라우트 미구현 |
 
 ## 현재 데이터 흐름
 

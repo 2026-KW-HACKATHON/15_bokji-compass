@@ -38,13 +38,15 @@ test('senior mode uses three profile steps and one recommendation, opt-in surviv
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 });
-test('auth pages offer forms with inactive submission', async ({ page }) => {
+test('auth pages offer username login and phone-verified signup', async ({ page }) => {
   await page.goto('/#login');
-  await expect(page.getByRole('textbox', { name: '이메일' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '아이디' })).toBeVisible();
   await expect(page.getByLabel('비밀번호', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
   await page.getByRole('main').getByRole('link', { name: '회원가입', exact: true }).click();
   await expect(page.getByLabel('비밀번호 확인')).toBeVisible();
+  await expect(page.getByLabel('나이 (만 나이)')).toBeVisible();
+  await expect(page.getByLabel('전화번호', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '회원가입', exact: true })).toBeDisabled();
 });
 test('narrow viewport supports easy mode and policy dialog', async ({ page }) => {

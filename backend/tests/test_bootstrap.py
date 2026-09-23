@@ -27,7 +27,10 @@ def test_liveness_is_not_database_readiness():
         assert response.status_code == 503
         assert response.json()["database"] == "disabled"
         schema = client.get("/openapi.json").json()
-        assert set(schema["paths"]) == {"/health", "/health/ready"}
+        assert set(schema["paths"]) == {
+            "/health", "/health/ready", "/v1/auth/phone/request", "/v1/auth/phone/verify",
+            "/v1/auth/signup", "/v1/auth/login", "/v1/auth/logout", "/v1/auth/me",
+        }
 
 
 @pytest.mark.parametrize("available", [True, False])
