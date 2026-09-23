@@ -49,16 +49,21 @@ def resolve_codex_executable(configured: str) -> Path:
     if configured:
         executable = Path(configured)
     else:
-        found = shutil.which("codex.exe")
+        executable_name = "codex.exe" if os.name == "nt" else "codex"
+        found = shutil.which(executable_name)
         candidates = list((Path(os.environ.get("LOCALAPPDATA", "")) /
-                           "OpenAI/Codex/bin").glob("*/codex.exe"))
+                           "OpenAI/Codex/bin").glob("*/codex.exe")) if os.name == "nt" else []
         if found:
             candidates.insert(0, Path(found))
         if not candidates:
-            raise CodexRunError("codex_not_found: set CODEX_EXECUTABLE to native codex.exe")
+            raise CodexRunError(
+                f"codex_not_found: set CODEX_EXECUTABLE to native {executable_name}"
+            )
         executable = max(candidates, key=lambda p: p.stat().st_mtime)
-    if not executable.is_absolute() or not executable.is_file() or executable.suffix != ".exe":
-        raise CodexRunError("invalid_codex_executable: absolute native .exe required")
+    valid_suffix = os.name != "nt" or executable.suffix == ".exe"
+    if not executable.is_absolute() or not executable.is_file() or not valid_suffix:
+        required = "native .exe" if os.name == "nt" else "native executable"
+        raise CodexRunError(f"invalid_codex_executable: absolute {required} required")
     return executable
 
 
