@@ -34,6 +34,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 | 용도 | 작성할 위치 |
 | --- | --- |
+| 중간발표 사업계획서·PPT·차별화 참고안 | [중간발표 자료](중간발표_자료/readme.md) |
 | 현재 구현·DB 연결 범위 | [접속 설정과 정책 저장 구분](backend/docs/implementation-status.md) |
 | 팀원 Git 변경 통합 결과 | [Git 통합 검토](backend/docs/git-sync.md) |
 | 코드·Codex CLI 분류 실증 | [표본 6개 실증 결과](backend/docs/classification-experiment.md) |
