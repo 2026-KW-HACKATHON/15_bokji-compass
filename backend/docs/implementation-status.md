@@ -16,6 +16,7 @@
 | 기존 개발 SQL | 초안·별도 테스트 검증 | 001_schema/002_seed/003_queries. 서버 설치·시작에서 자동 적용 없음 |
 | 신규 조건 스키마 | 제안·파일 계약 구현 | 상태/값·주체·단위·근거·조건 그룹. MySQL 테이블·마이그레이션 미적용 |
 | 수집 | 구현 | Gov24·복지로 조회, 공고·광운대 공지 수집. 자동 전체 수집·스케줄러 미구현 |
+| API 정책 행 변환 | 구현 | Gov24·복지로 public 진입점, 원문·상세 URL·서비스 ID 중복 검증. 기존 SQL용 행 반환만 수행 |
 | Rawdata 파싱 | 구현 | Gov24 JSON·복지로 XML/JSON·RawDocument → 공통 입력 → CLI 추출 → 검증 |
 | 모델 설정 | 구현 | 기본 Luna medium, 검증 실패 시 설정된 Terra로 1회 재시도. `.env`에서 변경 |
 | 파싱 결과 저장 | 로컬 파일만 구현 | data/parsed_policies 아래 manifest·draft·시도별 진단 파일 |
@@ -39,7 +40,7 @@ backend/.env의 DB 설정 → FastAPI 연결 풀 → /health/ready → SELECT 1
 - `.env`에 DB 접속 정보가 있음 ≠ 파싱 결과가 DB에 저장됨.
 - `/health/ready`의 HTTP 200 ≠ 정책 테이블 생성·마이그레이션·데이터 적재 완료.
 - SQL 파일 존재 또는 SQL 테스트 통과 ≠ 모든 팀원의 개발 DB에 적용 완료.
-- `normalize_gov24_service`는 기존 SQL용 행을 반환하며 직접 INSERT하지 않음.
+- `normalize_api_service(s)`·`normalize_gov24_service`·`normalize_bokjiro_service`는 기존 SQL용 행을 반환하며 직접 INSERT하지 않음.
 - `needs_review`는 파일 초안 검토 필요 상태. DB 커밋·공개 승인·사용자 적격 판정을 뜻하지 않음.
 - Git에 포함된 `.env.example`은 설정 예시. 실제 `.env`·계정·DB 파일·파싱 결과는 팀원 간 자동 공유되지 않음.
 

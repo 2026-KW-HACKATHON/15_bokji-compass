@@ -96,3 +96,7 @@ bash backend/scripts/test.sh
 ## 검증 범위
 
 2026-09-23 Windows에서 테스트 76개·Ruff·pip check·Bash 문법 검사 통과. Apple Silicon 대상 wheel 설치 계획 35개 패키지 해석 통과, Intel은 소스 빌드 허용 시 설치 계획 해석 통과. 실제 설치·빌드 성공과 구분. 실제 POSIX 실행 파일을 호출하는 테스트 1개는 Windows에서 건너뛰고 Mac의 `test.sh`에서 실행. macOS 실기기의 로그인·키체인·실제 모델 호출은 해당 팀원 환경에서 최종 확인 필요.
+
+이후 팀원 커밋 `cc13a04`에 macOS·Codex CLI 0.156.1·Luna 실증 1건 기록 확인.
+[팀원 실증 결과](../app/modules/llm/readme.md)의 조건 29개·검수 대기 결과 보존.
+통합본은 Windows 테스트 94개 통과·POSIX 실행 테스트 1개 건너뜀. 팀원 브랜치의 성공 기록과 통합본 Mac 재검증은 구분.
