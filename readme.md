@@ -12,6 +12,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 **DB 접속 설정은 구현되어 있지만 파싱 결과의 MySQL 저장은 미구현입니다.** 현재 결과는 JSON 초안 파일로 저장합니다. [현재 상태](backend/docs/implementation-status.md).
 
+macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/macos-development.md) 제공. 운영 서버는 Windows 유지.
+
 ## 사용언어
 | 사용부분 | 언어|
 | --- | --- |
@@ -168,6 +170,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |-- git-sync.md
 |   |   |-- implementation-plan.md
 |   |   |-- implementation-status.md
+|   |   |-- macos-development.md
 |   |   |-- module-readme-template.md
 |   |   |-- project-structure.md
 |   |   |-- raw-parsing.md
@@ -186,15 +189,20 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   `-- __init__.py
 |   |-- scripts/
 |   |   |-- common.ps1
+|   |   |-- common.sh
 |   |   |-- lock.ps1
 |   |   |-- mysql.ps1
 |   |   |-- mysql_dev.py
 |   |   |-- parse-raw.ps1
+|   |   |-- parse-raw.sh
 |   |   |-- readme.md
 |   |   |-- setup-mysql.ps1
 |   |   |-- setup.ps1
+|   |   |-- setup.sh
 |   |   |-- start.ps1
-|   |   `-- test.ps1
+|   |   |-- start.sh
+|   |   |-- test.ps1
+|   |   `-- test.sh
 |   |-- tests/
 |   |   |-- readme.md
 |   |   |-- test_bootstrap.py
@@ -285,6 +293,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 |   |   |   `-- readme.md
 |   |   `-- readme.md
 |   `-- readme.md
+|-- .gitattributes
 |-- .gitignore
 `-- readme.md
 ```
@@ -295,7 +304,7 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 - DB는 MySQL로 결정. 접속 설정·독립 개발 DB 구성·readiness 연결 점검 구현. 정책 적재·조회·신규 마이그레이션은 미구현.
 - 수집 원문은 collectors/storage, 공급자별 입력 변환은 normalization, 모델 호출은 llm, 근거 검증은 validation, 초안 파일 저장은 pipeline 담당.
-- 현재 파싱은 Windows CLI 실행. `.env` 모델 설정을 사용하고 결과는 `backend/data/parsed_policies/`에 저장. HTTP 분석·조회·사용자 판정 API는 후속 구현.
+- 현재 파싱은 Windows PowerShell 또는 macOS Bash CLI 실행. `.env` 모델 설정을 사용하고 결과는 `backend/data/parsed_policies/`에 저장. HTTP 분석·조회·사용자 판정 API는 후속 구현.
 - 파싱 초안의 검증 통과와 DB 저장·검수 승인·공개를 구분. `draft`·자동 판정 비활성 유지.
 - 공식 지역 코드 마스터와 실행 가능한 조건 논리·필드 표준 사전은 후속 작업. 기존 SQL의 합성 지역 코드를 실데이터로 사용하지 않음.
 - 프론트엔드는 공개 HTTP 계약으로 연결. 현재는 health/readiness만 제공하며 로컬 파일이나 DB를 직접 참조하지 않음.

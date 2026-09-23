@@ -1,4 +1,6 @@
-# Windows 개발환경 사용법
+# 개발환경 사용법
+
+운영 서버는 Windows 유지. macOS 팀원은 [macOS 설치·Codex CLI·실행 안내](macos-development.md)를 사용. 아래 PowerShell·독립 MySQL 구성 절차는 Windows용.
 
 ## 설치
 

@@ -6,6 +6,7 @@
 
 - [현재 구현 상태·DB 연결 범위](implementation-status.md): DB 접속 준비와 정책 저장 미구현 구분. 현재 상태의 기준 문서.
 - [개발환경](development.md): 설치·실행·DB·테스트·의존성 갱신.
+- [macOS 개발환경](macos-development.md): Mac 팀원 설치·Codex 로그인·API·파싱 실행·오류 확인.
 - [프로젝트 구조](project-structure.md): 현재 구성과 협업 경계.
 - [구현 계획](implementation-plan.md): 후속 정제·검색·저장 설계.
 - [API](api/readme.md): 현재 HTTP 계약.

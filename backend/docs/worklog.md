@@ -1,5 +1,15 @@
 # 작업 기록
 
+## 2026-09-23 — macOS 개발환경·Codex CLI 호환성
+
+- Windows `codex.exe`만 허용하던 실행 파일 탐색 수정. macOS PATH의 `codex`·절대 경로·실행 권한·심볼릭 링크 지원.
+- macOS 로그인에 필요한 HOME·CODEX_HOME·TMPDIR·로캘 전달. DB 암호·공공 API 키 제외 유지.
+- Windows taskkill 유지, POSIX 새 세션·프로세스 그룹 종료 추가. 시간 초과·사용자 중단 시 해당 실행 종료.
+- Mac용 setup/start/parse-raw/test Bash 진입점과 LF 속성 추가. 기존 .env 보존·Python 3.13·requirements 버전/해시 고정 유지.
+- Windows 테스트 76개 통과·POSIX 실기기 테스트 1개 건너뜀, Ruff·pip check·Bash 문법 검사 통과. 실제 Mac 로그인·키체인·모델 호출은 팀원 환경 확인 필요.
+- Apple Silicon 의존성 35개 wheel 설치 계획 해석 통과. Intel은 cryptography 50.0.1 wheel 미제공 확인, 소스 빌드 준비 방법 추가. 고정 의존성 변경 없음.
+- 운영 서버 Windows·MySQL 저장 미구현 범위 유지. [Mac 팀원 안내](macos-development.md)와 관련 문서 갱신.
+
 ## 2026-09-17 — MySQL 기반 백엔드 구현 전 계획
 
 - 사용자 지정 DB를 MySQL로 반영하고 [구현 계획](implementation-plan.md)을 작성했다.

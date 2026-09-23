@@ -21,6 +21,8 @@ Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 �
 
 입력은 `backend` 기준 상대 경로 또는 절대 경로. 여러 파일은 배열로 전달. 동일 정책 ID가 중복되면 실패하며 목록·상세 중 사용할 원본을 먼저 선택. 덮어쓰기 없이 실행마다 별도 결과 폴더 생성.
 
+macOS는 `bash backend/scripts/parse-raw.sh --input 'data/raw_documents/공지문.json'` 사용. `--prepare-only`로 모델 호출 없이 입력 검사 가능. [Mac 설치·로그인·오류 해결](macos-development.md).
+
 Python에서 호출:
 
 ```python
@@ -30,7 +32,7 @@ from app.modules.pipeline.public import parse_raw_files
 output, manifest = parse_raw_files([Path("data/raw_documents/공지문.json")])
 ```
 
-Python 함수의 `Path`는 호출자 작업 디렉터리 기준. 팀원용 PowerShell/모듈 CLI는 backend 기준으로 통일.
+Python 함수의 `Path`는 호출자 작업 디렉터리 기준. 팀원용 PowerShell/Bash/모듈 CLI는 backend 기준으로 통일.
 
 ## backend/.env
 
@@ -46,7 +48,7 @@ PARSING_MAX_INPUT_CHARS=60000
 - `CODEX_MODEL`: 기본 Luna. 추출·분류용 저비용 후보이며 전체 정책 정확성 보장과 구분.
 - `CODEX_REASONING_EFFORT`: low/medium/high/xhigh. 초기값 medium; 변경 후 표본 재검증 필요.
 - `CODEX_FALLBACK_MODEL`: 기본 `gpt-5.6-terra`. 형식·근거 검증 실패에만 한 번 재시도. 빈 값으로 끄기 가능. 단순 partial·정보 없음·인증 실패·시간 초과에는 자동 승격 없음.
-- `CODEX_EXECUTABLE`: 비우면 PATH와 Windows Codex 앱 설치 경로에서 native 실행 파일 탐색. 탐색 실패 시 `C:/설치경로/codex.exe` 지정. `.cmd`·`.ps1` 래퍼 미지원.
+- `CODEX_EXECUTABLE`: 비우면 Windows는 PATH의 `codex.exe` 또는 Codex 앱 설치 경로, macOS/POSIX는 PATH의 `codex` 탐색. 실패 시 해당 OS 실행 파일의 절대 경로 지정. Windows `.cmd`·`.ps1` 래퍼 미지원. macOS는 실행 권한 필요.
 - `CODEX_TIMEOUT_SECONDS`: 모델 호출당 제한. 재시도 설정 시 최대 두 번 호출.
 - `PARSING_MAX_INPUT_CHARS`: 정책 한 건의 프롬프트 포함 문자 상한. 초과 입력을 임의 절단하지 않고 실패 처리.
 
@@ -90,6 +92,7 @@ OpenAI 공식 [모델 안내](https://learn.chatgpt.com/docs/models)는 Luna를 
 | app/modules/validation/public.py | 원문 근거·참조 검증 |
 | app/modules/pipeline/public.py | 재시도·상태·초안 저장 |
 | scripts/parse-raw.ps1 | Windows 팀원용 진입점 |
+| scripts/parse-raw.sh | macOS 팀원용 진입점 |
 
 전체 검사: `.\backend\scripts\test.ps1`. 합성 원문 테스트로 실제 키·개인정보 없이 오류 경계 검증.
 

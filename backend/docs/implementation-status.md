@@ -1,6 +1,6 @@
 # 현재 구현 상태와 DB 연결 범위
 
-기준: 2026-09-22 저장소 코드. **MySQL 접속 설정·연결 점검은 구현, 파싱 결과의 MySQL 저장은 미구현.** 현재 파싱 결과는 검토용 JSON 파일로 저장.
+기준: 2026-09-23 저장소 코드. **MySQL 접속 설정·연결 점검은 구현, 파싱 결과의 MySQL 저장은 미구현.** 현재 파싱 결과는 검토용 JSON 파일로 저장.
 
 이 문서는 현재 기능의 기준이며 [구현 계획](implementation-plan.md)은 후속 설계, [작업 기록](worklog.md)은 시점별 검증 이력.
 
@@ -9,6 +9,7 @@
 | 영역 | 현재 상태 | 범위 |
 |---|---|---|
 | Windows 개발환경 | 구현 | requirements 설치·FastAPI 진입점·설정 로더·테스트 |
+| macOS 개발환경 | 호환 코드·스크립트 구현 | 설치·서버·파싱·테스트용 Bash, Codex PATH·로그인 HOME·프로세스 그룹 종료 지원. 실기기 검증 필요 |
 | MySQL 접속 설정 | 구현 | `.env`의 DB_HOST/PORT/NAME/USER/PASSWORD, SQLAlchemy/PyMySQL 풀 |
 | 독립 개발 DB 구성 | 구현·로컬 구성 이력 있음 | 전용 데이터 폴더·포트·개발/테스트 계정. 팀원 PC는 별도 설정 필요 |
 | DB 연결 점검 | 구현 | `/health/ready`에서 SELECT 1. 현재 실행 여부는 해당 PC에서 확인 |

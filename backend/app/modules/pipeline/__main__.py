@@ -1,4 +1,4 @@
-"""Windows command-line entry point for raw policy parsing."""
+"""Cross-platform command-line entry point for raw policy parsing."""
 
 import argparse
 import json

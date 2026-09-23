@@ -1,6 +1,10 @@
 import json
+import shlex
+import signal
 import subprocess
+import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
@@ -172,6 +176,7 @@ def test_config_model_loads_from_env_and_environment_wins(tmp_path, monkeypatch)
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):
     executable = tmp_path / "codex.exe"
     executable.touch()
+    executable.chmod(0o700)
     monkeypatch.setenv("DB_PASSWORD", "test-private")
     monkeypatch.setenv("BokjiRO_API_KEY", "test-private")
     captured = {}
@@ -197,6 +202,7 @@ def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypat
 
 
 def test_cli_timeout_terminates_own_process(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "IS_WINDOWS", True)
     executable = tmp_path / "codex.exe"
     executable.touch()
     killed = []
@@ -221,6 +227,7 @@ def test_cli_timeout_terminates_own_process(tmp_path, monkeypatch):
 def test_tool_event_rejects_an_otherwise_valid_response(tmp_path, monkeypatch):
     executable = tmp_path / "codex.exe"
     executable.touch()
+    executable.chmod(0o700)
     class ToolProcess:
         returncode = 0
         def __init__(self, args, **kwargs):
@@ -245,3 +252,97 @@ def test_batch_writes_drafts_using_safe_ids(tmp_path, monkeypatch):
     draft = folder / manifest["records"][0]["path"]
     assert draft.is_relative_to(folder)
     assert json.loads(draft.read_text(encoding="utf-8"))["method"] == "code_missing_source"
+
+
+def test_posix_cli_discovery_and_execute_permission(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "IS_WINDOWS", False)
+    executable = tmp_path / "codex"
+    executable.touch()
+    monkeypatch.setattr(llm.os, "access", lambda path, mode: True)
+    monkeypatch.setattr(llm.shutil, "which",
+                        lambda name: str(executable) if name == "codex" else None)
+    assert llm.resolve_codex_executable("") == executable.resolve()
+    assert llm.resolve_codex_executable(str(executable)) == executable.resolve()
+    monkeypatch.setattr(llm.os, "access", lambda path, mode: False)
+    with pytest.raises(llm.CodexRunError, match="execute permission"):
+        llm.resolve_codex_executable("")
+    monkeypatch.setattr(llm.shutil, "which", lambda name: None)
+    with pytest.raises(llm.CodexRunError, match="codex_not_found"):
+        llm.resolve_codex_executable("")
+
+
+def test_windows_discovery_keeps_desktop_fallback_and_rejects_wrapper(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "IS_WINDOWS", True)
+    monkeypatch.setattr(llm.shutil, "which", lambda name: None)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    native = tmp_path / "OpenAI/Codex/bin/version/codex.exe"
+    native.parent.mkdir(parents=True)
+    native.touch()
+    assert llm.resolve_codex_executable("") == native.resolve()
+    wrapper = tmp_path / "codex.cmd"
+    wrapper.touch()
+    with pytest.raises(llm.CodexRunError, match="native .exe"):
+        llm.resolve_codex_executable(str(wrapper))
+    with pytest.raises(llm.CodexRunError, match="absolute"):
+        llm.resolve_codex_executable("codex.exe")
+
+
+def test_posix_login_environment_keeps_home_but_not_application_secrets(monkeypatch):
+    for key, value in {"HOME": "/Users/developer", "CODEX_HOME": "/Users/developer/.codex",
+                       "TMPDIR": "/tmp/cli", "LANG": "ko_KR.UTF-8",
+                       "OPENAI_API_KEY": "private", "DB_PASSWORD": "private",
+                       "DATA_GO_KR_API_KEY": "private", "BokjiRO_API_KEY": "private"}.items():
+        monkeypatch.setenv(key, value)
+    environment = llm.cli_environment()
+    assert environment["HOME"] == "/Users/developer"
+    assert environment["CODEX_HOME"] == "/Users/developer/.codex"
+    assert environment["TMPDIR"] == "/tmp/cli"
+    assert environment["LANG"] == "ko_KR.UTF-8"
+    assert "private" not in environment.values()
+
+
+def test_posix_timeout_uses_own_new_session(tmp_path, monkeypatch):
+    monkeypatch.setattr(llm, "IS_WINDOWS", False)
+    monkeypatch.setattr(signal, "SIGKILL", 9, raising=False)
+    monkeypatch.setattr(llm, "resolve_codex_executable", lambda _: tmp_path / "codex")
+    process = Mock(pid=12345)
+    process.communicate.side_effect = subprocess.TimeoutExpired("codex", 10)
+    process.poll.return_value = -9
+    launch = Mock(return_value=process)
+    kill_group = Mock()
+    monkeypatch.setattr(llm.subprocess, "Popen", launch)
+    monkeypatch.setattr(llm.os, "killpg", kill_group, raising=False)
+    with pytest.raises(llm.CodexRunError, match="codex_timeout"):
+        llm.extract_policy(source(), Settings(_env_file=None), tmp_path / "attempt", "gpt-5.6-luna")
+    assert launch.call_args.kwargs["start_new_session"] is True
+    assert "creationflags" not in launch.call_args.kwargs
+    kill_group.assert_called_once_with(12345, signal.SIGKILL)
+    process.wait.assert_called_once_with(timeout=10)
+
+
+def test_windows_timeout_still_reaps_process_when_taskkill_unavailable(monkeypatch):
+    monkeypatch.setattr(llm, "IS_WINDOWS", True)
+    process = Mock(pid=12345)
+    process.poll.return_value = None
+    monkeypatch.setattr(llm.subprocess, "run", Mock(side_effect=FileNotFoundError))
+    llm.stop_codex_process(process)
+    process.kill.assert_called_once()
+    process.wait.assert_called_once_with(timeout=10)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Requires native POSIX process execution")
+def test_posix_executable_with_spaces_runs_without_shell(tmp_path):
+    executable = tmp_path / "codex test"
+    response = extraction().model_dump_json()
+    program = (
+        'import sys\nfrom pathlib import Path\n'
+        'assert "SOURCE_JSON" in sys.stdin.read()\n'
+        f'Path(sys.argv[sys.argv.index("-o") + 1]).write_text({response!r})\n'
+        'print(\'{"type":"turn.completed","usage":{}}\')\n')
+    executable.write_text(
+        f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -c {shlex.quote(program)} "$@"\n',
+        encoding="utf-8")
+    executable.chmod(0o700)
+    result, _ = llm.extract_policy(source(), Settings(_env_file=None,
+        codex_executable=str(executable)), tmp_path / "attempt", "gpt-5.6-luna")
+    assert result.policy_key == source().policy_key
