@@ -10,7 +10,7 @@
 - `requirements.in`, `requirements-dev.in`: 직접 의존성 원본.
 - `requirements.txt`, `requirements-dev.txt`: 생성된 전체 의존성 버전·해시.
 - `pyproject.toml`: pytest·Ruff 설정.
-- `scripts/`: Windows 설치·서버·DB·원문 파싱·테스트·의존성 갱신 도구.
+- `scripts/`: Windows PowerShell 및 macOS Bash 설치·서버·원문 파싱·테스트 도구. 독립 DB·의존성 lock 갱신 도구는 Windows용.
 - `tests/`: 외부 서비스를 호출하지 않는 개발환경·파싱·CLI 검증 테스트.
 - `data/`: Git에서 제외하는 원본·파싱 결과·프로젝트 개발 DB. 파일 저장과 DB 저장은 별개.
 - `experiments/`: 이전 6개 정책 분류 실증·스키마 적용 예제. 범용 실행은 `app/modules/pipeline` 사용.

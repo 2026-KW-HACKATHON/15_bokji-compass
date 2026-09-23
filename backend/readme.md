@@ -8,6 +8,8 @@ Windows에서 직접 실행하는 Python 3.13 + FastAPI 서버입니다. 서버 
 
 ## 처음 시작하기
 
+macOS 팀원은 [Mac 개발환경 안내](docs/macos-development.md)에 따라 `bash backend/scripts/setup.sh`, `bash backend/scripts/start.sh --reload` 사용. Codex CLI 파싱도 지원하며 운영 서버의 Windows 구성은 유지. 아래 명령은 Windows용.
+
 저장소 루트의 PowerShell에서 실행합니다. 최초 준비에는 Python 3.10 이상과 인터넷 연결이 필요합니다.
 
 ```powershell

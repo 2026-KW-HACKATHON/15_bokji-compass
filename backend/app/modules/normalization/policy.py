@@ -1,10 +1,10 @@
-"""Convert Gov24 API records into database-ready policy rows."""
+"""Convert Gov24/Bokjiro records into draft rows for the legacy SQL schema."""
 
 import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 _DATE_PATTERN = re.compile(r"\b(20\d{2})[./-](\d{1,2})[./-](\d{1,2})\b")
 
@@ -38,10 +38,9 @@ def normalize_gov24_service(service: dict[str, Any]) -> NormalizedPolicy:
     service_id = _value(service, "서비스ID", "serviceId", "서비스 아이디")
     title = _required_value(service, "서비스명", "serviceNm", "title")
     organization = _value(service, "소관기관명", "orgNm", "deptNm") or "미상"
-    if service_id:
-        source_url = f"gov24://service/{service_id}"
-    else:
-        source_url = "gov24://service/unknown"
+    source_url = _value(service, "상세조회URL", "detailUrl", "url")
+    if not source_url:
+        source_url = f"gov24://service/{service_id or 'unknown'}"
 
     application_start, application_end = _application_dates(
         _value(service, "신청기한", "applicationPeriod", "applyDeadline")
@@ -59,6 +58,83 @@ def normalize_gov24_service(service: dict[str, Any]) -> NormalizedPolicy:
     }
     requirements = _requirements(service)
     return NormalizedPolicy(policy=policy, requirements=tuple(requirements))
+
+
+def normalize_bokjiro_service(service: dict[str, Any]) -> NormalizedPolicy:
+    """Map one Bokjiro detail/list response into database-ready policy rows."""
+
+    service_id = _service_id("bokjiro", service)
+    title = _required_value(service, "servNm")
+    organization = _value(service, "jurMnofNm", "jurOrgNm") or "미상"
+    source_url = _value(service, "servDtlLink", "detailUrl", "url")
+    if not source_url:
+        source_url = f"bokjiro://service/{service_id}"
+    application_start, application_end = _application_dates(
+        _value(service, "applPeriod", "applicationPeriod", "reqstPrdCn")
+    )
+    policy = {
+        "title": title,
+        "organization": organization,
+        "source_url": source_url,
+        "source_text": json.dumps(service, ensure_ascii=False, indent=2, sort_keys=True),
+        "application_start": application_start,
+        "application_end": application_end,
+        "review_status": "draft",
+        "is_synthetic": False,
+    }
+    requirements = _requirements(
+        {
+            "지원대상": _value(service, "tgtrDtlCn"),
+            "선정기준": _value(service, "slctCritCn"),
+        }
+    )
+    return NormalizedPolicy(policy=policy, requirements=tuple(requirements))
+
+
+def normalize_api_service(
+    provider: Literal["gov24", "bokjiro"], service: dict[str, Any]
+) -> NormalizedPolicy:
+    """Normalize one record returned by a supported public API."""
+
+    _service_id(provider, service)
+    if provider == "gov24":
+        return normalize_gov24_service(service)
+    return normalize_bokjiro_service(service)
+
+
+def normalize_api_services(
+    provider: Literal["gov24", "bokjiro"], services: list[dict[str, Any]]
+) -> tuple[NormalizedPolicy, ...]:
+    """Normalize a provider page and reject duplicate source IDs."""
+
+    _validate_provider(provider)
+    if not isinstance(services, list):
+        raise ValueError("API services must be a list")
+    identities = [_service_id(provider, service) for service in services]
+    if len(set(identities)) != len(identities):
+        raise ValueError("Duplicate API service IDs in input")
+    return tuple(normalize_api_service(provider, service) for service in services)
+
+
+def _validate_provider(provider: str) -> None:
+    if provider not in ("gov24", "bokjiro"):
+        raise ValueError("Unsupported provider: expected gov24 or bokjiro")
+
+
+def _service_id(provider: str, service: dict[str, Any]) -> str:
+    _validate_provider(provider)
+    if not isinstance(service, dict):
+        raise ValueError("API service must be an object")
+    keys = ("서비스ID", "serviceId", "서비스 아이디") if provider == "gov24" else ("servId",)
+    for key in keys:
+        value = service.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ValueError("API service ID must be text")
+        if value.strip():
+            return value.strip()
+    raise ValueError("API service must contain a service ID")
 
 
 def _requirements(service: dict[str, Any]) -> list[PolicyRequirementRow]:
@@ -103,6 +179,8 @@ def _application_dates(value: str | None) -> tuple[date | None, date | None]:
         if parsed not in dates:
             dates.append(parsed)
     if len(dates) >= 2:
+        if dates[0] > dates[1]:
+            raise ValueError("Reversed application period")
         return dates[0], dates[1]
     return None, None
 
@@ -118,5 +196,5 @@ def _value(service: dict[str, Any], *keys: str) -> str | None:
 def _required_value(service: dict[str, Any], *keys: str) -> str:
     value = _value(service, *keys)
     if not value:
-        raise ValueError("Gov24 service must contain a service name")
+        raise ValueError("API service must contain a service name")
     return value
