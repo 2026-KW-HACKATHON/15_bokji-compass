@@ -19,7 +19,15 @@ export default function CompassArt() {
       <ellipse cx="198" cy="130" rx="75" ry="59" fill="var(--theme-primary)" opacity=".2" />
       <path d="M265 109v19c0 32-32 57-72 57s-72-25-72-57v-19" fill="var(--theme-deep)" />
       <ellipse cx="193" cy="108" rx="72" ry="57" fill="var(--theme-primary)" />
-      <ellipse cx="193" cy="105" rx="60" ry="47" fill="#ffffff" stroke="var(--theme-mid)" strokeWidth="4" />
+      <ellipse
+        cx="193"
+        cy="105"
+        rx="60"
+        ry="47"
+        fill="#ffffff"
+        stroke="var(--theme-mid)"
+        strokeWidth="4"
+      />
       <ellipse cx="193" cy="105" rx="48" ry="37" stroke="var(--theme-border)" />
       <path
         d="m153 75 6 5m67-5-6 5m-69 54 7-4m67 4-6-5m-26-66v8m0 70v8m-55-43h10m90 0h10"

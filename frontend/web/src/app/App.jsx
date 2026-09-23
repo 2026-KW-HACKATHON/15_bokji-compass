@@ -336,7 +336,10 @@ export default function App() {
             <AuthPage key={route.page} type={route.page} />
           )}
           <footer className="page-footer">
-            <span className="footer-brand"><img src="/brand-logo.png" alt="" />복지나침반</span>
+            <span className="footer-brand">
+              <img src="/brand-logo.png" alt="" />
+              복지나침반
+            </span>
             {!easy && <span>추천을 참고하고, 신청 조건은 공식 공고에서 확인하세요.</span>}
           </footer>
         </main>

@@ -57,7 +57,11 @@ export default function AssistantHome({
         {!easy && (
           <div className="assistant-intro">
             <span className="assistant-avatar">
-              <img className="hero-brand-image" src="/brand-logo.png" alt="사람과 하트를 감싸는 복지나침반 로고" />
+              <img
+                className="hero-brand-image"
+                src="/brand-logo.png"
+                alt="사람과 하트를 감싸는 복지나침반 로고"
+              />
             </span>
             <p className="assistant-greeting">안녕하세요, 복지 비서예요.</p>
             <p>

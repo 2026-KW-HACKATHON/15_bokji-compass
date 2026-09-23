@@ -1788,14 +1788,71 @@ html[data-easy='true'] *::after {
 }
 
 /* Blue/green branding retained on the current assistant UI. */
-.brand-symbol { background:transparent; border-radius:0; }
-.brand-image { width:45px; height:45px; object-fit:contain; }
-.mobile-brand-image { width:30px; height:30px; object-fit:contain; }
-.assistant-hero { background:linear-gradient(115deg,#e0f2fe 0%,#edf9ff 55%,#e3f5e6 100%); }
-.hero-copy em { color:#087b52; }
-.assistant-intro { background:#f5fbf3; border-color:#c8e6c5; transform:none; }
-.assistant-avatar { width:100%; height:auto; background:transparent; border-radius:0; }
-.hero-brand-image { display:block; width:160px; max-width:100%; height:auto; object-fit:contain; }
-.page-footer .footer-brand { display:inline-flex; align-items:center; gap:8px; margin:0; font-size:inherit; }
-.footer-brand img { width:26px; height:26px; object-fit:contain; }
-@media(max-width:600px) { .assistant-intro { display:block; margin:24px auto 0; width:150px; padding:0; background:transparent; border:0; box-shadow:none; } .assistant-intro > p, .assistant-intro > .assistant-caption { display:none; } .assistant-avatar { margin:0; } }
+.brand-symbol {
+  background: transparent;
+  border-radius: 0;
+}
+.brand-image {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+}
+.mobile-brand-image {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+.assistant-hero {
+  background: linear-gradient(115deg, #e0f2fe 0%, #edf9ff 55%, #e3f5e6 100%);
+}
+.hero-copy em {
+  color: #087b52;
+}
+.assistant-intro {
+  background: #f5fbf3;
+  border-color: #c8e6c5;
+  transform: none;
+}
+.assistant-avatar {
+  width: 100%;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+}
+.hero-brand-image {
+  display: block;
+  width: 160px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.page-footer .footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: inherit;
+}
+.footer-brand img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+@media (max-width: 600px) {
+  .assistant-intro {
+    display: block;
+    margin: 24px auto 0;
+    width: 150px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .assistant-intro > p,
+  .assistant-intro > .assistant-caption {
+    display: none;
+  }
+  .assistant-avatar {
+    margin: 0;
+  }
+}
