@@ -1334,9 +1334,6 @@ html[data-easy='true'] *::after {
   .assistant-hero {
     padding: 52px;
   }
-  .assistant-intro {
-    margin-right: 30px;
-  }
 }
 @media (max-width: 1200px) {
   .sidebar {
@@ -1837,6 +1834,34 @@ html[data-easy='true'] *::after {
   width: 26px;
   height: 26px;
   object-fit: contain;
+}
+@media (min-width: 1201px) {
+  .app-shell:not(.easy-mode) .assistant-hero {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: clamp(32px, 3vw, 56px);
+    padding-block: 36px;
+  }
+  .assistant-intro {
+    width: 100%;
+    max-width: 440px;
+    justify-self: center;
+    padding: 24px 32px;
+    text-align: center;
+  }
+  .hero-brand-image {
+    width: clamp(200px, 13vw, 248px);
+  }
+  .assistant-avatar {
+    margin-bottom: 12px;
+  }
+  .assistant-intro p {
+    line-height: 1.65;
+  }
+  .assistant-caption {
+    justify-content: center;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
 }
 @media (max-width: 600px) {
   .assistant-intro {
