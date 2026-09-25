@@ -2,7 +2,7 @@
 
 상태: SQL 초안 및 격리 MySQL 8.0.44 실행 검증 완료. 담당자: 미정.
 
-**DB 접속 설정은 구현되어 있지만, rawdata 파싱 결과의 MySQL 저장은 미구현입니다.** 현재 결과는 `backend/data/parsed_policies/`의 JSON 초안으로 저장합니다. 이 SQL은 신규 조건 계약의 마이그레이션이 아닙니다. [현재 구현 상태·DB 연결 범위](../docs/implementation-status.md).
+**DB 접속 설정은 구현되어 있지만, rawdata 파싱 결과의 MySQL 저장은 미구현입니다.** 현재 결과는 `backend/data/parsed_policies/`의 JSON 초안으로 저장합니다. 001~003은 기존 초안, 004는 별도 v2 테이블 DDL이며 자동 마이그레이션은 아닙니다. [현재 구현 상태·DB 연결 범위](../docs/implementation-status.md).
 
 VS Code는 SQL 파일 작성 도구이며 실행에는 별도의 MySQL 서버와 클라이언트가 필요합니다.
 목표 환경은 MySQL 8.4입니다. Node.js와 Python 모두 이 SQL을 사용할 수 있습니다.
@@ -13,13 +13,16 @@ VS Code는 SQL 파일 작성 도구이며 실행에는 별도의 MySQL 서버와
 - 001_schema.sql: 개발 DB와 지역·사용자·프로필·정책·조건 원문 테이블 생성.
 - 002_seed.sql: 실제 인물·기관과 무관한 합성 데이터 삽입.
 - 003_queries.sql: 건수, 프로필, 정책 조건 및 공개 필터 조회.
+- 004_condition_schema.sql: v2 조건·공식 지역 스냅샷·문서 개정 테이블. 001~003과 별개 계약이며 자동 이관 없음.
 - readme.md: 실행·입출력·검증과 한계 안내.
 
 SQL 파일 순서가 DB 초기화 진입점입니다. 정책 저장 함수와 업무 HTTP API는 아직 없습니다.
 출생지역은 선택 입력이며 NULL은 미입력입니다. 거주지 기준은 registered(주민등록), actual(실거주), unknown(미확인)으로 구분합니다.
-seed의 지역 코드는 DEMO 전용입니다. 실제 데이터는 공식 대한민국 행정코드를 사용하는 방향이며, 법정동/행정동 구분·마스터 적재·유효기간·변경 이력은 후속 구현입니다.
+seed의 지역 코드는 DEMO 전용입니다. 공식 행정동/법정동 마스터는 `reference/regions`에 별도 구현. 004 조건·지역 테이블 DDL과 개발 DB 적재·이관은 구분합니다.
 정책 조건은 specified(명시), unrestricted(명시적 제한 없음), unknown(모름), not_stated(원문 미기재)을 구분합니다.
-신규 파서는 주체·값·단위·기준·근거·조건 그룹을 JSON으로 추출합니다. 이 SQL과 연결하는 변환·저장 코드는 없으며 실행 가능한 AND/OR/예외 트리·지역 포함 관계·자동 자격 판정은 미구현입니다.
+신규 파서는 주체·값·단위·기준·근거·조건 그룹·v2 논리를 JSON으로 추출합니다. 논리 AST·3상태 조합·동일 체계 지역 포함 조회 구현. 이 SQL에 저장하는 어댑터·사용자 자동 자격 판정은 후속입니다.
+
+004는 격리 MySQL 8.0.44에서 공식 지역 63,000행 적재·CHECK 제약 검증 완료. 재현: backend에서 `python scripts/check-condition-schema.py --mysqld 'mysqld 실행 파일 절대 경로'`. 기존 개발 DB와 `.env` 미사용. 실제 개발 DB 적용 전 기존 테이블 이관·버전 마이그레이션 준비 필요. [조건·지역 사용법](../docs/condition-classification.md).
 
 ## 실행 방법
 

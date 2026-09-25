@@ -18,4 +18,6 @@
 
 ## 경계
 
+`app.contracts.conditions`는 v2 필드 사전·CanonicalCondition·CanonicalPolicy·LogicNode 제공. 숫자 Decimal 문자열, REGION 체계/코드/버전, all/any/not/unknown 지원. [생성 JSON Schema](../../schemas/welfare-conditions-v2.schema.json)와 런타임 모델 일치 테스트 포함.
+
 특정 수집기·LLM 공급자·DB 구현에 의존하지 않습니다. 현재 계약은 파일 초안용이며 MySQL 테이블·저장 매핑·사용자 판정과 연결되지 않았습니다. 원문 인용 검증은 validation 모듈에서 추가 수행합니다.

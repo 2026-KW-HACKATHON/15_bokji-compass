@@ -1,0 +1,514 @@
+{
+  "$defs": {
+    "BooleanValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "BOOLEAN",
+          "title": "Kind",
+          "type": "string"
+        },
+        "boolean": {
+          "title": "Boolean",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "boolean"
+      ],
+      "title": "BooleanValue",
+      "type": "object"
+    },
+    "CanonicalCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "condition_id": {
+          "minLength": 1,
+          "title": "Condition Id",
+          "type": "string"
+        },
+        "field_key": {
+          "enum": [
+            "age",
+            "gender",
+            "home_ownership",
+            "employment_status",
+            "disability_registered",
+            "income",
+            "monthly_income",
+            "annual_income",
+            "annual_total_income",
+            "total_assets",
+            "deposit_amount",
+            "recognized_income_amount",
+            "loan_amount",
+            "existing_loan_amount",
+            "guaranteed_loan_amount",
+            "monthly_rent",
+            "annual_property_tax",
+            "interest_rate",
+            "guaranteed_amount_ratio",
+            "employment_preparation_status",
+            "child_tax_credit_recipient",
+            "earned_income_tax_credit_recipient",
+            "housing_benefit_recipient",
+            "housing_benefit_recipient_certificate_issuance",
+            "hope_keyum_account_membership",
+            "recognized_income_median_ratio",
+            "household_size",
+            "residence_duration",
+            "application_period",
+            "birth_date",
+            "residence_region",
+            "registered_residence_region",
+            "actual_residence_region",
+            "work_region",
+            "school_region",
+            "birth_region",
+            "unmapped",
+            "eligibility"
+          ],
+          "title": "Field Key",
+          "type": "string"
+        },
+        "source_field_key": {
+          "title": "Source Field Key",
+          "type": "string"
+        },
+        "subject": {
+          "enum": [
+            "applicant",
+            "child",
+            "parents",
+            "couple",
+            "household",
+            "guarantor",
+            "dependent_child",
+            "lineal_ascendant",
+            "other",
+            "unknown"
+          ],
+          "title": "Subject",
+          "type": "string"
+        },
+        "state_code": {
+          "enum": [
+            0,
+            1,
+            9
+          ],
+          "title": "State Code",
+          "type": "integer"
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "enum": [
+                "EQ",
+                "GT",
+                "GTE",
+                "LT",
+                "LTE",
+                "RANGE"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operator"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DecimalValue"
+            },
+            {
+              "$ref": "#/$defs/DecimalRangeValue"
+            },
+            {
+              "$ref": "#/$defs/CategoryValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanValue"
+            },
+            {
+              "$ref": "#/$defs/RegionValue"
+            },
+            {
+              "$ref": "#/$defs/DateRangeValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        },
+        "reference_basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reference Basis"
+        },
+        "role": {
+          "enum": [
+            "eligibility",
+            "exclusion",
+            "priority",
+            "application",
+            "reference"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "group_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Group Id"
+        },
+        "source_field": {
+          "title": "Source Field",
+          "type": "string"
+        },
+        "evidence_quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Evidence Quote"
+        },
+        "unknown_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unknown Reason"
+        },
+        "review_note": {
+          "title": "Review Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "condition_id",
+        "field_key",
+        "source_field_key",
+        "subject",
+        "state_code",
+        "operator",
+        "value",
+        "unit",
+        "reference_basis",
+        "role",
+        "group_id",
+        "source_field",
+        "evidence_quote",
+        "unknown_reason",
+        "review_note"
+      ],
+      "title": "CanonicalCondition",
+      "type": "object"
+    },
+    "CategoryValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "CATEGORY",
+          "title": "Kind",
+          "type": "string"
+        },
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "code"
+      ],
+      "title": "CategoryValue",
+      "type": "object"
+    },
+    "DateRangeValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DATE_RANGE",
+          "title": "Kind",
+          "type": "string"
+        },
+        "date_min": {
+          "title": "Date Min",
+          "type": "string"
+        },
+        "date_max": {
+          "title": "Date Max",
+          "type": "string"
+        },
+        "min_inclusive": {
+          "title": "Min Inclusive",
+          "type": "boolean"
+        },
+        "max_inclusive": {
+          "title": "Max Inclusive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "date_min",
+        "date_max",
+        "min_inclusive",
+        "max_inclusive"
+      ],
+      "title": "DateRangeValue",
+      "type": "object"
+    },
+    "DecimalRangeValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DECIMAL_RANGE",
+          "title": "Kind",
+          "type": "string"
+        },
+        "minimum": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Minimum",
+          "type": "string"
+        },
+        "maximum": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Maximum",
+          "type": "string"
+        },
+        "min_inclusive": {
+          "title": "Min Inclusive",
+          "type": "boolean"
+        },
+        "max_inclusive": {
+          "title": "Max Inclusive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "minimum",
+        "maximum",
+        "min_inclusive",
+        "max_inclusive"
+      ],
+      "title": "DecimalRangeValue",
+      "type": "object"
+    },
+    "DecimalValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DECIMAL",
+          "title": "Kind",
+          "type": "string"
+        },
+        "number": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Number",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "number"
+      ],
+      "title": "DecimalValue",
+      "type": "object"
+    },
+    "LogicNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "all",
+            "any",
+            "not",
+            "condition",
+            "unknown"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition Id"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/LogicNode"
+          },
+          "maxItems": 128,
+          "title": "Children",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "op",
+        "condition_id",
+        "children",
+        "reason"
+      ],
+      "title": "LogicNode",
+      "type": "object"
+    },
+    "RegionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "REGION",
+          "title": "Kind",
+          "type": "string"
+        },
+        "system": {
+          "enum": [
+            "ADMIN",
+            "LEGAL"
+          ],
+          "title": "System",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[0-9]{10}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "snapshot_version": {
+          "minLength": 1,
+          "title": "Snapshot Version",
+          "type": "string"
+        },
+        "include_descendants": {
+          "title": "Include Descendants",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "system",
+        "code",
+        "name",
+        "snapshot_version",
+        "include_descendants"
+      ],
+      "title": "RegionValue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "welfare-conditions-v2",
+      "default": "welfare-conditions-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "policy_key": {
+      "title": "Policy Key",
+      "type": "string"
+    },
+    "region_snapshot_version": {
+      "title": "Region Snapshot Version",
+      "type": "string"
+    },
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/CanonicalCondition"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Conditions",
+      "type": "array"
+    },
+    "logic": {
+      "$ref": "#/$defs/LogicNode"
+    },
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "unresolved": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved",
+      "type": "array"
+    }
+  },
+  "required": [
+    "policy_key",
+    "region_snapshot_version",
+    "conditions",
+    "logic",
+    "coverage",
+    "unresolved"
+  ],
+  "title": "CanonicalPolicy",
+  "type": "object"
+}

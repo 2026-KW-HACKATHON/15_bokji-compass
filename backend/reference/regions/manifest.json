@@ -1,0 +1,31 @@
+{
+  "version": "mois-2026-07-20",
+  "effective_date": "2026-07-20",
+  "source_url": "https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000052&nttId=127979",
+  "download_url": "https://www.mois.go.kr/cmm/fms/FileDown.do?atchFileId=FILE_00147311ctH5-ah&fileSn=2",
+  "archive_sha256": "c32eb452ae7f2d7300e33b444e8d4c7aaf4faa356444cec87fb545f2a702969d",
+  "csv_sha256": "8af2868464f8fda1868517f0262d0d9b37df3bde2fef6d1648988269a09fa32a",
+  "row_count": 63000,
+  "systems": [
+    "ADMIN",
+    "LEGAL"
+  ],
+  "includes_abolished": true,
+  "source_anomalies": [
+    {
+      "system": "LEGAL",
+      "code": "4413040001",
+      "reason": "source_end_before_start"
+    },
+    {
+      "system": "LEGAL",
+      "code": "4711366500",
+      "reason": "source_end_before_start"
+    },
+    {
+      "system": "ADMIN",
+      "code": "4311073000",
+      "reason": "source_end_before_start"
+    }
+  ]
+}

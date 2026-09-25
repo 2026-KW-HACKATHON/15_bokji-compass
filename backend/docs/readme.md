@@ -14,6 +14,7 @@
 - [코드·Codex CLI 실증](classification-experiment.md): 실제 정책 6개 분류·조건 후보 비교와 한계.
 - [스키마 적용 샘플](schema-sample.md): 실제 정책 6개를 상태·값·주체·조건 그룹으로 정렬한 예시.
 - [Rawdata 파싱·모델 설정](raw-parsing.md): JSON/XML 입력, Codex CLI 추출·검증·초안 저장.
+- [코드 우선 조건·공식 지역 분류](condition-classification.md): v2 필드 사전·논리·실제 행정코드·갱신·오프라인 점검.
 - [작업 기록](worklog.md): 실제 변경·검증.
 
 현재 계약·기능은 각 문서에 기록하며, 빈 기능 골격과 후속 계획은 구현 완료로 취급하지 않습니다.

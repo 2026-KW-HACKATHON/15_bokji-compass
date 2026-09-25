@@ -1,6 +1,8 @@
 """Validate extraction structure and exact source evidence before draft storage."""
 
+from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import PolicyExtraction, SourcePolicy
+from app.modules.regions.public import RegionCatalog, default_catalog
 
 
 def validate_extraction(result: PolicyExtraction, source: SourcePolicy) -> None:
@@ -22,3 +24,25 @@ def validate_extraction(result: PolicyExtraction, source: SourcePolicy) -> None:
             raise ValueError("Unknown condition group")
         if condition.state_code in (0, 1) and condition.group_id is None:
             raise ValueError("Known condition requires a scope group")
+
+
+def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
+                       *, catalog: RegionCatalog | None = None) -> None:
+    """Structural validation plus source evidence and official-master membership."""
+    catalog = catalog or default_catalog()
+    if result.policy_key != source.policy_key:
+        raise ValueError("Canonical policy ID mismatch")
+    if result.region_snapshot_version != catalog.version:
+        raise ValueError("Canonical region snapshot mismatch")
+    for condition in result.conditions:
+        if condition.source_field not in source.fields:
+            raise ValueError("Unknown canonical source field")
+        if condition.evidence_quote and condition.evidence_quote not in source.fields[
+            condition.source_field
+        ]:
+            raise ValueError("Canonical evidence absent from source")
+        value = condition.value
+        if value is not None and value.kind == "REGION":
+            region = catalog.validate_code(value.system, value.code, value.snapshot_version)
+            if value.name != region.name:
+                raise ValueError("Official region code/name mismatch")

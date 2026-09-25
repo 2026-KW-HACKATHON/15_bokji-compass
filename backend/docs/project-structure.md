@@ -5,6 +5,9 @@
 - `app/core/`: 설정과 MySQL 연결 풀 생성.
 - `app/api/`: health·readiness 라우터.
 - `app/contracts/`: `RawDocument`, `SourcePolicy`, `PolicyExtraction`과 자료형·상태 검증 계약.
+- `app/contracts/conditions.py`: v2 표준 필드·CanonicalPolicy·조건 AST.
+- `reference/regions/`: Git 포함 공식 행정동/법정동 코드·출처·해시. 개인정보·사용자 주소 없음.
+- `schemas/`: Pydantic에서 생성한 조건 JSON Schema.
 - `app/modules/`: 수집·원문 저장, 공급자별 입력 변환, CLI 모델 호출, 근거 검증, 파일 초안 파이프라인. [모듈 책임](../app/modules/readme.md).
 - `database/`: 개발 스키마·합성 시드·조회 SQL. 설치 시 자동 적용하지 않음.
 - `requirements.in`, `requirements-dev.in`: 직접 의존성 원본.

@@ -1,6 +1,6 @@
 # 현재 데이터 계약
 
-기준: 2026-09-22. 원문 계약과 파싱 초안 계약은 Python/파일 교환용이며 MySQL 테이블 계약과 구분. [DB 연결 범위](implementation-status.md).
+기준: 2026-09-25. 원문·추출 후보·v2 정규화 계약을 구분. [조건·지역 상세](condition-classification.md), [DB 연결 범위](implementation-status.md).
 
 ## RawDocument
 
@@ -29,7 +29,7 @@
 
 | 조건 필드 | 의미 |
 |---|---|
-| condition_id / field_key | 정책 내 식별자·조건 항목명. 전체 표준 필드 사전은 후속 |
+| condition_id / field_key | 정책 내 식별자·원문 추출 항목명. 표준 사전 검사는 canonical 변환 시 적용 |
 | subject | 신청인·자녀·부모·부부·가구·보증인 등 주체 |
 | state_code | 0=명시적 제한 없음, 1=값 있음, 9=정보 없음 |
 | operator / value | EQ/GT/GTE/LT/LTE/RANGE와 NUMBER/NUMBER_RANGE/DATE_RANGE/TEXT/BOOLEAN |
@@ -38,17 +38,30 @@
 | source_field / evidence_quote | 원문 필드와 인용 |
 | unknown_reason / review_note | 미기재·모호함·상충·원문 부족 사유와 검토 설명 |
 
-0/9는 value·operator=null. 실제 숫자 0과 불리언 false는 state_code=1의 값. NUMBER_RANGE/DATE_RANGE는 min_inclusive/max_inclusive로 경계 포함 여부 보존. 지역은 공식 마스터 미연결이므로 원문 이름 TEXT만 보존.
+0/9는 value·operator=null. 실제 숫자 0과 불리언 false는 state_code=1의 값. NUMBER_RANGE/DATE_RANGE는 min_inclusive/max_inclusive로 경계 포함 여부 보존. 추출 후보의 지역은 TEXT로 보존하고 공식 코드는 앱의 canonical 변환에서 결정.
 
-groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원문 근거 포함. 그룹 간 완전한 실행 논리 트리는 아직 없음. 자료형·범위·근거·참조 검증 통과는 의미 정확성이나 적격 판정과 구분.
+groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원문 근거 포함. LLM 평면 그룹의 관계는 설명이며 자동 실행 트리로 간주하지 않음. 자료형·범위·근거·참조 검증 통과는 의미 정확성이나 적격 판정과 구분.
+
+## CanonicalPolicy (welfare-conditions-v2)
+
+`app/contracts/conditions.py`의 FIELD_REGISTRY·CanonicalCondition·LogicNode·CanonicalPolicy 사용. [생성 JSON Schema](../schemas/welfare-conditions-v2.schema.json).
+
+- field_key별 자료형·단위·카테고리 검증. 미등록 항목은 unmapped·state=9로 보존, source_field_key에 원래 항목명 유지.
+- 숫자는 DECIMAL/DECIMAL_RANGE의 10진 문자열. v1 float의 안전한 정수 범위 밖은 UNKNOWN. 기존 정밀도 손실 복구 없음.
+- 지역은 REGION의 ADMIN/LEGAL·10자리 code·공식 name·snapshot_version·include_descendants로 분리.
+- logic은 all/any/not/condition/unknown. 조건 참조·자격 조건 누락·깊이·크기 검증. 확정 코드 조건만 자동 논리 연결. LLM 결과는 검토 전 unknown.
+- 불확실성이 있으면 canonical.coverage=partial. 원래 analysis.coverage와 구분.
+- 검증 순서: Pydantic 모델 검증 → validate_canonical로 원문 근거·공식 코드/이름/버전 검증.
 
 ## 파일 초안·실행 상태
 
-`pipeline.parse_raw_files`가 생성하는 `draft.json`의 버전은 `welfare-parsing-v1`. source, analysis, attempts, status, review_status, matching_enabled 등 포함. 현재 draft·matching_enabled=false 고정.
+`pipeline.parse_raw_files`가 생성하는 `draft.json`의 버전은 `welfare-parsing-v2`. source, analysis, canonical, code_analysis, code_canonical, attempts, status, review_status, matching_enabled 등 포함. 코드 부분 결과가 없거나 prepare-only이면 관련 필드는 생략 가능. 현재 draft·matching_enabled=false 고정.
 
 - pending: 준비 모드. processing_state=8, analysis=null.
-- needs_review: 코드의 원문 누락 처리 또는 CLI 추출·검증 완료. 파일 초안 검토 필요.
+- needs_review: 코드 분류 또는 CLI 추출·정규화 완료. 파일 초안 검토 필요.
 - failed: 호출/검증 실패. analysis=null. 실패를 조건 상태 9로 바꾸지 않음.
 - 모델의 reported_coverage를 보존하고 미해결 사항·정보 없음 조건이 있으면 analysis.coverage=partial로 제한.
 
 manifest.json은 정책별 초안 경로·처리 상태 관리. 실제 함수 반환·폴더 구조는 [파싱 사용법](raw-parsing.md) 참조. MySQL 저장·조회·공개 계약은 미구현이며 향후 버전 변환을 통해 별도 연결.
+
+004 SQL은 v2 저장 테이블 DDL만 제공. 기존 v1 파일·001 개발 SQL·인증 DB 자동 이관 없음.

@@ -1,6 +1,6 @@
 # Rawdata 파싱·모델 설정
 
-Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 정책 입력으로 변환하고, Codex CLI로 조건을 추출해 검증된 초안 저장. 특정 정책 ID나 앞선 6개 표본에 종속되지 않는 실행 경로.
+Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 정책 입력으로 변환하고, 코드 우선 분류 → 미해결 시 Codex CLI → 표준 조건·공식 지역코드 정규화 → 검토용 초안 저장. [코드 규칙·조건 v2·지역 사용법](condition-classification.md).
 
 현재 저장 대상은 JSON 파일이며 MySQL에 연결하지 않음. 기존 DB 접속 설정·readiness와 정책 적재의 구분, 신규 스키마 적용 순서는 [현재 구현 상태·DB 연결 범위](implementation-status.md) 참조.
 
@@ -62,7 +62,8 @@ OpenAI 공식 [모델 안내](https://learn.chatgpt.com/docs/models)는 Luna를 
 
 - `manifest.json`: 전체 상태·정책별 결과 파일 경로. 한 정책 실패 시 이후 정책 처리 유지, 최종 실패 상태·CLI 종료 코드 1.
 - `<정책 ID 해시>/draft.json`: 원천 ID·제목·기관·선별 원문·원천 레코드 해시, 조건·그룹·검증된 모델·사용량·재시도 이력.
-- `attempt-*/response.json`, `events.jsonl`, `stderr.log`: 성공 전 후보·진단 파일. **검증 완료 결과는 draft.json의 analysis만 사용**.
+- `attempt-*/response.json`, `events.jsonl`, `stderr.log`: 성공 전 후보·진단 파일. **검증된 후보는 draft.json.analysis, 정규화 결과는 canonical 사용**. 둘 다 검토 전 초안.
+- `code_analysis`·`code_canonical`: LLM 이전 코드 부분 결과. 호출 실패 때도 보존. LLM 결과와 자동 병합 없음.
 
 `pending`은 LLM 미실행(`processing_state=8`), `needs_review`는 초안 검토 필요, `failed`는 분석 실패(`analysis=null`). 처리 실패를 정책 정보 없음으로 바꾸지 않음.
 
@@ -70,7 +71,7 @@ OpenAI 공식 [모델 안내](https://learn.chatgpt.com/docs/models)는 Luna를 
 
 `value.kind`: NUMBER, NUMBER_RANGE, DATE_RANGE, TEXT, BOOLEAN. 범위 양끝 포함 여부·주체·단위·기준 시점·자격/제외/우선순위/신청/참고 역할 분리. 복잡한 표현은 TEXT 보존 후 미해결 사항 기록.
 
-공식 지역 마스터 미연결이므로 지역 이름은 TEXT로 보존하고 공식 코드 매핑은 후속 작업. 행정코드의 0·9를 상태 값으로 사용하지 않음. 복지로 XML 반복·중첩 항목은 수집 파서에서 보존.
+analysis 지역 이름은 TEXT로 보존. canonical은 공식 마스터에서 유일한 현행 이름만 REGION으로 변환하며 코드의 0·9를 상태 값으로 사용하지 않음. 파일 버전 welfare-parsing-v2, canonical 버전 welfare-conditions-v2. 기존 v1 파일 유지. 복지로 XML 반복·중첩 항목은 수집 파서에서 보존.
 
 ## 검증 경계
 
@@ -78,15 +79,19 @@ OpenAI 공식 [모델 안내](https://learn.chatgpt.com/docs/models)는 Luna를 
 - 상태와 값 일관성·자료형·비어 있거나 역전된 범위·연산자 검증.
 - 도구 비활성·읽기 전용·임시 작업공간·허용 환경변수만 전달. 도구 이벤트 발견 시 실패 처리.
 - 모든 결과 `review_status=draft`, `matching_enabled=false`. coverage는 모델이 보고한 추출 범위이며 의미 정확성 인증과 구분.
-- 그룹 간 관계는 설명으로 유지하며 완전한 실행 논리 트리·사용자 자격 판정·MySQL 적재·HTTP 분석 API는 후속 작업.
+- 조건 AST·3상태 논리 조합 구현. LLM 평면 그룹의 논리 연결·사용자 자격 판정·MySQL 적재·HTTP 분석 API는 후속 작업.
 - 모델 근거 인용이 맞아도 주체·숫자·논리 해석이 틀릴 수 있으므로 검토 후 사용. API 키나 개인정보를 포함하지 않은 공개 원문만 입력.
-- 미해결 사항·정보 없음 조건이 있으면 모델의 complete 보고를 partial로 낮추고 `reported_coverage`에 원래 보고값 보존. field_key의 전체 표준 사전·실행 논리 트리 연결은 후속 검토 대상.
+- 미해결 사항·정보 없음 조건이 있으면 모델의 complete 보고를 partial로 낮추고 `reported_coverage`에 원래 보고값 보존. canonical은 필드·단위·지역·논리 불확실성까지 반영하여 별도 coverage 결정.
 
 ## 모듈 역할
 
 | 파일 | 역할 |
 |---|---|
 | app/contracts/parsing.py | 공통 입력·조건·그룹·추출 자료형 |
+| app/contracts/conditions.py | 표준 필드·v2 값·논리 계약 |
+| app/modules/parsers/conditions.py | 코드 우선 분류·미해결 범위 기록 |
+| app/modules/normalization/conditions.py | canonical 정규화 |
+| app/modules/regions/public.py | 공식 지역 이름 조회·상하위 포함 검사 |
 | app/modules/normalization/raw.py | 공급자별 JSON/XML 변환·입력 검증 |
 | app/modules/llm/public.py | 설정 모델로 Codex CLI 단일 호출 |
 | app/modules/validation/public.py | 원문 근거·참조 검증 |

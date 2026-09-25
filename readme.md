@@ -14,6 +14,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 
 macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/macos-development.md) 제공. 운영 서버는 Windows 유지.
 
+코드 우선 조건 분류·조건 v2·공식 행정동/법정동 분류 구현. [사용법·갱신·검증 범위](backend/docs/condition-classification.md). 실제 정책 DB 저장·추천 API는 후속.
+
 ## 사용언어
 | 사용부분 | 언어|
 | --- | --- |

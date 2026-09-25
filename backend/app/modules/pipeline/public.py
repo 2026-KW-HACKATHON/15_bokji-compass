@@ -9,8 +9,10 @@ from uuid import uuid4
 from app.contracts.parsing import ParsedCondition, PolicyExtraction, SourcePolicy
 from app.core.config import BACKEND_ROOT, Settings, load_settings
 from app.modules.llm.public import CodexRunError, extract_policy
+from app.modules.normalization.public import normalize_conditions
 from app.modules.normalization.raw import load_raw_policies
-from app.modules.validation.public import validate_extraction
+from app.modules.parsers.public import RULE_VERSION, extract_conditions
+from app.modules.validation.public import validate_canonical, validate_extraction
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -34,7 +36,7 @@ def _missing_conditions(source: SourcePolicy) -> PolicyExtraction:
 def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
                  *, prepare_only: bool = False) -> dict:
     """Return a draft or explicit failed/pending state. Never publish or write MySQL."""
-    base = {"schema_version": "welfare-parsing-v1", "source": source.model_dump(),
+    base = {"schema_version": "welfare-parsing-v2", "source": source.model_dump(),
             "review_status": "draft", "matching_enabled": False, "attempts": []}
     if prepare_only:
         return {**base, "status": "pending", "processing_state": 8, "analysis": None}
@@ -42,8 +44,24 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
     if not any(text.strip() for text in relevant):
         result = _missing_conditions(source)
         validate_extraction(result, source)
+        canonical = normalize_conditions(result)
+        validate_canonical(canonical, source)
         return {**base, "status": "needs_review", "processing_state": None,
-                "analysis": result.model_dump(), "method": "code_missing_source"}
+                "analysis": result.model_dump(), "method": "code_missing_source",
+                "canonical": canonical.model_dump()}
+    code = extract_conditions(source)
+    base["rule_version"] = RULE_VERSION
+    base["unresolved_code_fields"] = code.unresolved_fields
+    base["code_analysis"] = code.extraction.model_dump() if code.extraction else None
+    if code.extraction:
+        validate_extraction(code.extraction, source)
+        canonical = normalize_conditions(code.extraction, logic=code.logic)
+        validate_canonical(canonical, source)
+        base["code_canonical"] = canonical.model_dump()
+        if code.complete and canonical.coverage == "complete":
+            return {**base, "status": "needs_review", "processing_state": None,
+                    "analysis": code.extraction.model_dump(), "canonical": canonical.model_dump(),
+                    "method": "code_rules"}
     models = [settings.codex_model]
     if settings.codex_fallback_model and settings.codex_fallback_model not in models:
         models.append(settings.codex_fallback_model)
@@ -51,6 +69,8 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         try:
             result, metadata = extract_policy(source, settings, output / f"attempt-{index}", model)
             validate_extraction(result, source)
+            canonical = normalize_conditions(result)
+            validate_canonical(canonical, source)
         except CodexRunError as error:
             base["attempts"].append({"model": model, "status": "failed", "error": str(error)})
             break  # auth/network/timeout are not quality failures; no expensive retry loop
@@ -67,7 +87,8 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         result.conditions.sort(key=lambda c: (c.field_key, c.subject, c.group_id or "",
                                               c.condition_id))
         return {**base, "status": "needs_review", "processing_state": None,
-                "analysis": result.model_dump(), "method": "codex_cli"}
+                "analysis": result.model_dump(), "method": "code_then_codex_cli",
+                "canonical": canonical.model_dump()}
     return {**base, "status": "failed", "processing_state": None, "analysis": None}
 
 
@@ -84,7 +105,7 @@ def parse_raw_files(
     output_root = output_root or BACKEND_ROOT / "data/parsed_policies"
     run = output_root / (datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:8])
     run.mkdir(parents=True, exist_ok=False)
-    manifest = {"schema_version": "welfare-parsing-v1", "records": [], "status": "running"}
+    manifest = {"schema_version": "welfare-parsing-v2", "records": [], "status": "running"}
     write_json(run / "manifest.json", manifest)
     for source in sources:
         # External IDs never become filesystem paths.

@@ -1,6 +1,6 @@
 # Windows 서버 기반 조건 검색·정제·MySQL 저장 구현 계획
 
-최종 수정: 2026-09-22. 상태: 개발환경·수집·CLI 파싱·검증·파일 초안 저장 구현 / 신규 MySQL 스키마·정책 영속 저장·조건 검색·판정 구현 예정.
+최종 수정: 2026-09-25. 상태: 코드 우선 파싱·표준 조건 v2·공식 지역 분류·논리 조합 구현 / 정책 영속 저장·조건 검색·프로필 판정 구현 예정. [현재 조건 계약](condition-classification.md).
 
 사용자의 Windows 직접 운영·MySQL 사용·requirements 기반 설치 요구 반영. 현재 기능은 [구현 상태·DB 연결 범위](implementation-status.md), 설치는 [개발환경 문서](development.md), CLI 파싱은 [사용법](raw-parsing.md)이 기준. 아래 테이블·인터페이스·운영 구조는 명시된 완료 항목 외에는 후속 계획.
 
@@ -85,7 +85,7 @@ evaluate_conditions(record, user_facts, evaluation_context) -> PASS/FAIL/UNKNOWN
 | `policy_condition_index` | 개정별 field/operator/typed value/unit/basis/논리 경로. JSON에서 코드로 생성. |
 | `ingestion_jobs`, `ingestion_items` | 작업·항목 상태, 공급자/모델, 단계, 시간, 시도 횟수, 오류, 검증 후보의 재사용 정보 |
 
-테이블명과 실제 컬럼은 DB 계약 확정 시 결정한다. 문자열 코드의 대소문자/정렬 규칙 명시. DB 적재용 금액은 Python 정수/Decimal과 MySQL BIGINT/DECIMAL로 처리할 계획이다. 현재 파서의 NUMBER는 float이므로 적재 전에 계약 변환·정밀도 검증을 추가해야 한다. 퍼센트·원화·기간·평가 기준 및 Decimal JSON 직렬화 규칙도 저장 계약에 포함한다.
+위 테이블은 후속 영속 저장 설계. 현재 v2의 별도 `condition_*` DDL은 `004_condition_schema.sql`에 구현했으며 운영 이관과 구분한다. 문자열 코드의 정렬 규칙과 상태 분리 적용. v2는 10진 문자열과 필드별 단위를 사용하며 기존 NUMBER float의 안전 범위 초과를 차단한다. MySQL BIGINT/DECIMAL 검색 인덱스와 기존 데이터 이관·정밀도 검증은 후속.
 
 원본은 먼저 내용 해시 기반 파일을 최종 데이터 디렉터리와 같은 NTFS 볼륨의 임시 경로에 쓰고 파일을 닫은 뒤 최종 경로로 원자적 이동한다. 드라이브 간 이동은 원자적이라고 가정하지 않으며 디스크 동기화·파일 잠금·이동 실패를 검증한다. 그 후 DB에서 원본 참조·개정 JSON·조건 인덱스·현재 개정 포인터·완료 상태를 하나의 트랜잭션으로 커밋한다. 파일시스템과 DB가 단일 트랜잭션인 것처럼 취급하지 않는다. DB 실패 시 남은 원본은 안전하게 재사용/정리하고, 존재하지 않는 원본을 참조하는 완료 상태는 만들지 않는다.
 
@@ -168,7 +168,11 @@ Gemini는 `google-genai` 공식 SDK로 이미지와 구조화 후보를 요청�
 - [ ] 운영 Windows 버전·설치 경로와 실제 데이터 요구사항을 확인한다.
 - [x] Python 3.13/uv, requirements, 독립 개발·테스트 MySQL을 구성한다.
 - [ ] MySQL·API Windows 서비스와 계정·로그·자동 복구·백업을 구성한다.
-- [ ] 필드 레지스트리, 조건 논리, 버전 계약, 원본 fixture를 구현한다.
+- [x] 표준 필드 레지스트리·조건 AST·3상태 논리 조합·v2 JSON Schema·공개 추출 fixture 구현.
+- [x] 코드 우선 조건 분류·미해결 원문 LLM 전환·부분 결과 보존 구현.
+- [x] 공식 ADMIN/LEGAL 지역 마스터·출처 해시·생성/말소일·중복 이름·계층 조회 구현.
+- [x] 신규 조건·지역 MySQL DDL 계약 작성. 개발 DB 적용·이관은 아래 후속 작업 유지.
+- [ ] LLM 복합 그룹의 검토·승인·실행 논리 연결 UI/서비스 구현.
 - [x] JSON/XML·RawDocument 입력, Codex CLI·설정 모델·오프라인 호출 대역 테스트 구현.
 - [x] 구조화 후보의 상태/자료형·범위·원문 근거·참조 검증과 파일 초안 저장 구현.
 - [ ] 이미지/PDF 입력·Gemini 어댑터·운영 계정 격리·작업 큐 구현.

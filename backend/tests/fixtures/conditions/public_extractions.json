@@ -1,0 +1,1219 @@
+{
+  "provenance": "Public API records collected 2026-09-21; CLI draft 2026-09-22, not reviewed eligibility decisions.",
+  "cases": [
+    {
+      "source": {
+        "policy_key": "bokjiro:WLF00000026",
+        "title": "장애인자립자금대여",
+        "organization": "보건복지부 장애인자립기반과",
+        "source_url": null,
+        "fields": {
+          "eligibility": "가구의 소득인정액이 「국민기초생활보장법」에 의한 기준중위소득 50% 초과 100% 이하 가구의 19세 이상의 등록장애인을 지원합니다.* 2025년 기준, 4인 가구 기준 3,048,887원 초과 6,097,773원 이하\n자격제한 : 대여희망자 또는 보증인이 융자기관 내규 여신 취급제한자(금융채무불이행자, 신용회복중인 자, 개인회생 및 파산·면책자)인 경우는 대여불가 또는 보증자격 불가\n중위소득 50%이하의 장애인의 경우, 미소금융재단의 장애인대출 상품을 이용할 수 있습니다(서비스내용 동일).\n시군구에서 장애인자립자금대여를 금융기관에 추천하였다하여도 해당 금융기관의 여신규정(신용등급 및 보증인 대출요건 등)에 의거 대여가 되지 않을 수 있습니다.",
+          "selection": "지원대상을 참고해주시기 바랍니다.",
+          "benefits": "장애인자립자금대여 융자요건 및 상환방법은 다음과 같습니다.\n(대여목적) 생업자금, 생업용 자동차 구입비, 출퇴근용 자동차 구입비*, 취업 기술훈련비, 장애인보조기기 구입비, 자기개발 훈련비, 의료비 등※ 생활가계자금, 주택전세자금, 학자금 등의 용도로 융자 불가\n(대여한도)\n - 무보증대출 : 가구당 1,200만원 이내(자동차 구입 자금은 특수설비 부착 시 1,500만원 이내)\n * 요건 : 기존 대출금 2,000만원 이하 이면서, 연간 재산세 2만원 이상 납부 또는 연간소득 600만원 이상 - 담보대출 : 5,000만원 이하(담보범위내)\n(대여이자) 고정금리 연2% ('21년 4월 이전 3%)\n(대여기관) 국민은행 지점\n(상환방법) 5년 거치, 5년 분할 상환\n자동차 구입비의 경우, 반드시 자동차 구입 전에 신청하여 대여기관으로부터 받은 융자금으로 자동차를 구입하여야 함(별도자금으로 자동차 구입 후, 대여 융자금으로 상환하는 방식 불가)"
+        },
+        "source_hash": "62ffcbf0447846bc35f1af0e65d9bf61c7a7b6338c39f77480280a35e30887b4"
+      },
+      "extraction": {
+        "policy_key": "bokjiro:WLF00000026",
+        "conditions": [
+          {
+            "condition_id": "c2",
+            "field_key": "age",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "GTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 19.0
+            },
+            "unit": "YEARS",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "19세 이상의",
+            "unknown_reason": null,
+            "review_note": "나이 기준일은 원문에 없음."
+          },
+          {
+            "condition_id": "c15",
+            "field_key": "alternative_program",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "중위소득 50% 이하의 장애인은 미소금융재단의 장애인대출 상품 이용 가능"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g4",
+            "source_field": "eligibility",
+            "evidence_quote": "중위소득 50%이하의 장애인의 경우",
+            "unknown_reason": null,
+            "review_note": "다른 사업 안내."
+          },
+          {
+            "condition_id": "c23",
+            "field_key": "annual_income",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "GTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 6000000.0
+            },
+            "unit": "KRW_PER_YEAR",
+            "reference_basis": "무보증대출 자동차 구입 자금 요건",
+            "role": "reference",
+            "group_id": "g10",
+            "source_field": "benefits",
+            "evidence_quote": "연간소득 600만원 이상",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c22",
+            "field_key": "annual_property_tax",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "GTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 20000.0
+            },
+            "unit": "KRW_PER_YEAR",
+            "reference_basis": "무보증대출 자동차 구입 자금 요건",
+            "role": "reference",
+            "group_id": "g10",
+            "source_field": "benefits",
+            "evidence_quote": "연간 재산세 2만원 이상 납부",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c27",
+            "field_key": "application_timing",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "자동차 구입 전에 신청"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "application",
+            "group_id": "g12",
+            "source_field": "benefits",
+            "evidence_quote": "자동차 구입 전에 신청하여",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c11",
+            "field_key": "credit_restriction_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "개인회생"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "개인회생",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c13",
+            "field_key": "credit_restriction_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "파산·면책자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "파산·면책자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c5",
+            "field_key": "credit_restriction_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "융자기관 내규 여신 취급제한자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "대여희망자 또는 보증인이 융자기관 내규 여신 취급제한자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c7",
+            "field_key": "credit_restriction_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "금융채무불이행자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "금융채무불이행자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c9",
+            "field_key": "credit_restriction_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "신용회복중인 자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "신용회복중인 자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c10",
+            "field_key": "credit_restriction_status",
+            "subject": "guarantor",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "신용회복중인 자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "신용회복중인 자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c12",
+            "field_key": "credit_restriction_status",
+            "subject": "guarantor",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "개인회생"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "개인회생",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c14",
+            "field_key": "credit_restriction_status",
+            "subject": "guarantor",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "파산·면책자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "파산·면책자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c6",
+            "field_key": "credit_restriction_status",
+            "subject": "guarantor",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "융자기관 내규 여신 취급제한자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "보증인이 융자기관 내규 여신 취급제한자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c8",
+            "field_key": "credit_restriction_status",
+            "subject": "guarantor",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "금융채무불이행자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "금융채무불이행자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c3",
+            "field_key": "disability_registration",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "BOOLEAN",
+              "boolean": true
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "등록장애인",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c21",
+            "field_key": "existing_loan_amount",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 20000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": "무보증대출 자동차 구입 자금 요건",
+            "role": "reference",
+            "group_id": "g10",
+            "source_field": "benefits",
+            "evidence_quote": "기존 대출금 2,000만원 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c30",
+            "field_key": "guarantor_eligibility",
+            "subject": "guarantor",
+            "state_code": 9,
+            "operator": null,
+            "value": null,
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": null,
+            "unknown_reason": "NOT_STATED",
+            "review_note": "구체적인 보증인 자격요건은 원문에 없음."
+          },
+          {
+            "condition_id": "c24",
+            "field_key": "interest_rate",
+            "subject": "other",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "NUMBER",
+              "number": 2.0
+            },
+            "unit": "PERCENT",
+            "reference_basis": "고정금리",
+            "role": "reference",
+            "group_id": "g11",
+            "source_field": "benefits",
+            "evidence_quote": "고정금리 연2%",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c18",
+            "field_key": "loan_amount",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 12000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": "무보증대출",
+            "role": "reference",
+            "group_id": "g7",
+            "source_field": "benefits",
+            "evidence_quote": "가구당 1,200만원 이내",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c19",
+            "field_key": "loan_amount",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 15000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": "특수설비 부착 자동차 구입 자금",
+            "role": "reference",
+            "group_id": "g8",
+            "source_field": "benefits",
+            "evidence_quote": "자동차 구입 자금은 특수설비 부착 시 1,500만원 이내",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c20",
+            "field_key": "loan_amount",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 50000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": "담보대출; 담보범위내",
+            "role": "reference",
+            "group_id": "g9",
+            "source_field": "benefits",
+            "evidence_quote": "5,000만원 이하(담보범위내)",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c25",
+            "field_key": "loan_institution",
+            "subject": "other",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "국민은행 지점"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g11",
+            "source_field": "benefits",
+            "evidence_quote": "국민은행 지점",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c16",
+            "field_key": "loan_purpose",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "생업자금, 생업용 자동차 구입비, 출퇴근용 자동차 구입비, 취업 기술훈련비, 장애인보조기기 구입비, 자기개발 훈련비, 의료비 등"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g5",
+            "source_field": "benefits",
+            "evidence_quote": "생업자금, 생업용 자동차 구입비, 출퇴근용 자동차 구입비",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c17",
+            "field_key": "loan_purpose",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "생활가계자금, 주택전세자금, 학자금"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "exclusion",
+            "group_id": "g6",
+            "source_field": "benefits",
+            "evidence_quote": "생활가계자금, 주택전세자금, 학자금 등의 용도로 융자 불가",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c29",
+            "field_key": "loan_repayment_method",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "별도자금으로 자동차 구입 후 대여 융자금으로 상환하는 방식 불가"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "application",
+            "group_id": "g12",
+            "source_field": "benefits",
+            "evidence_quote": "별도자금으로 자동차 구입 후, 대여 융자금으로 상환하는 방식 불가",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c28",
+            "field_key": "loan_use_sequence",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "대여기관으로부터 받은 융자금으로 자동차를 구입"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "application",
+            "group_id": "g12",
+            "source_field": "benefits",
+            "evidence_quote": "대여기관으로부터 받은 융자금으로 자동차를 구입하여야 함",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c4",
+            "field_key": "recognized_income_amount",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "RANGE",
+            "value": {
+              "kind": "NUMBER_RANGE",
+              "minimum": 3048887.0,
+              "maximum": 6097773.0,
+              "min_inclusive": false,
+              "max_inclusive": true
+            },
+            "unit": "KRW",
+            "reference_basis": "2025년 기준 4인 가구 기준",
+            "role": "reference",
+            "group_id": "g2",
+            "source_field": "eligibility",
+            "evidence_quote": "4인 가구 기준 3,048,887원 초과 6,097,773원 이하",
+            "unknown_reason": null,
+            "review_note": "4인 가구의 금액 예시."
+          },
+          {
+            "condition_id": "c1",
+            "field_key": "recognized_income_median_ratio",
+            "subject": "household",
+            "state_code": 1,
+            "operator": "RANGE",
+            "value": {
+              "kind": "NUMBER_RANGE",
+              "minimum": 50.0,
+              "maximum": 100.0,
+              "min_inclusive": false,
+              "max_inclusive": true
+            },
+            "unit": "PERCENT",
+            "reference_basis": "국민기초생활보장법 기준중위소득",
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "기준중위소득 50% 초과 100% 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c26",
+            "field_key": "repayment_method",
+            "subject": "other",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "5년 거치, 5년 분할 상환"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g11",
+            "source_field": "benefits",
+            "evidence_quote": "5년 거치, 5년 분할 상환",
+            "unknown_reason": null,
+            "review_note": ""
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "g1",
+            "relation": "all",
+            "scope_text": "소득인정액 기준을 충족하는 19세 이상 등록장애인에게 적용.",
+            "source_field": "eligibility",
+            "evidence_quote": "가구의 소득인정액이 「국민기초생활보장법」에 의한 기준중위소득 50% 초과 100% 이하 가구의 19세 이상의 등록장애인을 지원합니다."
+          },
+          {
+            "group_id": "g2",
+            "relation": "reference",
+            "scope_text": "2025년 4인 가구의 금액 예시이며 다른 가구 유형에 일반 적용하지 않음.",
+            "source_field": "eligibility",
+            "evidence_quote": "2025년 기준, 4인 가구 기준 3,048,887원 초과 6,097,773원 이하"
+          },
+          {
+            "group_id": "g3",
+            "relation": "exception",
+            "scope_text": "대여희망자 또는 보증인이 여신 취급제한자이면 대여 또는 보증자격이 불가.",
+            "source_field": "eligibility",
+            "evidence_quote": "대여희망자 또는 보증인이 융자기관 내규 여신 취급제한자"
+          },
+          {
+            "group_id": "g4",
+            "relation": "reference",
+            "scope_text": "중위소득 50% 이하 장애인을 위한 다른 사업 안내.",
+            "source_field": "eligibility",
+            "evidence_quote": "미소금융재단의 장애인대출 상품을 이용할 수 있습니다"
+          },
+          {
+            "group_id": "g5",
+            "relation": "reference",
+            "scope_text": "융자 가능한 대여 목적 안내.",
+            "source_field": "benefits",
+            "evidence_quote": "(대여목적) 생업자금, 생업용 자동차 구입비"
+          },
+          {
+            "group_id": "g6",
+            "relation": "exception",
+            "scope_text": "생활가계자금·주택전세자금·학자금은 융자 불가.",
+            "source_field": "benefits",
+            "evidence_quote": "생활가계자금, 주택전세자금, 학자금 등의 용도로 융자 불가"
+          },
+          {
+            "group_id": "g7",
+            "relation": "reference",
+            "scope_text": "무보증대출 일반 한도.",
+            "source_field": "benefits",
+            "evidence_quote": "무보증대출 : 가구당 1,200만원 이내"
+          },
+          {
+            "group_id": "g8",
+            "relation": "reference",
+            "scope_text": "특수설비 부착 자동차 구입 자금 한도.",
+            "source_field": "benefits",
+            "evidence_quote": "자동차 구입 자금은 특수설비 부착 시 1,500만원 이내"
+          },
+          {
+            "group_id": "g9",
+            "relation": "reference",
+            "scope_text": "담보대출 한도.",
+            "source_field": "benefits",
+            "evidence_quote": "담보대출 : 5,000만원 이하(담보범위내)"
+          },
+          {
+            "group_id": "g10",
+            "relation": "any",
+            "scope_text": "자동차 구입 자금의 추가 요건 중 연간 재산세와 연간소득은 대안 관계이며, 기존 대출금 요건과 함께 적용.",
+            "source_field": "benefits",
+            "evidence_quote": "기존 대출금 2,000만원 이하 이면서, 연간 재산세 2만원 이상 납부 또는 연간소득 600만원 이상"
+          },
+          {
+            "group_id": "g11",
+            "relation": "reference",
+            "scope_text": "이자·대여기관·상환방법 안내.",
+            "source_field": "benefits",
+            "evidence_quote": "고정금리 연2%"
+          },
+          {
+            "group_id": "g12",
+            "relation": "all",
+            "scope_text": "자동차 구입 자금 이용 시 신청 및 자금 사용 순서.",
+            "source_field": "benefits",
+            "evidence_quote": "자동차 구입비의 경우, 반드시 자동차 구입 전에 신청하여"
+          },
+          {
+            "group_id": "g13",
+            "relation": "reference",
+            "scope_text": "시군구 추천 후에도 금융기관 여신규정에 따라 대여되지 않을 수 있음.",
+            "source_field": "eligibility",
+            "evidence_quote": "해당 금융기관의 여신규정(신용등급 및 보증인 대출요건 등)에 의거 대여가 되지 않을 수 있습니다"
+          }
+        ],
+        "coverage": "partial",
+        "unresolved": [
+          "'21년 4월 이전 3%'의 적용 시점과 현재 적용 여부는 확정할 수 없음.",
+          "금융기관 내규의 구체적인 신용등급·보증인 대출요건은 원문에 없음."
+        ]
+      }
+    },
+    {
+      "source": {
+        "policy_key": "gov24:116010000001",
+        "title": "주택금융공사 월세자금보증",
+        "organization": "한국주택금융공사",
+        "source_url": "https://www.gov.kr/portal/rcvfvrSvc/dtlEx/116010000001",
+        "fields": {
+          "eligibility": "○ 보증금 1억원 이하 및 월세금 60만원 이하인 월세 계약을 체결한 주택도시 기금 주거안정 월세대출 대상자\n[우대형]\n- 취업준비생(신청일 현재 만 35세 이하의 무소득자이며 부모 소득이 6천만원 이하인 자)\n- 희망키움통장 가입자\n- 신청일 기준 최근 1년 이내 수급사실이 인정되는 근로장려금 수급자\n- 취업 후 5년 이내인 사회초년생으로 신청일 현재 만 35세 이하이며 부부합산 연소득 4천만원 이하인 자\n- 신청일 기준 최근 1년 이내 수급사실이 인정되는 자녀장려금 수급자\n- 신청일 현재 주거급여 수급자 확인서가 발급되는 주거급여 수급자\n\n[일반형]\n- 부부합산 연소득 5천만원 이하자 중 상기 [우대형]에 해당되지 않는 자",
+          "selection": "",
+          "application_period": "주택도시기금 주거안정 월세대출 규정에 따름",
+          "benefits": "○ 주택도시기금 주거안정 월세대출 요건을 충족하는 대상자에 대해 월세자금보증 지원\n -  최대 1,152만원 이내에서 월세금을 2년 환산한 금액의 80%까지 대출금액의 80%를 공사가 보증"
+        },
+        "source_hash": "620dc5cd3b276fb8e9895a0255fbf7f760083fea4b0685287947921023ed3415"
+      },
+      "extraction": {
+        "policy_key": "gov24:116010000001",
+        "conditions": [
+          {
+            "condition_id": "c5",
+            "field_key": "age",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 35.0
+            },
+            "unit": "YEARS",
+            "reference_basis": "신청일 현재",
+            "role": "eligibility",
+            "group_id": "g2a",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 현재 만 35세 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c11",
+            "field_key": "age",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 35.0
+            },
+            "unit": "YEARS",
+            "reference_basis": "신청일 현재",
+            "role": "eligibility",
+            "group_id": "g2d",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 현재 만 35세 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c12",
+            "field_key": "annual_income",
+            "subject": "couple",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 40000000.0
+            },
+            "unit": "KRW_PER_YEAR",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g2d",
+            "source_field": "eligibility",
+            "evidence_quote": "부부합산 연소득 4천만원 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c16",
+            "field_key": "annual_income",
+            "subject": "couple",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 50000000.0
+            },
+            "unit": "KRW_PER_YEAR",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "부부합산 연소득 5천만원 이하자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c13",
+            "field_key": "child_tax_credit_recipient",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "자녀장려금 수급자"
+            },
+            "unit": null,
+            "reference_basis": "신청일 기준 최근 1년 이내 수급사실이 인정되는",
+            "role": "eligibility",
+            "group_id": "g2e",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 기준 최근 1년 이내 수급사실이 인정되는 자녀장려금 수급자",
+            "unknown_reason": null,
+            "review_note": "정확한 날짜 범위는 원문에 없음."
+          },
+          {
+            "condition_id": "c1",
+            "field_key": "deposit_amount",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 100000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "보증금 1억원 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c9",
+            "field_key": "earned_income_tax_credit_recipient",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "근로장려금 수급자"
+            },
+            "unit": null,
+            "reference_basis": "신청일 기준 최근 1년 이내 수급사실이 인정되는",
+            "role": "eligibility",
+            "group_id": "g2c",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 기준 최근 1년 이내 수급사실이 인정되는 근로장려금 수급자",
+            "unknown_reason": null,
+            "review_note": "정확한 날짜 범위는 원문에 없음."
+          },
+          {
+            "condition_id": "c4",
+            "field_key": "employment_preparation_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "BOOLEAN",
+              "boolean": true
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g2a",
+            "source_field": "eligibility",
+            "evidence_quote": "취업준비생",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c22",
+            "field_key": "guaranteed_amount_ratio",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "NUMBER",
+              "number": 80.0
+            },
+            "unit": "PERCENT",
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g5",
+            "source_field": "benefits",
+            "evidence_quote": "금액의 80%를 공사가 보증",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c20",
+            "field_key": "guaranteed_loan_amount",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 11520000.0
+            },
+            "unit": "KRW",
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g5",
+            "source_field": "benefits",
+            "evidence_quote": "최대 1,152만원 이내",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c8",
+            "field_key": "hope_keyum_account_membership",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "BOOLEAN",
+              "boolean": true
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g2b",
+            "source_field": "eligibility",
+            "evidence_quote": "희망키움통장 가입자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c14",
+            "field_key": "housing_benefit_recipient",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "BOOLEAN",
+              "boolean": true
+            },
+            "unit": null,
+            "reference_basis": "신청일 현재",
+            "role": "eligibility",
+            "group_id": "g2f",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 현재 주거급여 수급자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c15",
+            "field_key": "housing_benefit_recipient_certificate_issuance",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "BOOLEAN",
+              "boolean": true
+            },
+            "unit": null,
+            "reference_basis": "신청일 현재",
+            "role": "eligibility",
+            "group_id": "g2f",
+            "source_field": "eligibility",
+            "evidence_quote": "주거급여 수급자 확인서가 발급되는",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c3",
+            "field_key": "housing_fund_monthly_rent_loan_eligibility",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "주택도시 기금 주거안정 월세대출 대상자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "주택도시 기금 주거안정 월세대출 대상자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c18",
+            "field_key": "housing_fund_monthly_rent_loan_rules",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "주택도시기금 주거안정 월세대출 규정에 따름"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "application",
+            "group_id": "g4",
+            "source_field": "application_period",
+            "evidence_quote": "주택도시기금 주거안정 월세대출 규정에 따름",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c6",
+            "field_key": "income",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "NUMBER",
+              "number": 0.0
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g2a",
+            "source_field": "eligibility",
+            "evidence_quote": "무소득자",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c7",
+            "field_key": "income",
+            "subject": "parents",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 60000000.0
+            },
+            "unit": "KRW",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g2a",
+            "source_field": "eligibility",
+            "evidence_quote": "부모 소득이 6천만원 이하",
+            "unknown_reason": null,
+            "review_note": "소득 산정기간은 원문에 없음."
+          },
+          {
+            "condition_id": "c2",
+            "field_key": "monthly_rent",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "LTE",
+            "value": {
+              "kind": "NUMBER",
+              "number": 600000.0
+            },
+            "unit": "KRW",
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g1",
+            "source_field": "eligibility",
+            "evidence_quote": "월세금 60만원 이하",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c21",
+            "field_key": "monthly_rent_conversion_period",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "NUMBER",
+              "number": 2.0
+            },
+            "unit": "YEARS",
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g5",
+            "source_field": "benefits",
+            "evidence_quote": "월세금을 2년 환산한",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c19",
+            "field_key": "monthly_rent_guarantee_support",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "월세자금보증 지원"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "reference",
+            "group_id": "g5",
+            "source_field": "benefits",
+            "evidence_quote": "월세자금보증 지원",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c10",
+            "field_key": "newly_employed_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "취업 후 5년 이내인 사회초년생"
+            },
+            "unit": null,
+            "reference_basis": "취업 후",
+            "role": "eligibility",
+            "group_id": "g2d",
+            "source_field": "eligibility",
+            "evidence_quote": "취업 후 5년 이내인 사회초년생",
+            "unknown_reason": null,
+            "review_note": ""
+          },
+          {
+            "condition_id": "c17",
+            "field_key": "preferential_type_status",
+            "subject": "applicant",
+            "state_code": 1,
+            "operator": "EQ",
+            "value": {
+              "kind": "TEXT",
+              "text": "상기 우대형에 해당되지 않는 자"
+            },
+            "unit": null,
+            "reference_basis": null,
+            "role": "eligibility",
+            "group_id": "g3",
+            "source_field": "eligibility",
+            "evidence_quote": "상기 [우대형]에 해당되지 않는 자",
+            "unknown_reason": null,
+            "review_note": ""
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "g1",
+            "relation": "all",
+            "scope_text": "모든 신청자에게 적용되는 기본 조건.",
+            "source_field": "eligibility",
+            "evidence_quote": "보증금 1억원 이하 및 월세금 60만원 이하인 월세 계약을 체결한 주택도시 기금 주거안정 월세대출 대상자"
+          },
+          {
+            "group_id": "g2",
+            "relation": "any",
+            "scope_text": "우대형의 6개 대안 중 하나를 충족하면 적용.",
+            "source_field": "eligibility",
+            "evidence_quote": "[우대형]"
+          },
+          {
+            "group_id": "g2a",
+            "relation": "all",
+            "scope_text": "취업준비생 대안의 조건.",
+            "source_field": "eligibility",
+            "evidence_quote": "취업준비생(신청일 현재 만 35세 이하의 무소득자이며 부모 소득이 6천만원 이하인 자)"
+          },
+          {
+            "group_id": "g2b",
+            "relation": "all",
+            "scope_text": "희망키움통장 가입자 대안.",
+            "source_field": "eligibility",
+            "evidence_quote": "희망키움통장 가입자"
+          },
+          {
+            "group_id": "g2c",
+            "relation": "all",
+            "scope_text": "근로장려금 수급자 대안.",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 기준 최근 1년 이내 수급사실이 인정되는 근로장려금 수급자"
+          },
+          {
+            "group_id": "g2d",
+            "relation": "all",
+            "scope_text": "사회초년생 대안의 조건.",
+            "source_field": "eligibility",
+            "evidence_quote": "취업 후 5년 이내인 사회초년생으로 신청일 현재 만 35세 이하이며 부부합산 연소득 4천만원 이하인 자"
+          },
+          {
+            "group_id": "g2e",
+            "relation": "all",
+            "scope_text": "자녀장려금 수급자 대안.",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 기준 최근 1년 이내 수급사실이 인정되는 자녀장려금 수급자"
+          },
+          {
+            "group_id": "g2f",
+            "relation": "all",
+            "scope_text": "주거급여 수급자 대안.",
+            "source_field": "eligibility",
+            "evidence_quote": "신청일 현재 주거급여 수급자 확인서가 발급되는 주거급여 수급자"
+          },
+          {
+            "group_id": "g3",
+            "relation": "all",
+            "scope_text": "우대형에 해당하지 않는 일반형 신청자에게 적용.",
+            "source_field": "eligibility",
+            "evidence_quote": "부부합산 연소득 5천만원 이하자 중 상기 [우대형]에 해당되지 않는 자"
+          },
+          {
+            "group_id": "g4",
+            "relation": "reference",
+            "scope_text": "신청기간 관련 참고 조건.",
+            "source_field": "application_period",
+            "evidence_quote": "주택도시기금 주거안정 월세대출 규정에 따름"
+          },
+          {
+            "group_id": "g5",
+            "relation": "reference",
+            "scope_text": "지원 금액 및 보증 비율 관련 참고 정보.",
+            "source_field": "benefits",
+            "evidence_quote": "최대 1,152만원 이내에서 월세금을 2년 환산한 금액의 80%까지 대출금액의 80%를 공사가 보증"
+          }
+        ],
+        "coverage": "partial",
+        "unresolved": [
+          "부모 소득 및 부부합산 연소득의 정확한 산정기간과 소득 정의는 원문에 없음.",
+          "취업 후 5년 이내의 정확한 기준일은 원문에 없음.",
+          "신청일 기준 최근 1년 이내의 정확한 날짜 범위는 원문에 없음.",
+          "주택도시기금 주거안정 월세대출 대상자의 세부 요건은 원문에 없음."
+        ]
+      }
+    }
+  ]
+}

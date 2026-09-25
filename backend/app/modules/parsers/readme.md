@@ -1,7 +1,10 @@
-# parsers — 전용 파서 확장 예정
+# 코드 우선 조건 파서
 
-담당: 백엔드(개인 담당 미정). 현재 `public.py`와 `__init__.py`는 빈 골격이며 호출 가능한 함수·반환값·HTTP 경로가 없습니다.
+담당: 백엔드(개인 담당 미정). `public.extract_conditions(source: SourcePolicy) -> CodeExtraction` 구현.
+반환값은 extraction(추출 가능 조건 또는 None), logic(조건 트리), unresolved_fields(미해결 원문 필드), complete(전체 코드 추출 여부) 포함.
 
-이미지/PDF 등 전용 파서 확장을 위한 영역입니다. 현재 JSON/XML·RawDocument 입력은 `normalization/raw.py`의 `load_raw_policies(path) -> list[SourcePolicy]`, 복지로 XML 해석은 `collectors/bokjiro_services.py`에서 수행합니다. 빈 모듈을 구현 완료로 취급하지 않습니다.
+이 모듈은 네트워크·DB·LLM 호출 없음. 확정 가능한 전체 절만 분류하고 복합·예외·나열 관계는 추측하지 않음. pipeline에서 미해결 원문을 LLM에 연결.
+JSON/XML·RawDocument 입력은 `normalization/raw.py`, 복지로 XML 해석은 `collectors/bokjiro_services.py` 사용. 이미지/PDF 전용 파서는 후속.
 
-현재 동작과 검증은 [rawdata 파싱](../../../docs/raw-parsing.md), `backend/tests/test_raw_parsing.py`를 참고합니다. backend 폴더에서 `.\.venv\Scripts\python.exe -m pytest tests/test_raw_parsing.py`로 실행합니다. 전용 parsers 테스트는 아직 없습니다.
+backend에서 `python -m app.modules.parsers --input 공개원문.json`으로 LLM 없이 분류 가능 범위 확인. [전체 사용법](../../../docs/condition-classification.md).
+검증: `python -m pytest tests/test_condition_normalization.py tests/test_official_regions.py tests/test_raw_parsing.py`.

@@ -53,4 +53,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/test.ps1
 
 ## 원문 파싱
 
-프로젝트 루트에서 `backend/scripts/parse-raw.ps1 -InputPath 'data/raw_documents/파일.json'` 실행. `.env`의 `CODEX_MODEL`로 Codex CLI 추출·검증·초안 저장. 기본 Luna, 검증 실패 시 설정된 Terra로 한 번 재시도. [입력 형식·모델 설정·검증 범위](docs/raw-parsing.md).
+프로젝트 루트에서 `backend/scripts/parse-raw.ps1 -InputPath 'data/raw_documents/파일.json'` 실행. 코드 우선 분류 후 미해결 조건이 있는 정책은 전체 원문을 `.env`의 `CODEX_MODEL`로 CLI 분석. 기본 Luna, 검증 실패 시 설정된 Terra로 한 번 재시도. 표준 조건 v2·공식 지역코드 정규화와 초안 저장 포함. [입력 형식·모델 설정](docs/raw-parsing.md), [코드·조건·지역 사용법](docs/condition-classification.md).

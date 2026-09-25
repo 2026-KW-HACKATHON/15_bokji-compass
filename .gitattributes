@@ -1,2 +1,5 @@
 # Shell entry points must remain runnable after Windows edits/checkouts.
 *.sh text eol=lf
+
+# Region manifest hashes must survive Windows/macOS Git checkouts byte-for-byte.
+/backend/reference/regions/*.csv text eol=lf

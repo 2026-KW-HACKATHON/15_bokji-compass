@@ -1,5 +1,7 @@
 ## API 정책 정규화
 
+신규 조건 정규화는 `public.normalize_conditions(extraction, logic=None, catalog=None) -> CanonicalPolicy` 사용. 필드 레지스트리·Decimal 문자열·공식 REGION·미확정 사유 생성. 네트워크·DB 호출 없음. [v2 계약](../../../docs/condition-classification.md). 아래 정책 행 변환과 별도 진입점.
+
 `app.modules.normalization.public.normalize_api_services`는 Gov24 또는 복지로 API의
 서비스 목록을 MySQL `policies` 행과 `policy_requirements` 행으로 변환합니다.
 
