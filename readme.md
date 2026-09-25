@@ -2,11 +2,11 @@
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
 
-프론트엔드는 React 기반 개인비서 추천 웹입니다. 내 정보 입력 → 추천 공고와 이유 확인, 태그 검색·저장, 시니어를 위한 쉬운 화면, 인증 로직 없는 로그인/가입 폼을 제공합니다. 개발 기본값은 합성 예시이며 운영 빌드는 서버 API를 요청합니다. 실제 공고·LLM 추천 서버 API는 후속 구현입니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md), [배포](frontend/docs/deployment.md), [제안 HTTP 계약](frontend/docs/service-contract.md)을 참고하세요.
+프론트엔드는 React 기반 개인비서 추천 웹입니다. 내 정보 입력 → 추천 공고와 이유 확인, 태그 검색·저장, 시니어를 위한 쉬운 화면, 서버에 연결된 로그인·회원가입을 제공합니다. 소득·재산 계산은 비회원도 사용할 수 있고, 로그인 후 동의하면 입력값을 계정에 저장합니다. 공고·추천의 개발 기본값은 합성 예시이며 운영 빌드는 서버 API를 요청합니다. 실제 공고·LLM 추천 서버 API는 후속 구현입니다. [웹 실행 방법](frontend/web/readme.md), [Android/iOS 확장 구조](frontend/docs/architecture.md), [배포](frontend/docs/deployment.md), [제안 HTTP 계약](frontend/docs/service-contract.md)을 참고하세요.
 
 백엔드 엔드포인트·응답·포트·CORS·웹/모바일 연동 현황은 루트의 [API 관리대장](api-management.md)에서 관리합니다. [전체 문서 점검 결과](backend/docs/documentation-audit.md)에는 갱신 상태와 보완 내역을 기록합니다.
 
-Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 조건 판정과 정규화 결과의 MySQL 저장은 후속 구현 대상입니다.
+Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존성 설치, 독립 개발 MySQL 구성을 제공합니다. 설치·실행은 [백엔드 사용법](backend/readme.md)을 참고하세요. 팀원의 공고 원문 수집·파일 저장, Gov24 조회·정책 행 변환과 개발 SQL도 통합했습니다. 공고 전체의 신청 자격 판정과 정규화 정책 결과의 MySQL 저장은 후속 구현 대상입니다.
 
 
 
@@ -15,6 +15,8 @@ Windows 백엔드 개발환경과 서버 진입점, requirements 기반 의존�
 macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/macos-development.md) 제공. 운영 서버는 Windows 유지.
 
 코드 우선 조건 분류·조건 v2·공식 행정동/법정동 분류 구현. [사용법·갱신·검증 범위](backend/docs/condition-classification.md). 실제 정책 DB 저장·추천 API는 후속.
+
+소득·재산 계산은 `/v1/finance`에서 서버 규칙으로 실행합니다. [금융 모듈·회원 저장·MySQL 초기화](backend/app/modules/finance/readme.md), [공식 산정 규칙·계산 한계](backend/docs/financial-rules.md), [웹 계산기](frontend/web/src/features/finance/readme.md)를 참고하세요. 결과는 입력값에 따른 예상치이며 공고 전체의 신청 자격 확정을 의미하지 않습니다.
 
 ## 사용언어
 | 사용부분 | 언어|
@@ -51,6 +53,8 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 | 기능별 README 작성 양식 | [backend/docs/module-readme-template.md](backend/docs/module-readme-template.md) |
 | 엔드포인트·설정·클라이언트 통합 관리 | [api-management.md](api-management.md) |
 | 공개 API 상세·외부 공급자 참고 | [backend/docs/api/readme.md](backend/docs/api/readme.md) |
+| 소득·재산 계산·회원 저장 | [금융 모듈](backend/app/modules/finance/readme.md), [공식 산정 규칙·한계](backend/docs/financial-rules.md), [웹 계산기](frontend/web/src/features/finance/readme.md) |
+| 계산기·화면 개선 인수인계 | [기능·저장·배포·후속 추천 연결](frontend/docs/finance-calculator.md) |
 | 전체 문서 갱신 점검 | [documentation-audit.md](backend/docs/documentation-audit.md) |
 | 프론트엔드 구조와 API 연결 | [architecture.md](frontend/docs/architecture.md), [api-integration.md](frontend/docs/api-integration.md) |
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
@@ -69,10 +73,14 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |-- app/
 |   |   |-- api/
 |   |   |   |-- __init__.py
+|   |   |   |-- auth.py
+|   |   |   |-- finance.py
 |   |   |   |-- health.py
 |   |   |   `-- readme.md
 |   |   |-- contracts/
 |   |   |   |-- __init__.py
+|   |   |   |-- conditions.py
+|   |   |   |-- finance.py
 |   |   |   |-- parsing.py
 |   |   |   |-- public.py
 |   |   |   `-- readme.md
@@ -82,6 +90,13 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   |   |-- database.py
 |   |   |   `-- readme.md
 |   |   |-- modules/
+|   |   |   |-- auth/
+|   |   |   |   |-- __init__.py
+|   |   |   |   |-- __main__.py
+|   |   |   |   |-- models.py
+|   |   |   |   |-- schema.py
+|   |   |   |   |-- service.py
+|   |   |   |   `-- readme.md
 |   |   |   |-- collectors/
 |   |   |   |   |-- tests/
 |   |   |   |   |   |-- readme.md
@@ -96,6 +111,14 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   |   |   |-- gov24_services.py
 |   |   |   |   |-- kwangwoon_notices.py
 |   |   |   |   |-- public.py
+|   |   |   |   `-- readme.md
+|   |   |   |-- finance/
+|   |   |   |   |-- __init__.py
+|   |   |   |   |-- __main__.py
+|   |   |   |   |-- public.py
+|   |   |   |   |-- rules.py
+|   |   |   |   |-- schema.py
+|   |   |   |   |-- storage.py
 |   |   |   |   `-- readme.md
 |   |   |   |-- llm/
 |   |   |   |   |-- tests/
@@ -169,6 +192,7 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   |-- data-contracts.md
 |   |   |-- development.md
 |   |   |-- documentation-audit.md
+|   |   |-- financial-rules.md
 |   |   |-- git-sync.md
 |   |   |-- implementation-plan.md
 |   |   |-- implementation-status.md
@@ -207,8 +231,11 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   `-- test.sh
 |   |-- tests/
 |   |   |-- readme.md
+|   |   |-- test_auth.py
 |   |   |-- test_bootstrap.py
 |   |   |-- test_classification_experiment.py
+|   |   |-- test_finance_api.py
+|   |   |-- test_finance_rules.py
 |   |   |-- test_mysql_helper.py
 |   |   `-- test_raw_parsing.py
 |   |-- .env.example
@@ -258,6 +285,13 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- auth/
 |   |   |   |   |   |-- AuthPage.jsx
+|   |   |   |   |   |-- authApi.js
+|   |   |   |   |   `-- readme.md
+|   |   |   |   |-- finance/
+|   |   |   |   |   |-- CalculatorPage.jsx
+|   |   |   |   |   |-- calculator.css
+|   |   |   |   |   |-- financeApi.js
+|   |   |   |   |   |-- financeModel.js
 |   |   |   |   |   `-- readme.md
 |   |   |   |   |-- notifications/
 |   |   |   |   |   `-- readme.md
@@ -290,8 +324,12 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 |   |   |   |   `-- readme.md
 |   |   |   `-- readme.md
 |   |   |-- tests/
+|   |   |   |-- finance.test.js
+|   |   |   |-- finance-recommendation.test.js
 |   |   |   |-- policies.test.js
 |   |   |   |-- e2e/app.spec.js
+|   |   |   |-- e2e/auth.spec.js
+|   |   |   |-- e2e/calculator.spec.js
 |   |   |   `-- readme.md
 |   |   `-- readme.md
 |   `-- readme.md
@@ -308,8 +346,9 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 - 수집 원문은 collectors/storage, 공급자별 입력 변환은 normalization, 모델 호출은 llm, 근거 검증은 validation, 초안 파일 저장은 pipeline 담당.
 - 현재 파싱은 Windows PowerShell 또는 macOS Bash CLI 실행. `.env` 모델 설정을 사용하고 결과는 `backend/data/parsed_policies/`에 저장. HTTP 분석·조회·사용자 판정 API는 후속 구현.
 - 파싱 초안의 검증 통과와 DB 저장·검수 승인·공개를 구분. `draft`·자동 판정 비활성 유지.
-- 공식 지역 코드 마스터와 실행 가능한 조건 논리·필드 표준 사전은 후속 작업. 기존 SQL의 합성 지역 코드를 실데이터로 사용하지 않음.
-- 프론트엔드는 공개 HTTP 계약으로 연결. 현재는 health/readiness만 제공하며 로컬 파일이나 DB를 직접 참조하지 않음.
+- 공식 지역 코드 스냅샷과 조건 v2의 논리 구조·필드 사전 구현. 실제 공고의 전체 자격 판정 연결은 후속 작업. 기존 SQL의 합성 지역 코드를 실데이터로 사용하지 않음.
+- 프론트엔드는 공개 HTTP 계약으로 연결. 현재 health/readiness·계정 인증·소득/재산 계산 및 계정별 금융정보 저장 API를 제공하며 프론트에서 로컬 파일이나 DB를 직접 참조하지 않음.
+- 금융정보는 로그인한 본인의 명시적 동의로 원입력만 저장하고 조회 시 다시 계산. 개발 SQLite와 MySQL 명시적 초기화 경로가 있으며 실제 MySQL 저장 검증은 후속 작업.
 
 ## 팀원 작업 순서
 

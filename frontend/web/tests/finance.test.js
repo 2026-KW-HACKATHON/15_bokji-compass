@@ -1,0 +1,249 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createFinanceApi } from '../src/features/finance/financeApi.js';
+import {
+  emptyFinancialProfile,
+  emptyMember,
+  emptyVehicle,
+  toFinancialProfile,
+  parseInteger,
+  parseCalculation,
+  formatMoney,
+  officialSourceUrl,
+} from '../src/features/finance/financeModel.js';
+
+const calculation = () => ({
+  reference_year: 2026,
+  rules_version: 'test-2026',
+  median: {
+    base: 2564238,
+    monthly_income: 0,
+    ratio_percent: 0,
+    thresholds: [{ percent: 50, amount: 1282119 }],
+  },
+  assets: {
+    gross_total: null,
+    net_total: null,
+    without_vehicles: null,
+    vehicle_total: 0,
+    debt_total: null,
+  },
+  assessments: [
+    {
+      rule_id: 'basic-2026',
+      label: '생계급여 기본 산식',
+      status: 'needs_review',
+      checks: [{ label: '소득인정액', value: null, limit: 820556, state: 'unknown' }],
+      missing: ['재산 금액 확인'],
+      notes: ['자격 확정 아님'],
+      breakdown: [{ label: '공제액', amount: 0 }],
+    },
+  ],
+  sources: [{ title: '공식 자료', url: 'https://www.mohw.go.kr/' }],
+  notes: ['입력값에 따른 추정'],
+});
+const response = (data, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => data,
+});
+
+test('financial profile preserves unknown values and explicit zero without adding unapproved fields', () => {
+  const draft = emptyFinancialProfile();
+  draft.members[0].earned_income = '0';
+  draft.members[0].other_income = '   ';
+  draft.members[0].private_transfer_income = '1,000';
+  draft.members[0].password = 'never send';
+  draft.assets.rental_deposit = '10,000,000';
+  draft.assets.housing = '';
+  draft.token = 'never send';
+  const raw = toFinancialProfile(draft);
+  assert.equal(raw.members[0].earned_income, 0);
+  assert.equal(raw.members[0].other_income, null);
+  assert.equal(raw.members[0].private_transfer_income, 1000);
+  assert.equal(raw.assets.rental_deposit, 10000000);
+  assert.equal(raw.assets.housing, null);
+  assert.equal(raw.minor_children, null);
+  assert.equal(Object.hasOwn(raw, 'token'), false);
+  assert.equal(Object.hasOwn(raw.members[0], 'password'), false);
+  assert.equal(draft.members[0].earned_income, '0');
+});
+test('finance numeric inputs reject exponents, malformed separators, decimals and unsafe amounts', () => {
+  for (const value of [
+    '1e4',
+    '-1',
+    '1.5',
+    '12,34',
+    Infinity,
+    NaN,
+    '1000000000001',
+    '9007199254740993',
+  ])
+    assert.throws(() => parseInteger(value, '금액'));
+  assert.equal(parseInteger('1,000,000,000,000', '금액'), 1000000000000);
+  assert.equal(parseInteger('', '금액'), null);
+  assert.equal(parseInteger('0', '금액'), 0);
+  assert.equal(formatMoney(null), '확인 필요');
+  assert.equal(formatMoney(0), '0원');
+  assert.equal(formatMoney(1000000), '1,000,000원');
+});
+test('income and vehicle facts stay separate and older drafts need basis confirmation', () => {
+  const draft = emptyFinancialProfile();
+  draft.members[0].earned_income = '2,000,000';
+  draft.members[0].earned_income_basis = 'net';
+  draft.members[0].business_income = '5,000,000';
+  draft.members[0].business_income_basis = 'revenue';
+  draft.vehicle_status = 'owned';
+  draft.vehicles = [
+    {
+      ...emptyVehicle(),
+      value: '20,000,000',
+      use: 'livelihood',
+      ownership: 'joint',
+      registration_use: 'non_commercial',
+      value_basis: 'market',
+      eco_subsidy: 'received',
+    },
+  ];
+  const raw = toFinancialProfile(draft);
+  assert.equal(raw.members[0].earned_income, 2_000_000);
+  assert.equal(raw.members[0].earned_income_basis, 'net');
+  assert.equal(raw.members[0].business_income_basis, 'revenue');
+  assert.equal(raw.vehicles[0].value, 20_000_000);
+  assert.equal(raw.vehicles[0].use, 'livelihood');
+  assert.equal(raw.vehicles[0].registration_use, 'non_commercial');
+  assert.equal(raw.vehicles[0].ownership, 'joint');
+  assert.equal(raw.vehicles[0].eco_subsidy, 'received');
+  delete draft.members[0].earned_income_basis;
+  delete draft.members[0].business_income_basis;
+  for (const key of ['ownership', 'registration_use', 'value_basis', 'eco_subsidy'])
+    delete draft.vehicles[0][key];
+  const older = toFinancialProfile(draft);
+  assert.equal(older.members[0].earned_income_basis, 'unknown');
+  assert.equal(older.members[0].business_income_basis, 'unknown');
+  assert.equal(older.vehicles[0].ownership, 'unknown');
+  assert.equal(older.vehicles[0].registration_use, 'unknown');
+  assert.equal(older.vehicles[0].value_basis, 'unknown');
+  assert.equal(older.vehicles[0].eco_subsidy, 'unknown');
+  draft.vehicles[0].registration_use = 'guessed-from-business-owner';
+  assert.throws(() => toFinancialProfile(draft), /登録|등록/);
+});
+test('finance profile enforces household, children, vehicle and enum coherence', () => {
+  let draft = emptyFinancialProfile();
+  draft.household_size = 2;
+  assert.throws(() => toFinancialProfile(draft), /가구원 수/);
+  draft.members.push(emptyMember());
+  assert.equal(toFinancialProfile(draft).members.length, 2);
+  draft.minor_children = 3;
+  assert.throws(() => toFinancialProfile(draft), /자녀 수/);
+  draft = emptyFinancialProfile();
+  draft.members[0].age = 121;
+  assert.throws(() => toFinancialProfile(draft), /나이/);
+  draft.members[0].age = 0;
+  draft.vehicle_status = 'owned';
+  assert.throws(() => toFinancialProfile(draft), /차량/);
+  draft.vehicles = [emptyVehicle()];
+  assert.equal(toFinancialProfile(draft).vehicles[0].seats, null);
+  draft.vehicles[0].seats = 0;
+  assert.throws(() => toFinancialProfile(draft), /승차 정원/);
+  draft.vehicles = [];
+  draft.vehicle_status = 'none';
+  draft.region = 'unlisted';
+  assert.throws(() => toFinancialProfile(draft), /지역/);
+});
+test('calculation requires usable server fields and permits unknown results without making eligibility claims', () => {
+  const data = calculation();
+  assert.equal(parseCalculation(data), data);
+  assert.throws(() =>
+    parseCalculation({ ...data, median: { ...data.median, ratio_percent: Infinity } }),
+  );
+  assert.throws(() =>
+    parseCalculation({ ...data, assessments: [{ ...data.assessments[0], status: 'eligible' }] }),
+  );
+  assert.throws(() =>
+    parseCalculation({ ...data, assessments: [{ ...data.assessments[0], missing: null }] }),
+  );
+  assert.equal(officialSourceUrl('javascript:alert(1)'), null);
+  assert.equal(officialSourceUrl('https://secret:password@example.com/'), null);
+  assert.equal(officialSourceUrl('https://www.mohw.go.kr/'), 'https://www.mohw.go.kr/');
+});
+test('public finance calls omit cookies and member calls require explicit save consent', async () => {
+  const calls = [];
+  const profile = emptyFinancialProfile();
+  const api = createFinanceApi({
+    baseUrl: '/api/',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return response(
+        url.endsWith('/calculate')
+          ? calculation()
+          : url.endsWith('/rules')
+            ? { rules: [] }
+            : url.endsWith('/delete')
+              ? { deleted: true }
+              : { profile, calculation: calculation(), updated_at: '2026-09-25T00:00:00Z' },
+      );
+    },
+  });
+  await api.calculate(profile);
+  await api.rules();
+  await assert.rejects(api.saveProfile(profile), /동의/);
+  assert.equal(calls.length, 2);
+  await api.getProfile();
+  await api.saveProfile(profile, { consent: true });
+  await api.deleteProfile();
+  assert.equal(calls[0].url, '/api/v1/finance/calculate');
+  assert.equal(calls[0].options.credentials, 'omit');
+  assert.equal(calls[1].options.credentials, 'omit');
+  assert.equal(calls[0].options.headers['X-Auth-Request'], undefined);
+  for (const call of calls.slice(2)) {
+    assert.equal(call.options.credentials, 'include');
+    assert.equal(call.options.headers['X-Auth-Request'], '1');
+  }
+  assert.deepEqual(JSON.parse(calls[3].options.body), { profile, consent: true });
+  assert.equal(calls[4].options.method, 'POST');
+  assert.equal(calls[4].options.body, '{}');
+});
+test('no stored profile is a normal response and failures never become example calculations', async () => {
+  const emptyApi = createFinanceApi({
+    fetchImpl: async () => response({ profile: null, calculation: null, updated_at: null }),
+  });
+  assert.deepEqual(await emptyApi.getProfile(), {
+    profile: null,
+    calculation: null,
+    updated_at: null,
+  });
+  await assert.rejects(emptyApi.calculate(emptyFinancialProfile()), /계산 결과/);
+  const failing = createFinanceApi({
+    fetchImpl: async () => response({ detail: '계산 서버 점검 중' }, 503),
+  });
+  await assert.rejects(failing.calculate(emptyFinancialProfile()), /계산 서버 점검 중/);
+  const malformed = createFinanceApi({ fetchImpl: async () => response({ bad: true }) });
+  await assert.rejects(malformed.calculate(emptyFinancialProfile()), /계산 결과/);
+  await assert.rejects(malformed.deleteProfile(), /삭제 결과/);
+});
+test('finance requests distinguish timeout and cancellation and skip an already cancelled request', async () => {
+  let count = 0;
+  const pending = (_, options) => {
+    count += 1;
+    return new Promise((resolve, reject) =>
+      options.signal.addEventListener(
+        'abort',
+        () => reject(new DOMException('Aborted', 'AbortError')),
+        { once: true },
+      ),
+    );
+  };
+  const api = createFinanceApi({ timeoutMs: 5, fetchImpl: pending });
+  await assert.rejects(api.rules(), /응답이 늦어지고/);
+  const abort = new AbortController();
+  abort.abort();
+  await assert.rejects(api.rules({ signal: abort.signal }), { name: 'AbortError' });
+  assert.equal(count, 1);
+  const controller = new AbortController();
+  const work = createFinanceApi({ timeoutMs: 1000, fetchImpl: pending }).rules({
+    signal: controller.signal,
+  });
+  controller.abort();
+  await assert.rejects(work, { name: 'AbortError' });
+});

@@ -8,6 +8,7 @@
 - [공고·개인비서 HTTP 계약 제안](service-contract.md)
 - [운영 배포·설정](deployment.md)
 - [쉬운 화면의 참고·설계 기준](senior-mode.md)
+- [소득·재산 계산기와 화면 개선 인수인계](finance-calculator.md)
 - [루트 API 관리대장](../../api-management.md)
 - [전체 문서 점검 결과](../../backend/docs/documentation-audit.md)
 - [협업 규칙](ai-guide.md)

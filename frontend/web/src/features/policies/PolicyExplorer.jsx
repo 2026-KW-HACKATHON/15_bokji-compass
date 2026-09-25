@@ -21,7 +21,11 @@ export default function PolicyExplorer({
 }) {
   const [filters, setFilters] = useState(initialFilters);
   const [query, setQuery] = useState('');
-  const [cursors, setCursors] = useState([null]);
+  const [pagination, setPagination] = useState({ easy, cursors: [null] });
+  // A cursor belongs to its page size. Reset before requesting the new mode's page.
+  if (pagination.easy !== easy) setPagination({ easy, cursors: [null] });
+  const cursors = pagination.easy === easy ? pagination.cursors : [null];
+  const setCursors = (next) => setPagination({ easy, cursors: next });
   const [result, setResult] = useState({ items: [], total: 0, nextCursor: null });
   const [state, setState] = useState('loading');
   const [error, setError] = useState('');
@@ -68,12 +72,12 @@ export default function PolicyExplorer({
   return (
     <section className="explorer">
       <div className="page-heading">
-        <span className="eyebrow">공고 찾기</span>
-        <h1>필요한 공고를 찾아보세요</h1>
+        {!easy && <span className="eyebrow">직접 찾아보기</span>}
+        <h1>전체 공고</h1>
         <p>
           {easy
             ? '검색하거나, 관심 있는 분야를 골라보세요.'
-            : '직접 둘러보고 싶은 공고도 지역과 태그로 쉽게 찾을 수 있어요.'}
+            : '검색어를 입력하거나 분야와 지역을 선택해 보세요.'}
         </p>
       </div>
       <form
@@ -157,7 +161,7 @@ export default function PolicyExplorer({
             </label>
           )}
           <button className="text-button" onClick={reset}>
-            검색 조건 초기화
+            검색 조건 지우기
           </button>
         </div>
       </details>
@@ -192,7 +196,7 @@ export default function PolicyExplorer({
           <h3>조건에 맞는 공고가 없어요</h3>
           <p>다른 검색어나 분야를 선택해 보세요.</p>
           <button className="button secondary" onClick={reset}>
-            검색 조건 초기화
+            검색 조건 지우기
           </button>
         </div>
       ) : (
@@ -216,7 +220,7 @@ export default function PolicyExplorer({
               disabled={cursors.length === 1}
               onClick={() => turnPage(cursors.slice(0, -1))}
             >
-              이전 공고
+              {easy ? '이전 공고' : '이전 페이지'}
             </button>
             <span>
               {cursors.length}번째 {easy ? '공고' : '페이지'}
@@ -226,7 +230,7 @@ export default function PolicyExplorer({
               disabled={!result.nextCursor || cursors.includes(result.nextCursor)}
               onClick={() => turnPage([...cursors, result.nextCursor])}
             >
-              다음 공고
+              {easy ? '다음 공고' : '다음 페이지'}
             </button>
           </nav>
         </>

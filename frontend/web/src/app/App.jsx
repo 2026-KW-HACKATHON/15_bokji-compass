@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import AuthPage from '../features/auth/AuthPage.jsx';
 import { authRequest } from '../features/auth/authApi.js';
+import CalculatorPage from '../features/finance/CalculatorPage.jsx';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
@@ -16,7 +17,8 @@ import { policyRepository, recommendationRepository } from './services.js';
 const navigation = [
   { id: 'home', label: '내 비서', icon: 'house' },
   { id: 'explore', label: '전체 공고', icon: 'search' },
-  { id: 'saved', label: '저장한 공고', icon: 'bookmark' },
+  { id: 'saved', label: '저장한 공고', mobileLabel: '저장', icon: 'bookmark' },
+  { id: 'calculator', label: '계산기', icon: 'calculator' },
   { id: 'profile', label: '내 정보', icon: 'user' },
 ];
 const profileKey = 'bokji.profile.v2';
@@ -45,6 +47,9 @@ export default function App() {
   const [route, setRoute] = useState(readRoute);
   const [user, setUser] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [financial, setFinancial] = useState({ owner: null, profile: null });
+  const [useFinancial, setUseFinancial] = useState(false);
+  const financialProfile = financial.owner === (user?.id || null) ? financial.profile : null;
   const [easy, setEasy] = useState(() =>
     readStoredValue(easyKey, false, (value) => typeof value === 'boolean'),
   );
@@ -62,12 +67,16 @@ export default function App() {
   const [retry, setRetry] = useState(0);
   const main = useRef(null);
   const authRevision = useRef(0);
+  const routeNotice = useRef('');
   useEffect(() => {
     let active = true;
     const revision = authRevision.current;
     authRequest('me')
       .then(({ user: current }) => {
-        if (active && revision === authRevision.current) setUser(current);
+        if (active && revision === authRevision.current) {
+          setUser(current);
+          setFinancial({ owner: current?.id || null, profile: null });
+        }
       })
       .catch(() => {});
     return () => {
@@ -77,6 +86,11 @@ export default function App() {
   const onLogin = (current) => {
     authRevision.current += 1;
     setUser(current);
+    setFinancial((previous) => ({
+      owner: current.id,
+      profile: previous.owner === null ? previous.profile : null,
+    }));
+    setUseFinancial(false);
     window.location.hash = 'home';
   };
   const logout = async () => {
@@ -85,6 +99,8 @@ export default function App() {
     try {
       await authRequest('logout', {});
       setUser(null);
+      setFinancial({ owner: null, profile: null });
+      setUseFinancial(false);
       window.location.hash = 'home';
     } catch (err) {
       setNotice(err.message);
@@ -96,7 +112,8 @@ export default function App() {
     const onHash = () => {
       setRoute(readRoute());
       setSelected(null);
-      setNotice('');
+      setNotice(routeNotice.current);
+      routeNotice.current = '';
       requestAnimationFrame(() => {
         main.current?.focus();
         window.scrollTo(0, 0);
@@ -117,7 +134,10 @@ export default function App() {
     }
     setState('loading');
     recommendationRepository
-      .recommend(profile, { signal: controller.signal })
+      .recommend(profile, {
+        signal: controller.signal,
+        financialProfile: useFinancial ? financialProfile : null,
+      })
       .then((value) => {
         if (!controller.signal.aborted) {
           setResult(value);
@@ -135,7 +155,7 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [profile, retry]);
+  }, [profile, retry, useFinancial, financialProfile]);
   const navigate = (page, tag = '') => {
     window.location.hash = page + (tag ? '?tag=' + encodeURIComponent(tag) : '');
   };
@@ -255,14 +275,16 @@ export default function App() {
               쉬운 화면<span className="mode-state">{easy ? '켜짐' : '꺼짐'}</span>
             </button>
             {user ? (
-              <>
-                <span className="auth-username">{user.name || '회원'}님</span>
+              <div className="account-actions">
+                <span className="auth-username" title={(user.name || '회원') + '님'}>
+                  {user.name || '회원'}님
+                </span>
                 <button className="text-button" onClick={logout} disabled={loggingOut}>
                   {loggingOut ? '로그아웃 중…' : '로그아웃'}
                 </button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="account-actions">
                 <a className="login-link" href="#login">
                   로그인
                 </a>
@@ -271,16 +293,15 @@ export default function App() {
                     회원가입
                   </a>
                 )}
-              </>
+              </div>
             )}
           </div>
         </header>
-        {appConfig.dataMode === 'demo' && (
+        {appConfig.dataMode === 'demo' && !['login', 'signup'].includes(route.page) && (
           <div className="demo-banner">
             <Icon name="info" size={18} />
             <span>
-              <strong>체험 화면</strong> · 예시 공고와 추천을 보여드려요. 실제 LLM 추천은 서버 연결
-              후 제공돼요.
+              <strong>공고·추천 체험</strong> · 예시 공고입니다. 실제 AI 추천은 준비 중이에요.
             </span>
           </div>
         )}
@@ -300,7 +321,7 @@ export default function App() {
           )}
           {route.page === 'explore' && (
             <PolicyExplorer
-              key={route.tag + ':' + easy}
+              key={route.tag}
               {...shared}
               repository={policyRepository}
               tag={route.tag}
@@ -310,12 +331,15 @@ export default function App() {
           {route.page === 'profile' && (
             <section className="profile-page">
               <div className="page-heading">
-                <span className="eyebrow">개인비서에게 알려주세요</span>
+                {!easy && <span className="eyebrow">맞춤 추천 설정</span>}
                 <h1>내 정보</h1>
                 <p>나에게 맞는 공고를 추천하는 데 사용해요.</p>
+                <a className="text-button calculator-entry" href="#calculator">
+                  <Icon name="calculator" /> 소득·재산 계산하고 저장하기
+                </a>
               </div>
               <ProfileForm
-                key={JSON.stringify(profile) + easy}
+                key={JSON.stringify(profile)}
                 profile={profile || defaultProfile}
                 onSave={saveProfile}
                 easy={easy}
@@ -329,10 +353,31 @@ export default function App() {
               )}
             </section>
           )}
+          {route.page === 'calculator' && (
+            <CalculatorPage
+              key={user?.id || 'guest'}
+              easy={easy}
+              user={user}
+              profile={financialProfile}
+              onProfileChange={(value) => {
+                setFinancial({ owner: user?.id || null, profile: value });
+                setUseFinancial(false);
+              }}
+              onRecommend={() => {
+                setUseFinancial(true);
+                if (!profile) setProfile({ ...defaultProfile });
+                routeNotice.current =
+                  appConfig.dataMode === 'demo'
+                    ? '현재 공고는 예시예요. 소득·재산을 반영한 실제 공고 추천은 서버 연동 후 제공돼요.'
+                    : '';
+                navigate('home');
+              }}
+            />
+          )}
           {route.page === 'saved' && (
             <section>
               <div className="page-heading">
-                <span className="eyebrow">다시 보고 싶은 정보</span>
+                {!easy && <span className="eyebrow">다시 보고 싶은 공고</span>}
                 <h1>저장한 공고</h1>
                 <p>이 브라우저에 저장한 공고예요. 최신 내용은 공식 공고를 확인하세요.</p>
               </div>
@@ -378,7 +423,7 @@ export default function App() {
             </section>
           )}
           {['login', 'signup'].includes(route.page) && (
-            <AuthPage key={route.page} type={route.page} onLogin={onLogin} />
+            <AuthPage key={route.page} type={route.page} onLogin={onLogin} easy={easy} />
           )}
           <footer className="page-footer">
             <span className="footer-brand">
@@ -394,10 +439,11 @@ export default function App() {
           <a
             key={item.id}
             href={'#' + item.id}
+            aria-label={item.label}
             aria-current={route.page === item.id ? 'page' : undefined}
           >
             <Icon name={item.icon} size={23} />
-            <span>{item.label}</span>
+            <span>{item.mobileLabel || item.label}</span>
           </a>
         ))}
       </nav>

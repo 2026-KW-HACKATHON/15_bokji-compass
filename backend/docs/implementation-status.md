@@ -1,6 +1,6 @@
 # 현재 구현 상태와 DB 연결 범위
 
-기준: 2026-09-25 저장소 코드. **코드 우선 파싱·조건 v2·공식 지역 분류 구현. 정책 MySQL 저장은 미구현.** 현재 파싱 결과는 검토용 JSON 파일로 저장. [조건·지역 사용법](condition-classification.md).
+기준: 2026-09-25 저장소 코드. **코드 우선 파싱·조건 v2·공식 지역 분류, 소득·재산 참고 계산과 회원 금융정보 저장 구현. 정책 MySQL 저장·추천 API는 미구현.** 파싱 결과는 검토용 JSON 파일로 저장. [조건·지역 사용법](condition-classification.md), [금융 계산·저장 모듈](../app/modules/finance/readme.md).
 
 이 문서는 현재 기능의 기준이며 [구현 계획](implementation-plan.md)은 후속 설계, [작업 기록](worklog.md)은 시점별 검증 이력.
 
@@ -23,9 +23,11 @@
 | 파싱 결과 저장 | 로컬 파일만 구현 | data/parsed_policies 아래 manifest·draft·시도별 진단 파일 |
 | 정책 DB 저장·조회 | 미구현 | INSERT/UPDATE·중복 처리·개정 이력·조회 저장소·트랜잭션 연결 필요 |
 | 조건 논리 조합 | 구현 | all/any/not/unknown AST·참조/누락 검증·3상태 조합. LLM 평면 그룹은 검토 전 UNKNOWN |
-| 사용자 자격 판정·추천 | 미구현 | 사용자 프로필에서 조건별 결과 계산·후보 검색·검토 승인 경로 필요 |
+| 사용자 자격 판정·추천 | 전체 판정·추천 미구현 | 금융조건 비교 함수는 별도 구현. 정책 저장소·검토 승인·다른 조건·추천과의 연결 필요 |
 | 계정 인증 | 구현·개발용 문자 인증 | `/v1/auth` 가입·로그인·세션·로그아웃·인증번호. 실제 문자 공급자 미연결. [계약](../app/modules/auth/readme.md) |
-| 정책·추천 업무 HTTP API | 미구현 | health/readiness와 인증 외 업무 라우트 미구현 |
+| 소득·재산 참고 계산 | 구현 | `/v1/finance/rules`, `/calculate`. 비회원도 가능. 2026 기본 산식·미확정 항목 표시. [산정 규칙](financial-rules.md) |
+| 회원 금융정보 저장 | 구현·격리 SQLite 검증 | `/v1/finance/profile` 조회·동의 후 저장·삭제. 원입력만 저장하고 계산 결과는 재계산. MySQL 명시 초기화·실제 MySQL 저장 검증 후속 |
+| 정책·추천 업무 HTTP API | 미구현 | 정책 목록·상세·검색·개인비서 추천 경로 미구현. 금융 계산 API와 구분 |
 
 ## 현재 데이터 흐름
 
@@ -35,9 +37,17 @@ backend/.env의 DB 설정 → FastAPI 연결 풀 → /health/ready → SELECT 1
 저장된 공개 원문 파일 → parse-raw.ps1/sh → 공통 입력 → 코드 규칙
                     → 미해결 시 Codex CLI → 근거·필드·공식 지역 검증
                     → data/parsed_policies/.../draft.json (analysis + canonical)
+
+비회원·회원의 금융 원입력 → /v1/finance/calculate → 참고 계산 (저장 없음)
+회원 세션 + 명시적 저장 동의 → /v1/finance/profile → 계정별 원입력 저장
+회원 금융정보 조회 → 저장 원입력 + 현재 규칙으로 재계산한 결과
 ```
 
-두 흐름은 정책 저장 코드로 연결되지 않은 상태. `parse_raw_files`는 DB 엔진을 생성하거나 SQL을 실행하지 않음. 파서는 공통 설정 로더를 사용하므로 DB_ENABLED=true이면 DB 필수 설정 검증은 수행하지만, 파싱 중 DB에 접속하지 않음. DB 없이 파싱만 실행할 때는 DB_ENABLED=false로 사용 가능.
+원문 파싱과 DB 연결 점검은 정책 저장 코드로 연결되지 않은 상태. `parse_raw_files`는 DB 엔진을 생성하거나 SQL을 실행하지 않음. 파서는 공통 설정 로더를 사용하므로 DB_ENABLED=true이면 DB 필수 설정 검증은 수행하지만, 파싱 중 DB에 접속하지 않음. DB 없이 파싱만 실행할 때는 DB_ENABLED=false로 사용 가능.
+
+금융정보 저장은 기존 인증 계정의 ID와 같은 DB 엔진을 사용하지만 정책 파이프라인과 독립적입니다. 개발 SQLite는 로그인된 회원의 첫 금융정보 요청에서 별도 `account_financial_profiles` 테이블을 추가합니다. MySQL은 backend에서 `python -m app.modules.finance`를 명시적으로 실행해야 하며 서버 요청에서 테이블을 자동 생성하지 않습니다. 기존 001 SQL의 `users/user_profiles`와 연결하지 않습니다. 금융 초기화는 신규 테이블 생성이며 기존 금융 스키마 변경·원입력 버전 이관은 아직 구현하지 않았습니다.
+
+금융 저장소는 계정별 최신 원입력 한 건과 저장 시각만 보관합니다. 결과·입력 이력은 보관하지 않으며 로그인 만료나 로그아웃이 저장값을 지우지는 않습니다. 금융정보 삭제 경로는 현재 로그인한 계정의 입력만 삭제합니다. 자동 보관기간 만료·계정 탈퇴는 후속 작업입니다.
 
 ## 혼동하기 쉬운 구분
 
@@ -46,6 +56,9 @@ backend/.env의 DB 설정 → FastAPI 연결 풀 → /health/ready → SELECT 1
 - SQL 파일 존재 또는 SQL 테스트 통과 ≠ 모든 팀원의 개발 DB에 적용 완료.
 - `normalize_api_service(s)`·`normalize_gov24_service`·`normalize_bokjiro_service`는 기존 SQL용 행을 반환하며 직접 INSERT하지 않음.
 - `needs_review`는 파일 초안 검토 필요 상태. DB 커밋·공개 승인·사용자 적격 판정을 뜻하지 않음.
+- 금융 계산의 `estimated`·`within`은 입력 정보로 계산한 참고 결과이며 공고 전체의 자격 확정이 아님. `needs_review`·`unknown`은 입력 또는 적용 기준의 추가 확인이 필요하다는 뜻.
+- 회원 금융정보 저장 성공은 정책 DB 적재·추천 프로필/저장 공고의 계정 동기화 완료가 아님.
+- 웹의 명시적인 금융정보 추천 반영은 미구현 추천 API에 선택적 원입력을 보내는 호출자 준비 상태. 실제 공고와 `evaluate_policy`가 연결되었거나 LLM 추천이 실행되었다는 뜻이 아님.
 - Git에 포함된 `.env.example`은 설정 예시. 실제 `.env`·계정·DB 파일·파싱 결과는 팀원 간 자동 공유되지 않음.
 
 모든 파싱 결과는 `review_status=draft`, `matching_enabled=false`. 구조·원문 인용 검증 통과 후에도 주체·숫자·단위·예외 해석 검토 필요.
@@ -74,4 +87,5 @@ backend/.env의 DB 설정 → FastAPI 연결 풀 → /health/ready → SELECT 1
 - 서버·DB 설치: [개발환경](development.md), [기존 SQL 사용법](../database/readme.md).
 - 원문 파싱·모델 설정: [rawdata 파싱](raw-parsing.md). 현재 입력·출력: [데이터 계약](data-contracts.md).
 - API 연동: [현재 HTTP 계약](api/readme.md). CLI 결과 폴더를 프론트엔드 API처럼 사용하지 않음.
+- 금융 계산·계정 저장: [모듈 사용법](../app/modules/finance/readme.md), [공식 산정 규칙과 한계](financial-rules.md). `evaluate_policy`는 서버 내부 연결 함수이며 공고 기준을 받는 공개 HTTP 경로는 없음.
 - 검증: `backend/scripts/test.ps1`은 실제 DB·LLM 호출 없는 테스트. 실제 모델 호출·MySQL 테스트 이력은 [작업 기록](worklog.md)과 각 보고서 참조.

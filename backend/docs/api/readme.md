@@ -15,7 +15,19 @@ FastAPI의 `/docs/oauth2-redirect`는 Swagger UI 보조 경로이며 OAuth 구�
 
 현재 readiness는 MySQL 연결 검사이며 업무 테이블·정책 유효성 검사가 아닙니다. `/v1/auth/phone/request`, `/phone/verify`, `/signup`, `/login`, `/logout`은 POST이며 `/v1/auth/me`는 GET입니다. [인증 계약·환경설정](../../app/modules/auth/readme.md)을 참고하세요. 변경 시 라우터·테스트·이 문서·호출자를 함께 점검하며 별도 가짜 OpenAPI 파일을 유지하지 않습니다.
 
-`/health/ready`는 SELECT 1만 실행합니다. HTTP 200이어도 정책 스키마·적재·조회 연결이 완료된 것은 아닙니다. [원문 파싱](../raw-parsing.md)은 내부 함수/CLI로만 제공하고 JSON 파일에 초안을 저장합니다. 업로드·분석 요청·정책 조회·사용자 자격 판정 API는 아직 없습니다. [현재 상태](../implementation-status.md).
+소득·재산 계산과 계정별 금융정보 저장은 `finance.router`가 제공합니다. [입력·응답·초기화 방법](../../app/modules/finance/readme.md), [공식 산정 규칙·계산 한계](../financial-rules.md)를 함께 확인하세요.
+
+| 경로 | 접근 | 역할 |
+| --- | --- | --- |
+| GET `/v1/finance/rules` | 공개 | 지원하는 산정 규칙 조회 |
+| POST `/v1/finance/calculate` | 공개 | 입력값 계산, DB 저장 없음 |
+| GET `/v1/finance/profile` | 로그인 세션 | 본인이 저장한 입력과 다시 계산한 결과 조회 |
+| POST `/v1/finance/profile` | 로그인 세션·저장 동의 | 본인의 금융 원입력 저장 |
+| POST `/v1/finance/profile/delete` | 로그인 세션 | 본인의 금융 원입력 삭제 |
+
+회원 금융정보 POST는 `X-Auth-Request: 1` 헤더가 필요합니다. 공개 계산은 인증·DB 비활성 상태에서도 동작합니다. 금융 응답은 오류를 포함해 `Cache-Control: no-store`를 사용하며 검증 오류에 원입력을 포함하지 않습니다. 정책별 `evaluate_policy()`는 서버 내부 연결 지점이며 공고 추천 HTTP API에 아직 연결되지 않았습니다.
+
+`/health/ready`는 SELECT 1만 실행합니다. HTTP 200이어도 정책 스키마·적재·조회 연결이 완료된 것은 아닙니다. [원문 파싱](../raw-parsing.md)은 내부 함수/CLI로만 제공하고 JSON 파일에 초안을 저장합니다. 업로드·분석 요청·정책 조회·공고 전체의 신청 자격 판정 API는 아직 없습니다. [현재 상태](../implementation-status.md).
 
 ## 외부 수집 API
 

@@ -2,9 +2,10 @@ import { demoPolicies } from '../policies/demoPolicies.js';
 import { parsePolicy } from '../policies/policyModel.js';
 import { recommendationProfile } from '../profile/profileModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
+import { toFinancialProfile } from '../finance/financeModel.js';
 export function createRecommendationRepository({ mode, request, path = '/v1/recommendations' }) {
   return {
-    async recommend(profile, { signal } = {}) {
+    async recommend(profile, { signal, financialProfile = null } = {}) {
       const input = recommendationProfile(profile);
       if (mode === 'demo') {
         // Deterministic UI preview, not an LLM result.
@@ -20,21 +21,24 @@ export function createRecommendationRepository({ mode, request, path = '/v1/reco
           .map(({ policy }) => ({
             policy,
             reason: input.interests.includes(policy.category)
-              ? '관심 분야로 선택한 ' + policy.category + ' 공고의 추천 표시 예시예요.'
-              : '개인비서가 공고를 설명하는 방식을 보여주는 예시예요.',
+              ? '선택한 관심 분야인 ‘' + policy.category + '’의 예시 공고예요.'
+              : '추천 화면을 살펴볼 수 있는 예시 공고예요.',
           }));
         return {
           items,
           source: 'demo',
-          summary:
-            '관심 분야를 먼저 보여주는 화면 예시예요. 실제 LLM 추천은 서버 연결 후 제공됩니다.',
+          summary: '관심 분야의 예시 공고를 먼저 보여드려요. 실제 AI 추천은 준비 중이에요.',
         };
       }
       if (mode !== 'api' || !request)
         throw new ApiError('추천 연결 설정을 확인해 주세요.', 'configuration');
       const result = await request(path, {
         method: 'POST',
-        body: { profile: input, limit: 3 },
+        body: {
+          profile: input,
+          limit: 3,
+          ...(financialProfile ? { financialProfile: toFinancialProfile(financialProfile) } : {}),
+        },
         signal,
         timeoutMs: 30000,
       });

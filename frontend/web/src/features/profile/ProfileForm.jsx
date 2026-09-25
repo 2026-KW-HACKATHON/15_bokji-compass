@@ -34,13 +34,19 @@ export default function ProfileForm({ profile, onSave, easy, remembered = false,
       }}
     >
       <div className="form-intro">
-        <p>개인비서가 참고할 정보를 알려주세요. 모르는 항목은 선택하지 않아도 괜찮아요.</p>
+        <p>아는 항목만 입력해 주세요. 나중에 바꿀 수 있어요.</p>
       </div>
       {easy && (
         <div className="step-indicator" aria-label={'3단계 중 ' + (step + 1) + '단계'}>
           <span>{step + 1} / 3</span>
           <h2 ref={title} tabIndex={-1}>
-            {['어디에 살고 계신가요?', '현재 생활을 알려주세요', '어떤 도움이 필요하세요?'][step]}
+            {
+              [
+                '지역과 연령대를 선택해 주세요',
+                '일과 가구 정보를 선택해 주세요',
+                '관심 분야를 선택해 주세요',
+              ][step]
+            }
           </h2>
         </div>
       )}
@@ -57,7 +63,7 @@ export default function ProfileForm({ profile, onSave, easy, remembered = false,
         <section className="form-section" aria-label="생활 정보">
           <h2 className={easy ? 'sr-only' : ''}>생활 정보</h2>
           <div className="form-grid">
-            {select('occupation', '현재 상황 (선택)', occupations)}
+            {select('occupation', '일·학업 상태 (선택)', occupations)}
             {select('household', '함께 사는 사람 (선택)', households)}
           </div>
         </section>
@@ -97,18 +103,18 @@ export default function ProfileForm({ profile, onSave, easy, remembered = false,
               checked={remember}
               onChange={(event) => setRemember(event.target.checked)}
             />
-            이 브라우저에 내 정보 기억하기
+            이 브라우저에 내 정보 저장
           </label>
           <p className="field-hint">
-            공용 기기에서는 선택하지 마세요. 선택하지 않으면 새로고침할 때 입력 정보가 사라져요.
-            {mode === 'api' && ' 기억하면 다음 방문에도 이 정보로 추천을 요청해요.'}
+            선택하면 다음 방문에도 입력한 정보를 사용할 수 있어요. 공용 기기에서는 선택하지 마세요.
+            {!remember && ' 선택하지 않으면 새로고침할 때 입력 정보가 사라져요.'}
+            {mode === 'api' && remember && ' 다음 방문에도 이 정보로 추천을 요청해요.'}
           </p>
           <p className="privacy-note">
             <Icon name="shield" />
             {mode === 'demo'
-              ? '지금은 체험 화면이라 입력 정보를 서버로 보내지 않아요.'
-              : '추천받기를 누르면 입력한 정보를 복지나침반 서버에 보내 추천을 요청해요.'}{' '}
-            지원 자격을 확정하는 정보는 아니에요.
+              ? '체험 중에는 이 화면에서 입력한 정보를 서버로 보내지 않아요.'
+              : '추천받기를 누르면 입력한 정보를 복지나침반 서버에 보내요.'}
           </p>
         </section>
       )}

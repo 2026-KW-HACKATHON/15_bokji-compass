@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyCard from '../policies/PolicyCard.jsx';
 export default function AssistantHome({
@@ -17,40 +17,63 @@ export default function AssistantHome({
   mode,
 }) {
   const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [result]);
+  const cards = useRef(null);
+  const focusNextCard = useRef(false);
+  useEffect(() => {
+    setIndex(0);
+    focusNextCard.current = false;
+  }, [result, easy]);
+  useEffect(() => {
+    if (focusNextCard.current) {
+      cards.current?.querySelector('.card-title')?.focus();
+      focusNextCard.current = false;
+    }
+  }, [index]);
+  const turnPage = (next) => {
+    focusNextCard.current = true;
+    setIndex(next);
+  };
+  const compact = easy && Boolean(profile);
   const items = easy ? result.items.slice(index, index + 1) : result.items;
   return (
     <>
-      <section className="assistant-hero">
+      <section className={'assistant-hero' + (compact ? ' assistant-hero-compact' : '')}>
         <div className="hero-copy">
-          <span className="eyebrow">
-            <Icon name="sparkles" size={18} />
-            나만의 복지 비서
-          </span>
+          {!easy && (
+            <span className="eyebrow">
+              <Icon name="sparkles" size={18} />
+              나만의 AI 복지 비서
+            </span>
+          )}
           <h1>
             {easy ? (
-              '나를 위한 복지 비서'
+              compact ? (
+                '나의 복지 비서'
+              ) : (
+                '나에게 맞는 공고 찾기'
+              )
             ) : (
               <>
-                찾는 수고는 줄이고,
+                내게 맞는 복지 공고를
                 <br />
-                <em>나에게 맞는 공고를 만나세요.</em>
+                <em>AI 비서에게 추천받으세요.</em>
               </>
             )}
           </h1>
-          <p>
-            {easy ? (
-              '내 정보를 바탕으로 필요한 공고를 추천해 드려요.'
-            ) : (
-              <>
-                내 정보를 알려주면 개인비서가 공고를 살펴보고,
-                <br className="desktop-break" />
-                나에게 필요한 이유와 함께 추천해 드려요.
-              </>
-            )}
-          </p>
-          <button className="button primary" onClick={onProfile}>
-            {profile ? '내 정보 수정하기' : '내 정보 알려주기'}
+          {!compact && (
+            <p>
+              {easy ? (
+                '사는 지역과 관심 분야를 알려주세요.'
+              ) : (
+                <>
+                  거주 지역과 관심 분야를 입력하면 <br className="desktop-break" />
+                  공고와 추천 이유를 알려드려요.
+                </>
+              )}
+            </p>
+          )}
+          <button className={'button ' + (compact ? 'secondary' : 'primary')} onClick={onProfile}>
+            {profile ? '내 정보 수정하기' : '내 정보 입력하기'}
             <Icon name="arrow" />
           </button>
         </div>
@@ -63,17 +86,15 @@ export default function AssistantHome({
                 alt="사람과 하트를 감싸는 복지나침반 로고"
               />
             </span>
-            <p className="assistant-greeting">안녕하세요, 복지 비서예요.</p>
+            <p className="assistant-greeting">나만의 AI 복지 비서</p>
             <p>
-              여러 공고 중에서
+              입력한 정보를 바탕으로
               <br />
-              <strong>나에게 필요한 정보만</strong>
-              <br />
-              차근차근 살펴볼게요.
+              <strong>공고를 추천해 드려요.</strong>
             </p>
             <span className="assistant-caption">
               <Icon name="shield" size={15} />
-              추천 이유도 함께 확인해요
+              신청 조건도 함께 확인하세요
             </span>
           </div>
         )}
@@ -85,19 +106,19 @@ export default function AssistantHome({
           </span>
           <Icon name="right" size={17} />
           <span>
-            <b>2</b>개인비서가 공고 검토
+            <b>2</b>AI 비서의 공고 추천
           </span>
           <Icon name="right" size={17} />
           <span>
-            <b>3</b>추천 이유와 함께 확인
+            <b>3</b>추천 이유와 신청 조건 확인
           </span>
         </div>
       )}
       <section className="assistant-results" aria-labelledby="recommendations-heading">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">나를 위한 추천</span>
-            <h2 id="recommendations-heading">개인비서의 추천 공고</h2>
+            {!easy && <span className="eyebrow">내 정보에 맞춰</span>}
+            <h2 id="recommendations-heading">{profile ? '추천 공고' : '추천에 필요한 정보'}</h2>
           </div>
           {profile && (
             <button className="text-button" disabled={state === 'loading'} onClick={onRetry}>
@@ -111,16 +132,13 @@ export default function AssistantHome({
               <Icon name="user" size={29} />
             </span>
             <div>
-              <h3>어떤 도움이 필요하신가요?</h3>
+              <h3>거주 지역과 관심 분야</h3>
               <p>
-                거주 지역과 관심 분야부터 알려주세요.
-                <br />내 정보를 바탕으로 추천을 시작할게요.
+                {easy
+                  ? '선택 항목은 건너뛰어도 돼요.'
+                  : '내 정보를 입력하면 이곳에서 추천 공고를 확인할 수 있어요.'}
               </p>
             </div>
-            <button className="button secondary" onClick={onProfile}>
-              정보 입력하고 시작하기
-              <Icon name="arrow" size={18} />
-            </button>
           </div>
         ) : (
           <>
@@ -139,12 +157,12 @@ export default function AssistantHome({
             {state === 'loading' ? (
               <div className="empty-state" role="status">
                 <Icon name="sparkles" size={30} />
-                <h3>개인비서가 공고를 살펴보고 있어요</h3>
+                <h3>추천 공고를 불러오고 있어요</h3>
                 <p>조금만 기다려 주세요.</p>
               </div>
             ) : state === 'error' ? (
               <div className="empty-state" role="alert">
-                <h3>아직 추천을 가져오지 못했어요</h3>
+                <h3>추천 공고를 불러오지 못했어요</h3>
                 <p>{error}</p>
                 <button className="button primary" onClick={onRetry}>
                   다시 시도하기
@@ -157,7 +175,7 @@ export default function AssistantHome({
                 </p>
                 {items.length ? (
                   <>
-                    <div className="policy-grid recommendation-grid">
+                    <div className="policy-grid recommendation-grid" ref={cards}>
                       {items.map((item) => (
                         <PolicyCard
                           key={item.policy.id}
@@ -176,17 +194,17 @@ export default function AssistantHome({
                         <button
                           className="button secondary"
                           disabled={index === 0}
-                          onClick={() => setIndex(index - 1)}
+                          onClick={() => turnPage(index - 1)}
                         >
                           이전 추천
                         </button>
                         <span>
-                          {index + 1} / {result.items.length}
+                          {result.items.length}개 중 {index + 1}번째
                         </span>
                         <button
                           className="button secondary"
                           disabled={index + 1 >= result.items.length}
-                          onClick={() => setIndex(index + 1)}
+                          onClick={() => turnPage(index + 1)}
                         >
                           다음 추천
                         </button>
@@ -196,12 +214,13 @@ export default function AssistantHome({
                 ) : (
                   <div className="empty-state">
                     <h3>지금은 추천할 공고가 없어요</h3>
-                    <p>관심 정보를 바꾸거나 전체 공고를 살펴보세요.</p>
+                    <p>관심 분야를 바꾸거나 전체 공고를 확인해 보세요.</p>
                   </div>
                 )}
                 {mode === 'api' && (
                   <p className="fine-print">
-                    추천은 신청 자격 확정이 아니에요. 신청 전 공식 공고를 확인하세요.
+                    추천받은 공고라도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를
+                    확인하세요.
                   </p>
                 )}
               </>
@@ -211,8 +230,8 @@ export default function AssistantHome({
       </section>
       <div className="explore-invitation">
         <div>
-          <h2>직접 찾아보고 싶으신가요?</h2>
-          {!easy && <p>전체 공고에서 검색하거나 관심 태그를 눌러보세요.</p>}
+          {!easy && <h2>다른 공고도 찾아보세요</h2>}
+          {!easy && <p>분야와 지역을 선택하거나 검색어를 입력해 보세요.</p>}
         </div>
         <button className="button secondary" onClick={onExplore}>
           전체 공고 보기

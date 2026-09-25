@@ -1,8 +1,8 @@
 # 백엔드 엔드포인트·연동 관리
 
-최종 확인: 2026-09-23. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
+최종 확인: 2026-09-25. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
 
-**현재 HTTP API는 health/readiness와 `/v1/auth` 회원가입·로그인·전화번호 인증·세션·로그아웃입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 정책 목록·추천·상세·검색·사용자 자격 판정·프로필 편집·저장·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 인증은 모드와 관계없이 실제 서버에 연결합니다.
+**현재 HTTP API는 health/readiness, `/v1/auth` 인증, `/v1/finance` 소득·재산 계산 및 계정별 금융정보 저장입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 정책 목록·추천·상세·검색·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 인증·금융정보 저장은 모드와 관계없이 실제 서버에 연결합니다.
 
 ## 1. 접속 주소와 경로 규칙
 
@@ -71,6 +71,39 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 
 모든 POST는 JSON과 `X-Auth-Request: 1` 헤더가 필요합니다(누락 403). 공통 저장소 장애/비활성은 503입니다. 가입 필드는 이름(name, 필수 1~50자)·아이디·비밀번호·비밀번호 확인·만 나이·성별·시도·전화번호·서버 인증 증명입니다. 로그인과 세션 조회의 user에 name을 포함하며 기존 이름 없는 계정은 null입니다. [정확한 입력·응답·제한·저장소·실행법](backend/app/modules/auth/readme.md), [호출자](frontend/web/src/features/auth/authApi.js), [생성 스키마](backend/app/api/auth.py)를 기준으로 합니다.
 
+### 소득·재산 계산 및 계정별 저장
+
+[금융 라우터](backend/app/api/finance.py), [입력 계약](backend/app/contracts/finance.py), [계정별 저장소](backend/app/modules/finance/storage.py)가 구현 기준입니다. [모듈 사용법·초기화](backend/app/modules/finance/readme.md), [공식 산정 규칙·계산 한계](backend/docs/financial-rules.md)를 함께 확인합니다. 웹 프록시에서는 아래 경로 앞에 `/api`를 붙입니다.
+
+| Method | 백엔드 경로 | 입력 | 인증·성공 | 오류 |
+|---|---|---|---|---|
+| GET | `/v1/finance/rules` | 없음 | 비회원 가능, 산정 규칙 목록 객체 | 연결 실패 |
+| POST | `/v1/finance/calculate` | `{profile}` | 비회원 가능, 계산 결과 객체. DB 저장 없음 | 422 |
+| GET | `/v1/finance/profile` | 세션 쿠키 | `{profile, calculation, updated_at}`. 미저장 시 셋 모두 null | 401, 503 |
+| POST | `/v1/finance/profile` | `{profile, consent: true}` | 세션 쿠키, 저장 후 조회와 같은 응답 | 401, 403, 422, 503 |
+| POST | `/v1/finance/profile/delete` | 빈 JSON `{}` | 세션 쿠키, `{deleted: true}`. 이미 없어도 동일 | 401, 403, 422, 503 |
+
+회원 저장·삭제 POST는 `X-Auth-Request: 1` 헤더가 필수입니다. 공개 계산 POST는 이 헤더나 로그인 없이 사용할 수 있고 `AUTH_ENABLED=false`, `DB_ENABLED=false`에서도 계산합니다. 공개 계산·규칙 조회는 인증 서비스나 DB 테이블을 생성하지 않습니다. 회원 경로는 `credentials: include`로 세션 쿠키를 보내며 로그인 검증을 거친 계정 ID만 사용합니다. 본문의 account_id·owner_id·계산 결과 등 계약 외 필드는 422로 거부합니다.
+
+`profile`에는 가구 구성, 가구원별 소득, 재산·부채·차량 원입력이 들어갑니다. 금액은 음수가 아닌 정수 원이며 미입력 null과 실제 금액 0을 구분합니다. 가구원 목록 길이는 `household_size`와 같아야 합니다. 정확한 선택값·범위·필수 항목은 생성 OpenAPI의 `FinancialProfile`을 따릅니다. 저장 동의는 JSON boolean `true`만 허용하며 숫자 1·문자열·동의 누락은 거부합니다.
+
+소득 기준은 `members[].earned_income_basis`(`gross/net/unknown`)와 `business_income_basis`(`net_expenses/revenue/unknown`)에 기록합니다. 차량에는 `ownership`(`household_full/joint/leased/other/unknown`), `registration_use`(`non_commercial/commercial/unknown`), `value_basis`(`official/market/unknown`), `eco_subsidy`(`none/received/unknown`)가 있으며 실제 사용 목적 `use`와 구분합니다. 생략된 추가 필드는 `unknown`으로 읽어 기존 버전 1 JSON과 호환합니다. 양수 세후 급여·매출·금액 기준 미확인은 소득 비교를 중단하고, 불명확한 차량 특례는 추가 확인을 반환합니다. 원입력만으로 예외를 확정하지 않습니다. [정의·공고 근거](backend/docs/finance-input-evidence-2026.md).
+
+서버에는 계정별 최신 원입력 한 건만 저장합니다. 조회·저장 응답의 `calculation`은 서버 규칙으로 다시 계산하고, `updated_at`은 마지막 저장 시각의 UTC ISO 8601 문자열입니다. 과거 입력·계산 결과의 이력은 보관하지 않으며 규칙 변경 후 조회 결과가 달라질 수 있습니다. 로그인 만료·로그아웃은 저장값을 삭제하지 않고 자동 보관기간 만료·계정 탈퇴는 미구현입니다. 계산 결과는 공고 전체의 신청 자격 확정을 의미하지 않습니다. 산정 방식·기준연도·가구 범위가 확인되지 않은 공고를 임의로 같은 계산법에 연결하지 않습니다.
+
+금융 응답은 오류를 포함해 `Cache-Control: no-store`를 사용합니다. 422 응답은 `{ "detail": "금액과 필수 항목, 저장 동의 여부를 확인해 주세요." }`이며 원입력·인증정보를 반사하거나 앱 로그에 기록하지 않습니다. 로그인 만료·로그아웃 후에는 회원 금융정보에 접근할 수 없습니다. 금융정보 삭제는 로그인한 본인의 금융 입력만 삭제하며 계정·다른 회원 정보·공고는 변경하지 않습니다.
+
+개발·테스트 SQLite는 로그인된 회원이 금융정보 경로를 처음 사용할 때 `account_financial_profiles`를 추가합니다. 기존 인증 DB 파일을 사용하며 `users/user_profiles` 개발 초안과 연결하지 않습니다. MySQL은 HTTP 요청에서 테이블을 자동 생성하지 않습니다. `DB_ENABLED=true` 설정 후 backend 폴더에서 다음 명령을 명시적으로 실행합니다.
+
+```text
+# Windows
+.venv/Scripts/python.exe -m app.modules.finance
+# macOS / Linux
+.venv/bin/python -m app.modules.finance
+```
+
+이 명령은 기존 인증 초기화와 금융 테이블 추가만 수행하고 기존 데이터를 삭제하지 않습니다. 금융 초기화는 `create_all` 기반이며 이미 존재하는 금융 테이블 구조 변경·저장 원입력 버전 이관을 지원하지 않습니다. [API 회귀 테스트](backend/tests/test_finance_api.py)는 격리 SQLite에서 계정 격리·저장 동의·세션·민감 오류·다시 계산·재시작 보존을 확인합니다. SQLite를 사용한 MySQL 모드의 자동 생성 차단 테스트는 실제 MySQL 저장 검증과 구분합니다.
+
 ## 3. 자동 문서·스키마 경로
 
 아래는 FastAPI가 생성하는 문서 경로이며 자체 업무 API와 구분합니다.
@@ -79,7 +112,7 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 |---|---|---|
 | `/docs` | Swagger UI | 현재 구현된 HTTP 계약 확인 |
 | `/redoc` | ReDoc | 읽기용 API 문서 |
-| `/openapi.json` | 생성된 OpenAPI | health/readiness 및 인증 경로 6개 포함 |
+| `/openapi.json` | 생성된 OpenAPI | health/readiness, 인증 경로 6개, 금융 경로 4개 포함 |
 | `/docs/oauth2-redirect` | Swagger UI 보조 리다이렉트 | 경로 존재가 로그인/OAuth 구현을 의미하지 않음 |
 
 [FastAPI 조립 코드](backend/app/main.py)가 실제 명세를 생성합니다. 별도의 수동 OpenAPI JSON을 만들어 미구현 경로를 노출하지 않습니다. 현재 앱에는 위 문서 경로의 환경별 비활성화나 인증 보호 설정이 없습니다. 운영 노출 정책은 배포 시 확정합니다.
@@ -106,7 +139,7 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 
 현재 개발 프록시를 이용하면 브라우저는 동일 출처로 요청합니다. 브라우저가 다른 출처의 백엔드를 직접 호출할 경우 실제 origin을 `CORS_ORIGINS`에 등록해야 합니다. 예: `["http://127.0.0.1:5173","http://localhost:5173"]`. 두 origin은 다릅니다. CORS는 서버 인증/인가를 대신하지 않으며 네이티브 앱의 권한 체계도 아닙니다.
 
-DB 암호·수집용 키·CLI 인증값은 서버에만 둡니다. 프론트 `VITE_*`, 모바일 번들, 이 관리대장에는 비밀정보를 넣지 않습니다. 계정 인증·세션은 구현했고 프로필·저장 공고의 기기 간 동기화는 미구현입니다.
+DB 암호·수집용 키·CLI 인증값은 서버에만 둡니다. 프론트 `VITE_*`, 모바일 번들, 이 관리대장에는 비밀정보를 넣지 않습니다. 계정 인증·세션·명시적으로 저장한 금융정보 조회는 구현했고 추천 프로필·저장 공고의 기기 간 동기화는 미구현입니다.
 
 ## 5. 외부 수집 API와 내부 기능의 경계
 
@@ -130,7 +163,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 | 개인비서 LLM 추천 | 서버 미구현. 웹 POST /v1/recommendations 호출자 있음 | 사용자 정보 → 서버 LLM → 추천 이유·공고. 인증/비용·보관 정책 확정 |
 | 조건·자격 판정 | 미구현 | 입력 fact, 기준 시점, PASS/FAIL/UNKNOWN 의미와 근거 |
 | 원문 업로드·분석 | CLI만 있음. HTTP 경로 미정 | 입력 제한, 작업 ID·상태, 오류·재시도·결과 접근 권한 |
-| 로그인·프로필·저장 공고 | 로그인/가입·계정 정보 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 실제 SMS, 계정별 동기화·수정·삭제는 후속 |
+| 로그인·프로필·저장 공고 | 로그인/가입·계정별 금융 입력 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 실제 SMS, 추천 프로필·저장 공고 동기화·계정 수정/탈퇴는 후속 |
 | 알림·푸시 | 미구현 | 동의, Android/iOS 권한·토큰, 발송·해제 계약 |
 
 계획용 URL을 구현된 경로로 기록하지 않습니다. 정책 DB 적재와 공개 승인도 별도 후속 작업이며, 파일 초안 `draft`/`matching_enabled=false`를 공개 정책 응답으로 사용하지 않습니다.
@@ -140,7 +173,9 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 | Method / Path | 웹 요청 | 입력 / 응답 | 상태 |
 |---|---|---|---|
 | GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 호출자 구현·서버 미구현 |
-| POST /v1/recommendations | /api/v1/recommendations | profile,limit:3 → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
+| POST /v1/recommendations | /api/v1/recommendations | profile,limit:3, 선택적 financialProfile → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
+
+`financialProfile`은 사용자가 계산기에서 추천에 반영하기를 선택했을 때만 추가하는 금융 원입력입니다. 일반 추천 프로필·브라우저 저장소에 자동 합치지 않으며 계정 금융정보 저장과도 별개입니다. 서버의 `evaluate_policy()`와 승인된 공고 저장소·추천 API를 실제로 연결하는 작업은 아직 남아 있습니다.
 
 세부 [제안 HTTP 계약](frontend/docs/service-contract.md), [연동 구현](frontend/docs/api-integration.md), [배포 설정](frontend/docs/deployment.md). 공고·인증 요청 제한 15초, 추천 30초. 웹은 키·LLM 직접 호출을 포함하지 않습니다. 오류에서 합성 자료로 fallback하지 않습니다. 인증은 같은 사이트 API 프록시를 사용하고 다른 출처가 필요하면 CORS Origin을 정확히 설정합니다.
 
@@ -190,3 +225,4 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 |---|---|---|
 | 2026-09-22 | 루트 통합 관리대장 신설. health/readiness, 자동 문서, 웹 proxy/CORS, 외부 수집·미구현 범위 구분 | 실제 라우터·설정·OpenAPI·HTTP 테스트 대조. [전체 문서 점검](backend/docs/documentation-audit.md) |
 | 2026-09-22 | 개인비서 UI·쉬운 화면·인증 폼 및 목록/추천 호출자·배포 설정 추가. 서버 제안 경로와 구현 경로 구분 | [프론트 작업 기록](frontend/docs/worklog.md), [제안 계약](frontend/docs/service-contract.md) |
+| 2026-09-25 | 비회원 소득·재산 계산, 회원 금융 원입력 저장·조회·삭제 API 및 명시적인 MySQL 초기화 경로 추가 | [라우터](backend/app/api/finance.py), [입력 계약](backend/app/contracts/finance.py), [API 회귀 테스트](backend/tests/test_finance_api.py) |
