@@ -1,5 +1,7 @@
 # 현재 데이터 계약
 
+> 2026-10-01 저장 경로 갱신: 기본 공고 결과는 MySQL이며 파일 전용 설명은 이전 상태입니다. `storage/{schema,repository,__main__}.py`, `pipeline.resume_run`, `assistant/` 로컬 DB 질의응답을 추가했습니다. 현재 동작·이관·검증은 [policy-storage.md](policy-storage.md)를 우선합니다.
+
 기준: 2026-09-25. 원문·추출 후보·v2 정규화 계약을 구분. [조건·지역 상세](condition-classification.md), [DB 연결 범위](implementation-status.md).
 
 ## RawDocument

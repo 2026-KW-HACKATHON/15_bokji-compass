@@ -3,6 +3,8 @@
 담당: 프론트엔드. 현재 구현과 향후 계획을 구분해 관리합니다.
 
 - [웹 실행·검증](../web/readme.md)
+- [모바일 앱 실행·검증](../mobile/readme.md)
+- [Android·iOS 이식 기록](mobile-migration.md)
 - [구조와 Android/iOS 확장](architecture.md)
 - [실제 API 연결 범위](api-integration.md)
 - [공고·개인비서 HTTP 계약 제안](service-contract.md)

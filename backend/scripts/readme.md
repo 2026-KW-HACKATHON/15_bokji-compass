@@ -8,14 +8,15 @@ macOS 팀원은 [Mac 사용법](../docs/macos-development.md) 참고. 운영 서
 | --- | --- | --- |
 | `setup.ps1` | 선택 PythonExecutable, RuntimeOnly | 로컬 환경·의존성 설치, 없는 `.env`만 생성 |
 | `start.ps1` | 선택 Reload | API 포그라운드 실행, Ctrl+C로 종료 |
+| `share.ps1` | start / stop / status | 별도 SQLite 시연 API·정적 웹·Cloudflare HTTPS 터널 실행/종료/상태. [준비·범위](../../frontend/web/deploy/readme.md) |
 | `setup-mysql.ps1` | 선택 MySqlExecutable, Port | 독립 개발 DB 초기화·시작, 로컬 DB 설정 기록 |
 | `mysql.ps1` | start / stop / status | 프로젝트 DB 실행·종료·상태 확인 |
 | `test.ps1` | 없음 | pytest·Ruff·패키지 충돌 검사 |
 | `lock.ps1` | 없음 | `.in`에서 고정 의존성 `.txt` 생성 |
-| `parse-raw.ps1` | InputPath 배열, 선택 PrepareOnly | 원문 파싱·설정 모델 추출·검증·초안 파일 저장 |
+| `parse-raw.ps1` | InputPath 배열, 선택 PrepareOnly/Storage | 원문 파싱·설정 모델 추출·검증·MySQL 기본 저장. Storage=json만 파일 내보내기 |
 | `setup.sh` | 선택 --runtime-only, PYTHON_EXECUTABLE 환경변수 | macOS Python 3.13 환경·고정 의존성 설치, 없는 .env만 생성 |
 | `start.sh` | 선택 --reload | macOS API 포그라운드 실행 |
-| `parse-raw.sh` | --input 파일들, 선택 --prepare-only | macOS 원문 파싱·초안 파일 저장 |
+| `parse-raw.sh` | --input 파일들 / --resume run_id | macOS 원문 파싱·MySQL 저장/재개. --storage json만 파일 내보내기 |
 | `test.sh` | 없음 | macOS pytest·Ruff·패키지 충돌 검사 |
 
 `common.sh`는 backend 경로·Python 3.13 환경 검사 공유. `.sh`는 실패 종료 코드 전파 및 LF 줄바꿈 유지. 독립 MySQL 자동 구성·lock 갱신은 기존 Windows 도구 사용.

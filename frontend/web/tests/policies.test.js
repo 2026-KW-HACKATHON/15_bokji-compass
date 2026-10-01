@@ -18,7 +18,8 @@ import {
 import { readStoredValue, writeStoredValue, removeStoredValue } from '../src/shared/storage.js';
 import { resolveConfig } from '../src/shared/configModel.js';
 import { ApiError, createHttpClient } from '../src/shared/api/httpClient.js';
-const demo = createPolicyRepository({ mode: 'demo' });
+import { demoPolicies } from './fixtures/policies.js';
+const demo = { list: async () => ({ items: demoPolicies }) };
 test('demo filtering combines words, tag, region and audience without mutating source', async () => {
   const { items } = await demo.list();
   const ids = items.map((item) => item.id);
@@ -35,7 +36,7 @@ test('demo filtering combines words, tag, region and audience without mutating s
       region: '서울',
       audience: '청년',
     }).map((item) => item.id),
-    ['demo-housing'],
+    ['fixture-housing'],
   );
   assert.equal(filterPolicies(items, { tag: '없는태그' }).length, 0);
   assert.equal(
@@ -45,17 +46,11 @@ test('demo filtering combines words, tag, region and audience without mutating s
     true,
   );
 });
-test('demo cursor pages have no duplicates and stop at the end', async () => {
-  let cursor = null;
-  const ids = [];
-  do {
-    const page = await demo.list({}, { limit: 1, cursor });
-    assert.equal(page.source, 'demo');
-    ids.push(...page.items.map((item) => item.id));
-    cursor = page.nextCursor;
-  } while (cursor);
-  assert.equal(new Set(ids).size, 6);
-  assert.equal(ids.length, 6);
+test('runtime demo data is no longer available', async () => {
+  await assert.rejects(
+    createPolicyRepository({ mode: 'demo' }).list(),
+    (e) => e.code === 'configuration',
+  );
 });
 test('API serializes exact tags and cursor, preserving words that are also filter defaults', async () => {
   let captured;
@@ -151,19 +146,14 @@ test('recommendation endpoint posts sanitized profile and renders server reasons
   });
   await assert.rejects(invalid.recommend(defaultProfile), (err) => err.code === 'invalid_response');
 });
-test('demo recommendations are explicitly previews and prioritize selected interests', async () => {
-  const result = await createRecommendationRepository({ mode: 'demo' }).recommend({
-    ...defaultProfile,
-    interests: ['건강·돌봄'],
-  });
-  assert.equal(result.items[0].policy.category, '건강·돌봄');
-  assert.equal(result.items.length, 3);
-  assert.equal(result.source, 'demo');
-  assert.match(result.summary, /예시/);
-  assert.match(result.items[0].reason, /예시/);
+test('runtime demo recommendations are rejected', async () => {
+  await assert.rejects(
+    createRecommendationRepository({ mode: 'demo' }).recommend(defaultProfile),
+    (e) => e.code === 'configuration',
+  );
 });
 test('production defaults to API and runtime config can change address without rebuilding', () => {
-  assert.equal(resolveConfig({}, {}, true).dataMode, 'demo');
+  assert.equal(resolveConfig({}, {}, true).dataMode, 'api');
   assert.equal(resolveConfig({}, {}, false).dataMode, 'api');
   assert.equal(resolveConfig({}, { VITE_DATA_MODE: 'api' }, true).dataMode, 'api');
   assert.equal(

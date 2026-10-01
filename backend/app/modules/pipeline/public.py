@@ -4,14 +4,19 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import uuid4
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.contracts.parsing import ParsedCondition, PolicyExtraction, PolicyOverview, SourcePolicy
 from app.core.config import BACKEND_ROOT, Settings, load_settings
+from app.core.database import create_database_engine
 from app.modules.llm.public import CodexRunError, extract_policy, extract_policy_overview
 from app.modules.normalization.public import normalize_conditions
 from app.modules.normalization.raw import load_raw_policies
 from app.modules.parsers.public import RULE_VERSION, extract_conditions
+from app.modules.storage.public import PolicyRepository
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 
@@ -100,13 +105,26 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
 def parse_raw_files(
     paths: list[Path], *, settings: Settings | None = None,
     output_root: Path | None = None, prepare_only: bool = False,
-) -> tuple[Path, dict]:
+    storage: str = "mysql",
+) -> tuple[Path | None, dict]:
     settings = settings or load_settings()
     sources = [source for path in paths for source in load_raw_policies(path)]
     if not sources:
         raise ValueError("No source policies")
     if len({s.policy_key for s in sources}) != len(sources):
         raise ValueError("Duplicate policy IDs: choose one authoritative detail per policy")
+    if storage == "mysql":
+        if not settings.db_enabled:
+            raise ValueError("DB_ENABLED=true required; use storage='json' for explicit export")
+        engine = create_database_engine(settings)
+        try:
+            # Fail before spending tokens if schema is absent.
+            repository = PolicyRepository(engine)
+            return None, persist_sources(sources, settings, repository, prepare_only=prepare_only)
+        finally:
+            engine.dispose()
+    if storage != "json":
+        raise ValueError("Unknown storage mode")
     output_root = output_root or BACKEND_ROOT / "data/parsed_policies"
     run = output_root / (datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:8])
     run.mkdir(parents=True, exist_ok=False)
@@ -127,6 +145,47 @@ def parse_raw_files(
     ) else "prepared" if prepare_only else "needs_review"
     write_json(run / "manifest.json", manifest)
     return run, manifest
+
+
+def persist_sources(sources: list[SourcePolicy], settings: Settings,
+                    repository: PolicyRepository, *, prepare_only: bool = False) -> dict:
+    """Queue sources durably, parse without a DB transaction, commit each result atomically."""
+    run_id = repository.start_run(sources, {
+        "origin": "pipeline", "rule_version": RULE_VERSION,
+        "model": settings.codex_model, "fallback_model": settings.codex_fallback_model,
+        "reasoning_effort": settings.codex_reasoning_effort,
+    })
+    if prepare_only:
+        return repository.finish_run(run_id, prepare_only=True)
+    return resume_run(run_id, settings, repository)
+
+
+def resume_run(run_id: str, settings: Settings, repository: PolicyRepository) -> dict:
+    """Resume durable pending/failed items. Already committed revisions are left untouched."""
+    processing = repository.run_processing(run_id)
+    if processing.get("origin") == "pipeline":
+        if processing["rule_version"] != RULE_VERSION:
+            raise ValueError("Rule version changed; start a new run")
+        settings = settings.model_copy(update={
+            "codex_model": processing["model"],
+            "codex_fallback_model": processing["fallback_model"],
+            "codex_reasoning_effort": processing["reasoning_effort"],
+        })
+    for item in repository.pending_items(run_id):
+        source = SourcePolicy.model_validate(item["source_json"])
+        draft = item["result_json"]
+        try:
+            if not draft or draft.get("status") != "needs_review":
+                # CLI transport needs temporary files; the durable result lives only in MySQL.
+                with TemporaryDirectory(prefix="bokji-parse-") as work:
+                    draft = parse_policy(source, settings, Path(work))
+            repository.save_result(run_id, draft)
+        except (ValueError, OSError, RuntimeError, SQLAlchemyError) as error:
+            try:
+                repository.mark_failed(run_id, source.policy_key, type(error).__name__, draft)
+            except SQLAlchemyError:
+                raise RuntimeError(f"Database unavailable; inspect pending run {run_id}") from None
+    return repository.finish_run(run_id)
 
 
 def _extract_overview(source: SourcePolicy, settings: Settings,

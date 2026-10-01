@@ -64,7 +64,13 @@ export default function App() {
   const [remembered, setRemembered] = useState(() =>
     Boolean(readStoredValue(profileKey, null, isProfile)),
   );
-  const [saved, setSaved] = useState(() => readStoredValue(savedKey, [], validSaved));
+  const [saved, setSaved] = useState(() => {
+    removeStoredValue('bokji.saved.v2.demo');
+    const records = readStoredValue(savedKey, [], validSaved);
+    const real = records.filter((item) => !item.id.startsWith('demo-'));
+    if (real.length !== records.length) writeStoredValue(savedKey, real);
+    return real;
+  });
   const [savedIndex, setSavedIndex] = useState(0);
   const [selected, setSelected] = useState(null);
   const [notice, setNotice] = useState('');
@@ -312,14 +318,6 @@ export default function App() {
             )}
           </div>
         </header>
-        {appConfig.dataMode === 'demo' && !['login', 'signup'].includes(route.page) && (
-          <div className="demo-banner">
-            <Icon name="info" size={18} />
-            <span>
-              <strong>공고·추천 체험</strong> · 예시 공고입니다. 실제 AI 추천은 준비 중이에요.
-            </span>
-          </div>
-        )}
         <main id="main-content" ref={main} tabIndex={-1} className="main-content">
           {route.page === 'home' && (
             <AssistantHome
@@ -391,10 +389,7 @@ export default function App() {
               onRecommend={() => {
                 setUseFinancial(true);
                 if (!profile) setProfile({ ...defaultProfile });
-                routeNotice.current =
-                  appConfig.dataMode === 'demo'
-                    ? '현재 공고는 예시예요. 소득·재산을 반영한 실제 공고 추천은 서버 연동 후 제공돼요.'
-                    : '';
+                routeNotice.current = '';
                 navigate('home');
               }}
             />

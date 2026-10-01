@@ -39,3 +39,11 @@ codex login status
 그 다음 `backend` 디렉터리에서 Gov24 수집 결과를 `normalize_record`로 변환하고
 `pipeline.parse_policy`에 전달한다. 실제 외부 API 키와 Codex 로그인 세션이
 필요하며, 기본 테스트는 외부 API나 LLM을 호출하지 않는다.
+
+
+## 2026-10-01 개인 공고 안내
+
+`answer_policy_question(source, question, profile, settings, output)` → `(PolicyAnswer, metadata)`.
+DB에서 조회한 SourcePolicy와 GuidanceProfile(region/age_band/interests), 질문을 설정 모델에
+전달한다. 문맥을 공유하거나 저장하지 않는다. 호출자는 답변의 근거를 원문과 대조해야 하며
+assistant.public이 이 책임을 수행한다. 재시도/프로필 저장/도구 실행/자격 판정은 수행하지 않는다.

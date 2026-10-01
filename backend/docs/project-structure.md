@@ -1,5 +1,7 @@
 # 현재 백엔드 구조와 협업 규칙
 
+> 2026-10-01 저장 경로 갱신: 기본 공고 결과는 MySQL이며 파일 전용 설명은 이전 상태입니다. `storage/{schema,repository,__main__}.py`, `pipeline.resume_run`, `assistant/` 로컬 DB 질의응답을 추가했습니다. 현재 동작·이관·검증은 [policy-storage.md](policy-storage.md)를 우선합니다.
+
 - `server.py`: `.env` 설정을 이용하는 Uvicorn 실행 진입점.
 - `app/main.py`: FastAPI 조립과 lifespan.
 - `app/core/`: 설정과 MySQL 연결 풀 생성.

@@ -1,9 +1,22 @@
-# 원문 파싱 파이프라인
+# 원문 처리 파이프라인
 
-`parse_raw_files(paths, settings=None, output_root=None, prepare_only=False) -> (Path, manifest)`로 원본 파일 목록 처리. 기본 결과는 `backend/data/parsed_policies/`에 실행별 저장. 중복 정책 ID·지원하지 않는 입력은 실패 처리.
+담당: 백엔드. 원문 → 코드/LLM 추출 → 근거 검증 → MySQL 저장.
 
-`parse_policy(source, settings, output, prepare_only=False) -> dict`는 공통 정책 한 건을 pending/needs_review/failed 상태로 반환합니다. `prepare_only=True`는 모델 호출을 생략합니다. 일반 파싱에서는 요약·6개 분야 분류를 별도 LLM 호출로 생성하며, 코드로 조건 추출이 완결되지 않은 경우에만 조건 추출용 LLM도 호출합니다. 요약과 조건 추출은 각각 근거 검증을 거칩니다.
+- parse_raw_files(paths, settings=None, output_root=None, prepare_only=False, storage="mysql")
+  → 기본 (None, manifest). manifest에는 run_id/storage/status/records가 들어간다.
+- persist_sources(sources, settings, repository, prepare_only=False) → DB 작업 생성 후 manifest.
+- resume_run(run_id, settings, repository) → DB 대기/실패 항목만 재개 후 manifest.
+  검증된 결과 체크포인트가 있으면 모델을 재호출하지 않는다.
+- parse_policy(source, settings, output, prepare_only=False) → 단일 공고 결과 dict.
+  이 하위 함수만 직접 호출하면 DB에 쓰지 않는다.
+- storage="json"만 명시적 오프라인 내보내기 (Path, manifest)를 반환한다.
 
-v2 파일 초안에는 최상위 `overview`와 `overview_status`가 포함됩니다. `overview`는 `title`, 입력에서 복사한 `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 가집니다. 원문 URL이 없으면 `source_url=null`입니다. overview 호출 실패는 `overview=null`, `overview_status=failed` 및 시도 기록으로 남깁니다. 조건 결과에는 원래 analysis와 표준화 canonical, 부분 코드 결과 code_analysis/code_canonical이 포함됩니다. LLM 실패 시에도 부분 코드 결과를 보존하며 문서 전체의 논리 관계는 자동 합치지 않습니다. [데이터 계약](../../../docs/data-contracts.md) · [조건·지역 계약](../../../docs/condition-classification.md).
+DB_ENABLED=true와 python -m app.modules.storage init이 필요하다. DB 오류를 파일로 우회하지 않는다.
+prepare_only는 원문/pending 작업만 DB에 저장하고 모델을 호출하지 않는다.
+요약/6개 분야 분류는 별도 LLM 호출이며 미해결 조건에만 조건 추출 LLM을 추가 호출한다.
+overview/analysis/canonical/부분 코드 결과와 근거를 보존한다. 모델 호출 중 트랜잭션을 잡지 않는다.
+전송용 임시 파일은 사용 후 제거한다. 중복 입력 ID는 거부하고 부분 실패는 실패로 보고한다.
 
-Windows 진입점: `backend/scripts/parse-raw.ps1`. [설정·결과·한계](../../../docs/raw-parsing.md).
+CLI: python -m app.modules.pipeline --input <JSON/XML> 또는 --resume <run_id>.
+Windows scripts/parse-raw.ps1, macOS/Linux scripts/parse-raw.sh도 기본 MySQL을 사용한다.
+[전체 실행·기존 JSON 이관·검증](../../../docs/policy-storage.md).

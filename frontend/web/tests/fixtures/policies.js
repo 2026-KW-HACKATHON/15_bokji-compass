@@ -23,7 +23,7 @@ export const regions = [
 
 export const demoPolicies = [
   {
-    id: 'demo-housing',
+    id: 'fixture-housing',
     title: '청년의 첫 독립, 주거비 지원',
     category: '주거',
     region: '서울',
@@ -37,7 +37,7 @@ export const demoPolicies = [
     date: '2026-09-22',
   },
   {
-    id: 'demo-employment',
+    id: 'fixture-employment',
     title: '다음 시작을 위한 취업 준비 지원',
     category: '일자리',
     region: '전국',
@@ -51,7 +51,7 @@ export const demoPolicies = [
     date: '2026-09-21',
   },
   {
-    id: 'demo-learning',
+    id: 'fixture-learning',
     title: '배움의 기회를 넓히는 교육 지원',
     category: '교육',
     region: '전국',
@@ -65,7 +65,7 @@ export const demoPolicies = [
     date: '2026-09-20',
   },
   {
-    id: 'demo-living',
+    id: 'fixture-living',
     title: '든든한 일상을 위한 생활 지원',
     category: '생활·금융',
     region: '경기',
@@ -79,7 +79,7 @@ export const demoPolicies = [
     date: '2026-09-19',
   },
   {
-    id: 'demo-care',
+    id: 'fixture-care',
     title: '가까이에서 함께하는 돌봄 서비스',
     category: '건강·돌봄',
     region: '전국',
@@ -93,7 +93,7 @@ export const demoPolicies = [
     date: '2026-09-18',
   },
   {
-    id: 'demo-culture',
+    id: 'fixture-culture',
     title: '일상에 즐거움을 더하는 문화 지원',
     category: '문화',
     region: '부산',

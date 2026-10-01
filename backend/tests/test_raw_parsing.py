@@ -365,7 +365,7 @@ def test_batch_writes_drafts_using_safe_ids(tmp_path, monkeypatch):
     path = tmp_path / "notice.json"
     path.write_text(json.dumps({"document_id": "../../escape", "title": "가상", "text": ""}))
     folder, manifest = pipeline.parse_raw_files([path], settings=Settings(_env_file=None),
-                                               output_root=tmp_path / "out")
+                                               output_root=tmp_path / "out", storage="json")
     draft = folder / manifest["records"][0]["path"]
     assert draft.is_relative_to(folder)
     assert json.loads(draft.read_text(encoding="utf-8"))["method"] == "code_missing_source"

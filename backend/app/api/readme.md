@@ -11,3 +11,9 @@
 `finance.router`는 `/v1/finance`의 공개 규칙 조회·계산과 로그인 계정별 금융정보 조회·저장·삭제를 제공합니다. 공개 계산은 인증·DB 설정 없이 실행하며, 회원 경로는 검증한 세션의 계정 ID만 사용합니다. 금융 응답은 오류를 포함해 `no-store`이며 검증 오류에 원입력을 포함하지 않습니다. [금융 모듈·초기화](../modules/finance/readme.md), [공식 산정 규칙·계산 한계](../../docs/financial-rules.md)를 참고하세요. 정책 목록·추천과 공고 전체의 신청 자격 판정 HTTP API는 미구현입니다.
 
 [API 문서](../../docs/api/readme.md)를 참고하고 backend에서 `.venv/Scripts/python.exe -m pytest tests/test_bootstrap.py tests/test_auth.py tests/test_finance_api.py`로 검증합니다.
+
+## 모바일 인증
+
+`mobile_auth.router`는 `/v1/mobile/auth`의 login/me/logout을 제공합니다. login 입력은 기존 LoginInput이고 토큰·사용자·만료 초를 반환합니다. me/logout은 HTTP Bearer 토큰을 받습니다. 웹 쿠키와 모바일 토큰은 해시 영역을 분리하며 쿠키를 발급하지 않습니다. 금융 회원 API는 Authorization이 있으면 모바일 토큰만, 없으면 기존 쿠키를 검증합니다. 공개 계산은 기존처럼 비회원 사용이 가능합니다.
+
+계약은 [API 관리대장](../../../api-management.md)의 모바일 인증 절, 검증은 `tests/test_mobile_auth.py`와 기존 인증/금융 테스트를 참고하세요.

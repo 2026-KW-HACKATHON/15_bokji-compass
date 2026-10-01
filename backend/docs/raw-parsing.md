@@ -2,14 +2,14 @@
 
 Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 정책 입력으로 변환하고, 코드 우선 분류 → 미해결 시 Codex CLI → 표준 조건·공식 지역코드 정규화 → 검토용 초안 저장. [코드 규칙·조건 v2·지역 사용법](condition-classification.md).
 
-현재 저장 대상은 JSON 파일이며 MySQL에 연결하지 않음. 기존 DB 접속 설정·readiness와 정책 적재의 구분, 신규 스키마 적용 순서는 [현재 구현 상태·DB 연결 범위](implementation-status.md) 참조.
+2026-10-01부터 기본 저장 대상은 MySQL입니다. 먼저 `python -m app.modules.storage init`을 실행합니다. [DB 저장·이관·재개](policy-storage.md). 아래 파일 결과 예시는 `--storage json` / PowerShell `-Storage json`을 명시했을 때만 해당합니다. 기존 DB 접속 설정·readiness와 정책 적재의 구분, 신규 스키마 적용 순서는 [현재 구현 상태·DB 연결 범위](implementation-status.md) 참조.
 
 ## 실행
 
 프로젝트 루트 PowerShell에서 실행. Python 의존성은 기존 `backend/scripts/setup.ps1`로 설치하며 추가 Python 패키지 없음. Codex CLI 설치와 각 팀원의 `codex login`은 별도 필요.
 
 ```powershell
-# 파일 형태·정책 ID·원문 필드만 확인. 외부 호출 없음.
+# 파일 형태·ID·원문을 확인하고 MySQL에 pending 작업 저장. 모델 호출 없음.
 .\backend\scripts\parse-raw.ps1 -InputPath 'data/raw_documents/공지문.json' -PrepareOnly
 
 # .env의 모델로 조건 추출·검증·초안 저장
@@ -19,9 +19,9 @@ Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 �
 .\backend\scripts\parse-raw.ps1 -InputPath 'data/api-inspection/20260921T021315Z/gov24_serviceList.json','data/api-inspection/20260921T021315Z/bokjiro_detail.xml'
 ```
 
-입력은 `backend` 기준 상대 경로 또는 절대 경로. 여러 파일은 배열로 전달. 동일 정책 ID가 중복되면 실패하며 목록·상세 중 사용할 원본을 먼저 선택. 덮어쓰기 없이 실행마다 별도 결과 폴더 생성.
+입력은 `backend` 기준 상대 경로 또는 절대 경로. 여러 파일은 배열로 전달. 동일 정책 ID가 중복되면 실패하며 목록·상세 중 사용할 원본을 먼저 선택. 기본은 실행별 DB 작업을 생성하고 개정/조건을 커밋합니다. 명시적 JSON 모드만 별도 결과 폴더를 생성합니다.
 
-macOS는 `bash backend/scripts/parse-raw.sh --input 'data/raw_documents/공지문.json'` 사용. `--prepare-only`로 모델 호출 없이 입력 검사 가능. [Mac 설치·로그인·오류 해결](macos-development.md).
+macOS는 `bash backend/scripts/parse-raw.sh --input 'data/raw_documents/공지문.json'` 사용. `--prepare-only`로 모델 호출 없이 DB 대기 작업 저장 가능. [Mac 설치·로그인·오류 해결](macos-development.md).
 
 Python에서 호출:
 

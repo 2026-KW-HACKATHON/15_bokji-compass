@@ -1,5 +1,7 @@
 # Windows 서버 기반 조건 검색·정제·MySQL 저장 구현 계획
 
+> 2026-10-01 저장 경로 갱신: 기본 공고 결과는 MySQL이며 파일 전용 설명은 이전 상태입니다. `storage/{schema,repository,__main__}.py`, `pipeline.resume_run`, `assistant/` 로컬 DB 질의응답을 추가했습니다. 현재 동작·이관·검증은 [policy-storage.md](policy-storage.md)를 우선합니다.
+
 최종 수정: 2026-09-25. 상태: 코드 우선 파싱·표준 조건 v2·공식 지역 분류·논리 조합 구현 / 정책 영속 저장·조건 검색·프로필 판정 구현 예정. [현재 조건 계약](condition-classification.md).
 
 사용자의 Windows 직접 운영·MySQL 사용·requirements 기반 설치 요구 반영. 현재 기능은 [구현 상태·DB 연결 범위](implementation-status.md), 설치는 [개발환경 문서](development.md), CLI 파싱은 [사용법](raw-parsing.md)이 기준. 아래 테이블·인터페이스·운영 구조는 명시된 완료 항목 외에는 후속 계획.

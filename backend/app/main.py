@@ -14,6 +14,7 @@ from app.api.auth import database_error_handler
 from app.api.auth import router as auth_router
 from app.api.finance import router as finance_router
 from app.api.health import router
+from app.api.mobile_auth import router as mobile_auth_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_database_engine
 
@@ -45,7 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=configuration.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Auth-Request"],
+        allow_headers=["Content-Type", "X-Auth-Request", "Authorization"],
     )
 
     @application.exception_handler(SQLAlchemyError)
@@ -68,7 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 content={"detail": "금액과 필수 항목, 저장 동의 여부를 확인해 주세요."},
                 headers={"Cache-Control": "no-store"},
             )
-        if request.url.path.startswith("/v1/auth/"):
+        if request.url.path.startswith(("/v1/auth/", "/v1/mobile/auth/")):
             # Pydantic's default error body can echo raw passwords and OTPs.
             return JSONResponse(
                 status_code=422,
@@ -82,12 +83,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.middleware("http")
     async def private_auth_response(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(("/v1/auth/", "/v1/finance/")):
+        if request.url.path.startswith(("/v1/auth/", "/v1/mobile/auth/", "/v1/finance/")):
             response.headers["Cache-Control"] = "no-store"
         return response
 
     application.include_router(router)
     application.include_router(auth_router)
+    application.include_router(mobile_auth_router)
     application.include_router(finance_router)
     return application
 

@@ -1,5 +1,7 @@
 # 후속 작업 확인 순서
 
+> 2026-10-01 저장 경로 갱신: 기본 공고 결과는 MySQL이며 파일 전용 설명은 이전 상태입니다. `storage/{schema,repository,__main__}.py`, `pipeline.resume_run`, `assistant/` 로컬 DB 질의응답을 추가했습니다. 현재 동작·이관·검증은 [policy-storage.md](policy-storage.md)를 우선합니다.
+
 1. [현재 상태·DB 연결 범위](implementation-status.md)와 [작업 기록](worklog.md) 확인.
 2. [구조](project-structure.md)·[데이터 계약](data-contracts.md)·변경 모듈의 README 및 실제 코드 확인.
 3. 실행은 [개발환경](development.md)과 [원문 파싱](raw-parsing.md), HTTP 계약은 [API 문서](api/readme.md) 기준.

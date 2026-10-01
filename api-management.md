@@ -2,7 +2,7 @@
 
 최종 확인: 2026-09-25. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
 
-**현재 HTTP API는 health/readiness, `/v1/auth` 인증, `/v1/finance` 소득·재산 계산 및 계정별 금융정보 저장입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 정책 목록·추천·상세·검색·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 인증·금융정보 저장은 모드와 관계없이 실제 서버에 연결합니다.
+**현재 HTTP API는 health/readiness, `/v1/auth` 웹 인증, `/v1/mobile/auth` 모바일 인증, `/v1/finance` 소득·재산 계산 및 계정별 금융정보 저장입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 정책 목록·추천·상세·검색·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 인증·금융정보 저장은 모드와 관계없이 실제 서버에 연결합니다.
 
 ## 1. 접속 주소와 경로 규칙
 
@@ -13,7 +13,7 @@
 | 웹에서 사용하는 API 기준 경로 | `/api` | `VITE_API_BASE_URL`, [HTTP 클라이언트](frontend/web/src/shared/api/client.js) |
 | 개발 프록시 대상 | `http://127.0.0.1:8000` | `API_PROXY_TARGET`, [웹 설정 예시](frontend/web/.env.example) |
 | 운영 API 주소 | 미정·배포 미구성 | 운영 호스트 확정 후 이 표와 클라이언트 설정 갱신 |
-| Android/iOS API 주소 | 앱 미구현·설정 미정 | 같은 공개 HTTP 계약을 사용하되 플랫폼별 설정으로 공급 |
+| Android/iOS API 주소 | `EXPO_PUBLIC_API_BASE_URL`의 절대 서버 주소 | [모바일 앱](frontend/mobile/readme.md), 운영 주소는 배포 시 확정 |
 
 개발 요청 흐름:
 
@@ -226,3 +226,20 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 | 2026-09-22 | 루트 통합 관리대장 신설. health/readiness, 자동 문서, 웹 proxy/CORS, 외부 수집·미구현 범위 구분 | 실제 라우터·설정·OpenAPI·HTTP 테스트 대조. [전체 문서 점검](backend/docs/documentation-audit.md) |
 | 2026-09-22 | 개인비서 UI·쉬운 화면·인증 폼 및 목록/추천 호출자·배포 설정 추가. 서버 제안 경로와 구현 경로 구분 | [프론트 작업 기록](frontend/docs/worklog.md), [제안 계약](frontend/docs/service-contract.md) |
 | 2026-09-25 | 비회원 소득·재산 계산, 회원 금융 원입력 저장·조회·삭제 API 및 명시적인 MySQL 초기화 경로 추가 | [라우터](backend/app/api/finance.py), [입력 계약](backend/app/contracts/finance.py), [API 회귀 테스트](backend/tests/test_finance_api.py) |
+
+
+## 모바일 인증 — 2026-10-01 추가
+
+[라우터](backend/app/api/mobile_auth.py), [회귀 테스트](backend/tests/test_mobile_auth.py), [앱 실행 안내](frontend/mobile/readme.md).
+
+| Method | 경로 | 입력 | 성공 응답 |
+|---|---|---|---|
+| POST | `/v1/mobile/auth/login` | `{username,password}`, `X-Auth-Request: 1` | `{access_token,token_type:"Bearer",expires_in:604800,user}` |
+| GET | `/v1/mobile/auth/me` | `Authorization: Bearer <token>` | `{user}` |
+| POST | `/v1/mobile/auth/logout` | 같은 Bearer, `X-Auth-Request: 1`, `{}` | `{message}` |
+
+모바일 라우트는 웹 쿠키를 읽거나 설정하지 않습니다. 서버가 생성한 43자 opaque 토큰을 앱 보안 저장소에 보관하며 서버 DB에는 `SHA-256("mobile:" + token)`만 저장합니다. 기존 쿠키는 기존 해시를 유지하므로 서로 인증 수단으로 사용할 수 없습니다. 기존 계정/세션 테이블을 사용하고 추가 DB 마이그레이션은 필요하지 않습니다. 모바일 자동 토큰 갱신은 없고 7일 만료 후 재로그인합니다. 로그인 시 기존 웹 세션은 폐기하지 않으며 모바일 로그아웃은 해당 모바일 토큰만 폐기합니다.
+
+로그인 입력 검증·비밀번호 해시·IP/아이디별 시도 제한은 웹과 동일한 서비스를 사용합니다. 401 인증 실패/만료, 403 POST 헤더 누락, 422 입력 오류, 429 시도 제한, 503 인증 비활성/DB 오류를 처리합니다. 응답과 오류는 `Cache-Control: no-store`이며 422 응답에 비밀번호를 반사하지 않습니다. 로그아웃은 형식이 유효한 이미 폐기/만료된 토큰에도 성공합니다.
+
+회원 금융 경로는 기존 쿠키 또는 모바일 Bearer를 지원합니다. Authorization 헤더가 있으면 모바일 토큰만 검증하며 잘못된 값을 웹 쿠키로 대체하지 않습니다. CORS 허용 헤더에 Authorization을 추가하되 허용 Origin·GET/POST·기존 CSRF 헤더는 유지합니다. 네이티브 HTTP에는 브라우저 CORS가 적용되지 않지만 브라우저 미리보기는 설정된 Origin이 필요합니다. 운영 API는 HTTPS로 배포합니다. 스토어 배포/실제 SMS 공급자/자동 갱신/계정 탈퇴는 이 변경에 포함되지 않습니다.
