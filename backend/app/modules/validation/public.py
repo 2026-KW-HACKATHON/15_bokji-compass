@@ -69,3 +69,9 @@ def validate_overview(result: PolicyOverview, source: SourcePolicy) -> None:
             original = source.fields.get(evidence.source_field, "")
         if evidence.quote not in original:
             raise ValueError("Overview evidence is absent from source")
+    for requirement in result.policy_requirements:
+        if requirement.information_state == "not_stated":
+            if requirement.evidence_text != "지원 대상 및 선정 기준 원문 미기재":
+                raise ValueError("Not-stated requirement must use the standard explanation")
+        elif not any(requirement.evidence_text in text for text in source.fields.values()):
+            raise ValueError("Policy requirement evidence is absent from source")

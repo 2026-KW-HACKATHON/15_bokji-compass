@@ -59,6 +59,8 @@ def overview(**changes):
         "benefits": {"status": "specified", "text": "교육 지원",
                      "evidence": [{"source_field": "title", "quote": "가상 정책"}],
                      "unresolved_reason": None},
+        "policy_requirements": [{"condition_type": "age", "information_state": "specified",
+                     "evidence_text": "만 19세 이상"}],
         "unresolved": [], **changes,
     })
 
@@ -148,6 +150,23 @@ def test_overview_sections_distinguish_unrestricted_from_not_stated():
     with pytest.raises(ValidationError):
         overview(age_conditions={"status": "unrestricted", "text": "나이 제한 없음",
                                 "evidence": [], "unresolved_reason": None})
+
+
+def test_policy_requirements_match_legacy_table_and_require_source_evidence():
+    valid = overview(policy_requirements=[
+        {"condition_type": "other", "information_state": "specified",
+         "evidence_text": "무소득자"},
+    ])
+    validate_overview(valid, source())
+    with pytest.raises(ValidationError):
+        overview(policy_requirements=[{"condition_type": "gender",
+                                      "information_state": "specified",
+                                      "evidence_text": "여성"}])
+    with pytest.raises(ValueError, match="evidence"):
+        validate_overview(overview(policy_requirements=[
+            {"condition_type": "other", "information_state": "specified",
+             "evidence_text": "없는 조건"},
+        ]), source())
 
 
 def test_code_complete_policy_still_generates_overview(tmp_path, monkeypatch):
@@ -279,7 +298,7 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
         source(), Settings(_env_file=None, codex_executable=str(executable)),
         tmp_path / "overview-attempt", "gpt-5.6-luna")
     assert result.category == "교육"
-    assert metadata["prompt_version"] == "welfare-overview-v1"
+    assert metadata["prompt_version"] == "welfare-overview-v2"
     assert all(category in captured["prompt"] for category in
                ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"))
     assert all(field in captured["prompt"] for field in (
@@ -288,6 +307,8 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
     assert "신청자/가구의 주소·거주·주민등록 지역 자격만" in captured["prompt"]
     assert "전국 대상(지역 제한 없음)" in captured["prompt"]
     assert "지역 표현은 region_conditions에만 두고" in captured["prompt"]
+    assert "policy_requirements 테이블 행에 대응" in captured["prompt"]
+    assert "성별은 DB 스키마에 전용 타입이 없으므로 other" in captured["prompt"]
 
 
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):

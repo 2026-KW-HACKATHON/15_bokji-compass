@@ -149,6 +149,12 @@ class OverviewItem(StrictModel):
     evidence: list[SourceEvidence] = Field(min_length=1, max_length=8)
 
 
+class PolicyRequirementDraft(StrictModel):
+    condition_type: Literal["age", "birth_region", "residence_region", "other"]
+    information_state: Literal["specified", "unrestricted", "unknown", "not_stated"]
+    evidence_text: str = Field(min_length=1)
+
+
 class PolicyOverview(StrictModel):
     title: str = Field(min_length=1, max_length=300)
     source_url: str | None
@@ -160,6 +166,7 @@ class PolicyOverview(StrictModel):
     age_conditions: OverviewSection
     other_conditions: list[OverviewItem] = Field(max_length=24)
     benefits: OverviewSection
+    policy_requirements: list[PolicyRequirementDraft] = Field(min_length=1, max_length=128)
     unresolved: list[str] = Field(max_length=20)
 
     @model_validator(mode="after")

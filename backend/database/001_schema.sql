@@ -53,7 +53,7 @@ CREATE TABLE policies (
 CREATE TABLE policy_requirements (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   policy_id BIGINT UNSIGNED NOT NULL,
-  condition_type ENUM('age','birth_region','residence_region','other') NOT NULL,
+  condition_type ENUM('age','birth_region','residence_region','gender','other') NOT NULL,
   information_state ENUM('specified','unrestricted','unknown','not_stated') NOT NULL DEFAULT 'unknown',
   evidence_text TEXT NOT NULL,
   FOREIGN KEY (policy_id) REFERENCES policies(id) ON DELETE CASCADE
