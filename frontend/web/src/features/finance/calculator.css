@@ -22,7 +22,7 @@
 }
 .finance-progress {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 0;
   margin: 0 0 24px;
   list-style: none;
@@ -154,6 +154,121 @@
 .finance-field label {
   font-size: 0.94rem;
   font-weight: 650;
+}
+.finance-field-label {
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+.finance-screen-title,
+.finance-question h3 {
+  scroll-margin-top: 100px;
+}
+.finance-screen-title {
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  margin-block: 24px 16px;
+  line-height: 1.5;
+}
+.finance-mode-start,
+.finance-mode-wizard {
+  max-width: 760px;
+}
+.finance-mode-wizard .finance-grid {
+  grid-template-columns: 1fr;
+}
+.finance-start > .button {
+  margin: 12px 12px 0 0;
+}
+.finance-presence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.finance-presence button {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #b8cbdc;
+  border-radius: 9px;
+  background: white;
+  color: #17324d;
+  font: inherit;
+  cursor: pointer;
+}
+.finance-presence button[aria-pressed='true'] {
+  border-color: var(--green);
+  background: var(--soft);
+  color: var(--green);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.finance-presence button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.finance-vehicle-list > div,
+.finance-review-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block: 14px;
+}
+.finance-review-heading h3 {
+  font-size: 1rem;
+}
+.finance-review-heading button {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+.finance-review article {
+  padding-block: 14px;
+}
+.finance-review .finance-facts {
+  font-size: 0.92rem;
+}
+.finance-step-actions {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  justify-content: flex-end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 4px 20px #17324d12;
+}
+.easy-mode .finance-presence button {
+  min-height: 56px;
+}
+@media (max-width: 1024px) {
+  .finance-step-actions {
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .easy-mode .finance-step-actions {
+    bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 560px) {
+  .finance-presence {
+    gap: 6px;
+  }
+  .finance-presence button {
+    padding-inline: 9px;
+    font-size: 0.88rem;
+  }
+  .finance-actions.finance-step-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    padding: 10px;
+  }
+  .finance-actions.finance-step-actions > .button {
+    width: auto;
+    flex: 1;
+    padding-inline: 10px;
+  }
+  .finance-start > .button {
+    width: 100%;
+    margin-right: 0;
+  }
 }
 .finance-field small,
 .finance-help {
