@@ -57,45 +57,109 @@ const calculation = () => ({
   notes: ['입력값에 따른 추정입니다.'],
 });
 
-test('guest calculation keeps zero distinct from unknown and supports easy steps at 320px', async ({
+test.beforeEach(async ({ page }) => {
+  await page.route('**/v1/auth/me', (route) => route.fulfill({ json: { user: null } }));
+});
+
+async function start(page) {
+  await page.goto('/#calculator');
+  await page.getByRole('button', { name: '처음 계산하기', exact: true }).click();
+}
+async function next(page) {
+  const title = page.locator('.finance-screen-title');
+  const previous = await title.textContent();
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(title).not.toHaveText(previous);
+}
+async function advanceTo(page, title) {
+  for (let i = 0; i < 60; i++) {
+    if ((await page.locator('.finance-screen-title').textContent()).includes(title)) return;
+    await next(page);
+  }
+  throw new Error(`Question not reached: ${title}`);
+}
+async function review(page) {
+  await advanceTo(page, '보유하거나 빌려 쓰는 차량');
+  await page.getByRole('button', { name: '입력 내용 확인', exact: true }).click();
+  await expect(page.getByRole('button', { name: '계산하기', exact: true })).toBeVisible();
+}
+async function money(page, label, value) {
+  await page
+    .getByRole('group', { name: `${label} 여부`, exact: true })
+    .getByRole('button', { name: '있어요', exact: true })
+    .click();
+  await page.getByLabel(label, { exact: true }).fill(value);
+}
+async function calculateAndExpect(page) {
+  await page.getByRole('button', { name: '계산하기', exact: true }).click();
+  await expect(page.locator('.finance-result')).toBeVisible();
+}
+
+test('guided entry distinguishes zero and unknown, reviews and edits at 320px', async ({
   page,
-}) => {
+}, testInfo) => {
   let submitted;
   await page.route('**/v1/finance/calculate', (route) => {
     submitted = route.request().postDataJSON();
     return route.fulfill({ json: calculation() });
   });
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto('/#calculator');
-  await page.getByLabel('근로소득 (월·세전 기준)', { exact: true }).fill('0');
-  await page.getByLabel('전월세 보증금', { exact: true }).fill('10,000,000');
+  await start(page);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('group', { name: '근로소득 (월·세전 기준) 여부', exact: true }),
+  ).toHaveCount(0);
+  await advanceTo(page, '월급이 있나요');
+  await page
+    .getByRole('group', { name: '근로소득 (월·세전 기준) 여부', exact: true })
+    .getByRole('button', { name: '없어요', exact: true })
+    .click();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.getByLabel('근로소득 (월·세전 기준)', { exact: true })).toHaveValue('0');
+  await expect(page.getByRole('button', { name: '없어요', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await expect(page.getByLabel('입력한 근로소득의 기준', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('전월세 보증금', { exact: true })).toBeHidden();
-  await page.getByRole('button', { name: '다음', exact: true }).click();
-  await expect(page.getByLabel('전월세 보증금', { exact: true })).toHaveValue('10,000,000');
-  await page.getByRole('button', { name: '계산하기', exact: true }).click();
-  await expect(page.getByText('123,456원', { exact: true })).toBeVisible();
-  await expect(page.getByText('추가 확인 필요', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '다음', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `test-results/finance-wizard-${testInfo.project.name}.png` });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await advanceTo(page, '주택과 보증금');
+  await money(page, '전월세 보증금', '10,000,000');
+  await next(page);
+  await next(page);
+  await page.getByRole('button', { name: '부채가 모두 없어요', exact: true }).click();
+  await next(page);
+  await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('none');
+  await page.getByRole('button', { name: '입력 내용 확인', exact: true }).click();
+  await expect(page.locator('.finance-review')).toContainText('10,000,000원');
+  await calculateAndExpect(page);
   expect(submitted.profile.members[0].earned_income).toBe(0);
   expect(submitted.profile.members[0].business_income).toBeNull();
   expect(submitted.profile.assets.housing).toBeNull();
   expect(submitted.profile.assets.rental_deposit).toBe(10000000);
+  expect(submitted.profile.debts).toEqual({ bank: 0, public: 0, other: 0 });
+  expect(submitted.profile.vehicles).toEqual([]);
   await page.getByText('계산 기준과 공식 자료 보기', { exact: true }).click();
   await expect(page.getByRole('link', { name: /공식 기준 자료/ })).toHaveAttribute(
     'href',
     'https://www.mohw.go.kr/',
   );
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(
-    'rental_deposit',
-  );
   await page.getByRole('button', { name: '입력 정보 수정', exact: true }).click();
-  await expect(page.getByLabel('근로소득 (월·세전 기준)', { exact: true })).toHaveValue('0');
+  await expect(page.getByLabel('거주 지역', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('전월세 보증금', { exact: true })).toHaveValue('10,000,000');
+  await money(page, '전월세 보증금', '12,000,000');
+  await expect(page.locator('.finance-result')).toHaveCount(0);
+  await page.getByRole('button', { name: '입력 내용 확인', exact: true }).click();
+  await calculateAndExpect(page);
+  expect(submitted.profile.assets.rental_deposit).toBe(12000000);
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }),
+    ),
+  ).not.toContain('rental_deposit');
 });
 
-test('income basis is asked for positive amounts and survives easy mode without conversion', async ({
+test('positive income basis survives backward navigation and display mode changes', async ({
   page,
 }) => {
   let submitted;
@@ -106,19 +170,22 @@ test('income basis is asked for positive amounts and survives easy mode without 
     result.median.ratio_percent = null;
     return route.fulfill({ json: result });
   });
-  await page.goto('/#calculator');
-  await expect(page.getByLabel('입력한 근로소득의 기준', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('입력한 사업소득의 기준', { exact: true })).toHaveCount(0);
-  await page.getByLabel('근로소득 (월·세전 기준)', { exact: true }).fill('2,000,000');
+  await start(page);
+  await advanceTo(page, '월급이 있나요');
+  await money(page, '근로소득 (월·세전 기준)', '2,000,000');
   await page.getByLabel('입력한 근로소득의 기준', { exact: true }).selectOption('net');
-  await page.getByLabel('사업소득 (월·경비 차감 후)', { exact: true }).fill('5,000,000');
+  await next(page);
+  await money(page, '사업소득 (월·경비 차감 후)', '5,000,000');
   await page.getByLabel('입력한 사업소득의 기준', { exact: true }).selectOption('revenue');
+  await page.getByRole('button', { name: '이전', exact: true }).click();
+  await expect(page.getByLabel('근로소득 (월·세전 기준)', { exact: true })).toHaveValue(
+    '2,000,000',
+  );
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.getByLabel('입력한 근로소득의 기준', { exact: true })).toHaveValue('net');
+  await next(page);
   await expect(page.getByLabel('입력한 사업소득의 기준', { exact: true })).toHaveValue('revenue');
-  await page.getByRole('button', { name: '다음', exact: true }).click();
-  await page.getByRole('button', { name: '계산하기', exact: true }).click();
-  await expect(page.locator('.finance-result')).toBeVisible();
+  await review(page);
+  await calculateAndExpect(page);
   expect(submitted.profile.members[0]).toMatchObject({
     earned_income: 2000000,
     earned_income_basis: 'net',
@@ -130,7 +197,7 @@ test('income basis is asked for positive amounts and survives easy mode without 
   ).toHaveCount(2);
 });
 
-test('vehicle ownership, registration and actual use remain independent in easy mode', async ({
+test('vehicle ownership, value and specifications are separate guided questions', async ({
   page,
 }) => {
   let submitted;
@@ -138,32 +205,24 @@ test('vehicle ownership, registration and actual use remain independent in easy 
     submitted = route.request().postDataJSON();
     return route.fulfill({ json: calculation() });
   });
-  await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto('/#calculator');
+  await start(page);
+  await advanceTo(page, '보유하거나 빌려 쓰는 차량');
   await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('owned');
+  await next(page);
   await page.getByLabel('차량 명의·계약 형태', { exact: true }).selectOption('joint');
   await page.getByLabel('등록증상 영업용 여부', { exact: true }).selectOption('non_commercial');
   await page.getByLabel('실제 차량 사용 목적', { exact: true }).selectOption('livelihood');
-  await page.getByLabel('차량 전체 가액', { exact: true }).fill('6,000,000');
+  await next(page);
+  await money(page, '차량 전체 가액', '6,000,000');
   await page.getByLabel('차량 금액의 기준', { exact: true }).selectOption('market');
+  await next(page);
   await page.getByLabel('차종', { exact: true }).selectOption('passenger');
   await page.getByLabel('배기량', { exact: true }).fill('1600');
   await page.getByLabel('차령', { exact: true }).fill('12');
   await page.getByLabel('승차 정원', { exact: true }).fill('5');
   await page.getByLabel('친환경차 구입 보조금', { exact: true }).selectOption('received');
-  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await page.getByRole('button', { name: '다음', exact: true }).click();
-  await expect(page.getByLabel('등록증상 영업용 여부', { exact: true })).toHaveValue(
-    'non_commercial',
-  );
-  await expect(page.getByLabel('실제 차량 사용 목적', { exact: true })).toHaveValue('livelihood');
-  await expect(page.getByLabel('차량 전체 가액', { exact: true })).toHaveValue('6,000,000');
-  await expect(page.getByLabel('차종', { exact: true })).toBeHidden();
-  await page.getByText('차종·차량 제원·보조금 확인', { exact: true }).click();
-  await expect(page.getByLabel('친환경차 구입 보조금', { exact: true })).toHaveValue('received');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('button', { name: '계산하기', exact: true }).click();
-  await expect(page.locator('.finance-result')).toBeVisible();
+  await page.getByRole('button', { name: '입력 내용 확인', exact: true }).click();
+  await calculateAndExpect(page);
   expect(submitted.profile.vehicles).toEqual([
     {
       value: 6000000,
@@ -180,11 +239,12 @@ test('vehicle ownership, registration and actual use remain independent in easy 
   ]);
 });
 
-test('server failure does not display a fabricated result and can be retried', async ({ page }) => {
+test('server failure preserves inputs and can be retried', async ({ page }) => {
   await page.route('**/v1/finance/calculate', (route) =>
     route.fulfill({ status: 503, json: { detail: '계산 서버 점검 중입니다.' } }),
   );
-  await page.goto('/#calculator');
+  await start(page);
+  await review(page);
   await page.getByRole('button', { name: '계산하기', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('계산 서버 점검 중');
   await expect(page.locator('.finance-result')).toHaveCount(0);
@@ -193,7 +253,7 @@ test('server failure does not display a fabricated result and can be retried', a
   await expect(page.locator('.finance-result')).toBeVisible();
 });
 
-test('account saving requires consent and stored data is loaded only by explicit action', async ({
+test('account load opens review, save requires consent, delete clears the draft', async ({
   page,
 }) => {
   let getCount = 0;
@@ -220,15 +280,16 @@ test('account saving requires consent and stored data is loaded only by explicit
     deletion = true;
     return route.fulfill({ json: { deleted: true } });
   });
-  await page.goto('/#calculator');
-  await expect(page.getByText('계산회원님', { exact: true })).toBeVisible();
-  await page.getByLabel('전월세 보증금', { exact: true }).fill('456789');
+  await start(page);
+  await advanceTo(page, '주택과 보증금');
+  await money(page, '전월세 보증금', '456789');
+  await review(page);
   expect(getCount).toBe(0);
   await page.getByRole('button', { name: '저장한 정보 불러오기', exact: true }).click();
   await expect(
     page.getByText('계정에 저장한 정보가 없습니다. 지금 입력한 내용은 그대로 유지합니다.'),
   ).toBeVisible();
-  await expect(page.getByLabel('전월세 보증금', { exact: true })).toHaveValue('456789');
+  await expect(page.locator('.finance-review')).toContainText('456,789원');
   await expect(page.getByRole('button', { name: '계정에 저장하기', exact: true })).toBeDisabled();
   await page.getByRole('checkbox', { name: '이 정보를 내 계정에 저장', exact: true }).check();
   await page.getByRole('button', { name: '계정에 저장하기', exact: true }).click();
@@ -241,16 +302,126 @@ test('account saving requires consent and stored data is loaded only by explicit
     updated_at: '2026-09-25T00:00:00Z',
   };
   await page.getByRole('button', { name: '저장한 정보 불러오기', exact: true }).click();
-  await expect(page.getByLabel('전월세 보증금', { exact: true })).toHaveValue('10,000,000');
+  await expect(page.locator('.finance-review')).toContainText('10,000,000원');
   await page.getByRole('button', { name: '계정에 저장한 정보 삭제', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('삭제하면 다시 입력해야');
   await page.getByRole('button', { name: '취소', exact: true }).click();
-  await expect(page.getByRole('button', { name: '저장 정보 삭제하기', exact: true })).toHaveCount(
-    0,
-  );
+  expect(deletion).toBe(false);
   await page.getByRole('button', { name: '계정에 저장한 정보 삭제', exact: true }).click();
   await page.getByRole('button', { name: '저장 정보 삭제하기', exact: true }).click();
   await expect(page.getByText('계정에 저장한 소득·재산 정보를 삭제했습니다.')).toBeVisible();
   expect(deletion).toBe(true);
-  await expect(page.getByLabel('전월세 보증금', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('button', { name: '처음 계산하기', exact: true })).toBeVisible();
+});
+
+test('draft and position survive SPA navigation, but refresh clears guest financial data', async ({
+  page,
+}) => {
+  await start(page);
+  await advanceTo(page, '월급이 있나요');
+  await money(page, '근로소득 (월·세전 기준)', '1234567');
+  await page.evaluate(() => {
+    location.hash = 'home';
+  });
+  await expect(page.locator('.calculator-page')).toHaveCount(0);
+  await page.evaluate(() => {
+    location.hash = 'calculator';
+  });
+  await expect(page.locator('.finance-screen-title')).toContainText('월급이 있나요');
+  await expect(page.getByLabel('근로소득 (월·세전 기준)', { exact: true })).toHaveValue('1234567');
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }),
+    ),
+  ).not.toContain('1234567');
+  await page.reload();
+  await expect(page.getByRole('button', { name: '처음 계산하기', exact: true })).toBeVisible();
+});
+
+test('current question validation focuses the field, review edits validate all questions', async ({
+  page,
+}) => {
+  await start(page);
+  await advanceTo(page, '나이와 공제 유형');
+  await page.getByLabel('만 나이', { exact: true }).fill('-1');
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('0 이상의 정수');
+  await expect(page.getByLabel('만 나이', { exact: true })).toBeFocused();
+  await page.getByLabel('만 나이', { exact: true }).fill('65');
+  await page.getByLabel('만 나이', { exact: true }).press('Enter');
+  await expect(page.locator('.finance-screen-title')).toContainText('월급이 있나요');
+  await review(page);
+  await page.getByRole('button', { name: '전체 정보 수정', exact: true }).click();
+  await page.getByLabel('18세 미만 자녀 수', { exact: true }).fill('2');
+  await page.getByRole('button', { name: '단계별로 수정하기', exact: true }).click();
+  await next(page);
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByLabel('18세 미만 자녀 수', { exact: true })).toBeFocused();
+  await page.getByLabel('18세 미만 자녀 수', { exact: true }).fill('0');
+  await review(page);
+});
+
+test('changing household and vehicle applicability restores drafts but excludes inactive entries', async ({
+  page,
+}) => {
+  let submitted;
+  await page.route('**/v1/finance/calculate', (route) => {
+    submitted = route.request().postDataJSON();
+    return route.fulfill({ json: calculation() });
+  });
+  await start(page);
+  await review(page);
+  await page.getByRole('button', { name: '전체 정보 수정', exact: true }).click();
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('2');
+  await page.getByLabel('만 나이', { exact: true }).nth(1).fill('47');
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('1');
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('2');
+  await expect(page.getByLabel('만 나이', { exact: true }).nth(1)).toHaveValue('47');
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('1');
+  await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('owned');
+  await money(page, '차량 전체 가액', '7000000');
+  await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('none');
+  await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('owned');
+  await expect(page.getByLabel('차량 전체 가액', { exact: true })).toHaveValue('7000000');
+  await page.getByLabel('차량 보유 여부', { exact: true }).selectOption('none');
+  await page.getByRole('button', { name: '입력 내용 확인', exact: true }).click();
+  await calculateAndExpect(page);
+  expect(submitted.profile.members).toHaveLength(1);
+  expect(submitted.profile.vehicle_status).toBe('none');
+  expect(submitted.profile.vehicles).toEqual([]);
+});
+
+test('guest draft follows explicit login and logout clears all calculator memory', async ({
+  page,
+}) => {
+  await page.route('**/v1/auth/login', (route) =>
+    route.fulfill({ json: { user: { id: 88, name: '이어쓰기회원', username: 'finance_guest' } } }),
+  );
+  await page.route('**/v1/auth/logout', (route) =>
+    route.fulfill({ json: { message: '로그아웃했습니다.' } }),
+  );
+  await start(page);
+  await advanceTo(page, '월급이 있나요');
+  await money(page, '근로소득 (월·세전 기준)', '2345678');
+  await page.getByRole('link', { name: '로그인', exact: true }).click();
+  await page.getByLabel('아이디', { exact: true }).fill('finance_guest');
+  await page.getByLabel('비밀번호', { exact: true }).fill('Finance123!');
+  await page.getByRole('button', { name: '로그인', exact: true }).click();
+  await expect(page.getByText('이어쓰기회원님', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    location.hash = 'calculator';
+  });
+  await expect(page.locator('.finance-screen-title')).toContainText('월급이 있나요');
+  await expect(page.getByLabel('근로소득 (월·세전 기준)', { exact: true })).toHaveValue('2345678');
+  await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+  await expect(page.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    location.hash = 'calculator';
+  });
+  await expect(page.getByRole('button', { name: '처음 계산하기', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '처음 계산하기', exact: true }).click();
+  await advanceTo(page, '월급이 있나요');
+  await expect(page.getByRole('button', { name: '모르겠어요', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });

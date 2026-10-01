@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import AuthPage from '../features/auth/AuthPage.jsx';
 import { authRequest } from '../features/auth/authApi.js';
@@ -48,6 +48,13 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [financial, setFinancial] = useState({ owner: null, profile: null });
+  const calculatorSession = useRef({ owner: null, value: null });
+  const rememberCalculator = useCallback(
+    (value) => {
+      calculatorSession.current = { owner: user?.id || null, value };
+    },
+    [user?.id],
+  );
   const [useFinancial, setUseFinancial] = useState(false);
   const financialProfile = financial.owner === (user?.id || null) ? financial.profile : null;
   const [easy, setEasy] = useState(() =>
@@ -76,6 +83,9 @@ export default function App() {
         if (active && revision === authRevision.current) {
           setUser(current);
           setFinancial({ owner: current?.id || null, profile: null });
+          if (calculatorSession.current.owner !== (current?.id || null)) {
+            calculatorSession.current = { owner: current?.id || null, value: null };
+          }
         }
       })
       .catch(() => {});
@@ -85,6 +95,10 @@ export default function App() {
   }, []);
   const onLogin = (current) => {
     authRevision.current += 1;
+    calculatorSession.current = {
+      owner: current.id,
+      value: calculatorSession.current.owner === null ? calculatorSession.current.value : null,
+    };
     setUser(current);
     setFinancial((previous) => ({
       owner: current.id,
@@ -100,6 +114,7 @@ export default function App() {
       await authRequest('logout', {});
       setUser(null);
       setFinancial({ owner: null, profile: null });
+      calculatorSession.current = { owner: null, value: null };
       setUseFinancial(false);
       window.location.hash = 'home';
     } catch (err) {
@@ -359,6 +374,12 @@ export default function App() {
               easy={easy}
               user={user}
               profile={financialProfile}
+              session={
+                calculatorSession.current.owner === (user?.id || null)
+                  ? calculatorSession.current.value
+                  : null
+              }
+              onSessionChange={rememberCalculator}
               onProfileChange={(value) => {
                 setFinancial({ owner: user?.id || null, profile: value });
                 setUseFinancial(false);
