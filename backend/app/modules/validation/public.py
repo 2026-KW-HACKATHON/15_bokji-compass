@@ -49,8 +49,18 @@ def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
 
 
 def validate_overview(result: PolicyOverview, source: SourcePolicy) -> None:
-    """Require every summary/category citation to be an exact source substring."""
-    for evidence in result.evidence:
+    """Require overview title and citations to match the original source."""
+    if result.title != source.title:
+        raise ValueError("Overview title differs from source")
+    if result.source_url != source.source_url:
+        raise ValueError("Overview source URL differs from source")
+    evidence_items = [*result.category_evidence]
+    for section in (result.region_conditions, result.gender_conditions,
+                    result.age_conditions, result.benefits):
+        evidence_items.extend(section.evidence)
+    for item in result.other_conditions:
+        evidence_items.extend(item.evidence)
+    for evidence in evidence_items:
         if evidence.source_field == "title":
             original = source.title
         elif evidence.source_field == "organization":

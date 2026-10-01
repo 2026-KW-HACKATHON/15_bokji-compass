@@ -6,6 +6,6 @@
 
 `validate_canonical(result: CanonicalPolicy, source: SourcePolicy, catalog=None) -> None`은 v2 정규화 결과의 원문·공식 코드 존재·이름·스냅샷 버전 검사. Pydantic의 필드 사전·단위·값·논리 검증 후 호출. 오류는 ValueError.
 
-`validate_overview(result: PolicyOverview, source: SourcePolicy) -> None`은 요약·분야 근거 인용이 제목·기관명 또는 입력 필드의 실제 부분 문자열인지 확인합니다. 없는 인용은 `ValueError`로 거부합니다. 인용 검증은 요약 내용의 의미 정확성까지 보증하지 않으므로 초안 검토가 필요합니다.
+`validate_overview(result: PolicyOverview, source: SourcePolicy) -> None`은 제목과 `source_url`이 입력과 같은지, 분야·지역·성별·나이·기타 조건·혜택의 모든 인용이 제목·기관명 또는 입력 필드의 실제 부분 문자열인지 확인합니다. 없는 인용, 다른 제목 또는 URL은 `ValueError`로 거부합니다. 인용 검증은 요약 내용의 의미 정확성·조건 누락 여부까지 보증하지 않으므로 초안 검토가 필요합니다.
 
 `logic.evaluate_logic(node, outcomes) -> PASS | FAIL | UNKNOWN`은 이미 평가된 조건별 결과를 all/any/not으로 조합. 누락·미해결 노드는 UNKNOWN 유지. 사용자 프로필을 직접 평가하거나 정책을 공개하지 않음.

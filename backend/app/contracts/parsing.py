@@ -125,12 +125,42 @@ class SourceEvidence(StrictModel):
     quote: str = Field(min_length=1, max_length=500)
 
 
+class OverviewSection(StrictModel):
+    status: Literal["specified", "unrestricted", "not_stated", "unclear"]
+    text: str | None
+    evidence: list[SourceEvidence] = Field(max_length=8)
+    unresolved_reason: str | None
+
+    @model_validator(mode="after")
+    def validate_status(self):
+        if self.status in {"specified", "unrestricted"}:
+            if not self.text or not self.evidence or self.unresolved_reason is not None:
+                raise ValueError("Known overview section requires text and evidence")
+        elif self.status == "not_stated":
+            if self.text is not None or self.evidence or self.unresolved_reason is not None:
+                raise ValueError("Not-stated overview section cannot contain inferred data")
+        elif not self.unresolved_reason:
+            raise ValueError("Unclear overview section requires a reason")
+        return self
+
+
+class OverviewItem(StrictModel):
+    text: str = Field(min_length=1, max_length=300)
+    evidence: list[SourceEvidence] = Field(min_length=1, max_length=8)
+
+
 class PolicyOverview(StrictModel):
-    summary: str = Field(min_length=1, max_length=500)
+    title: str = Field(min_length=1, max_length=300)
+    source_url: str | None
     category: PolicyCategory | None
     category_reason: str = Field(min_length=1, max_length=240)
-    evidence: list[SourceEvidence] = Field(min_length=1, max_length=8)
-    unresolved: list[str] = Field(max_length=8)
+    category_evidence: list[SourceEvidence] = Field(min_length=1, max_length=8)
+    region_conditions: OverviewSection
+    gender_conditions: OverviewSection
+    age_conditions: OverviewSection
+    other_conditions: list[OverviewItem] = Field(max_length=24)
+    benefits: OverviewSection
+    unresolved: list[str] = Field(max_length=20)
 
     @model_validator(mode="after")
     def require_reason_when_uncategorized(self):

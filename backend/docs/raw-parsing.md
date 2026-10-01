@@ -74,7 +74,7 @@ OpenAI 공식 [모델 안내](https://learn.chatgpt.com/docs/models)는 Luna를 
 analysis 지역 이름은 TEXT로 보존. canonical은 공식 마스터에서 유일한 현행 이름만 REGION으로 변환하며 코드의 0·9를 상태 값으로 사용하지 않음. 파일 버전 welfare-parsing-v2, canonical 버전 welfare-conditions-v2. 기존 v1 파일 유지. 복지로 XML 반복·중첩 항목은 수집 파서에서 보존.
 
 ## 요약·분야
-초안의 최상위 `overview`에는 한국어 요약, 6개 분야 분류, 분류 이유, 원문 인용이 기록됩니다. 분야는 주된 지원 내용으로 결정하고 청년·어르신 등 대상자와 분리합니다. 분류가 불명확하면 `category=null`과 미해결 사유를 남깁니다. 인용은 제목·기관명·입력 필드의 실제 문자열인지 검증합니다. 요약 생성은 조건 추출과 별도 LLM 호출이며 웹 추천/API로 전달되지는 않습니다.
+초안의 최상위 `overview`는 `title`, `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 제공합니다. 타이틀은 원문 제목을 그대로 사용하고 URL은 입력의 `SourcePolicy.source_url`에서 복사합니다. LLM이 URL을 생성하지 않으며 원문 URL이 없으면 null입니다. 분야는 주된 지원 내용으로 결정하고 청년·어르신 등 대상자와 분리합니다. 조건별 상태는 명시 조건·명시적 제한 없음·미기재·모호함을 구분하며, 내용에는 원문 근거 인용을 연결합니다. 분류가 불명확하면 `category=null`과 미해결 사유를 남깁니다. 요약 생성은 조건 추출과 별도 LLM 호출이며 웹 추천/API로 전달되지는 않습니다.
 
 ## 검증 경계
 
