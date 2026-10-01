@@ -53,6 +53,10 @@ groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원�
 - 불확실성이 있으면 canonical.coverage=partial. 원래 analysis.coverage와 구분.
 - 검증 순서: Pydantic 모델 검증 → validate_canonical로 원문 근거·공식 코드/이름/버전 검증.
 
+## PolicyOverview
+
+파이프라인 초안의 `overview`는 한국어 요약, 웹과 동일한 6개 분야(`생활·금융`, `주거`, `일자리`, `교육`, `건강·돌봄`, `문화`) 중 하나, 분류 이유, 원문 인용을 담습니다. 분야는 지원 대상이 아니라 주된 지원 내용으로 정하며, 근거 부족 또는 분류 불가 시 category=null과 unresolved 사유를 기록합니다. 모든 인용은 제목·기관명·원문 필드의 실제 부분 문자열인지 검증합니다. 요약은 사용자 자격 판정이나 공식 안내를 대체하지 않습니다.
+
 ## 파일 초안·실행 상태
 
 `pipeline.parse_raw_files`가 생성하는 `draft.json`의 버전은 `welfare-parsing-v2`. source, analysis, canonical, code_analysis, code_canonical, attempts, status, review_status, matching_enabled 등 포함. 코드 부분 결과가 없거나 prepare-only이면 관련 필드는 생략 가능. 현재 draft·matching_enabled=false 고정.

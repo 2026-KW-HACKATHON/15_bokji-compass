@@ -1,7 +1,7 @@
 """Validate extraction structure and exact source evidence before draft storage."""
 
 from app.contracts.conditions import CanonicalPolicy
-from app.contracts.parsing import PolicyExtraction, SourcePolicy
+from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy
 from app.modules.regions.public import RegionCatalog, default_catalog
 
 
@@ -46,3 +46,16 @@ def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
             region = catalog.validate_code(value.system, value.code, value.snapshot_version)
             if value.name != region.name:
                 raise ValueError("Official region code/name mismatch")
+
+
+def validate_overview(result: PolicyOverview, source: SourcePolicy) -> None:
+    """Require every summary/category citation to be an exact source substring."""
+    for evidence in result.evidence:
+        if evidence.source_field == "title":
+            original = source.title
+        elif evidence.source_field == "organization":
+            original = source.organization
+        else:
+            original = source.fields.get(evidence.source_field, "")
+        if evidence.quote not in original:
+            raise ValueError("Overview evidence is absent from source")
