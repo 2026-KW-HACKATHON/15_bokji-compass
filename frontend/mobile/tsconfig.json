@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "allowJs": true,
+    "maxNodeModuleJsDepth": 1,
     "checkJs": false
   }
 }

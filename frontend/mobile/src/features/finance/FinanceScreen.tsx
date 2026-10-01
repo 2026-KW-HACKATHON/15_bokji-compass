@@ -19,6 +19,7 @@ import {
   Button,
   Card,
   Copy,
+  Details,
   Field,
   Notice,
   Screen,
@@ -64,7 +65,7 @@ type FormField = {
 };
 
 export default function FinanceScreen() {
-  const { api, session, configError } = useRuntime();
+  const { api, session, configError, easy } = useRuntime();
   const auth = useSession();
   const [draft, setDraft] = useState<Draft>(emptyFinancialProfile);
   const [index, setIndex] = useState(0);
@@ -218,7 +219,14 @@ export default function FinanceScreen() {
               </Pressable>
             ))}
           </View>
-          {field.hint ? <Copy muted>{field.hint}</Copy> : null}
+          {field.hint ? (
+            <Details
+              label="입력 도움말"
+              accessibilityLabel={`${field.label} 도움말`}
+            >
+              <Copy muted>{field.hint}</Copy>
+            </Details>
+          ) : null}
         </View>
       );
     return (
@@ -239,38 +247,51 @@ export default function FinanceScreen() {
             edit(field.path, field.type === "money" ? moneyInput(text) : text)
           }
         />
-        {field.hint ? <Copy muted>{field.hint}</Copy> : null}
+        {field.hint ? (
+          <Details
+            label="입력 도움말"
+            accessibilityLabel={`${field.label} 도움말`}
+          >
+            <Copy muted>{field.hint}</Copy>
+          </Details>
+        ) : null}
       </View>
     );
   }
   return (
     <Screen>
-      <Copy title>소득·재산 계산</Copy>
+      <Copy title>중위소득 계산기</Copy>
       <Copy muted>
-        모르는 금액은 빈칸, 없는 금액은 0으로 입력해 주세요. 모든 금액 입력은
-        만원 단위입니다.
+        {easy
+          ? "금액은 만원 단위예요.\n모르면 빈칸 · 없으면 0"
+          : "모르는 금액은 빈칸, 없는 금액은 0으로 입력해 주세요. 모든 금액 입력은 만원 단위입니다."}
       </Copy>
       {configError ? <Notice>{configError}</Notice> : null}
       {auth.status === "signedIn" ? (
-        <Card>
-          <Copy>내 계정의 금융정보</Copy>
-          <Button
-            secondary
-            label="저장한 정보 불러오기"
-            disabled={busy}
-            onPress={() => setConfirmation("load")}
-          />
-          <Button
-            secondary
-            label="계정에 저장한 정보 삭제"
-            disabled={busy}
-            onPress={() => setConfirmation("delete")}
-          />
-        </Card>
+        <Details label="저장한 정보 관리">
+          <Card>
+            <Copy>내 계정의 금융정보</Copy>
+            <Button
+              secondary
+              label="저장한 정보 불러오기"
+              disabled={busy}
+              onPress={() => setConfirmation("load")}
+            />
+            <Button
+              secondary
+              label="계정에 저장한 정보 삭제"
+              disabled={busy}
+              onPress={() => setConfirmation("delete")}
+            />
+          </Card>
+        </Details>
       ) : (
-        <Notice>
-          로그인 없이 계산할 수 있어요. 입력한 정보는 앱을 종료하면 사라집니다.
-        </Notice>
+        <Details label="계산·저장 안내">
+          <Notice>
+            로그인 없이 계산할 수 있어요. 입력한 정보는 앱을 종료하면
+            사라집니다.
+          </Notice>
+        </Details>
       )}
       {confirmation ? (
         <Card>
@@ -349,10 +370,12 @@ export default function FinanceScreen() {
                 setConsent(false);
               }}
             />
-            <Copy muted>
-              차량 정보를 다시 입력하려면 보유 여부를 없음으로 바꾼 뒤 다시
-              선택해 주세요.
-            </Copy>
+            <Details label="차량 수정 도움말">
+              <Copy muted>
+                차량 정보를 다시 입력하려면 보유 여부를 없음으로 바꾼 뒤 다시
+                선택해 주세요.
+              </Copy>
+            </Details>
           </>
         ) : null}
         <Button
@@ -386,7 +409,8 @@ export default function FinanceScreen() {
           <Card>
             <Copy title>계산 결과</Copy>
             <Copy>
-              {result.reference_year}년 기준 · {result.rules_version}
+              {result.reference_year}년 기준
+              {!easy ? ` · ${result.rules_version}` : ""}
             </Copy>
             <Copy>
               월 소득 합계: {formatMoney(result.median.monthly_income)}
@@ -401,8 +425,9 @@ export default function FinanceScreen() {
               차량 포함 재산: {formatMoney(result.assets.gross_total)}
             </Copy>
             <Copy muted>
-              월 소득의 단순 비율은 사업별 소득인정액과 다릅니다. 실제 신청
-              자격은 공식 공고와 담당 기관에서 확인해 주세요.
+              {easy
+                ? "참고용 계산입니다. 신청 자격은 공식 공고에서 확인하세요."
+                : "월 소득의 단순 비율은 사업별 소득인정액과 다릅니다. 실제 신청 자격은 공식 공고와 담당 기관에서 확인해 주세요."}
             </Copy>
           </Card>
           {result.assessments.map((item) => (
@@ -430,35 +455,42 @@ export default function FinanceScreen() {
                   • {note}
                 </Copy>
               ))}
-              {item.breakdown.map((part, i) => (
-                <Copy key={i} muted>
-                  {part.label}: {formatMoney(part.amount)}
-                </Copy>
-              ))}
+              <Details
+                label="계산 내역 보기"
+                accessibilityLabel={`${item.label} 계산 내역`}
+              >
+                {item.breakdown.map((part, i) => (
+                  <Copy key={i} muted>
+                    {part.label}: {formatMoney(part.amount)}
+                  </Copy>
+                ))}
+              </Details>
             </Card>
           ))}
           <Card>
             {result.notes.map((note, i) => (
               <Copy key={i}>{note}</Copy>
             ))}
-            <Copy title>공식 출처</Copy>
-            {result.sources.map((source, i) => {
-              const url = officialSourceUrl(source.url);
-              return url ? (
-                <Button
-                  key={i}
-                  secondary
-                  label={source.title}
-                  onPress={() => {
-                    void Linking.openURL(url).catch(() =>
-                      setMessage("공식 안내를 열지 못했습니다."),
-                    );
-                  }}
-                />
-              ) : (
-                <Copy key={i}>{source.title}</Copy>
-              );
-            })}
+            <Details label="공식 출처 보기">
+              <Copy title>공식 출처</Copy>
+              {result.sources.map((source, i) => {
+                const url = officialSourceUrl(source.url);
+                return url ? (
+                  <Button
+                    key={i}
+                    secondary
+                    label={source.title}
+                    onPress={() => {
+                      void Linking.openURL(url).catch(() =>
+                        setMessage("공식 안내를 열지 못했습니다."),
+                      );
+                    }}
+                  />
+                ) : (
+                  <Copy key={i}>{source.title}</Copy>
+                );
+              })}
+            </Details>
           </Card>
           {auth.status === "signedIn" ? (
             <Card>

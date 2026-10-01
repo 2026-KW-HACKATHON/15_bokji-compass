@@ -22,7 +22,7 @@ try {
     .click();
   await page.getByText("서버에 연결됐습니다.", { exact: false }).waitFor();
   await page
-    .getByText("복지나침반 · 모바일", { exact: true })
+    .getByText("복지나침반", { exact: true })
     .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: new URL("home.png", artifacts).pathname.replace(/^\/(\w:)/, "$1"),
@@ -85,7 +85,7 @@ try {
     .getByText("저장한 정보를 불러왔습니다.", { exact: true })
     .waitFor();
   await page
-    .getByRole("heading", { name: "소득·재산 계산", exact: true })
+    .getByRole("heading", { name: "중위소득 계산기", exact: true })
     .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: new URL("finance.png", artifacts).pathname.replace(/^\/(\w:)/, "$1"),
@@ -109,7 +109,7 @@ try {
   await page.getByRole("tab", { name: /내 계정/ }).click();
   await page.getByRole("button", { name: "로그아웃", exact: true }).click();
   await page.getByLabel("아이디", { exact: true }).waitFor();
-  await page.getByRole("tab", { name: /소득·재산/ }).click();
+  await page.getByRole("tab", { name: /계산기/ }).click();
   assert.equal(await page.getByText("계산 결과", { exact: true }).count(), 0);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

@@ -3,6 +3,11 @@ import {
   toFinancialProfile,
 } from "@bokji/core/finance-model";
 import { ApiError } from "./client.js";
+import {
+  parsePolicy,
+  parsePolicyPage,
+  policyPath,
+} from "../features/policies/model.js";
 
 export function parseUser(value) {
   if (
@@ -33,6 +38,12 @@ export function createApi(request) {
     };
   };
   return {
+    listPolicies: async (filters, signal) =>
+      parsePolicyPage(await request(policyPath(filters), { signal })),
+    getPolicy: async (id, signal) =>
+      parsePolicy(
+        await request("/v1/policies/" + encodeURIComponent(id), { signal }),
+      ),
     health: async () => {
       const data = await request("/health");
       if (data.status !== "ok" || data.service !== "bokji-compass-backend")

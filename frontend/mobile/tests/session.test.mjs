@@ -43,6 +43,7 @@ test("login persists token only and restart verifies account with server", async
   await session.restore();
   await session.login("tester", "not-persisted");
   assert.equal(session.getSnapshot().status, "signedIn");
+  assert.equal(session.getSnapshot().expiresAt, 101000);
   assert.deepEqual(Object.keys(f.stored()).sort(), [
     "baseUrl",
     "expiresAt",

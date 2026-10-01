@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   StyleSheet,
   Text,
   TextInput,
@@ -27,15 +28,21 @@ export function Copy({
   children,
   title = false,
   muted = false,
-}: React.PropsWithChildren<{ title?: boolean; muted?: boolean }>) {
+  numberOfLines,
+}: React.PropsWithChildren<{
+  title?: boolean;
+  muted?: boolean;
+  numberOfLines?: number;
+}>) {
   const { easy } = useRuntime();
   return (
     <Text
+      numberOfLines={numberOfLines}
       accessibilityRole={title ? "header" : undefined}
       style={{
         color: muted ? colors.muted : colors.ink,
-        fontSize: title ? (easy ? 28 : 24) : easy ? 20 : 16,
-        lineHeight: title ? 38 : easy ? 31 : 25,
+        fontSize: title ? 24 : easy ? 19 : 16,
+        lineHeight: title ? (easy ? 32 : 38) : easy ? 28 : 25,
         fontWeight: title ? "700" : "400",
       }}
     >
@@ -44,18 +51,23 @@ export function Copy({
   );
 }
 export function Screen({ children }: React.PropsWithChildren) {
+  const { easy } = useRuntime();
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
       style={{ flex: 1, backgroundColor: colors.paper }}
     >
+      <EasyModeBar />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.page}
+          contentContainerStyle={[
+            styles.page,
+            easy && { padding: 16, gap: 14, paddingBottom: 28 },
+          ]}
         >
           {children}
         </ScrollView>
@@ -63,8 +75,151 @@ export function Screen({ children }: React.PropsWithChildren) {
     </SafeAreaView>
   );
 }
+function EasyModeBar() {
+  const { easy, setEasy } = useRuntime();
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFF",
+        borderBottomWidth: 1,
+        borderBottomColor: colors.line,
+      }}
+    >
+      <View
+        style={{
+          width: "100%",
+          maxWidth: 680,
+          alignSelf: "center",
+          paddingHorizontal: 22,
+          paddingVertical: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <Switch
+          accessibilityLabel="쉬운 화면"
+          value={easy}
+          onValueChange={setEasy}
+          trackColor={{ true: colors.green }}
+        />
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: colors.ink,
+              fontSize: easy ? 20 : 17,
+              fontWeight: "700",
+            }}
+          >
+            쉬운 화면
+          </Text>
+          {!easy && (
+            <Text style={{ color: colors.muted, fontSize: 13 }}>
+              큰 글씨로 편하게 보기
+            </Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
 export function Card({ children }: React.PropsWithChildren) {
-  return <View style={styles.card}>{children}</View>;
+  const { easy } = useRuntime();
+  return (
+    <View style={[styles.card, easy && { padding: 16, gap: 12 }]}>
+      {children}
+    </View>
+  );
+}
+// Secondary information stays available without filling the first mobile screen.
+export function Details({
+  label,
+  accessibilityLabel = label,
+  children,
+}: React.PropsWithChildren<{ label: string; accessibilityLabel?: string }>) {
+  const { easy } = useRuntime();
+  const [open, setOpen] = useState(false);
+  if (!easy) return <>{children}</>;
+  return (
+    <View style={{ gap: 10 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ expanded: open }}
+        aria-expanded={open}
+        onPress={() => setOpen(!open)}
+        style={{
+          minHeight: 48,
+          paddingVertical: 10,
+          flexDirection: "row",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 19,
+            lineHeight: 28,
+            color: colors.green,
+            fontWeight: "600",
+            flex: 1,
+          }}
+        >
+          {label}
+        </Text>
+        <Text
+          importantForAccessibility="no"
+          aria-hidden
+          style={{ fontSize: 22, color: colors.green }}
+        >
+          {open ? "−" : "+"}
+        </Text>
+      </Pressable>
+      {open && <View style={{ gap: 12 }}>{children}</View>}
+    </View>
+  );
+}
+
+export function ReadableText({
+  text,
+  label,
+  title = false,
+}: {
+  text: string;
+  label: string;
+  title?: boolean;
+}) {
+  const { easy } = useRuntime();
+  const [open, setOpen] = useState(false);
+  const lengthy = easy && text.length > (title ? 60 : 100);
+  return (
+    <View style={{ gap: 6 }}>
+      <Copy title={title} numberOfLines={lengthy && !open ? 3 : undefined}>
+        {text}
+      </Copy>
+      {lengthy && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          aria-expanded={open}
+          accessibilityLabel={`${label} ${open ? "접기" : "전체 보기"}`}
+          onPress={() => setOpen(!open)}
+          style={{ minHeight: 48, justifyContent: "center" }}
+        >
+          <Text
+            style={{
+              fontSize: 19,
+              lineHeight: 28,
+              color: colors.green,
+              fontWeight: "600",
+            }}
+          >
+            {open ? "접기 −" : "전체 보기 +"}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 export function Button({
   label,
@@ -101,6 +256,7 @@ export function Button({
           fontSize: easy ? 20 : 16,
           fontWeight: "700",
           textAlign: "center",
+          flexShrink: 1,
         }}
       >
         {label}

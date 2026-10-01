@@ -1,6 +1,6 @@
 import type { ExpoConfig } from "expo/config";
 
-const release = ["preview", "production"].includes(
+const release = process.env.BOKJI_RELEASE === "1" || ["preview", "production"].includes(
   process.env.EAS_BUILD_PROFILE || "",
 );
 if (release) {
@@ -10,6 +10,7 @@ if (release) {
   if (
     url.protocol !== "https:" ||
     url.hostname === "missing.invalid" ||
+    /(^localhost$|\.invalid$|\.test$|\.example$|^127\.|^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\.|:)/i.test(url.hostname) ||
     url.username ||
     url.password ||
     url.search ||
@@ -32,13 +33,30 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: "com.bokjicompass.app",
     config: { usesNonExemptEncryption: false },
+    infoPlist: { NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } },
   },
-  android: { package: "com.bokjicompass.app" },
+  android: {
+    package: "com.bokjicompass.app",
+    allowBackup: false,
+    blockedPermissions: [
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+      "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+      "android.permission.VIBRATE",
+    ],
+  },
   web: {
     bundler: "metro",
     output: "single",
     favicon: "./assets/brand-logo.png",
   },
-  plugins: ["expo-router", "expo-secure-store"],
+  plugins: [
+    "expo-router",
+    ["expo-secure-store", { configureAndroidBackup: false, faceIDPermission: false }],
+    "./plugins/with-security.cjs",
+  ],
 };
 export default config;

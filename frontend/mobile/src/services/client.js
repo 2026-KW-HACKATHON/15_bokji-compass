@@ -52,6 +52,8 @@ export function createClient({
         method: body === undefined ? "GET" : "POST",
         credentials: "omit",
         cache: "no-store",
+        // Browsers enforce this; Android also disables redirects in its native HTTP client.
+        redirect: "error",
         signal: controller.signal,
         headers: {
           Accept: "application/json",

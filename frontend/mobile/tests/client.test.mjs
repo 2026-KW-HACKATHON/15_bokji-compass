@@ -40,6 +40,7 @@ test("public calls omit authorization and private calls use bearer, not cookies"
   assert.equal(calls[0][1].headers["X-Auth-Request"], "1");
   assert.equal(calls[1][1].headers.Authorization, "Bearer test");
   assert.equal(calls[1][1].credentials, "omit");
+  assert.equal(calls[1][1].redirect, "error");
 });
 test("HTTP failures do not echo private server details and invalid JSON fails closed", async () => {
   const request = createClient({

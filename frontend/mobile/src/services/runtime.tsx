@@ -9,6 +9,7 @@ import { createClient, resolveApiUrl } from "./client";
 import { createApi } from "./api";
 import { createSession } from "./session";
 import { sessionStorage } from "../platform/sessionStorage";
+import { AppState } from "react-native";
 
 let configError = "";
 let baseUrl = "";
@@ -30,9 +31,21 @@ const Runtime = createContext({
 
 export function RuntimeProvider({ children }: React.PropsWithChildren) {
   const [easy, setEasy] = useState(false);
+  const auth = useSession();
   useEffect(() => {
     if (!configError) void session.restore();
+    const listener = AppState.addEventListener("change", (next) => {
+      // Revalidate after returning from the background; stale private forms are unmounted.
+      if (next === "active" && !configError && session.getSnapshot().status === "signedIn")
+        void session.restore();
+    });
+    return () => listener.remove();
   }, []);
+  useEffect(() => {
+    if (auth.status !== "signedIn" || !auth.token) return;
+    const timer = setTimeout(() => void session.invalidate(auth.token), Math.max(0, auth.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [auth.status, auth.token, auth.expiresAt]);
   return (
     <Runtime.Provider
       value={{ api, session, baseUrl, configError, easy, setEasy }}

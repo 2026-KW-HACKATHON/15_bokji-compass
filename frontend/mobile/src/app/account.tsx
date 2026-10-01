@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import { Button, Card, Copy, Field, Notice, Screen } from "../components/ui";
+import {
+  Button,
+  Card,
+  Copy,
+  Details,
+  Field,
+  Notice,
+  Screen,
+} from "../components/ui";
 import { useRuntime, useSession } from "../services/runtime";
 
 export default function Account() {
-  const { session, configError } = useRuntime();
+  const { session, configError, easy } = useRuntime();
   const state = useSession();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +49,11 @@ export default function Account() {
         <Notice>로그인 상태를 확인하고 있어요.</Notice>
       ) : (
         <Card>
-          <Copy>기존 복지나침반 계정으로 로그인해 주세요.</Copy>
+          <Copy>
+            {easy
+              ? "웹에서 쓰던 계정으로 로그인해요."
+              : "기존 복지나침반 계정으로 로그인해 주세요."}
+          </Copy>
           <Field
             label="아이디"
             value={username}
@@ -70,17 +82,21 @@ export default function Account() {
             disabled={!username.trim() || !password}
             onPress={() => void login()}
           />
-          <Copy muted>
-            모바일 회원가입은 다음 단계에서 제공됩니다. 먼저 웹에서 만든 계정을
-            이용해 주세요.
-          </Copy>
+          <Details label="회원가입 안내">
+            <Copy muted>
+              모바일 회원가입은 다음 단계에서 제공됩니다. 먼저 웹에서 만든
+              계정을 이용해 주세요.
+            </Copy>
+          </Details>
         </Card>
       )}
       {state.error ? <Notice>{state.error}</Notice> : null}
-      <Copy muted>
-        금융정보는 자동으로 불러오지 않습니다. 계산기에서 직접 불러오기를 선택해
-        주세요.
-      </Copy>
+      <Details label="저장 정보 안내">
+        <Copy muted>
+          금융정보는 자동으로 불러오지 않습니다. 계산기에서 직접 불러오기를
+          선택해 주세요.
+        </Copy>
+      </Details>
     </Screen>
   );
 }

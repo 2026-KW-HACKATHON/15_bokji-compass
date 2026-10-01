@@ -1,12 +1,13 @@
 // Injectable storage/HTTP make restart, offline, and account-isolation behavior testable.
 export function createSession({ api, storage, baseUrl, now = Date.now }) {
-  /** @type {{status: string, user: {id: string, username: string, name: string | null} | null, token: string | null, error: string, revision: number}} */
+  /** @type {{status: string, user: {id: string, username: string, name: string | null} | null, token: string | null, error: string, revision: number, expiresAt: number}} */
   let state = {
     status: "restoring",
     user: null,
     token: null,
     error: "",
     revision: 0,
+    expiresAt: 0,
   };
   let record = null;
   let busy = false;
@@ -16,7 +17,7 @@ export function createSession({ api, storage, baseUrl, now = Date.now }) {
     listeners.forEach((listener) => listener());
   };
   const cleared = (status, error = "") =>
-    emit({ status, user: null, token: null, error });
+    emit({ status, user: null, token: null, error, expiresAt: 0 });
   async function finishLogout() {
     if (record) {
       record = { ...record, pendingLogout: true };
@@ -63,7 +64,7 @@ export function createSession({ api, storage, baseUrl, now = Date.now }) {
           return;
         }
         const user = await api.me(record.token);
-        emit({ status: "signedIn", user, token: record.token, error: "" });
+        emit({ status: "signedIn", user, token: record.token, error: "", expiresAt: record.expiresAt });
       } catch (error) {
         if (error.status === 401) {
           try {
@@ -121,6 +122,7 @@ export function createSession({ api, storage, baseUrl, now = Date.now }) {
           token: result.token,
           user: result.user,
           error: "",
+          expiresAt: record.expiresAt,
         });
       } catch (error) {
         record = null;

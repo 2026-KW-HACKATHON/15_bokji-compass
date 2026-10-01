@@ -1,6 +1,8 @@
 # 복지나침반 모바일
 
-담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙만 `../packages/core`에서 공유합니다. 첫 이식 범위는 홈·로그인·소득/재산 계산·동의 저장·조회·삭제입니다. 공고/추천·가입 화면·푸시·저장 공고 동기화는 후속 작업입니다.
+담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙은 `../packages/core`에서 공유합니다. 홈·로그인·소득/재산 계산·동의 저장·조회·삭제와 공개 공고 목록·검색·상세를 제공합니다. 개인 추천·가입 화면·푸시·저장 공고 동기화는 후속 작업입니다.
+
+문서 안내: [구현 범위와 이식 현황](../docs/mobile-migration.md) · [최신 보안 재검토와 배포 조건](../docs/mobile-security-review.md) · [배너 이미지·생성 프롬프트](assets/home/README.md). **main 반영은 소스 공유이며, 현재 개발 APK의 배포 승인을 의미하지 않습니다.**
 
 ## 실행
 
@@ -27,22 +29,26 @@ API 주소가 없으면 설정 안내를 표시하고 네트워크 작업을 막
 
 ## Android Studio로 확인하기
 
-1. Android Studio의 Device Manager에서 가상 기기를 켭니다. 이 PC에는 `Pixel_2_API_34`가 있습니다.
+1. Android Studio의 Device Manager에서 일반 가상 기기 `U_Pixel_2_`(표시 이름 `U(Pixel 2)`)를 켭니다. `Pixel_2_API_34`는 화면 렌더링·키보드가 비활성화된 ATD 자동 테스트 이미지이므로 직접 화면을 보며 테스트할 때는 사용하지 않습니다.
 2. 저장소 루트에서 `backend/.venv/Scripts/python.exe frontend/mobile/tests/serve-api.py`로 격리 테스트 API를 켭니다. 이미 8766 포트에서 실행 중이면 다시 켜지 않습니다.
 3. 이 폴더의 터미널에서 `npm run android:local -- -ApiBaseUrl http://127.0.0.1:8766`을 실행합니다. 최초 빌드에는 Gradle·SDK Platform 36·Build Tools 36.0.0·NDK 등 다운로드 시간이 필요합니다.
 4. 에뮬레이터의 복지나침반에서 `mobile_preview` / `PreviewOnly42!`로 로그인합니다. 계산/저장/불러오기를 확인하고 앱을 종료했다 다시 열어 로그인 복원 여부를 확인합니다.
 
 Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/mobile/android`를 선택합니다. 이 디렉터리는 Expo 설정으로 다시 생성할 수 있는 Git 제외 파일입니다. 직접 수정하지 않고 `app.config.ts`/config plugin으로 변경합니다. SDK 설치용 API 버전과 에뮬레이터의 Android 버전은 같을 필요가 없습니다.
 
-`scripts/android-local.ps1`은 `Device`(선택), `ApiBaseUrl`(선택), `Port`(기본 8081)를 입력받습니다. 기기 확인→포트 연결→Expo 로컬 빌드를 실행하고 성공/실패 exit code를 반환합니다. 프로세스 내 환경변수만 설정하고 전역 SDK/JDK 설정이나 가상 기기 데이터는 초기화하지 않습니다. 실행할 API 주소를 지정하지 않으면 기존 환경변수/`.env`를 사용합니다.
+`scripts/android-local.ps1`은 `Device`(선택), `ApiBaseUrl`(선택)를 입력받으며 Metro는 8081 포트를 사용합니다. 기기 확인→포트 연결→로컬 Metro 시작/재사용→Expo 로컬 빌드를 실행하고 성공/실패 exit code를 반환합니다. Metro는 IPv4 localhost에만 연결하고 adb reverse로 기기에 전달합니다. 시작된 Metro는 명령 종료 후에도 실행되며 로그는 `.expo/dev/logs/start.log`에 남습니다. API 주소를 바꾸면 기존 Metro를 종료한 뒤 다시 실행하세요. 프로세스 내 환경변수만 설정하고 전역 SDK/JDK 설정이나 가상 기기 데이터는 초기화하지 않습니다. 실행할 API 주소를 지정하지 않으면 기존 환경변수/`.env`를 사용합니다.
 
 ## 파일과 공개 진입점
 
 | 위치 | 역할·입력·반환 |
 |---|---|
-| `src/app/_layout.tsx` | 공통 상태와 홈·소득/재산·내 계정 탭 조립 |
+| `src/app/_layout.tsx` | 공통 상태와 홈·공고·계산기·내 계정 탭 조립 |
+| `src/features/home/HomeBanner.tsx` | 복지·중위소득·계정 이미지 배너, 스와이프/이전/다음, 기능 진입 |
+| `src/components/ui.tsx` | 모든 화면에서 스크롤 밖에 고정한 쉬운 화면 스위치와 공통 UI |
+| `src/app/policies/` | 목록·검색·분야/지역·정렬·페이지 이동, 별도 상세 경로·공식 링크 |
+| `src/features/policies/model.js` | 공개 API의 공고/페이지 검증, 필터 쿼리 생성, HTTP(S) 원문 링크 검사 |
 | `src/services/client.js` | `resolveApiUrl(value,development)` → 검증된 절대 주소. `createClient({baseUrl,fetchImpl?,timeoutMs?})` → HTTP 요청 함수. 외부 HTTP 호출, 15초 제한, 취소·상태 오류 |
-| `src/services/api.js` | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile. 금융 입력·응답은 공통 모델로 검증 |
+| `src/services/api.js` | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile/listPolicies/getPolicy. 금융·공고 응답 검증, 공고는 비회원 요청 |
 | `src/services/session.js` | `createSession({api,storage,baseUrl,now?})` → subscribe/getSnapshot/restore/login/logout/invalidate. 저장소·서버 호출을 주입하고 세션 상태 관리 |
 | `src/platform/sessionStorage.ts` | read/write/clear: 기기 SecureStore의 토큰·서버 주소·만료·로그아웃 대기 상태만 저장. 웹 어댑터는 메모리 전용 |
 | `src/features/finance/FinanceScreen.tsx` | 공통 질문을 네이티브 입력으로 표시. 원자료 전송·계산·명시적 저장·불러오기·삭제 |
@@ -59,6 +65,18 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 - 로그인/로그아웃/계정 상태 전환 시 계산기 메모리와 요청을 초기화합니다. 현재 첫 버전은 비회원 입력도 로그인 시 초기화되므로 먼저 로그인한 뒤 입력/저장을 진행하세요.
 - 가구원 축소·차량 입력 제거, 계정 정보 삭제는 확인 후 실행합니다. 화면 입력 삭제와 서버 저장 삭제를 구분합니다. 빈칸은 미확인, 0은 실제 0원입니다.
 - 쉬운 화면은 실행 중 설정이며 시스템 글꼴 확대도 허용합니다. 현재 기기 간 설정/공고 동기화는 없습니다.
+
+쉬운 화면은 모바일용으로 문장과 화면 밀도를 줄입니다. 상단 모드 바를 한 줄로 표시하고, 제목 24/본문 19·행간 28과 여백 16을 사용합니다. 홈은 공고·계산을 먼저 보여주며, 공고 목록은 제목·신청 기간 중심입니다. 긴 상세 글은 3줄 미리보기 뒤 전체보기로 읽을 수 있고, 도움말·요약·계산 내역은 펼쳐볼 수 있습니다. 저장 동의, 삭제 확인, 계산 결과의 주의·미확인 항목은 숨기지 않습니다. 기본 모드에서는 기존 전체 설명을 표시합니다.
+
+`node tests/easy-layout-preview.mjs`로 320·390·430px 화면의 주요 버튼, 펼침 상태, 전체 내용 접근, 가로 넘침을 확인합니다. 이 테스트는 브라우저 안에서만 공고 응답을 대체하며 실제 서비스 데이터는 변경하지 않습니다.
+
+## 공고 조회
+
+홈의 `공고 찾아보기` 또는 `공고` 탭을 사용합니다. 웹과 같은 `GET /v1/policies`, `GET /v1/policies/{id}`에 연결하며 LLM을 호출하지 않습니다. 기본 6개/쉬운 화면 3개씩 표시하고 모드·검색 조건 변경 시 첫 페이지로 돌아갑니다. 빈 목록·통신 실패·재시도·상세 404를 구분합니다. 원문 링크는 인증정보 없는 HTTP(S)만 열고 금융/회원 토큰을 보내지 않습니다.
+
+공고 검증에는 MySQL을 사용하는 최신 백엔드가 필요합니다. `tests/serve-api.py`의 격리 금융/인증 서버에는 실제 공고 DB가 없습니다. 이번 실행은 backend에서 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8771`로 연 최신 서버에 앱을 연결했습니다. 브라우저도 확인하려면 시작 전 `CORS_ORIGINS`에 `http://localhost:8081`, `http://127.0.0.1:8081`을 JSON 배열로 지정합니다. 모바일은 `npm run android:local -- -ApiBaseUrl http://127.0.0.1:8771`을 사용합니다.
+
+2026-10-01 확인 시 실제 DB의 공개 공고는 0개이며, 수집 원문 2개는 별도 공개 승인 대기입니다. 이 앱 변경은 검토 상태를 변경하거나 미공개 분석 결과를 노출하지 않습니다. 목록·상세 유효 데이터 테스트는 `node tests/policies-preview.mjs`의 브라우저 응답 대역으로만 수행하며 서비스에는 예시 공고를 넣지 않습니다.
 
 ## 검증
 
@@ -84,10 +102,69 @@ npm run web -- --localhost --port 8081
 node tests/preview-smoke.mjs
 ```
 
-이 브라우저 검사는 `frontend/web`에 설치된 Playwright와 Microsoft Edge를 사용합니다. 테스트 계정은 `mobile_preview` / `PreviewOnly42!`이며 격리 테스트 서버에만 존재합니다. 산출물은 저장소 `tmp/mobile-preview/`에 저장합니다. 네이티브 SecureStore·TalkBack·VoiceOver·실제 기기의 종료/재실행은 별도 점검이 필요합니다.
+이 브라우저 검사는 `frontend/web`에 설치된 Playwright와 Microsoft Edge를 사용합니다. 테스트 계정은 `mobile_preview` / `PreviewOnly42!`이며 격리 테스트 서버에만 존재합니다. 산출물은 저장소 `tmp/mobile-preview/`에 저장합니다.
+
+2026-10-01 Android 14 에뮬레이터에서 APK 설치/실행, 로그인, SecureStore 세션의 강제 종료 후 복원, 로그아웃 후 재실행, 일반 AVD의 화면/키보드/탭 이동/10단계 계산 응답을 확인했습니다. 화면 기록은 `tmp/mobile-android/`에 있습니다. APK는 `android/app/build/outputs/apk/debug/app-debug.apk`이며 이번 산출물은 x86_64 에뮬레이터용 개발 빌드이므로 Metro가 필요합니다. TalkBack·VoiceOver·실제 휴대폰·iOS 설치/실행은 별도 점검이 필요합니다.
 
 ## 배포 전 남은 설정
 
 `com.bokjicompass.app`은 임시 앱 식별자입니다. 스토어 등록 전에 팀 소유 식별자·Expo projectId·Apple/Google 서명·운영 API 주소를 확정해야 합니다. preview/production 프로필은 HTTPS API 주소가 없으면 중단합니다. 현재 스토어 업로드나 EAS 프로젝트 생성은 수행하지 않았습니다.
 
-초기 의존성 검사에서 moderate 13건(주요 원인: Expo 빌드 도구의 xcode→uuid, Router의 query-string→decode-uri-component)이 보고됐습니다. 호환성을 깨는 SDK 강제 다운그레이드는 적용하지 않았습니다. 출시 전 상위 패키지의 수정 릴리스를 확인하고 재검사해야 합니다. 상세 단계·검증 결과는 [이식 기록](../docs/mobile-migration.md)을 참고하세요.
+초기 npm 검사에서 moderate 13건을 발견해 `decode-uri-component` 0.5.0과 `uuid` 11.1.1로 수정했습니다. Router가 CommonJS 함수를 요구하므로 `../packages/decode-uri-component-compat`은 공식 패치 버전을 그대로 호출하는 어댑터만 제공합니다. `.npmrc`의 `install-links=true`가 로컬 패키지와 하위 의존성을 함께 설치합니다. 공유 core 소스를 바꾸면 `npx expo install --npm`으로 모바일의 복사본도 갱신하세요. SDK 강제 다운그레이드는 하지 않았습니다.
+
+## Android 보안 기준과 배포 검사
+
+2026-10-01 현재 APK는 **개발용이며 배포 불가**입니다. 디버그 서명·개발 런처·Metro 의존성이 남아 있으므로 파일명을 release로 바꾸거나 개발 APK를 그대로 배포하면 안 됩니다. 운영 HTTPS API와 팀의 배포 서명이 아직 확정되지 않았습니다.
+
+`plugins/with-security.cjs`가 Prebuild마다 다음 설정을 생성합니다. 생성된 `android/` 파일을 수동 수정하지 마세요.
+
+- 백업과 기기 간 데이터 이전을 금지합니다. SecureStore 외 앱 데이터도 제외합니다.
+- 저장소·오버레이·생체인증 등 현재 사용하지 않는 권한을 제거합니다. 필요한 권한은 INTERNET, ACCESS_NETWORK_STATE와 앱 내부 수신기의 서명 권한입니다.
+- 시스템 인증기관만 신뢰하고 평문 통신을 차단합니다. debug에서만 `localhost`, `127.0.0.1`, Android 에뮬레이터의 `10.0.2.2`에 HTTP를 허용합니다. LAN IP의 HTTP는 허용하지 않습니다.
+- Android 앱 전체에 `FLAG_SECURE`를 적용합니다. 계정·금융정보 보호를 위해 공고를 포함한 앱 화면의 캡처·녹화·최근 앱 미리보기도 제한됩니다. 루팅 기기나 외부 카메라에 대한 보호는 보장하지 않습니다.
+- Android 네이티브 HTTP 클라이언트의 자동 리다이렉트를 끕니다. 서버 API는 정확한 주소에서 직접 응답해야 합니다. 웹 fetch도 `redirect: error`입니다. iOS 네이티브 리다이렉트 차단 동작은 아직 별도 검증이 필요합니다.
+- 로컬 release의 기본 debug 서명을 제거합니다. 운영 HTTPS API가 없으면 Gradle release 번들/패키징이 실패합니다. EAS preview/production 및 `BOKJI_RELEASE=1`도 URL을 검사합니다.
+- Gson 2.10.1, Commons IO 2.17.0 이상을 요구해 발견된 네이티브 취약 버전을 배제합니다. 상위 패키지가 더 최신 버전을 요구하면 강제로 내리지 않습니다.
+
+로그인 만료 시 실행 중에도 로컬 세션을 닫습니다. 백그라운드에서 돌아오면 서버에 로그인 상태를 재확인하며 기존 금융 입력 화면을 초기화합니다. 금융정보는 필요할 때 다시 불러오세요.
+
+완성된 APK 자체의 검증 명령입니다. `APPROVED_CERT_SHA256`은 비밀키가 아닌, 팀이 승인한 배포 인증서의 공개 SHA-256 지문입니다. 인증서 이름만 검사하지 않고 지문이 일치해야 통과합니다.
+
+```powershell
+# 저장소 루트, JAVA_HOME / ANDROID_HOME 설정 후
+backend/.venv/Scripts/python.exe frontend/mobile/scripts/audit-apk.py PATH_TO_APK --signer-sha256 APPROVED_CERT_SHA256 --report tmp/apk-security.json
+# 필요할 때만 --secrets-env backend/.env 추가: 일치 여부만 기록, 비밀값은 출력하지 않음
+
+# frontend/mobile/android: 실제 선택된 릴리스 Maven 버전 추출
+./gradlew.bat :app:dependencies --configuration releaseRuntimeClasspath --console=plain > ../../../tmp/android-runtime-dependencies.txt
+# 저장소 루트: 공개 패키지 이름/버전만 OSV에 전송
+backend/.venv/Scripts/python.exe frontend/mobile/scripts/audit-android-deps.py tmp/android-runtime-dependencies.txt tmp/android-dependency-audit.json
+```
+
+APK 검사는 디버그 여부, 서명, 노출 컴포넌트, 권한, XML 정책과 Manifest 연결, 모든 백업 영역, 번들 포함, 키 파일·알려진 로컬 비밀값 유출을 점검하고 미충족 시 실패합니다. npm audit와 Maven/OSV 조회는 별도로 다시 실행해야 합니다. 이 검사는 침투 테스트나 보안 인증을 대신하지 않습니다. 실제 운영 서버의 TLS·인증·접근제어, ARM64 실기기, 최종 서명 APK, 번들/로그의 개인정보, iOS 보안은 출시 전 검증해야 합니다.
+
+2026-10-01 실제 검증 결과:
+
+| 항목 | 결과 |
+| --- | --- |
+| 모바일 계약·보안 회귀 테스트 | 21개 통과, 타입·린트 통과 |
+| 공고 UI 회귀 | 고정 쉬운 화면, 페이지 초기화, 필터, 상세, 빈 목록, 503 재시도, 404 통과·JS 오류 없음 |
+| 서버 인증·금융정보 검증 | 121개 통과: 토큰 해시·만료·폐기, 계정 격리, 동의, 오류 입력 비노출 |
+| npm audit | 기존 moderate 13건 → 알려진 취약점 0건 |
+| 릴리스 Maven 의존성 OSV 조회 | 187개 조회, 기존 취약 패키지 2개 → 알려진 취약점 0개 |
+| Android APK | x86_64 debug 빌드·설치 성공, 백업·이전 차단 및 최소 권한 확인 |
+| Android 창 보호 | MainActivity의 SECURE 플래그와 adb 캡처 이미지 미생성 확인 |
+| Android 로그인 리다이렉트 | 가짜 로그인으로 HTTP 307 원본 POST 1회, 목적지 요청 0회 |
+| 릴리스 HTTPS 가드 | HTTP API 주소로 release 번들 작업 시 실제 빌드 실패 확인 |
+| Android·iOS JS/Hermes | 두 플랫폼 번들 생성 성공, iOS OS 실행 검증은 아님 |
+| 최종 APK 배포 판정 | BLOCKED: debug 서명·개발 런처·로컬 HTTP 예외·독립 번들 없음·승인 서명 미설정 |
+
+최종 APK SHA-256: `bb6f41d9182e7a6d63942d0b09c55928539ffbea80dc59bf512b6e2863162308`. 세부 증거는 저장소 루트의 `tmp/apk-security-after.json`, `tmp/android-dependency-audit-after.json`, `tmp/mobile-audit-after.json`, `tmp/android-redirect-proof.json`에 있습니다. APK 비밀값 대조는 로컬 설정의 유효 비밀값 1개와 private-key 표식/파일명 범위에서 미검출이며, 모든 유형의 비밀정보 부재를 보장하지 않습니다. 릴리스 Manifest 단독 병합은 RN 번들 작업 의존성 때문에 완료되지 않았고, 운영 주소와 서명으로 만든 최종 산출물은 아직 검사하지 못했습니다.
+
+근거: [Expo 설정](https://docs.expo.dev/versions/v57.0.0/config/app/), [URL 디코더 패치](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr), [uuid 패치](https://github.com/advisories/GHSA-w5hq-g745-h8pq), [Gson 변경 기록](https://github.com/google/gson/blob/main/CHANGELOG.md), [Apache Commons IO 보안 공지](https://commons.apache.org/proper/commons-io/security.html), [OSV 조회 API](https://google.github.io/osv.dev/post-v1-querybatch/).
+
+### 홈 이미지 배너
+
+`src/features/home/HomeBanner.tsx`의 3개 배너는 앱 기능 안내입니다. 이미지는 `assets/home/`에서 로컬 번들로 로드하며 외부 이미지 서비스에 요청하지 않습니다. 생성 방식과 프롬프트는 해당 폴더의 README.md에 있습니다.
+
+좌우 스와이프 또는 48dp 이상의 이전/다음 버튼으로 페이지를 넘기고, 배너를 누르면 공고·계산기·계정으로 이동합니다. 자동 재생은 하지 않습니다. 쉬운 화면에서는 설명을 줄이고 가로형 배너를 사용합니다. `node tests/easy-layout-preview.mjs`로 모바일 크기별 배치와 배너 동작을 확인할 수 있습니다.

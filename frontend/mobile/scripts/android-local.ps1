@@ -1,10 +1,10 @@
 ﻿param(
     [string]$Device = '',
-    [string]$ApiBaseUrl = '',
-    [int]$Port = 8081
+    [string]$ApiBaseUrl = ''
 )
 
 $ErrorActionPreference = 'Stop'
+$Port = 8081
 $mobileRoot = Split-Path -Parent $PSScriptRoot
 $sdkCandidates = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, "$env:LOCALAPPDATA\Android\Sdk")
 $sdkPath = $sdkCandidates | Where-Object { $_ -and (Test-Path (Join-Path $_ 'platform-tools\adb.exe')) } | Select-Object -First 1
@@ -50,6 +50,27 @@ if ($ApiBaseUrl) {
 
 Push-Location $mobileRoot
 try {
-    & npx.cmd expo run:android --device $expoDevice --port $Port
+    # Keep Metro on IPv4 loopback. adb reverse provides access from the device.
+    $env:NODE_OPTIONS = ($env:NODE_OPTIONS + ' --dns-result-order=ipv4first').Trim()
+    $env:REACT_NATIVE_PACKAGER_HOSTNAME = '127.0.0.1'
+    $metroStatusUrl = "http://127.0.0.1:$Port/status"
+    function Test-MetroReady {
+        try {
+            $response = Invoke-WebRequest -Uri $metroStatusUrl -UseBasicParsing -TimeoutSec 2
+            $body = if ($response.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($response.Content) } else { [string]$response.Content }
+            return $body.Trim() -eq 'packager-status:running'
+        } catch { return $false }
+    }
+    if (-not (Test-MetroReady)) {
+        $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
+        $expoCli = Join-Path $mobileRoot 'node_modules\expo\bin\cli'
+        $metroProcess = Start-Process -FilePath $nodePath -ArgumentList @(('"{0}"' -f $expoCli), 'start', '--dev-client', '--localhost', '--port', "$Port") -WorkingDirectory $mobileRoot -WindowStyle Hidden -PassThru
+        $deadline = (Get-Date).AddMinutes(2)
+        while (-not (Test-MetroReady)) {
+            if ($metroProcess.HasExited -or (Get-Date) -gt $deadline) { throw 'Metro 시작에 실패했습니다. .expo/dev/logs/start.log를 확인하세요.' }
+            Start-Sleep -Seconds 1
+        }
+    }
+    & npx.cmd expo run:android --no-bundler --device $expoDevice
     if ($LASTEXITCODE -ne 0) { throw 'Android 빌드 또는 실행에 실패했습니다. 위 오류를 확인하세요.' }
 } finally { Pop-Location }

@@ -34,9 +34,18 @@ export default function Layout() {
           }}
         />
         <Tabs.Screen
+          name="policies"
+          options={{
+            title: "공고",
+            tabBarIcon: ({ color }) => (
+              <Text style={{ color, fontSize: 22 }}>▤</Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="finance"
           options={{
-            title: "소득·재산",
+            title: "계산기",
             tabBarIcon: ({ color }) => (
               <Text style={{ color, fontSize: 22 }}>₩</Text>
             ),
