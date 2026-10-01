@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from app.contracts.parsing import ParsedCondition, PolicyExtraction, SourcePolicy
+from app.contracts.parsing import ParsedCondition, PolicyExtraction, PolicyOverview, SourcePolicy
 from app.core.config import BACKEND_ROOT, Settings, load_settings
-from app.modules.llm.public import CodexRunError, extract_policy
+from app.modules.llm.public import CodexRunError, extract_policy, extract_policy_overview
 from app.modules.normalization.public import normalize_conditions
 from app.modules.normalization.raw import load_raw_policies
 from app.modules.parsers.public import RULE_VERSION, extract_conditions
-from app.modules.validation.public import validate_canonical, validate_extraction
+from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -37,9 +37,14 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
                  *, prepare_only: bool = False) -> dict:
     """Return a draft or explicit failed/pending state. Never publish or write MySQL."""
     base = {"schema_version": "welfare-parsing-v2", "source": source.model_dump(),
-            "review_status": "draft", "matching_enabled": False, "attempts": []}
+            "review_status": "draft", "matching_enabled": False, "attempts": [],
+            "overview": None, "overview_status": "not_run", "overview_attempts": []}
     if prepare_only:
         return {**base, "status": "pending", "processing_state": 8, "analysis": None}
+    overview, overview_attempts = _extract_overview(source, settings, output)
+    base["overview"] = overview.model_dump() if overview else None
+    base["overview_status"] = "validated" if overview else "failed"
+    base["overview_attempts"] = overview_attempts
     relevant = [source.fields.get(k, "") for k in ("eligibility", "selection", "text")]
     if not any(text.strip() for text in relevant):
         result = _missing_conditions(source)
@@ -122,3 +127,28 @@ def parse_raw_files(
     ) else "prepared" if prepare_only else "needs_review"
     write_json(run / "manifest.json", manifest)
     return run, manifest
+
+
+def _extract_overview(source: SourcePolicy, settings: Settings,
+                      output: Path) -> tuple[PolicyOverview | None, list[dict]]:
+    models = [settings.codex_model]
+    if settings.codex_fallback_model and settings.codex_fallback_model not in models:
+        models.append(settings.codex_fallback_model)
+    attempts = []
+    for index, model in enumerate(models, 1):
+        try:
+            result, metadata = extract_policy_overview(
+                source, settings, output / f"overview-attempt-{index}", model)
+            validate_overview(result, source)
+        except CodexRunError as error:
+            attempts.append({"model": model, "status": "failed", "error": str(error)})
+            break
+        except ValueError:
+            attempts.append({"model": model, "status": "validation_failed"})
+            continue
+        except OSError:
+            attempts.append({"model": model, "status": "failed", "error": "local_io_error"})
+            break
+        attempts.append({**metadata, "status": "validated"})
+        return result, attempts
+    return None, attempts

@@ -16,6 +16,8 @@
 
 `app.contracts.parsing`의 `SourcePolicy`, `ParsedCondition`, `ConditionGroup`, `PolicyExtraction`은 원문 입력·상태/값·주체·조건 그룹을 정의합니다. 숫자·범위·날짜·텍스트·불리언별 모델과 Pydantic 검증 사용. [전체 계약](../../docs/data-contracts.md).
 
+같은 모듈의 `PolicyOverview`는 공고 요약, 웹과 일치하는 6개 분야 또는 미분류 `null`, 분류 이유, 원문 인용을 표현하는 검토용 계약입니다. `SourceEvidence` 인용의 실제 원문 일치 여부는 validation 모듈에서 확인합니다. 자격 판정 계약이 아닙니다.
+
 [`app.contracts.finance`](finance.py)의 `FinancialProfile`, `CalculationInput`, `SaveFinancialProfile`은 가구 구성·가구원 소득·재산·부채·차량과 계산·저장 요청을 정의합니다. 금액은 음수가 아닌 정수 원이며 미입력 `null`과 실제 금액 `0`을 구분합니다. 계약 외 필드는 거부하며 소유 계정 ID와 계산 결과는 클라이언트 입력으로 받지 않습니다. `PolicyFinancialCriteria`는 검토된 공고의 산정 방식·기준연도·가구 범위를 서버 계산에 연결하기 위한 내부 계약입니다. [금융 모듈 사용법](../modules/finance/readme.md).
 
 ## 경계

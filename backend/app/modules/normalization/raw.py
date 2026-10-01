@@ -28,6 +28,8 @@ def normalize_record(row: dict) -> SourcePolicy:
         title = _text(row, "서비스명", "serviceNm")
         organization = _text(row, "소관기관명", "orgNm")
         fields = {
+            "purpose_summary": _text(row, "서비스목적요약"),
+            "provider_category": _text(row, "서비스분야"),
             "eligibility": _text(row, "지원대상"), "selection": _text(row, "선정기준"),
             "application_period": _text(row, "신청기한"),
             "benefits": _text(row, "지원내용"),
