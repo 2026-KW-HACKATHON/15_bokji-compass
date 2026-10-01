@@ -43,3 +43,7 @@
 Vite proxy는 개발 전용입니다. 운영 /api reverse proxy 또는 HTTPS 주소+CORS 구성은 [배포 문서](deployment.md).
 현재 백엔드 CORS는 설정된 Origin에 GET/POST, credentials=true, Content-Type/X-Auth-Request 헤더를 허용합니다. 인증 쿠키는 SameSite=Lax이므로 같은 사이트의 reverse proxy를 사용합니다. 인증·개인정보 응답을 프록시에서 캐시하지 않습니다.
 Android/iOS도 같은 공개 JSON 계약을 사용하며 백엔드 파일·DB·CLI를 직접 참조하지 않습니다.
+
+## 모바일 앱 연동 (2026-10-01)
+
+`frontend/mobile`의 React Native + Expo 앱은 절대 API 주소와 `/v1/mobile/auth`의 Bearer 세션을 사용합니다. 기존 웹 쿠키 계약을 유지하고 `/v1/finance/profile` 조회/저장/삭제에 모바일 Authorization을 추가했습니다. POST 헤더와 동의 계약은 동일합니다. CORS 허용 헤더에 Authorization을 추가했으며 잘못된 헤더는 쿠키 인증으로 대체하지 않습니다. 공통 입력 모델은 `frontend/packages/core`입니다. [실행/보안 저장/검증 범위](../mobile/readme.md), [이식 기록](mobile-migration.md).

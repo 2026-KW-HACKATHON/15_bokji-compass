@@ -1,5 +1,7 @@
 # 개발 및 협업 안내
 
+> 2026-10-01 공고 저장 갱신: 파싱은 기본 MySQL이며 이전 파일 전용·DB 저장 미구현 설명은 [현재 저장 계약](backend/docs/policy-storage.md)으로 대체됩니다. 웹 더미/002 seed는 제거했고 개인 안내는 DB 기반 로컬 질의응답까지 구현했습니다.
+
 팀 내부 작업 규칙, 구현 범위, 문서 위치를 정리한 개발 안내. 서비스 소개와 화면은 [프로젝트 README](readme.md) 참고.
 
 공공기관의 복지·혜택·지원사업 정보를 수집·정제하여 사용자에게 맞춤 안내하는 프로젝트입니다.
@@ -24,12 +26,12 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 | 사용부분 | 언어|
 | --- | --- |
 | backend | 파이썬|
-| front   | java 및 javascript(react활용)|
+| front   | 웹 JavaScript/React · 모바일 TypeScript/React Native + Expo |
 ## 작성법
 *반드시 readme.md에 함수 호출 방법 및 반환 값 및 해당 풀더의 역할에대해 정확하게 작성할것.<br>
 *각 모듈별로 작업완료시 /docs/내 파일에 정리해서 다음 작업시 참고할수있도록 할것.
 
-1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, 향후 Android 앱은 `frontend/android/`, iOS 앱은 `frontend/ios/`에 구현합니다.
+1. 담당 폴더에서 작업합니다. 백엔드는 `backend/`, 웹은 `frontend/web/`, Android·iOS 공통 앱은 `frontend/mobile/`, 공통 금융 모델은 `frontend/packages/core/`에 구현합니다. [모바일 실행](frontend/mobile/readme.md).
 2. 구현을 시작할 때 해당 폴더의 `readme.md`에 역할, 담당자, 실제 사용법과 검증 방법을 작성합니다. 업무 모듈의 외부 공개 진입점은 `public.py`에 둡니다.
 3. 공통 문서는 `backend/docs/`와 `frontend/docs/`에서 관리합니다. 개발환경·프로젝트 구조·API·작업 기록을 관리하며 나머지는 기능 구현에 맞춰 작성합니다.
 4. 프론트엔드는 백엔드 공개 API로 연결합니다. 서로의 내부 소스, DB 또는 수집 원본을 직접 참조하지 않습니다. 각 영역의 의존성과 실행환경도 분리합니다.
@@ -62,7 +64,7 @@ macOS 팀원용 [설치·서버 실행·Codex CLI 파싱 안내](backend/docs/ma
 | AI 협업 안내 | [백엔드](backend/docs/ai-guide.md), [프론트엔드](frontend/docs/ai-guide.md) |
 | 영역별 작업 기록 | [백엔드](backend/docs/worklog.md), [프론트엔드](frontend/docs/worklog.md) |
 
-백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android는 향후 Java 기반 개발을 예정합니다. 서버 진입점·개발환경·원문 수집·파일 저장과 rawdata 파싱을 구현했습니다. `backend/scripts/parse-raw.ps1`은 `.env`에서 지정한 Codex CLI 모델로 조건을 추출하고 검증된 초안을 저장합니다. 기본 Luna·검증 실패 시 Terra 재시도이며 모델 변경 가능. Gov24 조회는 collectors/gov24_services.py, 기존 SQL 초안 행 변환은 normalization/policy.py를 사용합니다. MySQL 적재·자격 판정·HTTP 분석 API는 후속 구현 대상입니다.
+백엔드는 Windows에 Python + FastAPI와 MySQL을 직접 설치해 운영하며, Android·iOS는 React Native + Expo 공통 앱으로 개발합니다. 서버 진입점·개발환경·원문 수집·파일 저장과 rawdata 파싱을 구현했습니다. `backend/scripts/parse-raw.ps1`은 `.env`에서 지정한 Codex CLI 모델로 조건을 추출하고 검증된 초안을 저장합니다. 기본 Luna·검증 실패 시 Terra 재시도이며 모델 변경 가능. Gov24 조회는 collectors/gov24_services.py, 기존 SQL 초안 행 변환은 normalization/policy.py를 사용합니다. MySQL 적재·자격 판정·HTTP 분석 API는 후속 구현 대상입니다.
 
 ## 폴더 트리
 

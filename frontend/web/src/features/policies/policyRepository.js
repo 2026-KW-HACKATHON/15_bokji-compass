@@ -1,4 +1,3 @@
-import { demoPolicies } from './demoPolicies.js';
 import { parsePolicyPage } from './policyModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
 export function filterPolicies(
@@ -35,16 +34,6 @@ export function filterPolicies(
 export function createPolicyRepository({ mode, request, path = '/v1/policies' }) {
   return {
     async list(filters = {}, { cursor = null, limit = 6, signal } = {}) {
-      if (mode === 'demo') {
-        const all = filterPolicies(demoPolicies, filters);
-        const offset = Number(cursor || 0);
-        return {
-          items: all.slice(offset, offset + limit),
-          total: all.length,
-          nextCursor: offset + limit < all.length ? String(offset + limit) : null,
-          source: 'demo',
-        };
-      }
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
       const params = new URLSearchParams({ limit: String(limit), sort: filters.sort || 'recent' });

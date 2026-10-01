@@ -1,10 +1,10 @@
-"""Persist normalized policy JSON in the MySQL policy tables."""
+"""Legacy 001-schema adapter. New v2 ingestion uses storage.public.PolicyRepository."""
 
 import json
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.modules.normalization.policy import normalize_policy_json
+from app.modules.normalization.public import normalize_api_service
 
 
 class _Cursor(Protocol):
@@ -33,7 +33,8 @@ def save_policy_json_file(path: Path, connection: _Connection) -> int:
 def save_policy_json(payload: dict[str, Any], connection: _Connection) -> int:
     """Normalize and transactionally persist one policy JSON object."""
 
-    policy = normalize_policy_json(payload)
+    normalized = normalize_api_service("bokjiro" if "servId" in payload else "gov24", payload)
+    policy = normalized.policy
     cursor = connection.cursor()
     try:
         cursor.execute(
@@ -44,16 +45,16 @@ def save_policy_json(payload: dict[str, Any], connection: _Connection) -> int:
             VALUES (%s, %s, %s, %s, %s, %s, FALSE)
             """,
             (
-                policy.title,
-                policy.organization,
-                policy.source_url,
-                policy.source_text,
-                policy.application_start,
-                policy.application_end,
+                policy["title"],
+                policy["organization"],
+                policy["source_url"],
+                policy["source_text"],
+                policy["application_start"],
+                policy["application_end"],
             ),
         )
         policy_id = cursor.lastrowid
-        for requirement in policy.requirements:
+        for requirement in normalized.requirements:
             cursor.execute(
                 """
                 INSERT INTO policy_requirements
@@ -72,3 +73,7 @@ def save_policy_json(payload: dict[str, Any], connection: _Connection) -> int:
     except Exception:
         connection.rollback()
         raise
+    finally:
+        close = getattr(cursor, "close", None)
+        if close is not None:
+            close()

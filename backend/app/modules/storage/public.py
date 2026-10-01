@@ -5,6 +5,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from app.contracts.public import RawDocument
+from app.modules.storage.repository import PolicyRepository, validate_draft
+from app.modules.storage.schema import initialize_policy_schema
+
+__all__ = ["PolicyRepository", "initialize_policy_schema", "validate_draft",
+           "save_raw_document", "list_raw_documents"]
 
 DEFAULT_STORAGE_PATH = Path(__file__).resolve().parents[3] / "data" / "raw_documents"
 

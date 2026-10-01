@@ -1,5 +1,7 @@
 # 복지나침반 백엔드
 
+> 2026-10-01: 공고 파싱은 기본 MySQL 저장으로 전환했습니다. 먼저 `python -m app.modules.storage init`을 실행하세요. [저장·JSON 이관·DB 개인 안내](docs/policy-storage.md). 아래 과거 파일 저장 설명은 명시적 `--storage json` 내보내기에만 적용됩니다.
+
 엔드포인트·응답·설정·웹/모바일 연동의 공통 기준은 루트 [API 관리대장](../api-management.md)입니다. [전체 문서 점검](docs/documentation-audit.md)에서 갱신 범위를 확인할 수 있습니다.
 
 Windows에서 직접 실행하는 Python 3.13 + FastAPI 서버입니다. 서버 진입점·설정·MySQL 연결 점검을 구현했으며, 공고 원문 수집·파일 저장, Gov24 조회와 정책/조건 원문 행 변환, MySQL SQL 초안도 포함합니다. 정규화 결과의 MySQL 저장과 자격 판정·추천은 후속 구현 대상입니다.

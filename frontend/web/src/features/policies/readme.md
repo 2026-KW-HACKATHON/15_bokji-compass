@@ -1,8 +1,8 @@
 # 공고
 
-담당: 프론트엔드. 서버 또는 명시된 합성 예시 공고를 조회·탐색합니다.
+담당: 프론트엔드. 서버 API의 공고만 조회·탐색합니다. 더미 공고는 자동 테스트에만 존재합니다.
 
-- createPolicyRepository({mode,request,path?}).list(filters,{cursor?,limit?,signal?}) → Promise<{items,total,nextCursor,source}>. api GET /v1/policies, demo는 로컬 6개.
+- createPolicyRepository({mode,request,path?}).list(filters,{cursor?,limit?,signal?}) → Promise<{items,total,nextCursor,source}>. api GET /v1/policies. demo 직접 요청은 설정 오류.
 - filterPolicies(items,{query,tag,category,region,audience,sort,savedIds}) → 새 배열. AND 검색·정확한 태그·전국 포함·정렬. 입력 배열 변경 없음.
 - parsePolicy(item) → 표시 모델. 필수값 오류 시 ApiError. parsePolicyPage(response) → {items,total,nextCursor}.
 - safeSourceUrl(value) → HTTP(S) URL 또는 null.

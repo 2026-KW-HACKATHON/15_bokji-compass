@@ -1,5 +1,7 @@
 # 복지나침반 웹
 
+> 2026-10-01: 더미 공고/추천을 제거하고 개발·운영 모두 실제 서버 API만 사용합니다. API 연결 전 오류/준비 상태는 예시 공고로 대체되지 않습니다. 브라우저 테스트 대역은 tests/fixtures에만 있습니다.
+
 담당: 프론트엔드. React/JavaScript/Vite 기반 개인비서 추천 웹입니다.
 
 ## 실행과 검증
@@ -55,7 +57,7 @@ npm.cmd run format:check
 ## 설정·배포
 
 공개 설정 우선순위: public/app-config.js의 명시적 값 → VITE_* → 기본값.
-`dataMode: auto`는 개발 demo / 운영 api. `VITE_DATA_MODE=api`로 개발 중 서버 연결을 시험할 수 있습니다.
+`dataMode: auto`와 기존 demo 설정 모두 API를 사용합니다. 개발/운영에서 더미 공고를 공급하지 않습니다.
 이 설정은 공고·추천에 적용되며 인증과 금융 계산을 로컬 가짜 데이터로 바꾸지 않습니다.
 기본 apiBaseUrl은 /api. 개발에서는 API_PROXY_TARGET(기본 http://127.0.0.1:8000)으로 전달하며 /api를 제거합니다.
 운영에서는 reverse proxy가 필요합니다. [배포 절차](../docs/deployment.md), [Nginx 예시](deploy/nginx.conf), [서버 계약 제안](../docs/service-contract.md).

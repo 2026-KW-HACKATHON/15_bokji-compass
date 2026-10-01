@@ -9,8 +9,9 @@
 | regions | 공식 ADMIN/LEGAL 스냅샷·해시·활성/폐지·이름 조회·계층 포함 | 체계 간 관할 관계·과거 정책 이관 |
 | llm | .env 모델 설정으로 Codex CLI 실행·구조화 응답 | Gemini·제한 Windows 계정·Job Object |
 | validation | 상태/자료형 계약과 원문 인용·ID·그룹 참조 검증 | 모든 의미·단위·논리의 자동 검증 |
-| pipeline | 원문 파일 처리·재시도·manifest/draft 파일 저장 | MySQL 트랜잭션·영속 작업 큐·공개 승인 |
-| storage | RawDocument JSON 저장·조회 | 정책 MySQL 저장소 |
+| pipeline | 원문 처리·MySQL 작업/개정 저장·실패 재개 | 자동 스케줄링·공개 승인 |
+| storage | 수집 원본 파일·MySQL 공고/조건/개정/작업 저장·조회 | 공개 검토·현재 개정 선택 |
+| assistant | DB 공고 원문 기반 로컬 LLM 질의응답·인용 검증 | 로그인 프로필·대화 이력·API/UI |
 | presentation | Gov24 목록 콘솔 출력 | 프론트엔드·업무 API |
 | metrics | 광운대 공지 건수 집계 | 운영 모니터링 |
 | parsers | 코드 우선 조건 추출·미해결 원문 범위·오프라인 점검 CLI | 이미지·PDF 전용 파서 |

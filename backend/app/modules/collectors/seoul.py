@@ -12,7 +12,6 @@ from app.contracts.public import RawDocument
 from app.modules.collectors.public import collect_notice_text
 from app.modules.storage.public import DEFAULT_STORAGE_PATH
 
-
 DEFAULT_SEOUL_API_BASE_URL = "http://openapi.seoul.go.kr:8088"
 
 

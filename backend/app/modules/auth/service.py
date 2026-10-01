@@ -192,7 +192,15 @@ class AuthService:
             raise HTTPException(409, "이미 사용 중인 아이디 또는 전화번호예요.") from None
         return {"message": "회원가입이 완료됐어요. 로그인해 주세요."}
 
-    def login(self, username: str, password: str, ip: str, previous: str | None = None):
+    def login(
+        self,
+        username: str,
+        password: str,
+        ip: str,
+        previous: str | None = None,
+        *,
+        mobile: bool = False,
+    ):
         self.throttle("login-ip:" + ip, 50, 900)
         self.throttle("login-user:" + username, 10, 900)
         with self.engine.connect() as connection:
@@ -216,11 +224,13 @@ class AuthService:
             connection.execute(delete(sessions).where(sessions.c.expires_at <= now))
             if previous:
                 connection.execute(
-                    delete(sessions).where(sessions.c.token_hash == digest(previous))
+                    delete(sessions).where(
+                        sessions.c.token_hash == self.session_digest(previous, mobile=mobile)
+                    )
                 )
             connection.execute(
                 insert(sessions).values(
-                    token_hash=digest(token),
+                    token_hash=self.session_digest(token, mobile=mobile),
                     account_id=account["id"],
                     expires_at=now + SESSION_SECONDS,
                 )
@@ -231,7 +241,12 @@ class AuthService:
     def public_account(account):
         return {key: account[key] for key in ("id", "username", "name", "age", "gender", "region")}
 
-    def me(self, token: str | None):
+    @staticmethod
+    def session_digest(token: str, *, mobile: bool = False) -> str:
+        # Separate bearer tokens from web cookies without changing existing sessions/schema.
+        return digest("mobile:" + token if mobile else token)
+
+    def me(self, token: str | None, *, mobile: bool = False):
         if token:
             with self.engine.connect() as connection:
                 account = (
@@ -242,7 +257,7 @@ class AuthService:
                             sessions.c.account_id == accounts.c.id,
                         )
                         .where(
-                            sessions.c.token_hash == digest(token),
+                            sessions.c.token_hash == self.session_digest(token, mobile=mobile),
                             sessions.c.expires_at > int(time.time()),
                         )
                     )
@@ -253,7 +268,11 @@ class AuthService:
                 return self.public_account(account)
         raise HTTPException(401, "로그인이 필요해요.")
 
-    def logout(self, token: str | None):
+    def logout(self, token: str | None, *, mobile: bool = False):
         if token:
             with self.engine.begin() as connection:
-                connection.execute(delete(sessions).where(sessions.c.token_hash == digest(token)))
+                connection.execute(
+                    delete(sessions).where(
+                        sessions.c.token_hash == self.session_digest(token, mobile=mobile)
+                    )
+                )

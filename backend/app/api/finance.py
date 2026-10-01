@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError, field_validator
 
 from app.api.auth import COOKIE, Service, guard
+from app.api.mobile_auth import Credentials, mobile_token
 from app.contracts.finance import CalculationInput, FinanceModel, SaveFinancialProfile
 from app.modules.finance import public
 from app.modules.finance.schema import initialize_finance_schema
@@ -27,8 +28,12 @@ class DeleteProfileInput(FinanceModel):
     pass
 
 
-def get_member_store(request: Request, service: Service):
-    user = service.me(request.cookies.get(COOKIE))
+def get_member_store(request: Request, service: Service, credentials: Credentials):
+    # An explicit but invalid Authorization header must never fall back to a web cookie.
+    if "authorization" in request.headers:
+        user = service.me(mobile_token(credentials), mobile=True)
+    else:
+        user = service.me(request.cookies.get(COOKIE))
     state = request.app.state
     with state.finance_lock:
         if state.finance_store is None:

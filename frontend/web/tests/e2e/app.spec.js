@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockPolicyApi } from '../fixtures/api.js';
+
+test.beforeEach(async ({ page }) => {
+  await mockPolicyApi(page);
+});
 test('tag search, detail, saved persistence and browser history', async ({ page }) => {
   await page.goto('/#explore');
   await expect(page.getByRole('article')).toHaveCount(6);

@@ -1,0 +1,45 @@
+{
+	admin off
+	auto_https off
+}
+
+http://:8080 {
+	bind 127.0.0.1
+	root * "__DIST_ROOT__"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Strict-Transport-Security "max-age=86400"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'"
+	}
+	request_body {
+		max_size 256KB
+	}
+	handle /app-config.js {
+		header Content-Type application/javascript
+		header Cache-Control no-store
+		respond "window.__BOKJI_CONFIG__ = {dataMode:'api',apiBaseUrl:'/api'};"
+	}
+	handle_path /api/* {
+		@publicApi path /health /v1/auth/* /v1/finance/*
+		handle @publicApi {
+			reverse_proxy 127.0.0.1:8001 {
+				header_up X-Forwarded-For {http.request.header.Cf-Connecting-Ip}
+				header_up X-Forwarded-Proto https
+				header_down Set-Cookie "^(.*)$" "$1; Secure"
+				transport http {
+					dial_timeout 5s
+					response_header_timeout 35s
+				}
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+	handle {
+		header Cache-Control no-cache
+		file_server
+	}
+}

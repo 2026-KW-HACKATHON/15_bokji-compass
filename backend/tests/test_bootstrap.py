@@ -32,6 +32,7 @@ def test_liveness_is_not_database_readiness():
             "/v1/auth/signup", "/v1/auth/login", "/v1/auth/logout", "/v1/auth/me",
             "/v1/finance/rules", "/v1/finance/calculate",
             "/v1/finance/profile", "/v1/finance/profile/delete",
+            "/v1/mobile/auth/login", "/v1/mobile/auth/me", "/v1/mobile/auth/logout",
         }
 
 

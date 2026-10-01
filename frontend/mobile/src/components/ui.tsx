@@ -1,0 +1,168 @@
+import React from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRuntime } from "../services/runtime";
+
+export const colors = {
+  ink: "#16332D",
+  muted: "#50665D",
+  green: "#047857",
+  mint: "#D1FAE5",
+  paper: "#F5F8F6",
+  line: "#D4E2DB",
+  danger: "#A12622",
+};
+export function Copy({
+  children,
+  title = false,
+  muted = false,
+}: React.PropsWithChildren<{ title?: boolean; muted?: boolean }>) {
+  const { easy } = useRuntime();
+  return (
+    <Text
+      accessibilityRole={title ? "header" : undefined}
+      style={{
+        color: muted ? colors.muted : colors.ink,
+        fontSize: title ? (easy ? 28 : 24) : easy ? 20 : 16,
+        lineHeight: title ? 38 : easy ? 31 : 25,
+        fontWeight: title ? "700" : "400",
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+export function Screen({ children }: React.PropsWithChildren) {
+  return (
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={{ flex: 1, backgroundColor: colors.paper }}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.page}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+export function Card({ children }: React.PropsWithChildren) {
+  return <View style={styles.card}>{children}</View>;
+}
+export function Button({
+  label,
+  onPress,
+  disabled = false,
+  secondary = false,
+  busy = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  secondary?: boolean;
+  busy?: boolean;
+}) {
+  const { easy } = useRuntime();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        {
+          backgroundColor: secondary ? "#E8F2ED" : colors.green,
+          opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
+        },
+      ]}
+    >
+      {busy && <ActivityIndicator color={secondary ? colors.green : "#FFF"} />}
+      <Text
+        style={{
+          color: secondary ? colors.ink : "#FFF",
+          fontSize: easy ? 20 : 16,
+          fontWeight: "700",
+          textAlign: "center",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  const { easy } = useRuntime();
+  return (
+    <View style={{ gap: 6 }}>
+      <Copy>{label}</Copy>
+      <TextInput
+        {...props}
+        accessibilityLabel={label}
+        placeholderTextColor={colors.muted}
+        style={[styles.input, { fontSize: easy ? 20 : 17 }, props.style]}
+      />
+    </View>
+  );
+}
+export function Notice({ children }: React.PropsWithChildren) {
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.notice}>
+      <Copy>{children}</Copy>
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  page: {
+    padding: 22,
+    gap: 20,
+    paddingBottom: 40,
+    width: "100%",
+    maxWidth: 680,
+    alignSelf: "center",
+  },
+  card: {
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 20,
+    padding: 20,
+    gap: 14,
+  },
+  button: {
+    minHeight: 52,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  input: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: "#829D90",
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#FFF",
+    color: colors.ink,
+  },
+  notice: { backgroundColor: colors.mint, padding: 16, borderRadius: 14 },
+});

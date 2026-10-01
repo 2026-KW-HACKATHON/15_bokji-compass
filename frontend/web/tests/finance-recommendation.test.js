@@ -25,15 +25,10 @@ test('financial facts are only sent when explicitly supplied and contract fields
   assert.equal(finance.members[0].earned_income, '2,000,000');
 });
 
-test('demo recommendations do not claim or simulate financial eligibility', async () => {
-  const repository = createRecommendationRepository({
-    mode: 'demo',
-    request: () => assert.fail('No API call in demo'),
-  });
-  const result = await repository.recommend(defaultProfile, {
-    financialProfile: emptyFinancialProfile(),
-  });
-  assert.equal(result.source, 'demo');
-  assert.match(result.summary, /예시/);
-  assert.equal('eligibility' in result, false);
+test('removed demo mode cannot simulate financial eligibility', async () => {
+  const repository = createRecommendationRepository({ mode: 'demo' });
+  await assert.rejects(
+    repository.recommend(defaultProfile, { financialProfile: emptyFinancialProfile() }),
+    (e) => e.code === 'configuration',
+  );
 });
