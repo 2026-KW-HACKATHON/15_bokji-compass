@@ -211,3 +211,49 @@ def test_resume_reuses_validated_checkpoint_without_another_llm_call(repository,
     result = pipeline.resume_run(run, Settings(_env_file=None), repository)
     assert result["status"] == "needs_review"
     assert pipeline.resume_run(run, Settings(_env_file=None), repository) == result
+
+
+def test_published_catalog_latest_revision_pagination_and_filters(repository):
+    from datetime import datetime
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy import update
+
+    from app.api.policies import get_repository
+    from app.main import create_app
+    from app.modules.storage import catalog
+
+    documents = repository.tables["condition_documents"]
+    sources = [source(), source()]
+    ids = []
+    for index, record in enumerate(sources):
+        value = draft(record)
+        ids.append(repository.import_draft(value)["records"][0]["revision_id"])
+        with repository.engine.begin() as connection:
+            connection.execute(update(documents).where(documents.c.revision_id == ids[-1]).values(
+                review_status="published", created_at=datetime(2026, 1, index + 1)))
+    newer = draft(sources[0].model_copy(update={"title": "개정 공고 % 문자"}))
+    newest = repository.import_draft(newer)["records"][0]["revision_id"]
+    # A new draft does not replace the last published revision.
+    assert catalog.get_policy(repository, sources[0].policy_key)["revisionId"] == ids[0]
+    with repository.engine.begin() as connection:
+        connection.execute(update(documents).where(documents.c.revision_id == newest).values(
+            review_status="published", created_at=datetime(2026, 1, 3)))
+    first = catalog.list_policies(repository, limit=1)
+    assert first["total"] == 2 and first["nextCursor"] == "1"
+    assert first["items"][0]["revisionId"] == newest
+    second = catalog.list_policies(repository, limit=1, offset=1)
+    assert second["items"][0]["id"] == sources[1].policy_key and second["nextCursor"] is None
+    assert catalog.list_policies(repository, q="% 개정")["total"] == 1
+    assert catalog.list_policies(repository, q="없는 검색어")["total"] == 0
+    assert catalog.list_policies(repository, category="주거")["total"] == 0
+    assert catalog.list_policies(repository, region="서울")["total"] == 0
+    app = create_app(Settings(_env_file=None, db_enabled=False))
+    app.dependency_overrides[get_repository] = lambda: repository
+    with TestClient(app) as client:
+        response = client.get("/v1/policies?limit=1")
+        assert response.status_code == 200 and response.json() == first
+        detail = client.get("/v1/policies/" + sources[0].policy_key)
+        assert detail.status_code == 200 and detail.json()["revisionId"] == newest
+        assert client.get("/v1/policies/nonexistent").status_code == 404
+        assert "source_json" not in detail.json()

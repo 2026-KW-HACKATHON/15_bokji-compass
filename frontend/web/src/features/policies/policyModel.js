@@ -56,6 +56,7 @@ export function parsePolicy(item) {
   const text = (key, fallback) => (typeof item[key] === 'string' ? item[key] : fallback);
   return {
     id: item.id,
+    revisionId: typeof item.revisionId === 'string' ? item.revisionId : null,
     title: item.title,
     summary: item.summary,
     tags: [...new Set(item.tags)],

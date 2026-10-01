@@ -1,8 +1,8 @@
 # 백엔드 엔드포인트·연동 관리
 
-최종 확인: 2026-09-25. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
+최종 확인: 2026-10-01. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
 
-**현재 HTTP API는 health/readiness, `/v1/auth` 웹 인증, `/v1/mobile/auth` 모바일 인증, `/v1/finance` 소득·재산 계산 및 계정별 금융정보 저장입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 정책 목록·추천·상세·검색·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 아직 없습니다. 웹은 개발 기본 demo, 운영 기본 api 모드이며 인증·금융정보 저장은 모드와 관계없이 실제 서버에 연결합니다.
+**현재 HTTP API는 health/readiness, `/v1/auth` 웹 인증, `/v1/mobile/auth` 모바일 인증, `/v1/finance` 금융 계산·저장, `/v1/policies` 공고 조회, `/v1/assistant/questions` 회원 질문입니다.** 실제 SMS 공급자는 미연결이며 개발용 번호를 화면에 표시합니다. 추천·공개 승인·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 후속입니다. 웹은 API 모드만 사용하며 더미 공고는 테스트 코드에만 있습니다.
 
 ## 1. 접속 주소와 경로 규칙
 
@@ -150,8 +150,8 @@ DB 암호·수집용 키·CLI 인증값은 서버에만 둡니다. 프론트 `VI
 | Gov24 | `https://api.odcloud.kr/api/gov24/v3/serviceList`, 첫 페이지 목록 | 서버의 `DATA_GO_KR_API_KEY`; [수집기](backend/app/modules/collectors/gov24_services.py) |
 | 복지로 | `https://apis.data.go.kr/B554287/NationalWelfareInformationsV001` 아래 `/NationalWelfarelistV001`, `/NationalWelfaredetailedV001` | 서버의 `BokjiRO_API_KEY`; [수집기](backend/app/modules/collectors/bokjiro_services.py) |
 | 일반 공고·광운대 공지 | 전달받은 공고 URL·`https://www.kw.ac.kr/ko/life/notice.jsp` | 내부 Python 수집 함수. 업로드/수집 HTTP API 없음 |
-| 원문 파싱 | `backend/scripts/parse-raw.ps1` | 내부 CLI. 원문 → 조건 후보·검증 → 로컬 JSON 초안. HTTP 분석 API 없음 |
-| MySQL | 서버 내부 연결 | health readiness 외 정책 저장·조회 HTTP/저장소 미구현 |
+| 원문 파싱 | `backend/scripts/parse-raw.ps1` | 내부 CLI. 원문 → 조건 후보·검증 → MySQL 초안. HTTP 분석 API 없음 |
+| MySQL | 서버 내부 연결 | 공고 저장·개정·재개, 공개 공고 조회 API 구현 |
 
 Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](backend/docs/api-data-analysis.md)에 있으나 현재 전용 수집 함수는 목록에 한정됩니다. 외부 API 초안과 실제 필드 차이는 [Gov24 참고](backend/docs/api/gov24_services_api.md), [복지로 참고](backend/docs/api/bokjiro_services_api.md)를 확인합니다.
 
@@ -159,20 +159,23 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 
 | 기능 | 현재 상태 | 다음 계약에서 정할 사항 |
 |---|---|---|
-| 정책 목록·상세·검색 | 서버 미구현. 웹 GET /v1/policies 호출자·demo 있음 | 아래 제안 스키마·필터·cursor·원문 URL 확정 |
+| 정책 목록·상세·검색 | 서버·웹 연결 구현. 공개 최신 개정만 조회 | 공개 승인 워크플로 후속 |
+| 공고별 개인 질문 | POST /v1/assistant/questions·웹 상세 질문 구현 | 대화 이력·작업 큐 후속 |
 | 개인비서 LLM 추천 | 서버 미구현. 웹 POST /v1/recommendations 호출자 있음 | 사용자 정보 → 서버 LLM → 추천 이유·공고. 인증/비용·보관 정책 확정 |
 | 조건·자격 판정 | 미구현 | 입력 fact, 기준 시점, PASS/FAIL/UNKNOWN 의미와 근거 |
 | 원문 업로드·분석 | CLI만 있음. HTTP 경로 미정 | 입력 제한, 작업 ID·상태, 오류·재시도·결과 접근 권한 |
 | 로그인·프로필·저장 공고 | 로그인/가입·계정별 금융 입력 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 실제 SMS, 추천 프로필·저장 공고 동기화·계정 수정/탈퇴는 후속 |
 | 알림·푸시 | 미구현 | 동의, Android/iOS 권한·토큰, 발송·해제 계약 |
 
-계획용 URL을 구현된 경로로 기록하지 않습니다. 정책 DB 적재와 공개 승인도 별도 후속 작업이며, 파일 초안 `draft`/`matching_enabled=false`를 공개 정책 응답으로 사용하지 않습니다.
+정책 DB 적재는 구현했으며 공개 승인은 후속 작업입니다. `draft` 개정을 공개 정책 응답으로 사용하지 않습니다. [공고·회원 질문의 실제 계약](backend/docs/policy-storage.md).
 
-### 프론트에서 사용하는 제안 경로 (서버 미구현)
+### 프론트에서 사용하는 업무 경로
 
 | Method / Path | 웹 요청 | 입력 / 응답 | 상태 |
 |---|---|---|---|
-| GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 호출자 구현·서버 미구현 |
+| GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 서버·웹 연결 구현 |
+| GET /v1/policies/{policy_key} | /api/v1/policies/{policy_key} | 최신 공개 공고 카드 | 서버 구현 |
+| POST /v1/assistant/questions | /api/v1/assistant/questions | revision_id,question → answer,citations,follow_up_questions | 회원 쿠키/Bearer·웹 질문 구현 |
 | POST /v1/recommendations | /api/v1/recommendations | profile,limit:3, 선택적 financialProfile → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
 
 `financialProfile`은 사용자가 계산기에서 추천에 반영하기를 선택했을 때만 추가하는 금융 원입력입니다. 일반 추천 프로필·브라우저 저장소에 자동 합치지 않으며 계정 금융정보 저장과도 별개입니다. 서버의 `evaluate_policy()`와 승인된 공고 저장소·추천 API를 실제로 연결하는 작업은 아직 남아 있습니다.

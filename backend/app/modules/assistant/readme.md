@@ -1,4 +1,4 @@
-# DB 기반 개인 안내 — 로컬 1차 연결
+# DB 기반 개인 안내 — 회원 API와 웹 질문
 
 담당: 백엔드. MySQL 공고 개정을 읽어 사용자 질문·선택 프로필로 안내한다.
 public.answer_question(repository, revision_id, question, profile, settings, include_drafts=False)
@@ -11,6 +11,10 @@ GuidanceProfile은 region/age_band/interests만 허용하고 계정·비밀번�
 
 CLI: python -m app.modules.assistant <revision_id> "질문" --include-drafts.
 DB 오류는 SQLAlchemyError, 입력/근거 오류는 ValueError, 모델 오류는 CodexRunError로 실패한다.
-로그인 연결·대화 이력·API·챗봇 화면은 후속이다. 금융 판정이나 신청 작업은 수행하지 않는다.
+`POST /v1/assistant/questions`는 웹 쿠키 또는 모바일 Bearer 세션을 검증한다.
+입력은 revision_id/question만 허용하며 프로필은 서버가 로그인 계정의 지역·연령대로 구성한다.
+웹 공고 상세의 질문 화면과 연결했다. 초안 접근 옵션은 HTTP에 노출하지 않는다.
+회원당 분당 6회, 서버 프로세스당 동시 2회, 모델 60초 제한이다. 대화 이력·추천·알림은 후속이다.
+금융 판정이나 신청 작업은 수행하지 않는다.
 테스트: python -m pytest tests/test_assistant.py.
 [전체 안내](../../../docs/policy-storage.md) · [실증 기록](../../../docs/worklog.md).

@@ -477,6 +477,7 @@ export default function App() {
       )}
       {selected && (
         <PolicyDetail
+          user={user}
           policy={selected}
           saved={saved.some((item) => item.id === selected.id)}
           onSave={toggleSaved}

@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.modules.assistant import public as assistant
 from app.modules.llm.public import CodexRunError
 from app.modules.pipeline import public as pipeline
 
@@ -15,3 +16,4 @@ def offline_pipeline_models(monkeypatch):
     # tests call llm.public directly and replace the subprocess transport themselves.
     monkeypatch.setattr(pipeline, "extract_policy", unavailable)
     monkeypatch.setattr(pipeline, "extract_policy_overview", unavailable)
+    monkeypatch.setattr(assistant, "answer_policy_question", unavailable)

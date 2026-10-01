@@ -1,4 +1,4 @@
-"""Initial DB-backed Q&A, invoked locally until account/API integration is implemented."""
+"""DB-backed Q&A shared by member HTTP requests and explicit local operator previews."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory

@@ -1,7 +1,8 @@
 import Modal from '../../shared/ui/Modal.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from './policyModel.js';
-export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mode, easy }) {
+import PolicyQuestion from '../assistant/PolicyQuestion.jsx';
+export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mode, easy, user }) {
   const source = safeSourceUrl(policy.sourceUrl);
   const relatedTags = (
     <div className="tags detail-tags">
@@ -24,7 +25,6 @@ export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mo
       <div className="detail-badges">
         <span className="soft-badge">{policy.category}</span>
         <span className="soft-badge">{policy.region}</span>
-        {mode === 'demo' && <span className="example-badge">예시 공고</span>}
       </div>
       <p className="modal-description">{policy.summary}</p>
       <div className="detail-highlight">
@@ -73,9 +73,7 @@ export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mo
         relatedTags
       )}
       <p className="notice-box">
-        {mode === 'demo'
-          ? '체험용 예시 공고예요. 실제로 신청할 수는 없어요.'
-          : '추천받은 공고도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를 확인하세요.'}
+        추천받은 공고도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를 확인하세요.
       </p>
       <div className="detail-actions">
         {mode === 'api' && source && (
@@ -90,6 +88,11 @@ export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mo
           {saved ? '저장 취소하기' : '이 공고 저장하기'}
         </button>
       </div>
+      <PolicyQuestion
+        key={`${user?.id || 'guest'}:${policy.revisionId || policy.id}`}
+        revisionId={policy.revisionId}
+        user={user}
+      />
     </Modal>
   );
 }

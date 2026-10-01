@@ -2187,6 +2187,34 @@ html[data-easy='true'] *::after {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.policy-question {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border, #d9e2da);
+}
+.policy-question form {
+  display: grid;
+  gap: 10px;
+}
+.policy-question textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #87998c;
+  border-radius: 10px;
+  font: inherit;
+  resize: vertical;
+}
+.policy-question p,
+.policy-answer blockquote {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.policy-answer blockquote {
+  margin: 12px 0;
+  padding: 12px;
+  border-left: 3px solid #4e775d;
+  background: #f3f7f3;
+}
 .auth-error {
   color: #a32323;
 }
