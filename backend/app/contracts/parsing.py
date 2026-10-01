@@ -117,6 +117,28 @@ class PolicyExtraction(StrictModel):
     unresolved: list[str]
 
 
+PolicyCategory = Literal["생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"]
+
+
+class SourceEvidence(StrictModel):
+    source_field: str = Field(min_length=1, max_length=80)
+    quote: str = Field(min_length=1, max_length=500)
+
+
+class PolicyOverview(StrictModel):
+    summary: str = Field(min_length=1, max_length=500)
+    category: PolicyCategory | None
+    category_reason: str = Field(min_length=1, max_length=240)
+    evidence: list[SourceEvidence] = Field(min_length=1, max_length=8)
+    unresolved: list[str] = Field(max_length=8)
+
+    @model_validator(mode="after")
+    def require_reason_when_uncategorized(self):
+        if self.category is None and not self.unresolved:
+            raise ValueError("Uncategorized overview requires an unresolved reason")
+        return self
+
+
 class SourcePolicy(StrictModel):
     policy_key: str
     title: str

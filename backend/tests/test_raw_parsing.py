@@ -9,14 +9,14 @@ from unittest.mock import Mock
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from app.contracts.parsing import ConditionValue, PolicyExtraction
+from app.contracts.parsing import ConditionValue, PolicyExtraction, PolicyOverview
 from app.core import config
 from app.core.config import Settings
 from app.modules.collectors.bokjiro_services import _parse_detail_response
 from app.modules.llm import public as llm
 from app.modules.normalization.raw import load_raw_policies, normalize_record
 from app.modules.pipeline import public as pipeline
-from app.modules.validation.public import validate_extraction
+from app.modules.validation.public import validate_extraction, validate_overview
 
 
 def source():
@@ -41,6 +41,15 @@ def extraction(**condition_changes):
                         "reference_basis": None, "role": "eligibility", "group_id": "g1",
                         "source_field": "eligibility", "evidence_quote": "만 19세 이상",
                         "unknown_reason": None, "review_note": "", **condition_changes}],
+    })
+
+
+def overview(**changes):
+    return PolicyOverview.model_validate({
+        "summary": "교육 지원 공고입니다.", "category": "교육",
+        "category_reason": "교육을 지원합니다.",
+        "evidence": [{"source_field": "title", "quote": "가상 정책"}],
+        "unresolved": [], **changes,
     })
 
 
@@ -90,6 +99,31 @@ def test_nested_xml_repetitions_and_error_validation():
         _parse_detail_response(payload.replace(b"<resultCode>0", b"<resultCode>30"))
 
 
+def test_overview_category_is_limited_and_evidence_is_verified():
+    valid = overview()
+    validate_overview(valid, source())
+    with pytest.raises(ValidationError):
+        overview(category="교통·안전")
+    with pytest.raises(ValueError, match="evidence"):
+        validate_overview(overview(evidence=[{"source_field": "title", "quote": "없는 내용"}]),
+                          source())
+    with pytest.raises(ValidationError):
+        overview(category=None)
+
+
+def test_code_complete_policy_still_generates_overview(tmp_path, monkeypatch):
+    record = normalize_record({"document_id": "clear-1", "title": "가상 정책",
+                               "text": "신청자 만 19세 이상"})
+    monkeypatch.setattr(pipeline, "extract_policy",
+                        lambda *args: (_ for _ in ()).throw(AssertionError("not needed")))
+    monkeypatch.setattr(pipeline, "extract_policy_overview",
+                        lambda *args: (overview(), {"model": "test-model"}))
+    result = pipeline.parse_policy(record, Settings(_env_file=None), tmp_path)
+    assert result["method"] == "code_rules"
+    assert result["overview_status"] == "validated"
+    assert result["overview"]["category"] == "교육"
+
+
 def test_gov24_batch_no_five_record_limit_and_malformed_rows(tmp_path):
     path = tmp_path / "raw.json"
     rows = [{"서비스ID": str(i), "서비스명": "가상", "지원대상": "가상 조건"} for i in range(7)]
@@ -108,6 +142,16 @@ def test_source_mapping_keeps_scope_and_excludes_unrelated_fields():
     assert record.fields == {"text": "본문\n다음 줄"}
     assert "not-sent" not in record.model_dump_json()
     assert len(record.source_hash) == 64
+
+
+def test_gov24_overview_fields_are_preserved_as_source_evidence():
+    record = normalize_record({
+        "서비스ID": "gov24-1", "서비스명": "청년 주거 지원",
+        "서비스목적요약": "청년의 주거비 부담을 완화합니다.",
+        "서비스분야": "주거", "지원내용": "월세 보증을 지원합니다.",
+    })
+    assert record.fields["purpose_summary"] == "청년의 주거비 부담을 완화합니다."
+    assert record.fields["provider_category"] == "주거"
 
 
 def test_dry_run_and_missing_source_skip_llm(tmp_path, monkeypatch):
@@ -171,6 +215,34 @@ def test_config_model_loads_from_env_and_environment_wins(tmp_path, monkeypatch)
     assert config.load_settings().codex_model == "gpt-5.6-terra"
     monkeypatch.setenv("CODEX_MODEL", "gpt-5.6-luna")
     assert config.load_settings().codex_model == "gpt-5.6-luna"
+
+
+def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch):
+    executable = tmp_path / "codex.exe"
+    executable.touch()
+    executable.chmod(0o700)
+    captured = {}
+
+    class OverviewProcess:
+        returncode = 0
+
+        def __init__(self, args, **kwargs):
+            captured["args"] = args
+            Path(args[args.index("-o") + 1]).write_text(
+                overview().model_dump_json(), encoding="utf-8")
+            kwargs["stdout"].write(b'{"type":"turn.completed","usage":{}}\n')
+
+        def communicate(self, prompt, timeout):
+            captured["prompt"] = prompt.decode("utf-8")
+
+    monkeypatch.setattr(llm.subprocess, "Popen", OverviewProcess)
+    result, metadata = llm.extract_policy_overview(
+        source(), Settings(_env_file=None, codex_executable=str(executable)),
+        tmp_path / "overview-attempt", "gpt-5.6-luna")
+    assert result.category == "교육"
+    assert metadata["prompt_version"] == "welfare-overview-v1"
+    assert all(category in captured["prompt"] for category in
+               ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"))
 
 
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):

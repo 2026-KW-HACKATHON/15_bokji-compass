@@ -53,7 +53,7 @@ requirement_rows = [
 
 ## Rawdata 공통 입력
 
-`raw.load_raw_policies(path) -> list[SourcePolicy]`: Gov24 응답 JSON, 복지로 상세 XML/JSON, 저장된 RawDocument JSON을 공통 입력으로 변환. `raw.normalize_record(row) -> SourcePolicy`: 단일 레코드 변환. 원천 ID·해시·주체별 해석용 원문 필드 보존.
+`raw.load_raw_policies(path) -> list[SourcePolicy]`: Gov24 응답 JSON, 복지로 상세 XML/JSON, 저장된 RawDocument JSON을 공통 입력으로 변환. `raw.normalize_record(row) -> SourcePolicy`: 단일 레코드 변환. 원천 ID·해시·주체별 해석용 원문 필드를 보존하며, Gov24는 요약용 `purpose_summary`와 참고용 `provider_category`도 전달합니다.
 
 `normalize_gov24_service`와 `normalize_bokjiro_service`는 각각 한 건 변환이 필요할 때 사용하는 하위 진입점입니다. API 원문은 `source_text`에 JSON으로 보존하고, 지원 대상과 선정 기준은 자동 판정하지 않고 원문 조건으로 저장합니다. 신규 조건 추출은 [파싱 파이프라인](../../../docs/raw-parsing.md)을 사용합니다.
 
