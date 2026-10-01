@@ -117,6 +117,32 @@ export function parseInteger(value, label, { min = 0, max = MAX_MONEY, required 
     throw new Error(label + '의 입력 범위를 확인해 주세요.');
   return number;
 }
+// Only UI edits carry a unit. API profiles and existing drafts remain integer won.
+export const moneyInput = (value) => ({ unit: 'manwon', value });
+const isMoneyInput = (value) => value?.unit === 'manwon' && typeof value.value === 'string';
+export function parseMoney(value, label) {
+  if (!isMoneyInput(value)) return parseInteger(value, label);
+  const text = value.value.trim();
+  if (!text) return null;
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{0,4})?$/.test(text))
+    throw new Error(
+      label + '은(는) 만원 단위 숫자로 입력해 주세요. 소수점은 넷째 자리까지 가능해요.',
+    );
+  const [whole, fraction = ''] = text.replaceAll(',', '').split('.');
+  const won = Number(whole) * 10000 + Number(fraction.padEnd(4, '0'));
+  if (!Number.isSafeInteger(won) || won < 0 || won > MAX_MONEY)
+    throw new Error(label + '의 입력 범위를 확인해 주세요.');
+  return won;
+}
+export function moneyInputValue(value) {
+  if (isMoneyInput(value)) return value.value;
+  const won = parseInteger(value, '금액');
+  if (won === null) return '';
+  const fraction = String(won % 10000)
+    .padStart(4, '0')
+    .replace(/0+$/, '');
+  return formatNumber(Math.floor(won / 10000)) + (fraction ? '.' + fraction : '');
+}
 function choice(value, options, label) {
   if (!options.some(([key]) => key === value)) throw new Error(label + '을(를) 선택해 주세요.');
   return value;
@@ -146,7 +172,7 @@ export function toFinancialProfile(draft) {
   )
     throw new Error('차량 보유 여부와 차량 목록을 확인해 주세요.');
   const moneyGroup = (source, fields) =>
-    Object.fromEntries(fields.map(([key, label]) => [key, parseInteger(source?.[key], label)]));
+    Object.fromEntries(fields.map(([key, label]) => [key, parseMoney(source?.[key], label)]));
   return {
     schema_version: 1,
     reference_year: parseInteger(draft.reference_year, '기준 연도', {
@@ -192,7 +218,7 @@ export function toFinancialProfile(draft) {
     ]),
     vehicle_status,
     vehicles: draft.vehicles.map((vehicle, index) => ({
-      value: parseInteger(vehicle.value, '차량 ' + (index + 1) + ' 가액'),
+      value: parseMoney(vehicle.value, '차량 ' + (index + 1) + ' 가액'),
       kind: choice(vehicle.kind, vehicleKinds, '차종'),
       use: choice(vehicle.use, vehicleUses, '차량 용도'),
       ownership: choice(vehicle.ownership ?? 'unknown', vehicleOwnerships, '차량 명의'),

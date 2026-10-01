@@ -9,8 +9,16 @@ import {
   parseInteger,
   parseCalculation,
   formatMoney,
+  moneyInput,
+  moneyInputValue,
+  parseMoney,
   officialSourceUrl,
 } from '../src/features/finance/financeModel.js';
+import {
+  financeQuestions,
+  validateQuestion,
+  visibleFields,
+} from '../src/features/finance/financeFlow.js';
 
 const calculation = () => ({
   reference_year: 2026,
@@ -86,6 +94,140 @@ test('finance numeric inputs reject exponents, malformed separators, decimals an
   assert.equal(formatMoney(null), '확인 필요');
   assert.equal(formatMoney(0), '0원');
   assert.equal(formatMoney(1000000), '1,000,000원');
+});
+
+test('manwon input converts exactly to integer won while preserving unknown, zero and limits', () => {
+  for (const [text, won] of [
+    ['500', 5_000_000],
+    ['1,200.5', 12_005_000],
+    ['45.6789', 456_789],
+    ['0.0001', 1],
+    ['0.1', 1_000],
+    ['1.0015', 10_015],
+    ['0', 0],
+    ['0.', 0],
+    ['', null],
+    ['   ', null],
+    ['100,000,000', 1_000_000_000_000],
+  ]) {
+    assert.equal(parseMoney(moneyInput(text), '보증금'), won, text);
+  }
+  for (const text of [
+    '0.00001',
+    '100000000.0001',
+    '1e4',
+    '-1',
+    '12,34',
+    '1,000.2,3',
+    'NaN',
+    'Infinity',
+    '.',
+  ]) {
+    assert.throws(() => parseMoney(moneyInput(text), '보증금'), undefined, text);
+  }
+  assert.equal(parseMoney(null, '보증금'), null);
+  assert.equal(parseMoney(0, '보증금'), 0);
+  assert.equal(parseMoney(500, '보증금'), 500);
+  assert.equal(parseMoney('5,000,000', '보증금'), 5_000_000);
+  assert.throws(() => parseMoney('1.5', '보증금'));
+  assert.throws(() => parseMoney({ unit: 'manwon', value: 500 }, '보증금'));
+  assert.throws(() => parseMoney({ unit: 'unknown', value: '500' }, '보증금'));
+});
+
+test('saved won amounts display in manwon without rounding and unfinished edits retain their text', () => {
+  for (const [won, displayed] of [
+    [null, ''],
+    [0, '0'],
+    [1, '0.0001'],
+    [10_015, '1.0015'],
+    [456_789, '45.6789'],
+    [5_000_000, '500'],
+    [10_000_000, '1,000'],
+    [1_000_000_000_000, '100,000,000'],
+  ]) {
+    assert.equal(moneyInputValue(won), displayed);
+    assert.equal(parseMoney(moneyInput(displayed), '보증금'), won);
+  }
+  assert.equal(moneyInputValue('456,789'), '45.6789');
+  for (const text of ['', '0', '0.', '0.00001', '1,2', '-5']) {
+    assert.equal(moneyInputValue(structuredClone(moneyInput(text))), text);
+  }
+});
+
+test('all money fields use manwon only for UI drafts and API normalization stays idempotent', async () => {
+  const draft = emptyFinancialProfile();
+  Object.assign(draft.members[0], {
+    age: '65',
+    earned_income: moneyInput('200'),
+    business_income: moneyInput('123.4567'),
+    other_income: moneyInput('0'),
+    private_transfer_income: moneyInput(''),
+  });
+  draft.assets = {
+    housing: moneyInput('10,000'),
+    rental_deposit: moneyInput('500'),
+    general: moneyInput('0.0001'),
+    financial: moneyInput('45.6789'),
+  };
+  draft.debts = {
+    bank: moneyInput('100'),
+    public: moneyInput('20.5'),
+    other: moneyInput('0'),
+  };
+  draft.vehicle_status = 'owned';
+  draft.vehicles = [{ ...emptyVehicle(), value: moneyInput('700'), displacement_cc: '1600' }];
+  const raw = toFinancialProfile(draft);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['earned_income', 'business_income', 'other_income', 'private_transfer_income'].map((key) => [
+        key,
+        raw.members[0][key],
+      ]),
+    ),
+    {
+      earned_income: 2_000_000,
+      business_income: 1_234_567,
+      other_income: 0,
+      private_transfer_income: null,
+    },
+  );
+  assert.deepEqual(raw.assets, {
+    housing: 100_000_000,
+    rental_deposit: 5_000_000,
+    general: 1,
+    financial: 456_789,
+  });
+  assert.deepEqual(raw.debts, { bank: 1_000_000, public: 205_000, other: 0 });
+  assert.equal(raw.vehicles[0].value, 7_000_000);
+  assert.equal(raw.vehicles[0].displacement_cc, 1600);
+  assert.equal(raw.members[0].age, 65);
+  assert.deepEqual(toFinancialProfile(raw), raw);
+  assert.deepEqual(draft.assets.rental_deposit, moneyInput('500'));
+  const submitted = [];
+  const api = createFinanceApi({
+    fetchImpl: async (_, options) => {
+      submitted.push(JSON.parse(options.body).profile);
+      return response(calculation());
+    },
+  });
+  await api.calculate(draft);
+  await api.calculate(raw);
+  assert.deepEqual(submitted, [raw, raw]);
+});
+
+test('money validation handles editable invalid text and keeps income basis conditional', () => {
+  const draft = emptyFinancialProfile();
+  const question = financeQuestions(draft).find((item) => item.id === 'member-0-earned');
+  draft.members[0].earned_income = moneyInput('0.00001');
+  assert.equal(visibleFields(question, draft).length, 1);
+  assert.match(validateQuestion(question, draft).message, /넷째 자리/);
+  assert.equal(validateQuestion(question, draft).field, 'finance-earned-0');
+  draft.members[0].earned_income = moneyInput('0.0001');
+  assert.equal(visibleFields(question, draft).length, 2);
+  assert.equal(validateQuestion(question, draft), null);
+  draft.members[0].earned_income = moneyInput('0');
+  assert.equal(visibleFields(question, draft).length, 1);
+  assert.equal(validateQuestion(question, draft), null);
 });
 test('income and vehicle facts stay separate and older drafts need basis confirmation', () => {
   const draft = emptyFinancialProfile();

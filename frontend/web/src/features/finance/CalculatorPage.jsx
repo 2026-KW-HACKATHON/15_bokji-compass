@@ -15,6 +15,49 @@ import './calculator.css';
 
 const api = createFinanceApi({ baseUrl: appConfig.apiBaseUrl });
 
+function questionSection(question) {
+  if (question.group === 0) return { id: 'household', title: '가구 정보' };
+  if (question.group === 1) {
+    const member = question.id.match(/^member-(\d+)-/);
+    return { id: `member-${member[1]}`, title: `가구원 ${Number(member[1]) + 1} · 소득 정보` };
+  }
+  if (question.group === 2) return { id: 'assets', title: '재산 정보' };
+  if (question.group === 3) return { id: 'debts', title: '부채 정보' };
+  if (question.id === 'vehicles') return { id: 'vehicles', title: '차량 보유 여부' };
+  const vehicle = question.id.match(/^vehicle-(\d+)-/);
+  return { id: `vehicle-${vehicle[1]}`, title: `차량 ${Number(vehicle[1]) + 1} · 차량 정보` };
+}
+
+function groupedQuestions(questions) {
+  const sections = [];
+  for (const question of questions) {
+    const section = questionSection(question);
+    const previous = sections.at(-1);
+    if (previous?.id === section.id) previous.questions.push(question);
+    else sections.push({ ...section, questions: [question] });
+  }
+  return sections;
+}
+
+function questionHeading(question) {
+  if (question.id === 'household') return '거주 지역과 가구원';
+  if (question.id === 'household-details') return '가구 특성';
+  if (question.id === 'assets-home') return '주택과 보증금';
+  if (question.id === 'assets-other') return '그 밖의 재산';
+  const suffix = question.id.split('-').at(-1);
+  return (
+    {
+      basic: '나이와 공제 유형',
+      earned: '근로소득',
+      business: '사업소득',
+      other: '그 밖의 소득',
+      use: '명의와 사용 목적',
+      value: '차량 가액',
+      spec: '차량 제원과 보조금',
+    }[suffix] ?? question.title
+  );
+}
+
 export default function CalculatorPage({
   easy,
   user,
@@ -47,6 +90,14 @@ export default function CalculatorPage({
     questions.findIndex((question) => question.id === step),
   );
   const current = questions[currentIndex];
+  const sections = easy
+    ? groupedQuestions(questions)
+    : questions.map((question) => ({ ...question, questions: [question] }));
+  const sectionIndex = Math.max(
+    0,
+    sections.findIndex((section) => section.questions.some((question) => question.id === step)),
+  );
+  const currentSection = sections[sectionIndex];
   const editing = mode === 'edit';
   const group = mode === 'review' || mode === 'result' ? 5 : current.group;
 
@@ -84,7 +135,8 @@ export default function CalculatorPage({
   function showError(text, field) {
     setError(text);
     requestAnimationFrame(() => {
-      const input = field && document.getElementById(field);
+      const input =
+        field && (document.getElementById(field) ?? document.getElementById(`${field}-presence`));
       (input ?? errorRef.current)?.focus();
       (input ?? errorRef.current)?.scrollIntoView({ block: 'center' });
     });
@@ -164,9 +216,12 @@ export default function CalculatorPage({
     }
   }
   function next() {
-    const issue = validateQuestion(current, draft);
-    if (issue) return showError(issue.message, issue.field);
-    if (currentIndex < questions.length - 1) move('wizard', questions[currentIndex + 1].id);
+    for (const question of currentSection.questions) {
+      const issue = validateQuestion(question, draft);
+      if (issue) return showError(issue.message, issue.field);
+    }
+    if (sectionIndex < sections.length - 1)
+      move('wizard', sections[sectionIndex + 1].questions[0].id);
     else if (validateAll()) move('review');
   }
   function edit(questionId) {
@@ -271,34 +326,44 @@ export default function CalculatorPage({
   }
   const title =
     {
-      start: '아는 정보부터 하나씩 입력해요',
+      start: easy ? '계산에 필요한 정보를 확인하세요' : '아는 정보부터 하나씩 입력해요',
       review: '계산 전에 입력 내용을 확인해 주세요',
       edit: '입력 정보 수정',
       result: '계산 결과',
-    }[mode] ?? current.title;
+    }[mode] ?? currentSection.title;
 
   return (
     <section className={`calculator-page finance-mode-${mode}`}>
       <div className="page-heading">
         <span className="eyebrow">2026년 기준</span>
         <h1>소득·재산 계산기</h1>
-        <p>회원가입 없이 계산할 수 있어요. 모르는 정보는 나중에 채워도 괜찮아요.</p>
+        <p>회원가입 없이 계산할 수 있습니다. 모르는 항목은 ‘확인 필요’로 남길 수 있습니다.</p>
       </div>
       {mode === 'start' && (
         <div className="finance-intro">
           <Icon name="shield" />
-          <p>계산할 때 입력 정보를 서버로 보냅니다. 계정 저장은 따로 동의한 경우에만 해요.</p>
+          <p>계산할 때 입력 정보를 서버로 보냅니다. 계정에는 별도 동의한 경우에만 저장합니다.</p>
         </div>
       )}
       {mode !== 'start' && mode !== 'edit' && (
-        <ol className="finance-progress" aria-label="계산 단계">
-          {financeGroups.map((name, index) => (
-            <li key={name} aria-current={group === index ? 'step' : undefined}>
-              <span>{index + 1}</span>
-              {name}
-            </li>
-          ))}
-        </ol>
+        <div className="finance-progress-wrap">
+          {easy && (
+            <p className="finance-progress-current">
+              <span>
+                {group + 1} / {financeGroups.length} 단계
+              </span>
+              <strong>{financeGroups[group]}</strong>
+            </p>
+          )}
+          <ol className="finance-progress" aria-label="계산 단계">
+            {financeGroups.map((name, index) => (
+              <li key={name} aria-current={group === index ? 'step' : undefined}>
+                <span>{index + 1}</span>
+                {name}
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
       <div className="finance-feedback">
         {error && (
@@ -329,13 +394,17 @@ export default function CalculatorPage({
       </h2>
       {mode === 'start' && (
         <section className="finance-section finance-start">
-          <p>가구, 소득, 재산, 부채, 차량 순서로 필요한 정보를 물어볼게요.</p>
+          <p>가구 → 소득 → 재산 → 부채 → 차량 순서로 입력한 뒤, 전체 내용을 확인합니다.</p>
           <p className="finance-help">
-            없는 금액은 ‘없어요’, 모르는 금액은 ‘모르겠어요’를 선택하세요. 마지막에 전체 내용을
-            확인하고 수정할 수 있어요.
+            금액은 만원 단위입니다. 보증금 500만 원은 500으로 입력하세요.
           </p>
           <p className="finance-help">
-            다른 메뉴에 다녀와도 이어서 입력할 수 있어요. 새로고침하거나 로그아웃하면 저장하지 않은
+            {easy
+              ? '없는 금액은 ‘없음 (0원)’, 아직 모르는 금액은 ‘모름 · 확인 필요’를 선택하세요.'
+              : '없는 금액은 ‘없어요’, 모르는 금액은 ‘모르겠어요’를 선택하세요.'}
+          </p>
+          <p className="finance-help">
+            다른 메뉴에서도 이어서 입력할 수 있습니다. 새로고침하거나 로그아웃하면 저장하지 않은
             입력은 사라집니다.
           </p>
           <button
@@ -383,15 +452,15 @@ export default function CalculatorPage({
                 </button>
               </div>
             )}
-            {(editing ? questions : [current]).map((question) => (
+            {(editing ? questions : currentSection.questions).map((question) => (
               <section
                 className="finance-section finance-question"
                 key={question.id}
                 aria-label={question.title}
               >
-                {editing && (
+                {(editing || currentSection.questions.length > 1) && (
                   <h3 id={`question-${question.id}`} tabIndex={-1}>
-                    {question.title}
+                    {easy && !editing ? questionHeading(question) : question.title}
                   </h3>
                 )}
                 <QuestionFields
@@ -400,6 +469,7 @@ export default function CalculatorPage({
                   onChange={update}
                   onAddVehicle={addVehicle}
                   onRemoveVehicle={removeVehicle}
+                  easy={easy}
                 />
               </section>
             ))}
@@ -409,14 +479,16 @@ export default function CalculatorPage({
                   type="button"
                   className="button secondary"
                   onClick={() =>
-                    currentIndex ? move('wizard', questions[currentIndex - 1].id) : move('start')
+                    sectionIndex
+                      ? move('wizard', sections[sectionIndex - 1].questions[0].id)
+                      : move('start')
                   }
                 >
                   이전
                 </button>
               )}
               <button className="button primary" type="submit">
-                {editing || currentIndex === questions.length - 1 ? '입력 내용 확인' : '다음'}
+                {editing || sectionIndex === sections.length - 1 ? '입력 내용 확인' : '다음'}
                 <Icon name="arrow" />
               </button>
             </div>
@@ -426,8 +498,7 @@ export default function CalculatorPage({
       {mode === 'review' && (
         <section className="finance-section">
           <p className="finance-help">
-            ‘확인 필요’로 남겨둔 정보는 0원으로 계산하지 않아요. 결과에서 추가로 확인할 내용을
-            안내해 드려요.
+            ‘확인 필요’인 정보는 0원으로 계산하지 않습니다. 결과에서 추가 확인할 항목을 안내합니다.
           </p>
           <fieldset className="finance-form-fields" disabled={Boolean(busy)}>
             <div className="finance-actions">
@@ -442,7 +513,12 @@ export default function CalculatorPage({
                 이전 단계
               </button>
             </div>
-            <FinanceReview questions={questions} draft={draft} onEdit={edit} />
+            <FinanceReview
+              questions={questions}
+              sections={easy ? sections : undefined}
+              draft={draft}
+              onEdit={edit}
+            />
             <div className="finance-actions finance-step-actions">
               <button type="button" className="button primary" onClick={calculate}>
                 계산하기
