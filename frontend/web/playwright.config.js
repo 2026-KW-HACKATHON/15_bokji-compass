@@ -4,6 +4,8 @@ import path from 'node:path';
 const backend = path.resolve('../../backend');
 const webPort = Number(process.env.E2E_WEB_PORT || 5173);
 const webUrl = `http://127.0.0.1:${webPort}`;
+const apiPort = Number(process.env.E2E_API_PORT || 8001);
+const apiUrl = `http://127.0.0.1:${apiPort}`;
 const python = path.join(
   backend,
   process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python',
@@ -23,8 +25,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `"${python}" -m uvicorn app.main:app --app-dir "${backend}" --host 127.0.0.1 --port 8001`,
-      url: 'http://127.0.0.1:8001/health',
+      command: `"${python}" -m uvicorn app.main:app --app-dir "${backend}" --host 127.0.0.1 --port ${apiPort}`,
+      url: `${apiUrl}/health`,
       reuseExistingServer: false,
       env: {
         APP_ENV: 'test',
@@ -39,7 +41,7 @@ export default defineConfig({
       command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${webPort}`,
       url: webUrl,
       reuseExistingServer: false,
-      env: { API_PROXY_TARGET: 'http://127.0.0.1:8001' },
+      env: { API_PROXY_TARGET: apiUrl },
     },
   ],
 });

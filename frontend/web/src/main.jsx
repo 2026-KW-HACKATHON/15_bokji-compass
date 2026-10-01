@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './app/App.jsx';
 import '@fontsource-variable/noto-sans-kr';
 import './app/styles.css';
+import './app/easy-mode.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

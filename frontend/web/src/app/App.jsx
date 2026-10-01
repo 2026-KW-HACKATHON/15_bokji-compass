@@ -211,7 +211,7 @@ export default function App() {
       return;
     }
     setSaved(next);
-    setSavedIndex((index) => Math.min(index, Math.max(0, next.length - 1)));
+    setSavedIndex((index) => Math.min(index, Math.max(0, Math.floor((next.length - 1) / 3) * 3)));
     const stored = writeStoredValue(savedKey, next);
     setNotice(
       stored
@@ -225,7 +225,7 @@ export default function App() {
   const pageLabel =
     navigation.find((item) => item.id === route.page)?.label ||
     (route.page === 'login' ? '로그인' : '회원가입');
-  const visibleSaved = easy ? saved.slice(savedIndex, savedIndex + 1) : saved;
+  const visibleSaved = easy ? saved.slice(savedIndex, savedIndex + 3) : saved;
   return (
     <div className={'app-shell' + (easy ? ' easy-mode' : '')}>
       <a
@@ -348,7 +348,11 @@ export default function App() {
               <div className="page-heading">
                 {!easy && <span className="eyebrow">맞춤 추천 설정</span>}
                 <h1>내 정보</h1>
-                <p>나에게 맞는 공고를 추천하는 데 사용해요.</p>
+                <p>
+                  {easy
+                    ? '공고 추천에 사용할 정보를 관리합니다.'
+                    : '나에게 맞는 공고를 추천하는 데 사용해요.'}
+                </p>
                 <a className="text-button calculator-entry" href="#calculator">
                   <Icon name="calculator" /> 소득·재산 계산하고 저장하기
                 </a>
@@ -404,29 +408,29 @@ export default function App() {
               </div>
               {saved.length ? (
                 <>
-                  <div className="policy-grid">
+                  <div className={'policy-grid' + (easy ? ' easy-policy-list' : '')}>
                     {visibleSaved.map((policy) => (
                       <PolicyCard key={policy.id} {...shared} policy={policy} saved />
                     ))}
                   </div>
-                  {easy && (
+                  {easy && saved.length > 3 && (
                     <nav className="pagination" aria-label="저장 공고 넘기기">
                       <button
                         className="button secondary"
                         disabled={savedIndex === 0}
-                        onClick={() => setSavedIndex(savedIndex - 1)}
+                        onClick={() => setSavedIndex(Math.max(0, savedIndex - 3))}
                       >
-                        이전 공고
+                        이전 목록
                       </button>
                       <span>
-                        {savedIndex + 1} / {saved.length}
+                        {savedIndex + 1}–{Math.min(savedIndex + 3, saved.length)} / {saved.length}개
                       </span>
                       <button
                         className="button secondary"
-                        disabled={savedIndex + 1 >= saved.length}
-                        onClick={() => setSavedIndex(savedIndex + 1)}
+                        disabled={savedIndex + 3 >= saved.length}
+                        onClick={() => setSavedIndex(savedIndex + 3)}
                       >
-                        다음 공고
+                        다음 목록
                       </button>
                     </nav>
                   )}

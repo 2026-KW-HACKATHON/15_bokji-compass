@@ -32,11 +32,19 @@ export default function PolicyExplorer({
   const [retry, setRetry] = useState(0);
   const heading = useRef(null);
   const cursor = cursors.at(-1);
+  const pageSize = easy ? 3 : 6;
+  const firstResult = (cursors.length - 1) * pageSize + 1;
+  const filterSummary = [
+    filters.category === '전체' ? '모든 분야' : filters.category,
+    filters.region,
+    filters.audience === '전체' ? '모든 대상' : filters.audience,
+    filters.sort === 'recent' ? '최근 등록순' : '이름순',
+  ].join(' · ');
   useEffect(() => {
     const controller = new AbortController();
     setState('loading');
     repository
-      .list({ ...filters, tag }, { cursor, limit: easy ? 1 : 6, signal: controller.signal })
+      .list({ ...filters, tag }, { cursor, limit: pageSize, signal: controller.signal })
       .then((value) => {
         if (!controller.signal.aborted) {
           setResult(value);
@@ -54,7 +62,7 @@ export default function PolicyExplorer({
         }
       });
     return () => controller.abort();
-  }, [repository, filters, tag, cursor, easy, retry]);
+  }, [repository, filters, tag, cursor, pageSize, retry]);
   const change = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
     setCursors([null]);
@@ -114,21 +122,37 @@ export default function PolicyExplorer({
       <details className="filter-panel" open={easy ? undefined : true}>
         <summary>
           <Icon name="filter" size={19} />
-          분야·지역 선택
+          <span className="filter-summary-label">{easy ? '검색 조건' : '분야·지역 선택'}</span>
+          {easy && <span className="filter-summary-value">{filterSummary}</span>}
         </summary>
-        <div className="category-list" aria-label="공고 분야">
-          {categories.map((item) => (
-            <button
-              key={item}
-              aria-pressed={filters.category === item}
-              className={filters.category === item ? 'selected' : ''}
-              onClick={() => change('category', item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
+        {!easy && (
+          <div className="category-list" aria-label="공고 분야">
+            {categories.map((item) => (
+              <button
+                key={item}
+                aria-pressed={filters.category === item}
+                className={filters.category === item ? 'selected' : ''}
+                onClick={() => change('category', item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="filter-row">
+          {easy && (
+            <label>
+              분야
+              <select
+                value={filters.category}
+                onChange={(event) => change('category', event.target.value)}
+              >
+                {categories.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             지역
             <select
@@ -151,15 +175,13 @@ export default function PolicyExplorer({
               ))}
             </select>
           </label>
-          {!easy && (
-            <label>
-              정렬
-              <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
-                <option value="recent">최근 등록순</option>
-                <option value="name">이름순</option>
-              </select>
-            </label>
-          )}
+          <label>
+            정렬
+            <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
+              <option value="recent">최근 등록순</option>
+              <option value="name">이름순</option>
+            </select>
+          </label>
           <button className="text-button" onClick={reset}>
             검색 조건 지우기
           </button>
@@ -201,7 +223,7 @@ export default function PolicyExplorer({
         </div>
       ) : (
         <>
-          <div className="policy-grid">
+          <div className={'policy-grid' + (easy ? ' easy-policy-list' : '')}>
             {result.items.map((policy) => (
               <PolicyCard
                 key={policy.id}
@@ -214,25 +236,33 @@ export default function PolicyExplorer({
               />
             ))}
           </div>
-          <nav className="pagination" aria-label="공고 페이지">
-            <button
-              className="button secondary"
-              disabled={cursors.length === 1}
-              onClick={() => turnPage(cursors.slice(0, -1))}
-            >
-              {easy ? '이전 공고' : '이전 페이지'}
-            </button>
-            <span>
-              {cursors.length}번째 {easy ? '공고' : '페이지'}
-            </span>
-            <button
-              className="button secondary"
-              disabled={!result.nextCursor || cursors.includes(result.nextCursor)}
-              onClick={() => turnPage([...cursors, result.nextCursor])}
-            >
-              {easy ? '다음 공고' : '다음 페이지'}
-            </button>
-          </nav>
+          {(!easy || cursors.length > 1 || result.nextCursor) && (
+            <nav className="pagination" aria-label="공고 페이지">
+              <button
+                className="button secondary"
+                disabled={cursors.length === 1}
+                onClick={() => turnPage(cursors.slice(0, -1))}
+              >
+                이전 페이지
+              </button>
+              {easy ? (
+                <span
+                  aria-label={`전체 ${result.total}개 중 ${firstResult}번째부터 ${firstResult + result.items.length - 1}번째 공고`}
+                >
+                  {firstResult}–{firstResult + result.items.length - 1} / {result.total}개
+                </span>
+              ) : (
+                <span>{cursors.length}번째 페이지</span>
+              )}
+              <button
+                className="button secondary"
+                disabled={!result.nextCursor || cursors.includes(result.nextCursor)}
+                onClick={() => turnPage([...cursors, result.nextCursor])}
+              >
+                다음 페이지
+              </button>
+            </nav>
+          )}
         </>
       )}
     </section>

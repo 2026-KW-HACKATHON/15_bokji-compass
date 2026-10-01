@@ -11,6 +11,7 @@ import {
   vehicleKinds,
   vehicleSubsidies,
   parseInteger,
+  parseMoney,
   MAX_MONEY,
 } from './financeModel.js';
 
@@ -41,8 +42,13 @@ const select = (path, id, label, options, hint, when) => ({
   type: 'select',
 });
 const check = (path, label) => ({ path, id: `finance-${path}`, label, type: 'check' });
-const positive = (path) => (draft) =>
-  Number(String(fieldValue(draft, path) ?? '').replaceAll(',', '')) > 0;
+const positive = (path) => (draft) => {
+  try {
+    return parseMoney(fieldValue(draft, path), '금액') > 0;
+  } catch {
+    return false;
+  }
+};
 const question = (id, group, title, fields, help) => ({ id, group, title, fields, help });
 
 // These describe the input flow only. Calculation rules remain on the server.
@@ -241,7 +247,9 @@ export function validateQuestion(question, draft) {
   for (const field of visibleFields(question, draft)) {
     const value = fieldValue(draft, field.path);
     try {
-      if (field.type === 'money' || field.type === 'number') {
+      if (field.type === 'money') {
+        parseMoney(value, field.label);
+      } else if (field.type === 'number') {
         parseInteger(value, field.label, { min: field.min ?? 0, max: field.max ?? MAX_MONEY });
       } else if (
         field.type === 'select' &&

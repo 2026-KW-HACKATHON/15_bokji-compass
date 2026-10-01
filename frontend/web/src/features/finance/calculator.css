@@ -295,7 +295,7 @@
   min-width: 0;
 }
 .finance-number input {
-  padding-right: 45px;
+  padding-right: 65px;
 }
 .finance-number input::placeholder {
   font-size: 0.84rem;
@@ -545,14 +545,16 @@
   background: #fffaed;
 }
 .easy-mode .calculator-page {
-  max-width: 900px;
+  max-width: 860px;
 }
 .easy-mode .finance-grid {
   grid-template-columns: 1fr;
+  gap: 24px;
 }
 .easy-mode .finance-field label,
+.easy-mode .finance-field-label,
 .easy-mode .finance-check {
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 .easy-mode .finance-field small,
 .easy-mode .finance-help,
@@ -563,21 +565,93 @@
 .easy-mode .finance-status,
 .easy-mode .finance-check-state,
 .easy-mode .finance-checks p {
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 .easy-mode .finance-field input,
 .easy-mode .finance-field select {
-  min-height: 56px;
-  font-size: 1rem;
+  min-height: 52px;
+  font-size: 1.125rem;
 }
 .easy-mode .finance-number input::placeholder {
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 .easy-mode .finance-result-summary {
   grid-template-columns: 1fr;
 }
 .easy-mode .finance-progress li {
-  font-size: 0.85rem;
+  font-size: 1rem;
+  padding: 6px 0 10px;
+}
+.easy-mode .finance-progress li span {
+  display: none;
+}
+.easy-mode .finance-progress-current {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+.easy-mode .finance-progress-current strong {
+  color: var(--green);
+  font-size: 1.125rem;
+}
+.easy-mode .finance-progress-wrap {
+  margin-top: 28px;
+}
+.easy-mode .finance-section,
+.easy-mode .finance-account {
+  border-radius: 10px;
+  margin-block: 20px;
+}
+.easy-mode .finance-question > h3 {
+  margin: 0 0 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.25rem;
+}
+.easy-mode .finance-screen-title {
+  margin-block: 28px 18px;
+  font-size: clamp(1.375rem, 3vw, 1.75rem);
+}
+.easy-mode .finance-step-actions {
+  position: static;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  justify-content: space-between;
+}
+.easy-mode .finance-step-actions > .button {
+  min-width: 112px;
+}
+.easy-mode .finance-step-actions > .button.primary:only-child {
+  margin-left: auto;
+}
+.easy-mode .finance-intro {
+  padding: 16px 18px;
+  border-radius: 10px;
+}
+.easy-mode .finance-start > p:first-child {
+  margin-top: 0;
+  font-weight: 600;
+}
+.easy-mode .finance-details {
+  padding-top: 14px;
+  margin-bottom: 0;
+  border-top: 1px solid var(--line);
+}
+.easy-mode .finance-details > summary {
+  min-height: 48px;
+}
+.easy-mode .finance-review-heading h3 {
+  font-size: 1.125rem;
+}
+.easy-mode .finance-review .finance-facts {
+  font-size: 1rem;
 }
 .easy-mode .finance-section > h2 {
   font-size: 1.3rem;
@@ -618,7 +692,17 @@
     font-size: 0.8rem;
   }
   .easy-mode .finance-progress li {
-    font-size: 0.8rem;
+    font-size: 0.9375rem;
+  }
+  .easy-mode .finance-section,
+  .easy-mode .finance-account {
+    padding: 20px 16px;
+  }
+  .easy-mode .finance-step-actions > .button {
+    min-width: 0;
+  }
+  .easy-mode .finance-question > h3 {
+    font-size: 1.1875rem;
   }
   .finance-checks p span {
     display: block;

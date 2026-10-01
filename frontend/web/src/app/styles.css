@@ -1,6 +1,6 @@
 :root {
   font-family: 'Noto Sans KR Variable', 'Noto Sans KR', sans-serif;
-  color: #17324d;
+  color: var(--ink);
   background: #f8fafc;
   font-synthesis: none;
   font-size: 16px;
@@ -11,6 +11,8 @@
   --line: #d4e2ed;
   --soft: #e0f2fe;
   --white: #fff;
+  --ink: #17324d;
+  --hero-background: linear-gradient(115deg, #e0f2fe 0%, #edf9ff 55%, #e3f5e6 100%);
 }
 * {
   box-sizing: border-box;
@@ -1833,7 +1835,7 @@ html[data-easy='true'] *::after {
   object-fit: contain;
 }
 .assistant-hero {
-  background: linear-gradient(115deg, #e0f2fe 0%, #edf9ff 55%, #e3f5e6 100%);
+  background: var(--hero-background);
 }
 .hero-copy em {
   color: #087b52;

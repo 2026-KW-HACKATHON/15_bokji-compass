@@ -1,16 +1,10 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { regions, categories } from '../policies/policyModel.js';
 import { ageBands, occupations, households } from './profileModel.js';
 import Icon from '../../shared/ui/Icon.jsx';
 export default function ProfileForm({ profile, onSave, easy, remembered = false, mode }) {
   const [draft, setDraft] = useState(profile);
-  const [step, setStep] = useState(0);
   const [remember, setRemember] = useState(remembered);
-  const title = useRef(null);
-  const changeStep = (next) => {
-    setStep(next);
-    requestAnimationFrame(() => title.current?.focus());
-  };
   const select = (key, label, options) => (
     <label className="field-label">
       {label}
@@ -29,103 +23,81 @@ export default function ProfileForm({ profile, onSave, easy, remembered = false,
       className="profile-form"
       onSubmit={(event) => {
         event.preventDefault();
-        if (easy && step < 2) changeStep(step + 1);
-        else onSave(draft, remember);
+        onSave(draft, remember);
       }}
     >
       <div className="form-intro">
-        <p>아는 항목만 입력해 주세요. 나중에 바꿀 수 있어요.</p>
+        <p>
+          {easy
+            ? '추천에 필요한 정보를 선택해 주세요. 선택 항목은 비워둘 수 있으며, 언제든 수정할 수 있습니다.'
+            : '아는 항목만 입력해 주세요. 나중에 바꿀 수 있어요.'}
+        </p>
       </div>
-      {easy && (
-        <div className="step-indicator" aria-label={'3단계 중 ' + (step + 1) + '단계'}>
-          <span>{step + 1} / 3</span>
-          <h2 ref={title} tabIndex={-1}>
-            {
-              [
-                '지역과 연령대를 선택해 주세요',
-                '일과 가구 정보를 선택해 주세요',
-                '관심 분야를 선택해 주세요',
-              ][step]
-            }
-          </h2>
+      <section className="form-section" aria-label="지역과 연령">
+        <h2>기본 정보</h2>
+        <div className="form-grid">
+          {select('region', '거주 지역', regions)}
+          {select('ageBand', '연령대 (선택)', ageBands)}
         </div>
-      )}
-      {(!easy || step === 0) && (
-        <section className="form-section" aria-label="지역과 연령">
-          <h2 className={easy ? 'sr-only' : ''}>기본 정보</h2>
-          <div className="form-grid">
-            {select('region', '거주 지역', regions)}
-            {select('ageBand', '연령대 (선택)', ageBands)}
+      </section>
+      <section className="form-section" aria-label="생활 정보">
+        <h2>생활 정보 {easy && <small>선택</small>}</h2>
+        <div className="form-grid">
+          {select('occupation', '일·학업 상태 (선택)', occupations)}
+          {select('household', '함께 사는 사람 (선택)', households)}
+        </div>
+      </section>
+      <section className="form-section">
+        <fieldset>
+          <legend>
+            관심 분야 <small>여러 개 선택할 수 있어요</small>
+          </legend>
+          <div className="interest-options">
+            {categories.slice(1).map((category) => (
+              <label
+                key={category}
+                className={draft.interests.includes(category) ? 'selected' : ''}
+              >
+                <input
+                  type="checkbox"
+                  checked={draft.interests.includes(category)}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      interests: event.target.checked
+                        ? [...draft.interests, category]
+                        : draft.interests.filter((value) => value !== category),
+                    })
+                  }
+                />
+                {category}
+              </label>
+            ))}
           </div>
-        </section>
-      )}
-      {(!easy || step === 1) && (
-        <section className="form-section" aria-label="생활 정보">
-          <h2 className={easy ? 'sr-only' : ''}>생활 정보</h2>
-          <div className="form-grid">
-            {select('occupation', '일·학업 상태 (선택)', occupations)}
-            {select('household', '함께 사는 사람 (선택)', households)}
-          </div>
-        </section>
-      )}
-      {(!easy || step === 2) && (
-        <section className="form-section">
-          <fieldset>
-            <legend>
-              관심 분야 <small>여러 개 선택할 수 있어요</small>
-            </legend>
-            <div className="interest-options">
-              {categories.slice(1).map((category) => (
-                <label
-                  key={category}
-                  className={draft.interests.includes(category) ? 'selected' : ''}
-                >
-                  <input
-                    type="checkbox"
-                    checked={draft.interests.includes(category)}
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
-                        interests: event.target.checked
-                          ? [...draft.interests, category]
-                          : draft.interests.filter((value) => value !== category),
-                      })
-                    }
-                  />
-                  {category}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <label className="remember-choice">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
-            />
-            이 브라우저에 내 정보 저장
-          </label>
-          <p className="field-hint">
-            선택하면 다음 방문에도 입력한 정보를 사용할 수 있어요. 공용 기기에서는 선택하지 마세요.
-            {!remember && ' 선택하지 않으면 새로고침할 때 입력 정보가 사라져요.'}
-            {mode === 'api' && remember && ' 다음 방문에도 이 정보로 추천을 요청해요.'}
-          </p>
-          <p className="privacy-note">
-            <Icon name="shield" />
-            {mode === 'demo'
-              ? '체험 중에는 이 화면에서 입력한 정보를 서버로 보내지 않아요.'
-              : '추천받기를 누르면 입력한 정보를 복지나침반 서버에 보내요.'}
-          </p>
-        </section>
-      )}
+        </fieldset>
+        <label className="remember-choice">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(event) => setRemember(event.target.checked)}
+          />
+          이 브라우저에 내 정보 저장
+        </label>
+        <p className="field-hint">
+          선택하면 다음 방문에도 입력한 정보를 사용할 수 있어요. 공용 기기에서는 선택하지 마세요.
+          {!remember && ' 선택하지 않으면 새로고침할 때 입력 정보가 사라져요.'}
+          {mode === 'api' && remember && ' 다음 방문에도 이 정보로 추천을 요청해요.'}
+        </p>
+        <p className="privacy-note">
+          <Icon name="shield" />
+          {mode === 'demo'
+            ? '체험 중에는 이 화면에서 입력한 정보를 서버로 보내지 않아요.'
+            : '추천받기를 누르면 입력한 정보를 복지나침반 서버에 보내요.'}
+        </p>
+      </section>
       <div className="form-actions">
-        {easy && step > 0 && (
-          <button className="button secondary" type="button" onClick={() => changeStep(step - 1)}>
-            이전
-          </button>
-        )}
         <button className="button primary" type="submit">
-          {easy && step < 2 ? '다음' : '내 정보로 추천받기'}
+          내 정보로 추천받기
           <Icon name="arrow" size={20} />
         </button>
       </div>

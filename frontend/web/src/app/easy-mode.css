@@ -1,0 +1,675 @@
+/* Shared brand palette; easy mode changes hierarchy, spacing, and interaction. */
+html[data-easy='true'] {
+  font-size: 18px;
+  scroll-padding-block: 24px 120px;
+}
+.easy-mode {
+  line-height: 1.65;
+}
+.easy-mode h1,
+.easy-mode h2,
+.easy-mode h3 {
+  letter-spacing: -0.025em;
+  line-height: 1.45;
+}
+.easy-mode h1,
+.easy-mode .page-heading h1 {
+  font-size: clamp(1.6rem, 2.7vw, 2rem);
+  font-weight: 700;
+}
+.easy-mode h2,
+.easy-mode .section-heading h2 {
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+.easy-mode h3 {
+  font-size: 1.15rem;
+}
+.easy-mode button,
+.easy-mode .button,
+.easy-mode select,
+.easy-mode input:not([type='checkbox']),
+.easy-mode summary {
+  min-height: 48px;
+}
+.easy-mode .button {
+  padding: 11px 22px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+.easy-mode .text-button {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.easy-mode .sidebar {
+  width: 248px;
+  padding: 28px 20px;
+}
+.easy-mode .brand {
+  font-size: 1.12rem;
+}
+.easy-mode .brand small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.easy-mode .side-nav {
+  margin-top: 40px;
+  gap: 6px;
+}
+.easy-mode .side-nav a {
+  min-height: 52px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.easy-mode .side-nav a[aria-current='page'] {
+  box-shadow: inset 3px 0 var(--green);
+  font-weight: 650;
+}
+.easy-mode .main-shell {
+  margin-left: 248px;
+}
+.easy-mode .main-content {
+  max-width: 1120px;
+  padding: 36px 40px 56px;
+}
+.easy-mode .topbar {
+  min-height: 76px;
+  padding: 10px 32px;
+}
+.easy-mode .header-actions {
+  gap: 28px;
+}
+.easy-mode .mode-switch {
+  font-size: 0.94rem;
+  gap: 9px;
+}
+.easy-mode .mode-state {
+  font-size: 0.8rem;
+}
+.easy-mode .login-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.easy-mode .demo-banner {
+  font-size: 0.85rem;
+  padding: 12px 32px;
+}
+.easy-mode .comfortable-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 32px;
+  align-items: center;
+  padding: 38px 36px;
+  background: var(--hero-background);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--green);
+  border-radius: 10px;
+}
+.easy-mode .home-kicker {
+  display: block;
+  color: var(--green);
+  font-size: 0.83rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  letter-spacing: 0.035em;
+}
+.easy-mode .comfortable-home h1 {
+  max-width: 20ch;
+}
+.easy-mode .comfortable-home p {
+  max-width: 42ch;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.easy-mode .comfortable-home-logo {
+  width: 168px;
+  height: 168px;
+  object-fit: contain;
+}
+.easy-mode .home-primary-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 28px;
+}
+.easy-mode .home-primary-action > span {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+.easy-mode .comfortable-home.has-profile {
+  grid-template-columns: 1fr;
+  padding: 0 0 28px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.easy-mode .comfortable-home.has-profile h1 {
+  max-width: none;
+}
+.easy-mode .comfortable-home.has-profile p {
+  max-width: 60ch;
+}
+.easy-mode .comfortable-home.has-profile .home-primary-action {
+  margin-top: 12px;
+}
+.easy-mode .comfortable-guide {
+  margin-top: 34px;
+}
+.easy-mode .comfortable-guide dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin: 20px 0 12px;
+}
+.easy-mode .comfortable-guide dl > div {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.easy-mode .comfortable-guide dt {
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.easy-mode .comfortable-guide dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+.easy-mode .comfortable-browse {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 0;
+  margin-top: 8px;
+  font-size: 0.94rem;
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.easy-mode .assistant-results {
+  margin-top: 30px;
+}
+.easy-mode .section-heading {
+  margin-bottom: 16px;
+  align-items: center;
+}
+.easy-mode .section-heading .text-button {
+  font-size: 0.88rem;
+}
+.easy-mode .profile-summary {
+  background: transparent;
+  padding: 0;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.easy-mode .recommendation-summary {
+  margin-bottom: 20px;
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+.easy-mode .easy-policy-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: visible;
+}
+.easy-mode .easy-policy-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 26px 28px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.easy-mode .easy-policy-card + .easy-policy-card {
+  border-top: 1px solid var(--line);
+}
+.easy-mode .easy-policy-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+.easy-mode .policy-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.easy-mode .policy-facts .category-label {
+  color: var(--green);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+.easy-mode .saved-label {
+  color: var(--green);
+  font-size: 0.8rem;
+}
+.easy-mode .easy-policy-card h3.card-title {
+  display: block;
+  font-size: 1.13rem;
+  font-weight: 650;
+  margin: 10px 0 9px;
+  padding: 0;
+  color: var(--ink);
+}
+.easy-mode .easy-policy-card .card-summary {
+  font-size: 0.94rem;
+  color: var(--muted);
+  margin: 0;
+}
+.easy-mode .easy-policy-card .benefit {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.easy-mode .easy-policy-card .benefit > span {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.easy-mode .easy-recommendation-reason {
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+.easy-mode .easy-recommendation-reason > span {
+  font-weight: 600;
+  color: var(--green);
+  margin-right: 8px;
+  font-size: 0.88rem;
+}
+.easy-mode .easy-recommendation-reason p {
+  display: inline;
+}
+.easy-mode .easy-card-action .detail-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-height: 48px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.easy-mode .page-heading {
+  margin-bottom: 26px;
+}
+.easy-mode .page-heading p {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.easy-mode .search-controls {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.easy-mode .search-field {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px;
+  background: white;
+}
+.easy-mode .search-field input {
+  min-height: 50px;
+  font-size: 1rem;
+}
+.easy-mode .search-controls > .button {
+  flex: 0 0 auto;
+  width: auto;
+}
+.easy-mode .filter-panel {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  border-radius: 0;
+}
+.easy-mode .filter-panel > summary {
+  display: list-item;
+  padding: 16px 4px;
+  color: var(--green);
+  list-style-position: inside;
+}
+.easy-mode .filter-summary-label {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.easy-mode .filter-summary-value {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  margin-left: 14px;
+}
+.easy-mode .filter-row {
+  padding: 4px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.easy-mode .filter-row select {
+  width: 100%;
+}
+.easy-mode .filter-row .text-button {
+  justify-self: start;
+}
+.easy-mode .results-heading {
+  margin-top: 26px;
+}
+.easy-mode .pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+}
+.easy-mode .pagination > .button {
+  flex: 0 0 auto;
+  padding: 9px 18px;
+  font-size: 0.94rem;
+}
+.easy-mode .pagination > span {
+  order: 0;
+  flex-basis: auto;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.easy-mode .profile-form {
+  padding: 28px 30px;
+  border-radius: 10px;
+  border-color: var(--line);
+}
+.easy-mode .profile-form .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.easy-mode .form-intro {
+  padding-bottom: 24px;
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+.easy-mode .form-section h2 {
+  font-size: 1.12rem;
+  margin-bottom: 16px;
+}
+.easy-mode .form-section h2 small {
+  font-size: 0.83rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.easy-mode .form-section legend {
+  font-size: 1.12rem;
+}
+.easy-mode .form-section legend small {
+  display: inline;
+  margin-left: 10px;
+  font-weight: 400;
+}
+.easy-mode .interest-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.easy-mode .interest-options label {
+  min-height: 48px;
+  border-radius: 7px;
+  font-weight: 400;
+  padding: 8px 12px;
+}
+.easy-mode .remember-choice,
+.easy-mode .finance-check {
+  min-height: 44px;
+  align-items: center;
+}
+.easy-mode .form-actions .primary {
+  flex: 0 1 auto;
+}
+.easy-mode .field-label select,
+.easy-mode .filter-row select {
+  border-radius: 6px;
+}
+.easy-mode .detail-highlight {
+  border-radius: 8px;
+}
+.easy-mode .detail-key-facts {
+  margin-block: 24px;
+}
+.easy-mode .detail-key-facts > div {
+  padding-block: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.easy-mode .detail-more,
+.easy-mode .detail-related {
+  margin-block: 18px;
+}
+.easy-mode .detail-more summary,
+.easy-mode .detail-related summary {
+  color: var(--green);
+  font-size: 0.94rem;
+}
+.easy-mode .modal-inner {
+  padding: 28px;
+}
+.easy-mode .modal-heading h2 {
+  font-size: 1.3rem;
+}
+.easy-mode .page-footer {
+  margin-top: 36px;
+  padding-top: 20px;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+.easy-mode .explore-invitation {
+  margin-top: 26px;
+}
+.easy-mode .explore-invitation .button {
+  border: 0;
+  background: none;
+  padding-left: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.easy-mode .easy-policy-conditions {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.easy-mode .easy-policy-conditions > div {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  gap: 10px;
+}
+.easy-mode .easy-policy-conditions dt {
+  font-weight: 600;
+  color: var(--muted);
+}
+.easy-mode .easy-policy-conditions dd {
+  margin: 0;
+}
+.easy-mode .finance-mode-wizard .finance-form-fields {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 28px 24px;
+}
+.easy-mode .finance-mode-wizard .finance-question {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  padding: 24px 0;
+}
+.easy-mode .finance-mode-wizard .finance-question + .finance-question {
+  border-top: 1px solid var(--line);
+}
+.easy-mode .finance-mode-wizard .finance-question > h3 {
+  border: 0;
+  padding: 0;
+  margin-bottom: 20px;
+  font-size: 1.15rem;
+}
+.easy-mode .finance-field label,
+.easy-mode .finance-field-label,
+.easy-mode .finance-field input,
+.easy-mode .finance-field select,
+.easy-mode .finance-check {
+  font-size: 1rem;
+}
+.easy-mode .finance-field small {
+  font-size: 0.9rem;
+}
+.easy-mode .finance-step-actions {
+  flex-direction: row;
+}
+.easy-mode .finance-step-actions > .button {
+  width: auto;
+}
+@media (max-width: 1024px) {
+  .easy-mode .main-shell {
+    margin-left: 0;
+  }
+  .easy-mode .main-content {
+    padding: 28px 28px calc(112px + env(safe-area-inset-bottom));
+  }
+  .easy-mode .topbar {
+    padding: 12px 28px;
+  }
+  .easy-mode .mobile-nav {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .easy-mode .mobile-nav a {
+    min-height: 60px;
+    font-size: 0.8rem;
+    gap: 3px;
+    border-radius: 7px;
+  }
+}
+@media (max-width: 680px) {
+  .easy-mode .comfortable-home {
+    grid-template-columns: 1fr;
+    padding: 28px;
+    gap: 0;
+  }
+  .easy-mode .comfortable-home-logo {
+    display: none;
+  }
+  .easy-mode .comfortable-guide dl {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .easy-mode .easy-policy-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 22px;
+  }
+  .easy-mode .easy-card-action {
+    justify-self: end;
+  }
+  .easy-mode .profile-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .easy-mode .interest-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .easy-mode .finance-mode-wizard .finance-form-fields {
+    padding: 0 18px 20px;
+  }
+  .easy-mode .main-content {
+    padding: 24px 16px calc(110px + env(safe-area-inset-bottom));
+  }
+  .easy-mode .topbar {
+    padding: 12px 16px;
+    gap: 6px;
+  }
+  .easy-mode .header-actions {
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .easy-mode .mode-switch,
+  .easy-mode .login-link {
+    font-size: 0.9rem;
+  }
+  .easy-mode .demo-banner {
+    padding: 10px 16px;
+    font-size: 0.83rem;
+  }
+  .easy-mode .comfortable-home {
+    padding: 24px 20px;
+  }
+  .easy-mode .comfortable-home h1 {
+    font-size: 1.6rem;
+  }
+  .easy-mode .home-primary-action {
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .easy-mode .home-primary-action > span {
+    flex-basis: 100%;
+  }
+  .easy-mode .comfortable-guide h2 {
+    font-size: 1.2rem;
+  }
+  .easy-mode .profile-form {
+    padding: 22px 18px;
+  }
+  .easy-mode .filter-row {
+    grid-template-columns: 1fr;
+  }
+  .easy-mode .filter-summary-value {
+    display: block;
+    margin: 6px 0 0 22px;
+  }
+  .easy-mode .easy-policy-card {
+    padding: 22px 18px;
+  }
+  .easy-mode .easy-policy-card .benefit {
+    display: block;
+  }
+  .easy-mode .easy-policy-card .benefit > span {
+    margin-right: 8px;
+  }
+  .easy-mode .pagination {
+    gap: 8px;
+  }
+  .easy-mode .pagination > .button {
+    padding: 8px 12px;
+    font-size: 0.88rem;
+  }
+  .easy-mode .pagination > span {
+    font-size: 0.83rem;
+  }
+  .easy-mode .mobile-nav a {
+    font-size: 0.76rem;
+  }
+  .easy-mode .modal-inner {
+    padding: 22px 18px;
+  }
+  .easy-mode .form-actions .primary {
+    width: 100%;
+  }
+}
