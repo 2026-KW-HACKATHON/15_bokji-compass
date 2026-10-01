@@ -59,6 +59,34 @@ def test_pipeline_requires_database_by_default(tmp_path):
     assert not (tmp_path / "out").exists()
 
 
+def test_legacy_overview_stays_importable_without_weakening_new_model_contract():
+    from pydantic import ValidationError
+
+    from app.contracts.parsing import PolicyOverview
+
+    record = source()
+    value = draft(record)
+    absent = {"status": "not_stated", "text": None, "evidence": [], "unresolved_reason": None}
+    legacy = {"title": record.title, "source_url": record.source_url, "category": "교육",
+              "category_reason": "기존 분류", "category_evidence": [
+                  {"source_field": "text", "quote": "만 19세 이상"}],
+              "region_conditions": absent, "gender_conditions": absent,
+              "age_conditions": absent, "other_conditions": [], "benefits": absent,
+              "unresolved": []}
+    value.update(overview=legacy, overview_status="validated")
+    assert validate_draft(value)["overview"] == legacy
+    assert "policy_requirements" not in legacy
+    with pytest.raises(ValidationError):
+        PolicyOverview.model_validate(legacy)
+    value["overview"] = {**legacy, "policy_requirements": [{
+        "condition_type": "age", "information_state": "specified",
+        "evidence_text": "만 19세 이상"}]}
+    validate_draft(value)
+    value["overview"]["policy_requirements"][0]["evidence_text"] = "없는 원문"
+    with pytest.raises(ValueError, match="evidence"):
+        validate_draft(value)
+
+
 @pytest.fixture(scope="module")
 def engine():
     if os.environ.get("BOKJI_TEST_MYSQL") != "1":

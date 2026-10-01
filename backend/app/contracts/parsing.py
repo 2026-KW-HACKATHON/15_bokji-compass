@@ -155,7 +155,8 @@ class PolicyRequirementDraft(StrictModel):
     evidence_text: str = Field(min_length=1)
 
 
-class PolicyOverview(StrictModel):
+class LegacyPolicyOverview(StrictModel):
+    """Read-only validation of stored welfare-overview-v1 results."""
     title: str = Field(min_length=1, max_length=300)
     source_url: str | None
     category: PolicyCategory | None
@@ -166,7 +167,6 @@ class PolicyOverview(StrictModel):
     age_conditions: OverviewSection
     other_conditions: list[OverviewItem] = Field(max_length=24)
     benefits: OverviewSection
-    policy_requirements: list[PolicyRequirementDraft] = Field(min_length=1, max_length=128)
     unresolved: list[str] = Field(max_length=20)
 
     @model_validator(mode="after")
@@ -174,6 +174,12 @@ class PolicyOverview(StrictModel):
         if self.category is None and not self.unresolved:
             raise ValueError("Uncategorized overview requires an unresolved reason")
         return self
+
+
+class PolicyOverview(LegacyPolicyOverview):
+    """Fresh model output must include the v2 requirements; legacy imports stay intact."""
+
+    policy_requirements: list[PolicyRequirementDraft] = Field(min_length=1, max_length=128)
 
 
 class SourcePolicy(StrictModel):

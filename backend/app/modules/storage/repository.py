@@ -10,7 +10,12 @@ from sqlalchemy import MetaData, Table, insert, null, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.contracts.conditions import CanonicalPolicy
-from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy
+from app.contracts.parsing import (
+    LegacyPolicyOverview,
+    PolicyExtraction,
+    PolicyOverview,
+    SourcePolicy,
+)
 from app.modules.normalization.public import normalize_conditions
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
@@ -53,7 +58,9 @@ def validate_draft(payload: dict) -> dict:
                 c.condition_id for c in canonical.conditions}:
             raise ValueError("Extraction/canonical condition identities differ")
     if draft.get("overview") is not None:
-        validate_overview(PolicyOverview.model_validate(draft["overview"]), source)
+        overview_model = (PolicyOverview if "policy_requirements" in draft["overview"]
+                          else LegacyPolicyOverview)
+        validate_overview(overview_model.model_validate(draft["overview"]), source)
         if draft.get("overview_status") != "validated":
             raise ValueError("Overview status mismatch")
     elif draft.get("overview_status") == "validated":

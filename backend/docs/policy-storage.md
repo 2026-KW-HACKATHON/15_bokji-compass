@@ -58,6 +58,10 @@ Decimal 문자열을 보존하고 미기재 값은 SQL NULL로 저장하며 0으
 모든 결과는 draft, matching_enabled=false다. 저장 성공은 공개 승인이나 자격 확정이 아니다.
 기본 조회는 published_only=True이며 로컬 검토에서만 include-drafts를 사용한다.
 
+기존 welfare-overview-v1 요약에는 policy_requirements가 없을 수 있다. 저장/이관 검증은
+구형 계약으로 기존 인용을 검증하고 그대로 보존한다. 새 LLM 출력은 welfare-overview-v2의
+policy_requirements를 필수로 받으며, 기존 자료에 요건을 추정해서 채우지 않는다.
+
 ## 개인 LLM 첫 연결
 
 `python -m app.modules.assistant <revision_id> "지원 대상과 확인할 조건을 알려주세요" --include-drafts`

@@ -1,7 +1,12 @@
 """Validate extraction structure and exact source evidence before draft storage."""
 
 from app.contracts.conditions import CanonicalPolicy
-from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy
+from app.contracts.parsing import (
+    LegacyPolicyOverview,
+    PolicyExtraction,
+    PolicyOverview,
+    SourcePolicy,
+)
 from app.modules.regions.public import RegionCatalog, default_catalog
 
 
@@ -48,7 +53,7 @@ def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
                 raise ValueError("Official region code/name mismatch")
 
 
-def validate_overview(result: PolicyOverview, source: SourcePolicy) -> None:
+def validate_overview(result: LegacyPolicyOverview, source: SourcePolicy) -> None:
     """Require overview title and citations to match the original source."""
     if result.title != source.title:
         raise ValueError("Overview title differs from source")
@@ -69,7 +74,7 @@ def validate_overview(result: PolicyOverview, source: SourcePolicy) -> None:
             original = source.fields.get(evidence.source_field, "")
         if evidence.quote not in original:
             raise ValueError("Overview evidence is absent from source")
-    for requirement in result.policy_requirements:
+    for requirement in (result.policy_requirements if isinstance(result, PolicyOverview) else []):
         if requirement.information_state == "not_stated":
             if requirement.evidence_text != "지원 대상 및 선정 기준 원문 미기재":
                 raise ValueError("Not-stated requirement must use the standard explanation")
