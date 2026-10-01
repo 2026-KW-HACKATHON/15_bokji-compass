@@ -4,6 +4,6 @@
 
 `parse_policy(source, settings, output, prepare_only=False) -> dict`는 공통 정책 한 건을 pending/needs_review/failed 상태로 반환합니다. `prepare_only=True`는 모델 호출을 생략합니다. 일반 파싱에서는 요약·6개 분야 분류를 별도 LLM 호출로 생성하며, 코드로 조건 추출이 완결되지 않은 경우에만 조건 추출용 LLM도 호출합니다. 요약과 조건 추출은 각각 근거 검증을 거칩니다.
 
-v2 파일 초안에는 최상위 `overview`와 `overview_status`가 추가됩니다. overview 호출 실패는 `overview=null`, `overview_status=failed` 및 시도 기록으로 남깁니다. 조건 결과에는 원래 analysis와 표준화 canonical, 부분 코드 결과 code_analysis/code_canonical이 포함됩니다. LLM 실패 시에도 부분 코드 결과를 보존하며 문서 전체의 논리 관계는 자동 합치지 않습니다. [데이터 계약](../../../docs/data-contracts.md) · [조건·지역 계약](../../../docs/condition-classification.md).
+v2 파일 초안에는 최상위 `overview`와 `overview_status`가 포함됩니다. `overview`는 `title`, 입력에서 복사한 `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 가집니다. 원문 URL이 없으면 `source_url=null`입니다. overview 호출 실패는 `overview=null`, `overview_status=failed` 및 시도 기록으로 남깁니다. 조건 결과에는 원래 analysis와 표준화 canonical, 부분 코드 결과 code_analysis/code_canonical이 포함됩니다. LLM 실패 시에도 부분 코드 결과를 보존하며 문서 전체의 논리 관계는 자동 합치지 않습니다. [데이터 계약](../../../docs/data-contracts.md) · [조건·지역 계약](../../../docs/condition-classification.md).
 
 Windows 진입점: `backend/scripts/parse-raw.ps1`. [설정·결과·한계](../../../docs/raw-parsing.md).

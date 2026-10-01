@@ -46,9 +46,19 @@ def extraction(**condition_changes):
 
 def overview(**changes):
     return PolicyOverview.model_validate({
-        "summary": "교육 지원 공고입니다.", "category": "교육",
+        "title": "가상 정책", "source_url": None, "category": "교육",
         "category_reason": "교육을 지원합니다.",
-        "evidence": [{"source_field": "title", "quote": "가상 정책"}],
+        "category_evidence": [{"source_field": "title", "quote": "가상 정책"}],
+        "region_conditions": {"status": "not_stated", "text": None,
+                               "evidence": [], "unresolved_reason": None},
+        "gender_conditions": {"status": "not_stated", "text": None,
+                              "evidence": [], "unresolved_reason": None},
+        "age_conditions": {"status": "not_stated", "text": None,
+                           "evidence": [], "unresolved_reason": None},
+        "other_conditions": [],
+        "benefits": {"status": "specified", "text": "교육 지원",
+                     "evidence": [{"source_field": "title", "quote": "가상 정책"}],
+                     "unresolved_reason": None},
         "unresolved": [], **changes,
     })
 
@@ -105,10 +115,39 @@ def test_overview_category_is_limited_and_evidence_is_verified():
     with pytest.raises(ValidationError):
         overview(category="교통·안전")
     with pytest.raises(ValueError, match="evidence"):
-        validate_overview(overview(evidence=[{"source_field": "title", "quote": "없는 내용"}]),
-                          source())
+        validate_overview(overview(benefits={"status": "specified", "text": "없는 내용",
+                                             "evidence": [{"source_field": "title",
+                                                           "quote": "없는 내용"}],
+                                             "unresolved_reason": None}), source())
     with pytest.raises(ValidationError):
         overview(category=None)
+    with pytest.raises(ValueError, match="title"):
+        validate_overview(overview(title="다른 제목"), source())
+
+
+def test_overview_url_comes_from_source_not_model(tmp_path, monkeypatch):
+    source_record = source().model_copy(update={"source_url": "https://example.gov/notice/1"})
+    monkeypatch.setattr(
+        llm, "_extract_structured",
+        lambda *args: (overview(source_url="https://attacker.invalid/fake"),
+                       {"model": "test-model"}),
+    )
+    result, _ = llm.extract_policy_overview(
+        source_record, Settings(_env_file=None), tmp_path, "test-model")
+    assert result.source_url == source_record.source_url
+    validate_overview(result, source_record)
+
+
+def test_overview_sections_distinguish_unrestricted_from_not_stated():
+    unrestricted = overview(region_conditions={
+        "status": "unrestricted", "text": "지역 제한 없음",
+        "evidence": [{"source_field": "text", "quote": "가상 정책"}],
+        "unresolved_reason": None,
+    })
+    assert unrestricted.region_conditions.status == "unrestricted"
+    with pytest.raises(ValidationError):
+        overview(age_conditions={"status": "unrestricted", "text": "나이 제한 없음",
+                                "evidence": [], "unresolved_reason": None})
 
 
 def test_code_complete_policy_still_generates_overview(tmp_path, monkeypatch):
@@ -243,6 +282,12 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
     assert metadata["prompt_version"] == "welfare-overview-v1"
     assert all(category in captured["prompt"] for category in
                ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"))
+    assert all(field in captured["prompt"] for field in (
+        "title", "region_conditions", "gender_conditions", "age_conditions",
+        "other_conditions", "benefits"))
+    assert "신청자/가구의 주소·거주·주민등록 지역 자격만" in captured["prompt"]
+    assert "전국 대상(지역 제한 없음)" in captured["prompt"]
+    assert "지역 표현은 region_conditions에만 두고" in captured["prompt"]
 
 
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):

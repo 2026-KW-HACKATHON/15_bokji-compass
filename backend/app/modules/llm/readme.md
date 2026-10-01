@@ -1,6 +1,6 @@
 # Codex CLI 조건 추출
 
-`extract_policy(source, settings, output, model) -> (PolicyExtraction, metadata)`는 공개 정책 한 건의 조건을 추출합니다. `extract_policy_overview(source, settings, output, model) -> (PolicyOverview, metadata)`는 웹과 같은 6개 분야 중 하나로 분류하고 한국어 요약을 생성합니다. 두 결과는 새 시도 폴더에 저장되며 요약·분야 인용은 원문 부분 문자열 검증 후 사용합니다. 분류 근거가 부족하거나 6개 분야에 맞지 않으면 category는 null이며 draft 검토 대상으로 남습니다.
+`extract_policy(source, settings, output, model) -> (PolicyExtraction, metadata)`는 공개 정책 한 건의 조건을 추출합니다. `extract_policy_overview(source, settings, output, model) -> (PolicyOverview, metadata)`는 `title`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 생성하고 `source_url`을 입력에서 복사해 첨부합니다. URL은 LLM이 생성하지 않으며 원문 URL이 없으면 null입니다. 지역 조건은 신청자/가구 주소 요건만 담고, 전국 대상은 명시적 지역 제한 없음으로 분류합니다. 시설 종류·대상자 특성은 기타 조건에 둡니다. 분야는 웹과 같은 6개 값이며, 조건·혜택은 상태와 원문 인용을 포함합니다. 파이프라인에서 제목·URL과 모든 인용을 원문 대조하며, 미분류·미해결은 draft 검토 대상으로 남습니다.
 
 `resolve_codex_executable(configured) -> Path`는 Windows의 native `codex.exe` 또는 macOS/POSIX의 PATH `codex` 탐색. 명시한 실행 파일은 절대 경로·실행 권한 확인. CLI 실패는 `CodexRunError`, 구조화 출력 오류는 `ValueError` 계열 반환. 비밀 설정을 오류 메시지에 포함하지 않음.
 
