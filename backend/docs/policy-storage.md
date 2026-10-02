@@ -40,8 +40,9 @@ DB 전체 장애 시 결과 체크포인트도 저장하지 못할 수 있으며
 | condition_entries | 조건별 주체·값·단위·근거·필드 인덱스 |
 | policy_revision_details | 제목·기관·분야·전체 처리 결과·설정·중복 방지 해시 |
 | policy_ingestion_runs / policy_ingestion_items | 작업 상태·원문·결과·오류·개정 참조 |
+| policies / policy_requirements | 001 호환 공고 원문·LLM 조건 근거 투영, source_key 기준 중복 방지 |
 
-004/005 SQL은 명시적 초기화로 적용한다. 파싱/API 요청에서 테이블을 만들지 않는다.
+004/005/006 SQL은 명시적 초기화로 적용한다. 파싱/API 요청에서 테이블을 만들지 않는다.
 초기화는 MySQL advisory lock과 체크섬을 사용한다. 기존 001 초안·계정 테이블은 수정하지 않는다.
 적용 기록 없이 같은 이름의 테이블이 있거나 DDL 적용이 중간에 끊긴 경우 자동 삭제/덮어쓰기
 없이 점검을 요구한다. MySQL DDL은 암묵적으로 커밋되므로 부분 적용은 관리자가 확인해야 한다.

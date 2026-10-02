@@ -121,9 +121,16 @@ def repository(engine):
     # Delete only IDs created by this test. No truncate, schema drop or real-data cleanup.
     tables = repo.tables
     items = tables["policy_ingestion_items"]
+    policies = tables["policies"]
+    requirements = tables["policy_requirements"]
     with engine.begin() as connection:
+        policy_keys = list(connection.execute(select(items.c.policy_key).where(
+            items.c.run_id.in_(runs))).scalars())
         revisions = list(connection.execute(select(items.c.revision_id).where(
             items.c.run_id.in_(runs), items.c.revision_id.is_not(None))).scalars())
+        policy_ids = select(policies.c.id).where(policies.c.source_key.in_(policy_keys))
+        connection.execute(delete(requirements).where(requirements.c.policy_id.in_(policy_ids)))
+        connection.execute(delete(policies).where(policies.c.source_key.in_(policy_keys)))
         connection.execute(delete(items).where(items.c.run_id.in_(runs)))
         connection.execute(delete(tables["policy_ingestion_runs"]).where(
             tables["policy_ingestion_runs"].c.run_id.in_(runs)))
@@ -144,6 +151,20 @@ def test_roundtrip_deduplication_revisions_and_publication_boundary(repository):
     assert stored["canonical_json"] == original["canonical"]
     assert stored["draft_json"] == original
     assert stored["review_status"] == "draft" and not stored["matching_enabled"]
+    policies = repository.tables["policies"]
+    requirements = repository.tables["policy_requirements"]
+    with repository.engine.connect() as connection:
+        legacy_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+        legacy_requirements = connection.execute(select(requirements).where(
+            requirements.c.policy_id == legacy_policy["id"]
+        )).mappings().all()
+    assert legacy_policy["title"] == original["source"]["title"]
+    assert "신청자 만 19세 이상" in legacy_policy["source_text"]
+    assert len(legacy_requirements) == 1
+    assert legacy_requirements[0]["condition_type"] == "other"
+    assert legacy_requirements[0]["information_state"] == "not_stated"
     changed = deepcopy(original)
     changed["source"]["title"] += " 개정"
     changed["source"]["source_hash"] = "f" * 64
@@ -152,6 +173,22 @@ def test_roundtrip_deduplication_revisions_and_publication_boundary(repository):
     assert repository.get_revision(revision, published_only=False)["draft_json"] == original
     assert len(repository.list_revisions(published_only=False,
                policy_key=original["source"]["policy_key"])) == 2
+    with repository.engine.connect() as connection:
+        updated_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+        updated_requirements = connection.execute(select(requirements).where(
+            requirements.c.policy_id == updated_policy["id"]
+        )).mappings().all()
+    assert updated_policy["id"] == legacy_policy["id"]
+    assert updated_policy["title"].endswith("개정")
+    assert len(updated_requirements) == 1
+    assert repository.backfill_legacy_policies([original["source"]["policy_key"]]) == 1
+    with repository.engine.connect() as connection:
+        backfilled_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+    assert backfilled_policy["title"].endswith("개정")
 
 
 def test_mid_transaction_failure_rolls_back_entire_revision(repository):
