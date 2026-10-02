@@ -2,7 +2,17 @@ import Modal from '../../shared/ui/Modal.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from './policyModel.js';
 import PolicyQuestion from '../assistant/PolicyQuestion.jsx';
-export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mode, easy, user }) {
+export default function PolicyDetail({
+  policy,
+  saved,
+  onSave,
+  onClose,
+  onTag,
+  mode,
+  easy,
+  user,
+  onAsk,
+}) {
   const source = safeSourceUrl(policy.sourceUrl);
   const relatedTags = (
     <div className="tags detail-tags">
@@ -76,6 +86,12 @@ export default function PolicyDetail({ policy, saved, onSave, onClose, onTag, mo
         추천받은 공고도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를 확인하세요.
       </p>
       <div className="detail-actions">
+        {onAsk && (
+          <button className="button secondary" onClick={onAsk}>
+            <Icon name="headset" size={20} />
+            챗봇 창에서 질문하기
+          </button>
+        )}
         {mode === 'api' && source && (
           <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
             공식 공고 보기

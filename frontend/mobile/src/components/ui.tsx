@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRuntime } from "../services/runtime";
+import { useAssistant } from "../features/assistant/context";
 
 export const colors = {
   ink: "#16332D",
@@ -52,6 +53,7 @@ export function Copy({
 }
 export function Screen({ children }: React.PropsWithChildren) {
   const { easy } = useRuntime();
+  const { enabled } = useAssistant();
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
@@ -67,6 +69,7 @@ export function Screen({ children }: React.PropsWithChildren) {
           contentContainerStyle={[
             styles.page,
             easy && { padding: 16, gap: 14, paddingBottom: 28 },
+            enabled && { paddingBottom: 124 },
           ]}
         >
           {children}
@@ -77,6 +80,7 @@ export function Screen({ children }: React.PropsWithChildren) {
 }
 function EasyModeBar() {
   const { easy, setEasy } = useRuntime();
+  const { openMenu } = useAssistant();
   return (
     <View
       style={{
@@ -119,6 +123,30 @@ function EasyModeBar() {
             </Text>
           )}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="전체 메뉴 열기"
+          onPress={openMenu}
+          style={{
+            minWidth: 48,
+            minHeight: 48,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 5,
+          }}
+        >
+          {[0, 1, 2].map((line) => (
+            <View
+              key={line}
+              style={{
+                width: 22,
+                height: 2,
+                borderRadius: 1,
+                backgroundColor: colors.ink,
+              }}
+            />
+          ))}
+        </Pressable>
       </View>
     </View>
   );

@@ -69,6 +69,11 @@ export function parsePolicy(item) {
     benefit: text('benefit', '상세 안내 확인'),
     date: text('date', ''),
     applicationPeriod: text('applicationPeriod', '공식 공고에서 확인'),
+    applicationStart: text('applicationStart', null),
+    applicationEnd: text('applicationEnd', null),
+    scheduleStatus: ['dated', 'ongoing', 'unknown'].includes(item.scheduleStatus)
+      ? item.scheduleStatus
+      : 'unknown',
     sourceUrl: safeSourceUrl(item.sourceUrl),
   };
 }

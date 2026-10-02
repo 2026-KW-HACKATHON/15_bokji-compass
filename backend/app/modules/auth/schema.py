@@ -5,12 +5,28 @@ from alembic.operations import Operations
 from sqlalchemy import String, inspect
 from sqlalchemy.exc import DBAPIError
 
+from app.modules.admin.access import admin_grants  # noqa: F401 -- registers the additive role table
 from app.modules.auth.models import metadata, username_lookup_index
 
 
 def initialize_auth_schema(engine):
     metadata.create_all(engine)
     with engine.begin() as connection:
+        role_columns = {
+            column["name"] for column in inspect(connection).get_columns("auth_admin_grants")
+        }
+        if "role" not in role_columns:
+            try:
+                connection.exec_driver_sql(
+                    "ALTER TABLE auth_admin_grants ADD COLUMN role "
+                    "VARCHAR(20) NOT NULL DEFAULT 'qr_admin'"
+                )
+            except DBAPIError:
+                if "role" not in {
+                    column["name"]
+                    for column in inspect(connection).get_columns("auth_admin_grants")
+                }:
+                    raise
         columns = {column["name"] for column in inspect(connection).get_columns("auth_accounts")}
         if "name" not in columns:
             try:

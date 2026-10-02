@@ -73,10 +73,11 @@ def validate_draft(payload: dict) -> dict:
 
 
 class PolicyRepository:
-    def __init__(self, engine):
+    def __init__(self, engine, *, auto_publish: bool = True):
         if engine.dialect.name != "mysql":
             raise ValueError("Policy storage requires MySQL")
         self.engine = engine
+        self.auto_publish = auto_publish
         metadata = MetaData()
         self.tables = {name: Table(name, metadata, autoload_with=engine) for name in TABLES}
 
@@ -99,7 +100,17 @@ class PolicyRepository:
         source = draft["source"]
         items = self.tables["policy_ingestion_items"]
         runs = self.tables["policy_ingestion_runs"]
-        with self.engine.begin() as connection:
+        from app.modules.storage.publication import (
+            change_publication,
+            events_table,
+            publication_transaction,
+        )
+
+        automatic = self.auto_publish and draft["status"] == "needs_review"
+        events = events_table(self) if automatic else None
+        transaction = (publication_transaction(self, source["policy_key"])
+                       if automatic else self.engine.begin())
+        with transaction as connection:
             item = connection.execute(select(items).where(
                 items.c.run_id == run_id, items.c.policy_key == source["policy_key"]
             ).with_for_update()).mappings().one()
@@ -111,6 +122,12 @@ class PolicyRepository:
             reused = False
             if draft["status"] == "needs_review":
                 revision_id, reused = self._save_revision(connection, draft, processing)
+                if automatic and not reused:
+                    change_publication(self, connection, events, revision_id,
+                                       policy_key=source["policy_key"], action="publish",
+                                       expected_status="draft", actor_id="system:auto-publish",
+                                       note="저장 결과 검증 통과 후 기본 자동 승인",
+                                       require_latest=True)
             connection.execute(update(items).where(items.c.item_id == item["item_id"]).values(
                 status=draft["status"], result_json=draft, revision_id=revision_id,
                 error_code=None if draft["status"] != "failed" else "extraction_failed"))
@@ -172,12 +189,17 @@ class PolicyRepository:
             ).values(status="failed", error_code=error_code,
                      result_json=draft if draft is not None else null()))
 
-    def pending_items(self, run_id: str) -> list[dict]:
+    def pending_items(self, run_id: str, *, limit: int | None = None) -> list[dict]:
+        if limit is not None and (isinstance(limit, bool) or not 1 <= limit <= 10000):
+            raise ValueError("Pending item limit must be between 1 and 10000")
         items = self.tables["policy_ingestion_items"]
+        query = select(items).where(
+            items.c.run_id == run_id, items.c.status.in_(("pending", "failed"))
+        ).order_by(items.c.policy_key)
+        if limit is not None:
+            query = query.limit(limit)
         with self.engine.connect() as connection:
-            return [dict(r) for r in connection.execute(select(items).where(
-                items.c.run_id == run_id, items.c.status.in_(("pending", "failed"))
-            ).order_by(items.c.policy_key)).mappings()]
+            return [dict(r) for r in connection.execute(query).mappings()]
 
     def run_processing(self, run_id: str) -> dict:
         runs = self.tables["policy_ingestion_runs"]

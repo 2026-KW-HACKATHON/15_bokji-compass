@@ -2,6 +2,15 @@
 
 검토일: 2026-10-01. 대상: `frontend/mobile`, `frontend/packages/decode-uri-component-compat` 및 모바일 문서. 이 기록은 소스 공유 전 점검 결과이며, 침투 테스트나 스토어 배포 인증을 대신하지 않습니다.
 
+## 2026-10-02 통합 후 의존성 재검토
+
+- 웹 `npm audit --json`은 0건. 모바일은 `node-forge@1.4.0`의 [GHSA-86w9-cpqp-85rv / CVE-2026-85393](https://github.com/advisories/GHSA-86w9-cpqp-85rv) 한 원인이 상위 Expo 패키지까지 전파되어 high 4개로 보고됩니다. 아래 10월 1일의 0건 결과는 당시 조회 기록이며 현재 상태가 아닙니다.
+- 공지에 따른 영향은 낮은 지수의 RSA 키에 대해 잘못 구성된 PKCS#1 v1.5 서명을 정상으로 받아들일 수 있는 검증 오류입니다. 10월 2일 조회 시 공식 수정 버전은 없고 npm 최신도 1.4.0입니다. `@expo/code-signing-certificates@0.0.7`도 node-forge ^1.4.0에 의존하므로 이 업데이트만으로 해결되지 않습니다. npm이 제안한 Expo 44로의 강제 변경은 SDK 57 앱과 호환되지 않아 적용하지 않았습니다.
+- 설치 트리는 `expo@57.0.26 → @expo/cli@57.0.27 → node-forge@1.4.0`이며 `@expo/code-signing-certificates@0.0.6`도 같은 forge를 사용합니다. 설치된 CLI의 `build/src/utils/codesigning.js`가 `validateSelfSignedCertificate` 및 `signBufferRSASHA256AndVerify`를 호출하고, 인증서 라이브러리는 각각 `certificate.verify`와 `certificate.publicKey.verify`를 호출합니다.
+- CLI 호출자는 `start/server/middleware/ExpoGoManifestHandlerMiddleware.js`의 개발 manifest 서명 경로입니다. 자체 인증서 검증에는 `updates.codeSigningCertificate` 및 private key 설정이 필요합니다. Expo 개발 인증서는 `expo-expect-signature`와 EAS 프로젝트 설정에 따라 사용됩니다. 앱 소스는 forge를 가져오지 않으며 현재 app.config.ts에는 자체 updates 코드서명 설정이 없습니다. iOS CLI의 별도 forge 사용은 인증서 PEM을 파싱하는 경로입니다.
+- 현재 잠금 파일·설정으로 Android/iOS `expo export --clear` 성공. Node 로더 추적을 추가한 export의 3개 프로세스 모두 forge/인증서 라이브러리 로드 및 서명 검증 호출이 0회였습니다. 이는 이번 일반 번들 생성에서 해당 검증 경로가 실행되지 않았다는 근거이며 다른 CLI 명령까지 포함하지 않습니다. 검사 스크립트와 결과는 추적 제외된 `tmp/kakao-merge-validation/forge-trace.cjs`, `forge-export-*.json`에 보관합니다.
+- 남은 제한: CLI 의존성 자체의 취약점은 제거되지 않았습니다. 신뢰되지 않은 인증서·개인키를 개발 도구에 주입하지 않고 개발 서버를 공개 운영 서버로 사용하지 않습니다. 공식 수정 버전이 나오면 SDK 호환 범위에서 갱신하고 재검사해야 합니다. 이 검토는 원격 EAS 빌드 서비스나 운영 OTA 서명 경로의 안전성을 인증하지 않습니다.
+
 ## 이번 변경사항
 
 | 영역 | 동작 | 확인 방법 |

@@ -8,17 +8,25 @@ import uvicorn
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from app.core.config import load_settings  # noqa: E402
+from app.core.config import Settings, load_settings  # noqa: E402
 from app.main import create_app  # noqa: E402
 
+
+def share_settings() -> Settings:
+    configuration = load_settings().model_dump()
+    configuration.update(server_host="127.0.0.1", server_port=8001, cors_origins=[])
+    return Settings(
+        _env_file=None,
+        **configuration,
+    )
+
+
 if __name__ == "__main__":
-    settings = load_settings()
-    settings.server_host = "127.0.0.1"
-    settings.server_port = 8001
+    settings = share_settings()
     uvicorn.run(
         create_app(settings),
-        host="127.0.0.1",
-        port=8001,
+        host=settings.server_host,
+        port=settings.server_port,
         proxy_headers=True,
         forwarded_allow_ips="127.0.0.1",
         access_log=False,

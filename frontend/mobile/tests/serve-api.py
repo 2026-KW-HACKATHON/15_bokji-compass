@@ -56,7 +56,7 @@ if __name__ == "__main__":
                             age=30,
                             gender="undisclosed",
                             region="서울",
-                            phone="01000000001",
+                            phone=None,
                             created_at=1,
                         ),
                     )

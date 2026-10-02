@@ -25,13 +25,42 @@ Filter = Annotated[str, Query(max_length=100)]
 
 
 @router.get("")
-def list_policies(repository: Repository, limit: Annotated[int, Query(ge=1, le=100)] = 20,
-                  cursor: Annotated[str | None, Query(pattern=r"^(0|[1-9][0-9]{0,5})$")] = None,
-                  sort: Literal["recent", "name"] = "recent",
-                  q: Annotated[str, Query(max_length=200)] = "", category: Filter = "",
-                  region: Filter = "", audience: Filter = "", tag: Filter = ""):
-    return catalog.list_policies(repository, limit=limit, offset=int(cursor or 0), sort=sort,
-                                 q=q, category=category, region=region, audience=audience, tag=tag)
+def list_policies(
+    repository: Repository,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    cursor: Annotated[str | None, Query(pattern=r"^(0|[1-9][0-9]{0,5})$")] = None,
+    sort: Literal["recent", "name"] = "recent",
+    q: Annotated[str, Query(max_length=200)] = "",
+    category: Filter = "",
+    region: Filter = "",
+    audience: Filter = "",
+    tag: Filter = "",
+):
+    return catalog.list_policies(
+        repository,
+        limit=limit,
+        offset=int(cursor or 0),
+        sort=sort,
+        q=q,
+        category=category,
+        region=region,
+        audience=audience,
+        tag=tag,
+    )
+
+
+@router.get("/calendar")
+def calendar(
+    repository: Repository,
+    month: Annotated[str, Query(pattern=r"^20[0-9]{2}-(0[1-9]|1[0-2])$")],
+    q: Annotated[str, Query(max_length=200)] = "",
+    category: Filter = "",
+    region: Filter = "",
+    audience: Filter = "",
+):
+    return catalog.list_calendar(
+        repository, month=month, q=q, category=category, region=region, audience=audience
+    )
 
 
 @router.get("/{policy_key}")

@@ -1,5 +1,78 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 백엔드 서버 관리자 화면·API (2026-10-02)
+
+백엔드 `GET /`는 관리자 로그인·서버 관리 콘솔입니다. 일반 서버 8000과 공유 서버 8001은
+각자의 기존 인증 저장소를 사용하며, 저장소에 최고 관리자 권한이 있는 계정으로 로그인합니다.
+공유 사이트의 공개 `/` 프론트는 유지합니다. 콘솔은 기존 웹 세션과 별도 이름인
+`bokji_server_admin` 쿠키(HttpOnly·SameSite=Strict·최대 7일, production은 Secure)를 사용하고
+모든 상태·설정 요청에서 세션과 현재 `superadmin` 권한을 다시 확인합니다.
+
+아래 경로의 접두사는 `/v1/server-admin`입니다. 일반 회원·QR 관리자는 거절합니다.
+
+| Method | 경로 | 입력·응답·효과 |
+| --- | --- | --- |
+| POST | `/login` | `{username,password}` → `{user:{id,username,admin_role:"superadmin"}}`, 콘솔 쿠키 발급 |
+| GET | `/session` | 콘솔 쿠키 → 현재 관리자 `{user}` |
+| POST | `/logout` | 세션·쿠키 폐기 → `{status:"logged_out"}` |
+| GET | `/overview` | `{server,database,collection,resources,configuration}`. 현재 엔진 SELECT·저장 기록·로컬 자원 조회 |
+| GET | `/settings` | `{revision,values,secret_configured,fields,env_overrides,restart_fields}`. 키·비밀번호 값은 반환하지 않음 |
+| PATCH | `/settings` | `{revision:64자리 SHA256,changes:{소문자 Settings 필드:값}}` → 설정 view와 changed_fields/restart_required/worker_reload_fields |
+| GET | `/collection/status` | `limit=1~100`(기본 20) → 저장된 cursor·작업·호출 사용량·실패 기록 |
+| GET | `/collection/changes` | 같은 limit → `{items:[변경 snapshot]}` |
+| GET | `/collection/candidates` | 같은 limit → `{items:[미검증 검색 후보]}` |
+
+POST/PATCH는 같은 출처, JSON과 `X-Auth-Request: 1`이 필요하며 요청 본문은 64KB까지입니다.
+페이지·API는 no-store·CSP·프레임 삽입 금지를 적용합니다. 비로그인/만료 401, 권한 부족/다른
+출처/요청 헤더 누락 403, 존재하지 않는 조회 종류 404, 설정 파일 버전 충돌 409, 본문 상한
+413, 입력/허용 목록/환경변수 관리 필드 오류 422, DB·설정 파일 장애 503이며 비밀 입력을
+오류 응답에 포함하지 않습니다. 로그인 시도 제한은 기존 인증 서비스의 429를 따릅니다.
+
+설정 허용 범위는 수집 허용·처리량·회차/일일 예산·재시도·자원·주기·검색, 모델·추론·timeout·
+입력 길이, API 키, 자동 공개 방식, DB 연결입니다. 비밀 입력칸을 비우면 화면은 변경을 보내지
+않아 기존 값을 유지합니다. 명시적 삭제는 빈 문자열이며 null은 거절합니다. 환경변수 우선
+항목은 읽기 전용이고, 설정 파일 경로·HTTP 서버 포트·인증·CORS·실행파일·SQL·프로세스 제어는
+허용하지 않습니다.
+
+파일 SHA 버전·프로세스 간 잠금·원자적 저장으로 충돌을 제어합니다. DB 설정은 저장하되 현재
+API·인증 엔진에 적용하지 않고 재시작을 기다립니다. 수집/모델/API 키·공개 방식은 새 작업부터
+적용하며 이미 진행 중인 worker를 종료하지 않습니다. 별도 worker는 실행 시 파일을 읽으므로
+DB 설정도 다음 회차에 반영됩니다. `INGESTION_ENABLED=false`는 다음 실제 tick을 막습니다.
+조회·저장으로 수집/모델/스케줄을 실행하거나 기존 공개 상태를 일괄 변경하지 않습니다.
+
+구현: [라우터](backend/app/api/server_admin.py), [모듈 계약](backend/app/modules/server_admin/readme.md).
+[접속·최초 계정·적용 순서](backend/docs/server-admin.md), [CLI·스케줄](backend/docs/server-ingestion.md).
+
+## 자동 승인 기본값 (2026-10-02)
+
+`POLICY_AUTO_PUBLISH=true`가 기본입니다. 검증된 새 공고 저장·공개·이력을 함께 커밋하며 같은 공고는 최신 한 개정만 노출합니다. 원문 누락 경고와 matching_enabled=false는 유지합니다. 관리자 목록 응답에 `autoPublish`를 추가해 현재 방식 표시, 수동 공개/비공개 API는 유지합니다. 동일 결과 재사용은 수동 비공개를 존중합니다. false는 기존 수동 승인으로 전환합니다. 기존 최신 draft 공개는 `python -m app.modules.storage auto-publish`로 실행합니다.
+
+## 최고 관리자 공고 공개 API (2026-10-02)
+
+| Method | 경로 | 접근 | 입력·응답 |
+| --- | --- | --- | --- |
+| GET | `/v1/admin/policies` | 최고 관리자 쿠키 | limit 1~100/cursor → items/total/nextCursor, 초안 포함 |
+| GET | `/v1/admin/policies/{revision_id}` | 최고 관리자 쿠키 | 검증 경고·카드 미리보기·수집 필드·최근 공개 이력 |
+| POST | `/v1/admin/policies/{revision_id}/publication` | 최고 관리자 쿠키 + X-Auth-Request: 1 | action publish/unpublish, expected_status, note → revisionId/reviewStatus/matchingEnabled=false |
+
+비로그인 401, 일반/QR 관리자 403, 없는 개정 404, 다른 관리자의 상태 변경 409, 미검증 초안·추가 필드·입력 오류 422, DB 장애 503. 원문/분석은 그대로 유지하며 공개 상태와 감사 이력은 원자적으로 저장합니다. 같은 공고는 한 개정만 공개하며 비공개 후 과거 개정으로 되돌아가지 않습니다. 공개는 자격 판정 활성화가 아닙니다. 명시적 storage init으로 006 마이그레이션을 적용합니다. [관리자 사용법](backend/app/modules/admin/readme.md).
+
+## 공유 사이트 공고 DB 연결 (2026-10-02)
+
+프론트의 기존 `GET /api/v1/policies` 호출을 공유 Caddy → FastAPI 8001 → `.env`의 공고 MySQL로 연결합니다. 목록·상세·캘린더, 회원 FAQ·질문과 `/api/health/ready`를 프록시 허용 경로에 추가했습니다. 공개 공고 계약은 그대로이며 초안은 자동 승인하지 않습니다. 공유 API는 서버에 설정한 MySQL 회원·관리자·금융 저장소를 사용하고 개인정보는 암호화합니다. 이전 공유 SQLite 회원·권한은 명시적으로 이관해야 하며, SQLite 인증은 격리 테스트에만 허용합니다. `share.ps1 reload`로 기존 터널 주소를 유지하며 적용합니다. [설정·검증](frontend/web/deploy/readme.md).
+
+## 관리자 권한 추가 (2026-10-02)
+
+웹 쿠키 세션으로 인증합니다. `/v1/auth/login`, `/me`, `/profile`의 사용자 응답에 `is_admin`과 `admin_role`(`superadmin`, `qr_admin`, 일반 회원은 null)이 추가됩니다. 요청 입력으로 등급을 지정하거나 변경할 수 없습니다.
+
+| Method | 경로 | 접근 | 입력·응답 |
+| --- | --- | --- | --- |
+| GET | `/v1/admin/session` | 최고·QR 관리자 | `{is_admin:true,admin_role}` |
+| GET | `/v1/admin/accounts` | 최고 관리자 | `{items:[{username,role,created_at}]}` |
+| POST | `/v1/admin/accounts` | 최고 관리자 | `{username,password,confirm_password}` → 201 `{username,admin_role:"qr_admin"}` |
+
+POST에는 `X-Auth-Request: 1`이 필요합니다. 새 관리자 비밀번호는 영문·숫자 포함 12~128자, 아이디는 소문자/숫자/밑줄 4~20자입니다. 휴대전화 인증을 요구하지 않습니다. 비로그인 401, 권한 부족 403, 입력 오류 400/422, 동시 중복 409, DB 장애 503. 모든 응답은 no-store이며 비밀번호를 오류에 반영하지 않습니다. QR 화면 `/admin/exhibition/`의 자산·API·PNG도 매 요청 관리자 세션을 검사합니다. 하위 관리자 생성/목록과 임의 DB 관리 권한은 QR 관리자에게 없습니다. [초기 설정·권한 구조](backend/app/modules/admin/readme.md).
+
 최종 확인: 2026-10-01. 담당 영역: 백엔드(API·설정·응답 계약), 프론트엔드(웹·Android·iOS 호출자). 이 파일은 팀 공통 API 관리대장입니다. 실제 코드가 기준이며 변경 시 이 문서와 호출자를 함께 갱신합니다.
 
 **현재 HTTP API는 health/readiness, `/v1/auth` 웹 인증, `/v1/mobile/auth` 모바일 인증, `/v1/finance` 금융 계산·저장, `/v1/policies` 공고 조회, `/v1/assistant/questions` 회원 질문입니다.** 2026-10-02 전화번호 인증을 제거하고 웹 카카오 로그인 API를 추가했습니다. [설정과 흐름](backend/docs/kakao-login.md). 추천·공개 승인·사용자 자격 판정·추천 프로필·저장 공고·알림 서버 API는 후속입니다. 웹은 API 모드만 사용하며 더미 공고는 테스트 코드에만 있습니다.
@@ -8,7 +81,7 @@
 
 | 구분 | 기본 주소 / 경로 | 관리 위치 |
 |---|---|---|
-| 로컬 백엔드 | `http://127.0.0.1:8000` | [server.py](backend/server.py), [설정 코드](backend/app/core/config.py), `backend/.env` |
+| 로컬 백엔드·서버 관리 로그인 | `http://127.0.0.1:8000/` | [server.py](backend/server.py), [설정 코드](backend/app/core/config.py), `backend/.env`, [관리 안내](backend/docs/server-admin.md) |
 | 웹 개발 서버 | `http://127.0.0.1:5173` | [Vite 설정](frontend/web/vite.config.js) |
 | 웹에서 사용하는 API 기준 경로 | `/api` | `VITE_API_BASE_URL`, [HTTP 클라이언트](frontend/web/src/shared/api/client.js) |
 | 개발 프록시 대상 | `http://127.0.0.1:8000` | `API_PROXY_TARGET`, [웹 설정 예시](frontend/web/.env.example) |
@@ -62,9 +135,11 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 
 | Method | 백엔드 경로 | 성공 | 오류 |
 |---|---|---|---|
+| POST | `/v1/auth/username/check` | 소문자로 정규화한 username, available; IP당 분당 30회 | 422, 429 |
 | POST | `/v1/auth/signup` | 201, 가입 완료 | 400, 409, 422, 429 |
 | POST | `/v1/auth/login` | user, HttpOnly 세션 쿠키 | 401, 422, 429 |
 | GET | `/v1/auth/me` | 현재 user | 401 |
+| POST | `/v1/auth/profile` | 로그인 회원의 name·age·gender·region 변경, user 반환 | 401, 422 |
 | POST | `/v1/auth/logout` | 서버 세션 및 쿠키 폐기 | 503 |
 
 모든 POST는 JSON과 `X-Auth-Request: 1` 헤더가 필요합니다(누락 403). 공통 저장소 장애/비활성은 503입니다. 가입 필드는 이름(name, 필수 1~50자)·아이디·비밀번호·비밀번호 확인·만 나이·성별·시도입니다. 로그인과 세션 조회의 user에 name을 포함하며 기존 이름 없는 계정은 null입니다. [정확한 입력·응답·제한·저장소·실행법](backend/app/modules/auth/readme.md), [호출자](frontend/web/src/features/auth/authApi.js), [생성 스키마](backend/app/api/auth.py)를 기준으로 합니다.
@@ -112,7 +187,7 @@ APP_ENV=test의 격리 SQLite는 로그인된 회원이 금융정보 경로를 �
 |---|---|---|
 | `/docs` | Swagger UI | 현재 구현된 HTTP 계약 확인 |
 | `/redoc` | ReDoc | 읽기용 API 문서 |
-| `/openapi.json` | 생성된 OpenAPI | health/readiness, 인증 경로 6개, 금융 경로 4개 포함 |
+| `/openapi.json` | 생성된 OpenAPI | health/readiness, 웹 인증 경로 8개, 금융 경로 4개 포함 |
 | `/docs/oauth2-redirect` | Swagger UI 보조 리다이렉트 | 경로 존재가 로그인/OAuth 구현을 의미하지 않음 |
 
 [FastAPI 조립 코드](backend/app/main.py)가 실제 명세를 생성합니다. 별도의 수동 OpenAPI JSON을 만들어 미구현 경로를 노출하지 않습니다. 현재 앱에는 위 문서 경로의 환경별 비활성화나 인증 보호 설정이 없습니다. 운영 노출 정책은 배포 시 확정합니다.
@@ -166,7 +241,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 | 개인비서 LLM 추천 | 서버 미구현. 웹 POST /v1/recommendations 호출자 있음 | 사용자 정보 → 서버 LLM → 추천 이유·공고. 인증/비용·보관 정책 확정 |
 | 조건·자격 판정 | 미구현 | 입력 fact, 기준 시점, PASS/FAIL/UNKNOWN 의미와 근거 |
 | 원문 업로드·분석 | CLI만 있음. HTTP 경로 미정 | 입력 제한, 작업 ID·상태, 오류·재시도·결과 접근 권한 |
-| 로그인·프로필·저장 공고 | 로그인/가입·계정별 금융 입력 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 실제 SMS, 추천 프로필·저장 공고 동기화·계정 수정/탈퇴는 후속 |
+| 로그인·프로필·저장 공고 | 로그인/가입·계정별 금융 입력 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 회원정보 수정·웹 카카오 가입 구현. 추천 프로필·저장 공고 동기화·탈퇴는 후속 |
 | 알림·푸시 | 미구현 | 동의, Android/iOS 권한·토큰, 발송·해제 계약 |
 
 정책 DB 적재는 구현했으며 공개 승인은 후속 작업입니다. `draft` 개정을 공개 정책 응답으로 사용하지 않습니다. [공고·회원 질문의 실제 계약](backend/docs/policy-storage.md).
@@ -178,6 +253,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 | GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 서버·웹 연결 구현 |
 | GET /v1/policies/{policy_key} | /api/v1/policies/{policy_key} | 최신 공개 공고 카드 | 서버 구현 |
 | POST /v1/assistant/questions | /api/v1/assistant/questions | revision_id,question → answer,citations,follow_up_questions | 회원 쿠키/Bearer·웹 질문 구현 |
+| GET /v1/assistant/faqs | /api/v1/assistant/faqs | revision_id → items:[{id,question,response}] | 회원용 선택형 기본 질문 6개·LLM 호출 없음 |
 | POST /v1/recommendations | /api/v1/recommendations | profile,limit:3, 선택적 financialProfile → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
 
 `financialProfile`은 사용자가 계산기에서 추천에 반영하기를 선택했을 때만 추가하는 금융 원입력입니다. 일반 추천 프로필·브라우저 저장소에 자동 합치지 않으며 계정 금융정보 저장과도 별개입니다. 서버의 `evaluate_policy()`와 승인된 공고 저장소·추천 API를 실제로 연결하는 작업은 아직 남아 있습니다.
@@ -247,6 +323,31 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 
 로그인 입력 검증·비밀번호 해시·IP/아이디별 시도 제한은 웹과 동일한 서비스를 사용합니다. 401 인증 실패/만료, 403 POST 헤더 누락, 422 입력 오류, 429 시도 제한, 503 인증 비활성/DB 오류를 처리합니다. 응답과 오류는 `Cache-Control: no-store`이며 422 응답에 비밀번호를 반사하지 않습니다. 로그아웃은 형식이 유효한 이미 폐기/만료된 토큰에도 성공합니다.
 
-회원 금융 경로는 기존 쿠키 또는 모바일 Bearer를 지원합니다. Authorization 헤더가 있으면 모바일 토큰만 검증하며 잘못된 값을 웹 쿠키로 대체하지 않습니다. CORS 허용 헤더에 Authorization을 추가하되 허용 Origin·GET/POST·기존 CSRF 헤더는 유지합니다. 네이티브 HTTP에는 브라우저 CORS가 적용되지 않지만 브라우저 미리보기는 설정된 Origin이 필요합니다. 운영 API는 HTTPS로 배포합니다. 스토어 배포/실제 SMS 공급자/자동 갱신/계정 탈퇴는 이 변경에 포함되지 않습니다.
+회원 금융 경로는 기존 쿠키 또는 모바일 Bearer를 지원합니다. Authorization 헤더가 있으면 모바일 토큰만 검증하며 잘못된 값을 웹 쿠키로 대체하지 않습니다. CORS 허용 헤더에 Authorization을 추가하되 허용 Origin·GET/POST·기존 CSRF 헤더는 유지합니다. 네이티브 HTTP에는 브라우저 CORS가 적용되지 않지만 브라우저 미리보기는 설정된 Origin이 필요합니다. 운영 API는 HTTPS로 배포합니다. 스토어 배포/자동 갱신/계정 탈퇴는 이 변경에 포함되지 않습니다.
 
 2026-10-02 회원 저장 보안 갱신: 개발·운영 회원 저장은 MySQL이며 아이디·프로필·가입 대기 닉네임·동의한 금융 원입력은 AES-256-GCM 암호화합니다. 아이디 검색/중복 확인은 HMAC 인덱스를 사용합니다. 키 누락·키 불일치·변조·미이관 평문은 안전한 503으로 거부합니다. 일반/카카오/모바일 HTTP 응답 계약은 유지합니다. 별도 MySQL 테스트 DB에서 실제 가입·로그인·금융 암호화를 검증했습니다. [설정·명령·운영](backend/docs/member-privacy.md).
+## 모바일 알림 설정 — 2026-10-02
+
+모바일 Bearer 전용이며 POST는 `X-Auth-Request: 1`, 모든 응답은 `no-store`입니다. 회원 ID는 서버 세션에서 결정합니다.
+
+| 메서드 | 경로 | 입력 | 응답 |
+| --- | --- | --- | --- |
+| GET | `/v1/mobile/notifications/preferences` | Bearer | `{enabled, policy_changes, similar_policies, eligible_policies, application_results}` boolean |
+| POST | `/v1/mobile/notifications/preferences` | 같은 다섯 boolean | 저장된 설정 |
+| POST | `/v1/mobile/notifications/devices` | `{push_token, platform}` | `{registered: true}` |
+| POST | `/v1/mobile/notifications/devices/disable` | `{}` | `{disabled: true}` |
+
+전체 수신 기본값은 OFF입니다. 로그아웃/세션 만료 기기는 발송 대상에서 제외합니다. MySQL 추가 테이블 초기화는 `python -m app.modules.notifications`. 권한창·설정 UI·기기 등록·수신 필터 payload까지 구현했으며 실제 자동 이벤트와 발송 worker는 아직 없습니다. [서버 계약](backend/app/modules/notifications/readme.md), [모바일 사용·푸시 구성](frontend/mobile/src/features/notifications/readme.md).
+
+
+## 공고 캘린더 (2026-10-02)
+
+| Method | 백엔드 경로 | 인증 | 입력 |
+| --- | --- | --- | --- |
+| GET | `/v1/policies/calendar` | 비회원 가능 | 필수 `month=YYYY-MM`(2000~2099), 선택 `q`, `category`, `region`, `audience` |
+
+웹에서는 `/api/v1/policies/calendar`로 조회합니다. 공고별 최신 **공개** 개정만 사용하며 필터 의미는 기존 목록 API와 같습니다. 월 형식/필터 길이 오류는 422, DB 미설정·장애는 503입니다. DB 수정·초안 공개·LLM 호출은 수행하지 않습니다.
+
+응답은 `{month,items,total,truncated,undatedItems,undatedTotal}`입니다. `items`는 접수 기간이 월과 겹치거나 해당 월에 시작/마감하는 공고(최대 500개), `total`은 조건에 맞는 전체 건수입니다. 초과 시 `truncated=true`로 표시합니다. 날짜를 확정할 수 없는 공고는 `undatedItems`(최대 25개)와 `undatedTotal`로 따로 제공합니다.
+
+목록·상세·캘린더 공고 카드에 `applicationStart`, `applicationEnd`(YYYY-MM-DD 또는 null), `scheduleStatus`(`dated`/`ongoing`/`unknown`)가 추가됩니다. 원문 신청 기간 또는 한 개의 명시적인 신청/접수 기간 문장에서 연·월·일이 명확한 날짜만 추출합니다. 시작일/마감일만 확인되면 다른 날짜는 null입니다. 상시 신청, 누락, 모호한 기간은 임의 날짜를 만들지 않습니다. 시간 정보는 달력 날짜로 요약하므로 실제 접수 시간은 공식 공고를 확인합니다.

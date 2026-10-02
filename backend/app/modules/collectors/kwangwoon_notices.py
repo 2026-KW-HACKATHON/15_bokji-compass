@@ -5,9 +5,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from app.contracts.public import RawDocument
+from app.modules.collectors.http import read_response, urlopen, validate_url
 from app.modules.collectors.public import collect_notice_text
 from app.modules.storage.public import DEFAULT_STORAGE_PATH
 
@@ -112,9 +113,10 @@ def collect_kwangwoon_notices(
 
 
 def _fetch_html(source_url: str) -> str:
+    validate_url(source_url, hosts={"www.kw.ac.kr"})
     request = Request(source_url, headers={"User-Agent": "bokji-compass/0.1"})
     with urlopen(request, timeout=15) as response:
-        return response.read().decode(response.headers.get_content_charset() or "utf-8")
+        return read_response(response).decode(response.headers.get_content_charset() or "utf-8")
 
 
 def _force_notice_category(source_url: str) -> str:

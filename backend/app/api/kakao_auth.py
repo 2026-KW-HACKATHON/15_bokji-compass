@@ -10,6 +10,7 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.auth import COOKIE, ProfileInput, Service, guard, ip
+from app.modules.admin.access import with_capabilities
 from app.modules.auth import kakao
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities
 from app.modules.auth.privacy import PrivacyCipher, PrivacyError, encrypted_account
@@ -218,4 +219,4 @@ def complete(data: ProfileInput, request: Request, response: Response, service: 
     token, user = service.issue_session(account, request.cookies.get(COOKIE))
     cookie(response, request, COOKIE, token, SESSION_SECONDS)
     clear_cookie(response, request, PENDING_COOKIE)
-    return {"user": user}
+    return {"user": with_capabilities(service, user)}

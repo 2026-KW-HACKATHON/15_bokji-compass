@@ -5,6 +5,7 @@ import json
 
 from sqlalchemy import MetaData, Table, insert, inspect, select, update
 
+from app.modules.admin.access import admin_grants
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities, privacy_state, sessions
 from app.modules.auth.privacy import PrivacyError, encrypted_account
 from app.modules.finance.storage import financial_profiles
@@ -81,8 +82,10 @@ def migrate_private_data(engine, cipher):
 
 
 def import_sqlite_accounts(source, target, cipher):
-    """Copy account IDs, provider links, sessions and finance; never overwrite target accounts."""
+    """Copy accounts, roles, provider links, sessions and finance without overwriting targets."""
     count = 0
+    source_account_ids = set()
+    imported_account_ids = set()
     with source.connect() as old, target.begin() as new:
         verify_lookup_key(new, cipher)
         source_tables = set(inspect(old).get_table_names())
@@ -90,6 +93,7 @@ def import_sqlite_accounts(source, target, cipher):
             raise PrivacyError("No source auth accounts table")
         legacy_accounts = Table(accounts.name, MetaData(), autoload_with=old)
         for row in old.execute(select(legacy_accounts)).mappings().all():
+            source_account_ids.add(row["id"])
             values = dict(row)
             if values.get("profile_ciphertext"):
                 private = cipher.decrypt_json(values["profile_ciphertext"], "account:" + row["id"])
@@ -107,8 +111,10 @@ def import_sqlite_accounts(source, target, cipher):
                     raise PrivacyError("Source credentials conflict with target")
                 continue
             new.execute(insert(accounts).values(**values))
+            imported_account_ids.add(row["id"])
             count += 1
         for table, primary in (
+            (admin_grants, "account_id"),
             (kakao_identities, "subject"),
             (sessions, "token_hash"),
             (financial_profiles, "account_id"),
@@ -118,6 +124,16 @@ def import_sqlite_accounts(source, target, cipher):
             legacy = Table(table.name, MetaData(), autoload_with=old)
             for row in old.execute(select(legacy)).mappings().all():
                 values = dict(row)
+                if values["account_id"] not in source_account_ids:
+                    raise PrivacyError("Source ownership references an absent account")
+                if table is admin_grants:
+                    values.setdefault("role", "qr_admin")
+                    if values["role"] not in {"superadmin", "qr_admin"}:
+                        raise PrivacyError("Invalid source administrator role")
+                    if not new.execute(
+                        select(accounts.c.id).where(accounts.c.id == values["account_id"])
+                    ).first():
+                        raise PrivacyError("Source administrator account is missing")
                 existing = (
                     new.execute(select(table).where(table.c[primary] == values[primary]))
                     .mappings()
@@ -126,6 +142,12 @@ def import_sqlite_accounts(source, target, cipher):
                 if existing:
                     if existing["account_id"] != values["account_id"]:
                         raise PrivacyError("Source ownership conflicts with target")
+                    if table is admin_grants and existing["role"] != values["role"]:
+                        raise PrivacyError("Source administrator role conflicts with target")
+                    continue
+                # Re-importing an old backup must not undo logout, permission revocation,
+                # provider unlinking or deletion of saved financial information.
+                if values["account_id"] not in imported_account_ids:
                     continue
                 if table is financial_profiles:
                     context = "finance:" + values["account_id"]

@@ -1,3 +1,5 @@
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,11 +29,11 @@ def test_collect_notice_from_url_extracts_html_text(tmp_path: Path) -> None:
         "Response",
         (),
         {
-            "headers": type("Headers", (), {"get_content_charset": lambda self: "utf-8"})(),
-            "read": lambda self: (
+            "headers": Message(),
+            "read": BytesIO((
                 "<html><title>지원 공고</title>"
                 "<script>ignore()</script><p>신청 조건</p></html>"
-            ).encode(),
+            ).encode()).read,
             "__enter__": lambda self: self,
             "__exit__": lambda self, *args: None,
         },

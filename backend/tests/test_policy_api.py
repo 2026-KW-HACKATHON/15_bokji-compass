@@ -171,3 +171,33 @@ def test_catalog_disabled_error_and_input_boundary():
         app.dependency_overrides[policies.get_repository] = lambda: Mock()
         for query in ("cursor=-1", "cursor=1000000", "limit=0", "limit=101", "sort=bad"):
             assert client.get("/v1/policies?" + query).status_code == 422
+
+
+def test_faq_authenticates_and_bypasses_llm_and_inference_limits(client, monkeypatch):
+    path = "/v1/assistant/faqs?revision_id=" + REVISION
+    assert client.get(path).status_code == 401
+    client.repository.get_revision.assert_not_called()
+    token = login(client, mobile=True)
+    model = Mock()
+    throttle = Mock()
+    monkeypatch.setattr(public, "answer_policy_question", model)
+    monkeypatch.setattr(client.app.state.auth_service, "throttle", throttle)
+    slots = client.app.state.assistant_slots
+    slots.acquire()
+    slots.acquire()
+    try:
+        response = client.get(path, headers=token)
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+        assert len(response.json()["items"]) == 6
+        assert "private-name" not in response.text and "private-id" not in response.text
+        model.assert_not_called()
+        throttle.assert_not_called()
+    finally:
+        slots.release()
+        slots.release()
+    assert client.get("/v1/assistant/faqs?revision_id=invalid", headers=token).status_code == 422
+    for record in (None, {"review_status": "draft"}):
+        client.repository.get_revision.return_value = record
+        assert client.get(path, headers=token).status_code == 404
+    assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 401

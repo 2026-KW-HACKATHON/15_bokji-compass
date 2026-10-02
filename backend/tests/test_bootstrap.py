@@ -49,6 +49,24 @@ def test_liveness_is_not_database_readiness():
             "/v1/policies",
             "/v1/policies/{policy_key}",
             "/v1/assistant/questions",
+            "/v1/auth/username/check",
+            "/v1/auth/profile",
+            "/v1/admin/session",
+            "/v1/admin/accounts",
+            "/v1/admin/policies",
+            "/v1/admin/policies/{revision_id}",
+            "/v1/admin/policies/{revision_id}/publication",
+            "/v1/server-admin/login",
+            "/v1/server-admin/session",
+            "/v1/server-admin/logout",
+            "/v1/server-admin/overview",
+            "/v1/server-admin/settings",
+            "/v1/server-admin/collection/{kind}",
+            "/v1/mobile/notifications/preferences",
+            "/v1/mobile/notifications/devices",
+            "/v1/mobile/notifications/devices/disable",
+            "/v1/policies/calendar",
+            "/v1/assistant/faqs",
         }
 
 
@@ -70,6 +88,13 @@ def test_readiness_and_engine_cleanup(monkeypatch, available):
 def test_database_password_required_when_enabled():
     with pytest.raises(ValidationError):
         Settings(_env_file=None, db_enabled=True, db_password="")
+
+
+def test_policy_auto_publication_defaults_on_and_can_be_disabled(monkeypatch):
+    monkeypatch.delenv("POLICY_AUTO_PUBLISH", raising=False)
+    assert Settings(_env_file=None).policy_auto_publish is True
+    monkeypatch.setenv("POLICY_AUTO_PUBLISH", "false")
+    assert Settings(_env_file=None).policy_auto_publish is False
 
 
 def test_settings_use_backend_path_and_environment_override(tmp_path, monkeypatch):

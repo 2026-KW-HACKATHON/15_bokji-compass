@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
+import FloatingAssistant from '../features/assistant/FloatingAssistant.jsx';
 import AuthPage from '../features/auth/AuthPage.jsx';
+import AdminPage from '../features/auth/AdminPage.jsx';
+import MemberProfileForm from '../features/auth/MemberProfileForm.jsx';
 import { authRequest } from '../features/auth/authApi.js';
 import CalculatorPage from '../features/finance/CalculatorPage.jsx';
+import CalendarPage from '../features/calendar/CalendarPage.jsx';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
@@ -16,7 +20,8 @@ import { policyRepository, recommendationRepository } from './services.js';
 
 const navigation = [
   { id: 'home', label: '내 비서', icon: 'house' },
-  { id: 'explore', label: '전체 공고', icon: 'search' },
+  { id: 'explore', label: '전체 공고', mobileLabel: '공고', icon: 'search' },
+  { id: 'calendar', label: '공고 캘린더', mobileLabel: '캘린더', icon: 'calendar' },
   { id: 'saved', label: '저장한 공고', mobileLabel: '저장', icon: 'bookmark' },
   { id: 'calculator', label: '계산기', icon: 'calculator' },
   { id: 'profile', label: '내 정보', icon: 'user' },
@@ -27,7 +32,7 @@ const easyKey = 'bokji.easy.v1';
 const emptyResult = { items: [], summary: '' };
 function readRoute() {
   const [name, query = ''] = window.location.hash.slice(1).split('?');
-  const page = [...navigation.map((item) => item.id), 'login', 'signup'].includes(name)
+  const page = [...navigation.map((item) => item.id), 'login', 'signup', 'admin'].includes(name)
     ? name
     : 'home';
   return { page, tag: new URLSearchParams(query).get('tag') || '' };
@@ -73,6 +78,7 @@ export default function App() {
   });
   const [savedIndex, setSavedIndex] = useState(0);
   const [selected, setSelected] = useState(null);
+  const [assistant, setAssistant] = useState(null);
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(emptyResult);
   const [state, setState] = useState('idle');
@@ -146,6 +152,9 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.easy = String(easy);
   }, [easy]);
+  useEffect(() => {
+    setAssistant(null);
+  }, [user?.id, route.page]);
   useEffect(() => {
     const controller = new AbortController();
     setResult(emptyResult);
@@ -230,7 +239,7 @@ export default function App() {
   const shared = { easy, saved, onSave: toggleSaved, onOpen: setSelected, onTag };
   const pageLabel =
     navigation.find((item) => item.id === route.page)?.label ||
-    (route.page === 'login' ? '로그인' : '회원가입');
+    (route.page === 'admin' ? '관리자 관리' : route.page === 'login' ? '로그인' : '회원가입');
   const visibleSaved = easy ? saved.slice(savedIndex, savedIndex + 3) : saved;
   return (
     <div className={'app-shell' + (easy ? ' easy-mode' : '')}>
@@ -268,14 +277,6 @@ export default function App() {
             </a>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <Icon name="shield" size={22} />
-          <p>
-            내게 필요한 도움을
-            <br />
-            조금 더 쉽게 만나세요.
-          </p>
-        </div>
         <span className="sidebar-footer">복지나침반 · BOKJI COMPASS</span>
       </aside>
       <div className="main-shell">
@@ -297,6 +298,16 @@ export default function App() {
             </button>
             {user ? (
               <div className="account-actions">
+                {user.admin_role === 'superadmin' && (
+                  <a className="text-button" href="#admin">
+                    관리자 관리
+                  </a>
+                )}
+                {user.is_admin === true && (
+                  <a className="text-button" href="/admin/exhibition/">
+                    전시 QR 관리
+                  </a>
+                )}
                 <span className="auth-username" title={(user.name || '회원') + '님'}>
                   {user.name || '회원'}님
                 </span>
@@ -319,6 +330,7 @@ export default function App() {
           </div>
         </header>
         <main id="main-content" ref={main} tabIndex={-1} className="main-content">
+          {route.page === 'admin' && <AdminPage key={user?.id || 'guest'} user={user} />}
           {route.page === 'home' && (
             <AssistantHome
               {...shared}
@@ -329,9 +341,11 @@ export default function App() {
               onRetry={() => setRetry((value) => value + 1)}
               onProfile={() => navigate('profile')}
               onExplore={() => navigate('explore')}
+              onCalendar={() => navigate('calendar')}
               mode={appConfig.dataMode}
             />
           )}
+          {route.page === 'calendar' && <CalendarPage {...shared} repository={policyRepository} />}
           {route.page === 'explore' && (
             <PolicyExplorer
               key={route.tag}
@@ -344,17 +358,31 @@ export default function App() {
           {route.page === 'profile' && (
             <section className="profile-page">
               <div className="page-heading">
-                {!easy && <span className="eyebrow">맞춤 추천 설정</span>}
+                {!easy && (
+                  <span className="eyebrow">{user ? '회원·추천 정보' : '맞춤 추천 설정'}</span>
+                )}
                 <h1>내 정보</h1>
                 <p>
-                  {easy
-                    ? '공고 추천에 사용할 정보를 관리합니다.'
-                    : '나에게 맞는 공고를 추천하는 데 사용해요.'}
+                  {user
+                    ? '회원 정보와 공고 추천에 사용할 정보를 관리해요.'
+                    : easy
+                      ? '공고 추천에 사용할 정보를 관리합니다.'
+                      : '나에게 맞는 공고를 추천하는 데 사용해요.'}
                 </p>
                 <a className="text-button calculator-entry" href="#calculator">
                   <Icon name="calculator" /> 소득·재산 계산하고 저장하기
                 </a>
               </div>
+              {user && (
+                <MemberProfileForm
+                  key={user.id}
+                  user={user}
+                  onSaved={(current) =>
+                    setUser((previous) => (previous?.id === current.id ? current : previous))
+                  }
+                />
+              )}
+              {user && <h2 className="recommendation-settings-title">맞춤 추천 설정</h2>}
               <ProfileForm
                 key={JSON.stringify(profile)}
                 profile={profile || defaultProfile}
@@ -467,6 +495,17 @@ export default function App() {
           </a>
         ))}
       </nav>
+      <FloatingAssistant
+        key={user?.id || 'guest'}
+        session={assistant}
+        onChange={setAssistant}
+        easy={easy}
+        user={user}
+        repository={policyRepository}
+        blocked={Boolean(selected) || ['login', 'signup', 'admin'].includes(route.page)}
+        onNavigate={navigate}
+        onToggleEasy={toggleEasy}
+      />
       {notice && (
         <div className="toast" role="status">
           <span>{notice}</span>
@@ -482,6 +521,10 @@ export default function App() {
           saved={saved.some((item) => item.id === selected.id)}
           onSave={toggleSaved}
           onClose={() => setSelected(null)}
+          onAsk={() => {
+            setAssistant({ topic: 'policy', policy: selected });
+            setSelected(null);
+          }}
           onTag={onTag}
           mode={appConfig.dataMode}
           easy={easy}

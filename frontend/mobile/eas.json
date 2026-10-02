@@ -1,11 +1,19 @@
 {
   "cli": { "appVersionSource": "remote" },
   "build": {
-    "development": { "developmentClient": true, "distribution": "internal" },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" }
+    },
     "preview": {
       "distribution": "internal",
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" },
       "android": { "buildType": "apk" }
     },
-    "production": { "autoIncrement": true }
+    "production": {
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" }
+    }
   }
 }

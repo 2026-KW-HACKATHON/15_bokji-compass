@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,7 +24,7 @@ def test_collect_seoul_open_api_saves_welfare_rows(tmp_path: Path) -> None:
         "Response",
         (),
         {
-            "read": lambda self: json.dumps(payload).encode("utf-8"),
+            "read": BytesIO(json.dumps(payload).encode("utf-8")).read,
             "__enter__": lambda self: self,
             "__exit__": lambda self, *args: None,
         },
@@ -52,7 +53,7 @@ def test_collect_seoul_open_api_uses_environment_key(tmp_path: Path, monkeypatch
         "Response",
         (),
         {
-            "read": lambda self: json.dumps(payload).encode("utf-8"),
+            "read": BytesIO(json.dumps(payload).encode("utf-8")).read,
             "__enter__": lambda self: self,
             "__exit__": lambda self, *args: None,
         },

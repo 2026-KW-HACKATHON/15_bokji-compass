@@ -9,7 +9,17 @@ from sqlalchemy import MetaData, Table, insert, inspect, select, text
 from app.core.config import BACKEND_ROOT
 from app.modules.regions.public import default_catalog
 
-MIGRATIONS = ("004_condition_schema.sql", "005_policy_ingestion.sql")
+MIGRATIONS = ("004_condition_schema.sql", "005_policy_ingestion.sql", "006_policy_publication.sql",
+              "007_policy_collection.sql")
+
+
+def _migration_checksums(data: bytes) -> tuple[str, set[str]]:
+    """Keep historical raw hashes valid across Git LF/CRLF checkout conversion only."""
+    lf = data.replace(b"\r\n", b"\n")
+    canonical = hashlib.sha256(lf).hexdigest()
+    accepted = {canonical, hashlib.sha256(data).hexdigest(),
+                hashlib.sha256(lf.replace(b"\n", b"\r\n")).hexdigest()}
+    return canonical, accepted
 
 
 def initialize_policy_schema(engine) -> dict:
@@ -29,12 +39,12 @@ def initialize_policy_schema(engine) -> dict:
             applied = []
             for filename in MIGRATIONS:
                 data = (BACKEND_ROOT / "database" / filename).read_bytes()
-                checksum = hashlib.sha256(data).hexdigest()
+                checksum, accepted_checksums = _migration_checksums(data)
                 prior = connection.scalar(text(
                     "SELECT checksum FROM policy_schema_versions WHERE version=:version"
                 ), {"version": filename})
                 if prior is not None:
-                    if prior != checksum:
+                    if prior not in accepted_checksums:
                         raise RuntimeError("Applied policy migration checksum differs")
                     continue
                 sql = re.sub(r"--[^\n]*", "", data.decode("utf-8-sig"))

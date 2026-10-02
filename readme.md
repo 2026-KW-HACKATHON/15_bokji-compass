@@ -198,4 +198,5 @@ MySQL 테이블 초기화와 데이터 이관은 HTTP 요청에서 자동 실행
 - [회원 보안 저장](backend/docs/member-privacy.md): MySQL 전환, 개인정보 암호화, 키 생성·교체 및 기존 SQLite 이관.
 - [카카오 로그인](backend/docs/kakao-login.md): 카카오 앱 설정과 최초 가입·재로그인 흐름.
 - [백엔드 문서](backend/docs/readme.md) · [프론트엔드 문서](frontend/docs/readme.md): 구조·데이터 처리·화면 설계.
+- [유사 서비스 반면교사와 개선 To Do](frontend/docs/competitor-lessons-todo.md): 정보 정확성·모집 상태·공식 링크·추천 설명·이용 검증의 우선순위와 완료 기준.
 - [개발 및 협업 안내](CONTRIBUTING.md): 개발환경·작업 규칙·기능별 문서 위치.

@@ -35,7 +35,10 @@ export function createClient({
   fetchImpl = globalThis.fetch,
   timeoutMs = 15000,
 }) {
-  return async (path, { body, token, signal } = {}) => {
+  return async (
+    path,
+    { body, token, signal, timeoutMs: requestTimeoutMs = timeoutMs } = {},
+  ) => {
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -44,7 +47,7 @@ export function createClient({
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, timeoutMs);
+    }, requestTimeoutMs);
     try {
       if (controller.signal.aborted)
         throw new ApiError("요청을 취소했습니다.", 0, "aborted");

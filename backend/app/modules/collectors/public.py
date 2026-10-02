@@ -3,9 +3,10 @@
 import hashlib
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from app.contracts.public import RawDocument, utc_now_iso
+from app.modules.collectors.http import read_response, urlopen, validate_url
 from app.modules.storage.public import DEFAULT_STORAGE_PATH, save_raw_document
 
 
@@ -41,9 +42,10 @@ def collect_notice_from_url(
     """Fetch an HTML notice, extract visible text, and store the raw result."""
 
     _validate_required_text("source_url", source_url)
+    validate_url(source_url.strip())
     request = Request(source_url.strip(), headers={"User-Agent": "bokji-compass/0.1"})
     with urlopen(request, timeout=15) as response:
-        html = response.read().decode(response.headers.get_content_charset() or "utf-8")
+        html = read_response(response).decode(response.headers.get_content_charset() or "utf-8")
 
     parser = _NoticeHtmlParser()
     parser.feed(html)

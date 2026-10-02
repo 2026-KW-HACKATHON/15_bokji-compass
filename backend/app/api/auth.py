@@ -4,11 +4,12 @@ import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
+from app.modules.admin.access import with_capabilities
 from app.modules.auth.migration import migrate_private_data, verify_lookup_key
 from app.modules.auth.privacy import PrivacyCipher
 from app.modules.auth.schema import initialize_auth_schema
@@ -54,7 +55,7 @@ def get_service(request: Request):
             if settings.app_env != "test" and not settings.db_enabled:
                 raise HTTPException(503, "회원 저장을 위한 MySQL 데이터베이스 설정이 필요해요.")
             cipher = PrivacyCipher(settings)
-            if settings.db_enabled:
+            if settings.auth_uses_mysql:
                 engine = state.database_engine
             else:
                 path = settings.auth_sqlite_path
@@ -81,9 +82,8 @@ def get_service(request: Request):
 Service = Annotated[AuthService, Depends(get_service)]
 
 
-class LoginInput(BaseModel):
+class UsernameInput(BaseModel):
     username: str = Field(pattern=r"^[a-zA-Z0-9_]{4,20}$")
-    password: SecretStr = Field(min_length=8, max_length=128)
 
     @field_validator("username")
     @classmethod
@@ -91,8 +91,13 @@ class LoginInput(BaseModel):
         return value.lower()
 
 
+class LoginInput(UsernameInput):
+    password: SecretStr = Field(min_length=8, max_length=128)
+
+
 class ProfileInput(BaseModel):
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=50)
     age: int = Field(strict=True, ge=0, le=120)
     gender: Literal["male", "female", "other", "undisclosed"]
@@ -137,6 +142,11 @@ def signup(data: SignupInput, request: Request, service: Service):
     return service.register(data, ip(request))
 
 
+@router.post("/username/check")
+def check_username(data: UsernameInput, request: Request, service: Service):
+    return service.check_username(data.username, ip(request))
+
+
 @router.post("/login")
 def login(data: LoginInput, request: Request, response: Response, service: Service):
     token, user = service.login(
@@ -151,12 +161,18 @@ def login(data: LoginInput, request: Request, response: Response, service: Servi
         samesite="lax",
         path="/",
     )
-    return {"user": user}
+    return {"user": with_capabilities(service, user)}
 
 
 @router.get("/me")
 def me(request: Request, service: Service):
-    return {"user": service.me(request.cookies.get(COOKIE))}
+    return {"user": with_capabilities(service, service.me(request.cookies.get(COOKIE)))}
+
+
+@router.post("/profile")
+def update_profile(data: ProfileInput, request: Request, service: Service):
+    user = service.me(request.cookies.get(COOKIE))
+    return {"user": with_capabilities(service, service.update_profile(user["id"], data))}
 
 
 @router.post("/logout")

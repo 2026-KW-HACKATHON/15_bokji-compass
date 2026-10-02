@@ -24,7 +24,7 @@ MySQL은 backend 폴더에서 배포 전에 명시적으로 실행합니다.
 
     .venv/Scripts/python.exe -m app.modules.auth
 
-auth_kakao_identities와 auth_kakao_flows를 추가하고 auth_accounts.phone의 NOT NULL만 해제합니다. 기존 전화번호·계정·세션을 보존합니다. 기존 auth_phone_challenges 테이블은 더 이상 읽거나 쓰지 않지만 자동 삭제하지 않습니다. 기존 데이터는 백업 후 갱신하세요. SQLite 개발 환경은 최초 인증 요청에서 자동 적용하며 테이블 재작성 방식으로 phone 제약을 갱신합니다. 기존 계정 로그인 보존과 반복 초기화는 테스트합니다. 실제 운영 MySQL의 마이그레이션 실행은 별도입니다.
+auth_kakao_identities와 auth_kakao_flows를 추가하고 auth_accounts.phone의 NOT NULL만 해제합니다. 기존 전화번호·계정·세션을 보존합니다. 기존 auth_phone_challenges 테이블은 더 이상 읽거나 쓰지 않지만 자동 삭제하지 않습니다. 기존 데이터는 백업 후 갱신하세요. SQLite는 APP_ENV=test인 격리 테스트에서만 자동 초기화합니다. 개발·운영은 MySQL과 회원 암호화 키가 필수이며 기존 SQLite 계정은 [보안 저장·이관 안내](member-privacy.md)에 따라 명시적으로 이관합니다. 기존 계정 로그인 보존과 반복 초기화는 테스트합니다. 실제 운영 MySQL의 마이그레이션 실행은 별도입니다.
 
 ## 동작과 API
 

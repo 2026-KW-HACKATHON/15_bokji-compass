@@ -63,6 +63,37 @@ class AuthService:
             # Concurrent first requests must not bypass a limit.
             raise HTTPException(429, "잠시 후 다시 시도해 주세요.") from None
 
+    def check_username(self, username: str, ip: str):
+        self.throttle("username-check-ip:" + ip, 30, 60)
+        with self.engine.connect() as connection:
+            exists = connection.execute(
+                select(accounts.c.id).where(
+                    accounts.c.username_lookup == self.cipher.lookup(username)
+                )
+            ).first()
+        return {"username": username, "available": exists is None}
+
+    def update_profile(self, account_id: str, data):
+        with self.engine.begin() as connection:
+            account = (
+                connection.execute(select(accounts).where(accounts.c.id == account_id))
+                .mappings()
+                .first()
+            )
+            if account is None:
+                raise HTTPException(401, "로그인이 필요해요.")
+            private = self.private_account(account)
+            private.update(data.model_dump(include={"name", "age", "gender", "region"}))
+            ciphertext = self.cipher.encrypt_json(private, "account:" + account_id)
+            changed = connection.execute(
+                update(accounts)
+                .where(accounts.c.id == account_id)
+                .values(profile_ciphertext=ciphertext)
+            )
+            if changed.rowcount != 1:
+                raise HTTPException(401, "로그인이 필요해요.")
+        return self.public_account({**account, "profile_ciphertext": ciphertext})
+
     def register(self, data, ip: str):
         self.throttle("signup-ip:" + ip, 20, 3600)
         now = int(time.time())
@@ -99,6 +130,7 @@ class AuthService:
         previous: str | None = None,
         *,
         mobile: bool = False,
+        console: bool = False,
     ):
         self.throttle("login-ip:" + ip, 50, 900)
         self.throttle("login-user:" + self.cipher.lookup(username), 10, 900)
@@ -117,9 +149,9 @@ class AuthService:
         )
         if not account or not valid:
             raise HTTPException(401, "아이디 또는 비밀번호를 확인해 주세요.")
-        return self.issue_session(account, previous, mobile=mobile)
+        return self.issue_session(account, previous, mobile=mobile, console=console)
 
-    def issue_session(self, account, previous=None, *, mobile=False):
+    def issue_session(self, account, previous=None, *, mobile=False, console=False):
         user = self.public_account(account)
         token = secrets.token_urlsafe(32)
         now = int(time.time())
@@ -128,19 +160,20 @@ class AuthService:
             if previous:
                 connection.execute(
                     delete(sessions).where(
-                        sessions.c.token_hash == self.session_digest(previous, mobile=mobile)
+                        sessions.c.token_hash
+                        == self.session_digest(previous, mobile=mobile, console=console)
                     )
                 )
             connection.execute(
                 insert(sessions).values(
-                    token_hash=self.session_digest(token, mobile=mobile),
+                    token_hash=self.session_digest(token, mobile=mobile, console=console),
                     account_id=account["id"],
                     expires_at=now + SESSION_SECONDS,
                 )
             )
         return token, user
 
-    def public_account(self, account):
+    def private_account(self, account):
         private = self.cipher.decrypt_json(
             account["profile_ciphertext"], "account:" + account["id"]
         )
@@ -150,17 +183,24 @@ class AuthService:
             account["username_lookup"] or "", self.cipher.lookup(private["username"])
         ):
             raise PrivacyError("Account lookup mismatch")
+        return private
+
+    def public_account(self, account):
+        private = self.private_account(account)
         return {
             "id": account["id"],
             **{key: private[key] for key in PROFILE_FIELDS if key != "phone"},
         }
 
     @staticmethod
-    def session_digest(token: str, *, mobile: bool = False) -> str:
-        # Separate bearer tokens from web cookies without changing existing sessions/schema.
-        return digest("mobile:" + token if mobile else token)
+    def session_digest(token: str, *, mobile: bool = False, console: bool = False) -> str:
+        # A copied cookie/token cannot cross the web, native or server-console boundary.
+        if mobile and console:
+            raise ValueError("A session can have only one authentication scope")
+        prefix = "console:" if console else "mobile:" if mobile else ""
+        return digest(prefix + token)
 
-    def me(self, token: str | None, *, mobile: bool = False):
+    def me(self, token: str | None, *, mobile: bool = False, console: bool = False):
         if token:
             with self.engine.connect() as connection:
                 account = (
@@ -171,7 +211,8 @@ class AuthService:
                             sessions.c.account_id == accounts.c.id,
                         )
                         .where(
-                            sessions.c.token_hash == self.session_digest(token, mobile=mobile),
+                            sessions.c.token_hash
+                            == self.session_digest(token, mobile=mobile, console=console),
                             sessions.c.expires_at > int(time.time()),
                         )
                     )
@@ -182,11 +223,12 @@ class AuthService:
                 return self.public_account(account)
         raise HTTPException(401, "로그인이 필요해요.")
 
-    def logout(self, token: str | None, *, mobile: bool = False):
+    def logout(self, token: str | None, *, mobile: bool = False, console: bool = False):
         if token:
             with self.engine.begin() as connection:
                 connection.execute(
                     delete(sessions).where(
-                        sessions.c.token_hash == self.session_digest(token, mobile=mobile)
+                        sessions.c.token_hash
+                        == self.session_digest(token, mobile=mobile, console=console)
                     )
                 )

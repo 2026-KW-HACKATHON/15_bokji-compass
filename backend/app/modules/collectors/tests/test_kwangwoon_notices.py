@@ -1,3 +1,5 @@
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -39,9 +41,10 @@ def test_collect_kwangwoon_notice_stores_parsed_document(tmp_path: Path) -> None
         "Response",
         (),
         {
-            "headers": type("Headers", (), {"get_content_charset": lambda self: "utf-8"})(),
-            "read": lambda self: NOTICE_HTML.encode(),
-            "__enter__": lambda self: self,
+            "headers": Message(),
+            "read": lambda self, size: self.body.read(size),
+            "__enter__": lambda self: (
+                setattr(self, "body", BytesIO(NOTICE_HTML.encode())), self)[1],
             "__exit__": lambda self, *args: None,
         },
     )()
@@ -74,9 +77,10 @@ def test_fetch_kwangwoon_notice_html_returns_original_category_four_html() -> No
         "Response",
         (),
         {
-            "headers": type("Headers", (), {"get_content_charset": lambda self: "utf-8"})(),
-            "read": lambda self: NOTICE_HTML.encode(),
-            "__enter__": lambda self: self,
+            "headers": Message(),
+            "read": lambda self, size: self.body.read(size),
+            "__enter__": lambda self: (
+                setattr(self, "body", BytesIO(NOTICE_HTML.encode())), self)[1],
             "__exit__": lambda self, *args: None,
         },
     )()
@@ -93,9 +97,10 @@ def test_count_kwangwoon_notices_counts_only_existing_category_four_pages() -> N
         "Response",
         (),
         {
-            "headers": type("Headers", (), {"get_content_charset": lambda self: "utf-8"})(),
-            "read": lambda self: NOTICE_HTML.encode(),
-            "__enter__": lambda self: self,
+            "headers": Message(),
+            "read": lambda self, size: self.body.read(size),
+            "__enter__": lambda self: (
+                setattr(self, "body", BytesIO(NOTICE_HTML.encode())), self)[1],
             "__exit__": lambda self, *args: None,
         },
     )()
@@ -118,9 +123,10 @@ def test_collect_kwangwoon_notices_skips_missing_duids(tmp_path: Path) -> None:
         "Response",
         (),
         {
-            "headers": type("Headers", (), {"get_content_charset": lambda self: "utf-8"})(),
-            "read": lambda self: NOTICE_HTML.encode(),
-            "__enter__": lambda self: self,
+            "headers": Message(),
+            "read": lambda self, size: self.body.read(size),
+            "__enter__": lambda self: (
+                setattr(self, "body", BytesIO(NOTICE_HTML.encode())), self)[1],
             "__exit__": lambda self, *args: None,
         },
     )()

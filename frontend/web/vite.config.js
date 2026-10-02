@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       proxy: {
+        '/admin/exhibition': {
+          target: env.EXHIBITION_PROXY_TARGET || 'http://127.0.0.1:5181',
+          rewrite: (path) => path.replace(/^\/admin\/exhibition/, '') || '/',
+        },
         '/api': {
           target: env.API_PROXY_TARGET || 'http://127.0.0.1:8000',
           changeOrigin: true,

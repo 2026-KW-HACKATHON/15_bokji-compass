@@ -10,6 +10,7 @@ import {
   Screen,
 } from "../components/ui";
 import { useRuntime, useSession } from "../services/runtime";
+import { NotificationSettings } from "../features/notifications/NotificationSettings";
 
 export default function Account() {
   const { session, configError, easy } = useRuntime();
@@ -91,6 +92,7 @@ export default function Account() {
         </Card>
       )}
       {state.error ? <Notice>{state.error}</Notice> : null}
+      <NotificationSettings />
       <Details label="저장 정보 안내">
         <Copy muted>
           금융정보는 자동으로 불러오지 않습니다. 계산기에서 직접 불러오기를

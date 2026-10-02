@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyCard from '../policies/PolicyCard.jsx';
+import HomeBanner from './HomeBanner.jsx';
 export default function AssistantHome({
   profile,
   result,
@@ -9,6 +10,7 @@ export default function AssistantHome({
   onRetry,
   onProfile,
   onExplore,
+  onCalendar,
   easy,
   saved,
   onSave,
@@ -37,90 +39,95 @@ export default function AssistantHome({
   const items = easy ? result.items.slice(index, index + 3) : result.items;
   return (
     <>
-      {easy ? (
-        <section className={'comfortable-home' + (profile ? ' has-profile' : '')}>
-          <div className="comfortable-home-copy">
-            <span className="home-kicker">나를 위한 복지나침반</span>
-            <h1>{profile ? '나에게 맞는 복지 공고' : '내 상황에 맞는 복지를 찾아보세요'}</h1>
-            <p>
-              {profile
-                ? '입력한 정보를 바탕으로 추천한 공고입니다. 지원 내용과 신청 조건을 함께 비교해 보세요.'
-                : '거주 지역과 관심 분야를 선택하면 관련 공고와 추천 이유를 한곳에서 확인할 수 있습니다.'}
-            </p>
-            <div className="home-primary-action">
-              <button className={profile ? 'text-button' : 'button primary'} onClick={onProfile}>
-                {profile ? '추천에 쓰는 내 정보 수정' : '맞춤 공고 찾기'}
-                {!profile && <Icon name="arrow" size={20} />}
-              </button>
-              {!profile && <span>회원가입 없이 이용할 수 있습니다.</span>}
-            </div>
-          </div>
-          {!profile && <img className="comfortable-home-logo" src="/brand-logo.png" alt="" />}
-        </section>
-      ) : (
-        <section className={'assistant-hero' + (compact ? ' assistant-hero-compact' : '')}>
-          <div className="hero-copy">
-            {!easy && (
-              <span className="eyebrow">
-                <Icon name="sparkles" size={18} />
-                나만의 AI 복지 비서
-              </span>
-            )}
-            <h1>
-              {easy ? (
-                compact ? (
-                  '나의 복지 비서'
-                ) : (
-                  '나에게 맞는 공고 찾기'
-                )
-              ) : (
-                <>
-                  내게 맞는 복지 공고를
-                  <br />
-                  <em>AI 비서에게 추천받으세요.</em>
-                </>
-              )}
-            </h1>
-            {!compact && (
+      <HomeBanner easy={easy} onCalendar={onCalendar}>
+        {easy ? (
+          <section className={'comfortable-home' + (profile ? ' has-profile' : '')}>
+            <div className="comfortable-home-copy">
+              <span className="home-kicker">나를 위한 복지나침반</span>
+              <h1>{profile ? '나에게 맞는 복지 공고' : '내 상황에 맞는 복지를 찾아보세요'}</h1>
               <p>
+                {profile
+                  ? '입력한 정보를 바탕으로 추천한 공고입니다. 지원 내용과 신청 조건을 함께 비교해 보세요.'
+                  : '거주 지역과 관심 분야를 선택하면 관련 공고와 추천 이유를 한곳에서 확인할 수 있습니다.'}
+              </p>
+              <div className="home-primary-action">
+                <button className={profile ? 'text-button' : 'button primary'} onClick={onProfile}>
+                  {profile ? '추천에 쓰는 내 정보 수정' : '맞춤 공고 찾기'}
+                  {!profile && <Icon name="arrow" size={20} />}
+                </button>
+                {!profile && <span>회원가입 없이 이용할 수 있습니다.</span>}
+              </div>
+            </div>
+            {!profile && <img className="comfortable-home-logo" src="/brand-logo.png" alt="" />}
+          </section>
+        ) : (
+          <section className={'assistant-hero' + (compact ? ' assistant-hero-compact' : '')}>
+            <div className="hero-copy">
+              {!easy && (
+                <span className="eyebrow">
+                  <Icon name="sparkles" size={18} />
+                  나만의 AI 복지 비서
+                </span>
+              )}
+              <h1>
                 {easy ? (
-                  '사는 지역과 관심 분야를 알려주세요.'
+                  compact ? (
+                    '나의 복지 비서'
+                  ) : (
+                    '나에게 맞는 공고 찾기'
+                  )
                 ) : (
                   <>
-                    거주 지역과 관심 분야를 입력하면 <br className="desktop-break" />
-                    공고와 추천 이유를 알려드려요.
+                    내게 맞는 복지 공고를
+                    <br />
+                    <em>AI 비서에게 추천받으세요.</em>
                   </>
                 )}
-              </p>
-            )}
-            <button className={'button ' + (compact ? 'secondary' : 'primary')} onClick={onProfile}>
-              {profile ? '내 정보 수정하기' : '내 정보 입력하기'}
-              <Icon name="arrow" />
-            </button>
-          </div>
-          {!easy && (
-            <div className="assistant-intro">
-              <span className="assistant-avatar">
-                <img
-                  className="hero-brand-image"
-                  src="/brand-logo.png"
-                  alt="사람과 하트를 감싸는 복지나침반 로고"
-                />
-              </span>
-              <p className="assistant-greeting">나만의 AI 복지 비서</p>
-              <p>
-                입력한 정보를 바탕으로
-                <br />
-                <strong>공고를 추천해 드려요.</strong>
-              </p>
-              <span className="assistant-caption">
-                <Icon name="shield" size={15} />
-                신청 조건도 함께 확인하세요
-              </span>
+              </h1>
+              {!compact && (
+                <p>
+                  {easy ? (
+                    '사는 지역과 관심 분야를 알려주세요.'
+                  ) : (
+                    <>
+                      거주 지역과 관심 분야를 입력하면 <br className="desktop-break" />
+                      공고와 추천 이유를 알려드려요.
+                    </>
+                  )}
+                </p>
+              )}
+              <button
+                className={'button ' + (compact ? 'secondary' : 'primary')}
+                onClick={onProfile}
+              >
+                {profile ? '내 정보 수정하기' : '내 정보 입력하기'}
+                <Icon name="arrow" />
+              </button>
             </div>
-          )}
-        </section>
-      )}
+            {!easy && (
+              <div className="assistant-intro">
+                <span className="assistant-avatar">
+                  <img
+                    className="hero-brand-image"
+                    src="/brand-logo.png"
+                    alt="사람과 하트를 감싸는 복지나침반 로고"
+                  />
+                </span>
+                <p className="assistant-greeting">나만의 AI 복지 비서</p>
+                <p>
+                  입력한 정보를 바탕으로
+                  <br />
+                  <strong>공고를 추천해 드려요.</strong>
+                </p>
+                <span className="assistant-caption">
+                  <Icon name="shield" size={15} />
+                  신청 조건도 함께 확인하세요
+                </span>
+              </div>
+            )}
+          </section>
+        )}
+      </HomeBanner>
       {!easy && (
         <div className="journey-strip">
           <span>

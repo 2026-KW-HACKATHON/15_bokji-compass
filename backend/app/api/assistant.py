@@ -1,6 +1,8 @@
 """Member Q&A: account-scoped limits and a fresh, minimal model context per request."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import Field, field_validator
 
 from app.api.auth import Service, guard
@@ -9,6 +11,7 @@ from app.api.policies import get_repository
 from app.contracts.assistance import GuidanceProfile
 from app.contracts.parsing import StrictModel
 from app.modules.assistant import public
+from app.modules.assistant.faq import prepared_faqs
 from app.modules.llm.public import CodexRunError
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"], dependencies=[Depends(guard)])
@@ -24,6 +27,19 @@ class QuestionInput(StrictModel):
         if not value.strip():
             raise ValueError("Question is required")
         return value.strip()
+
+
+@router.get("/faqs")
+def faqs(request: Request, member: Member, revision_id: Annotated[str, Query(
+        pattern=r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$")]):
+    repository = get_repository(request)
+    record = repository.get_revision(revision_id)
+    if record is None or record["review_status"] != "published":
+        raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
+    try:
+        return prepared_faqs(record, revision_id)
+    except ValueError:
+        raise HTTPException(503, "공고의 기본 안내를 불러오지 못했어요.") from None
 
 
 @router.post("/questions")

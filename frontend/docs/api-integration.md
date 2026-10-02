@@ -14,7 +14,7 @@
 - 질문은 회원 쿠키·X-Auth-Request를 사용하며 웹 요청 70초/서버 모델 60초 제한입니다. 공고별 답변·원문 근거를 표시하고 닫을 때 제거합니다.
 - API 실패 시 예시 fallback 없음. 빈 결과, 404 준비 중, 기타 실패와 재시도 구분.
 - checkHealth() 도구 함수는 유지하지만 현재 제품 UI에서 호출하지 않음.
-- 로그인/가입은 `authApi.js`를 통해 실제 서버와 연결합니다. credentials=include, X-Auth-Request: 1, 15초 제한이며 HttpOnly 세션 쿠키를 사용합니다. 개발용 전화번호 인증번호는 화면에 표시되며 실제 SMS는 미연결입니다. [필드·오류·세션 계약](../../backend/app/modules/auth/readme.md).
+- 로그인/가입은 `authApi.js`를 통해 실제 서버와 연결합니다. credentials=include, X-Auth-Request: 1, 15초 제한이며 HttpOnly 세션 쿠키를 사용합니다. 일반 가입은 전화번호 없이 진행하고, 카카오 설정이 완료되면 실제 카카오 로그인·가입을 제공합니다. [필드·오류·세션 계약](../../backend/app/modules/auth/readme.md).
 
 ## 소득·재산 계산과 회원 저장: 구현됨
 
@@ -41,6 +41,10 @@
 선택된 금융 원자료는 기본 추천 프로필과 별도 필드로 전송하며 계산 결과를 원자료 대신 보내지 않습니다. 미래의 추천 서버는 검토된 공고 조건과 사업별 규칙을 연결해야 합니다. `/v1/recommendations` 서버와 실제 금융 맞춤 추천은 아직 없으며 호출자 확장만 완료된 상태입니다. [공고·추천 제안 계약](service-contract.md).
 
 ## 배포와 플랫폼
+
+2026-10-02 최고 관리자 공개 관리: `/v1/admin/policies`는 개정 목록, `/{revision_id}`는 검토 미리보기와 원문, `/{revision_id}/publication`은 공개/비공개 전환입니다. 웹 쿠키와 서버 최고 관리자 권한을 확인하고 POST에 현재 상태·검토 메모·X-Auth-Request를 전달합니다. 공개 성공 후 관리자 목록을 갱신하며 전체공고는 서버에서 공개 개정만 재조회합니다. 상태 충돌은 재조회, 권한 회수는 검토 화면 제거. [화면 계약](../web/src/features/auth/readme.md).
+
+2026-10-02 공유 사이트: 기존 웹 repository의 `/api/v1/policies` 요청을 Caddy가 공유 API 8001로 전달합니다. 공유 API는 `.env`의 공고 MySQL 및 암호화 회원 저장소에 연결합니다. 기존 공유 SQLite 회원은 서버를 중지한 상태에서 명시적으로 이관합니다. 연결 상태는 `/api/health/ready`, 목록은 `/api/v1/policies?limit=6&sort=recent`로 확인합니다. 정상 빈 목록은 공개 공고 0건이며 초안 공개는 별도 검토가 필요합니다. [공유 실행 설정](../web/deploy/readme.md).
 
 Vite proxy는 개발 전용입니다. 운영 /api reverse proxy 또는 HTTPS 주소+CORS 구성은 [배포 문서](deployment.md).
 현재 백엔드 CORS는 설정된 Origin에 GET/POST, credentials=true, Content-Type/X-Auth-Request 헤더를 허용합니다. 인증 쿠키는 SameSite=Lax이므로 같은 사이트의 reverse proxy를 사용합니다. 인증·개인정보 응답을 프록시에서 캐시하지 않습니다.

@@ -50,6 +50,121 @@ def register(client):
     assert response.status_code == 201, response.text
 
 
+def test_username_availability_uses_persistent_accounts_and_normalizes_case(client):
+    assert client.post("/v1/auth/username/check", json={"username": "TESTER"}).json() == {
+        "username": "tester",
+        "available": True,
+    }
+    register(client)
+    response = client.post("/v1/auth/username/check", json={"username": "TESTER"})
+    assert response.json() == {"username": "tester", "available": False}
+    assert response.headers["cache-control"] == "no-store"
+    assert client.post("/v1/auth/username/check", json={"username": "other_user"}).json()[
+        "available"
+    ]
+    assert client.post("/v1/auth/username/check", json={"username": "bad id"}).status_code == 422
+    assert (
+        client.post(
+            "/v1/auth/username/check", json={"username": "tester"}, headers={"X-Auth-Request": ""}
+        ).status_code
+        == 403
+    )
+
+
+def test_username_check_rate_limit(client):
+    for _ in range(30):
+        assert (
+            client.post("/v1/auth/username/check", json={"username": "tester"}).status_code == 200
+        )
+    assert client.post("/v1/auth/username/check", json={"username": "tester"}).status_code == 429
+
+
+def test_member_profile_update_only_changes_authenticated_account(client):
+    body = {"name": "  김복지  ", "age": 67, "gender": "female", "region": "부산"}
+    assert client.post("/v1/auth/profile", json=body).status_code == 401
+    register(client)
+    assert (
+        client.post(
+            "/v1/auth/signup", json=signup_body(username="second")
+        ).status_code
+        == 201
+    )
+    client.post("/v1/auth/login", json={"username": "tester", "password": PASSWORD})
+    service = client.app.state.auth_service
+    with service.engine.connect() as connection:
+        before = (
+            connection.execute(
+                select(accounts).where(
+                    accounts.c.username_lookup == service.cipher.lookup("tester")
+                )
+            )
+            .mappings()
+            .one()
+        )
+    response = client.post("/v1/auth/profile", json=body)
+    assert response.status_code == 200
+    user = response.json()["user"]
+    assert user == {
+        "id": before["id"],
+        "username": "tester",
+        "is_admin": False,
+        "admin_role": None,
+        "name": "김복지",
+        "age": 67,
+        "gender": "female",
+        "region": "부산",
+    }
+    assert response.headers["cache-control"] == "no-store"
+    assert client.get("/v1/auth/me").json()["user"] == user
+    # Identical saves must succeed as well as real changes.
+    assert client.post("/v1/auth/profile", json=body).status_code == 200
+    with service.engine.connect() as connection:
+        after = (
+            connection.execute(
+                select(accounts).where(
+                    accounts.c.username_lookup == service.cipher.lookup("tester")
+                )
+            )
+            .mappings()
+            .one()
+        )
+        second = (
+            connection.execute(
+                select(accounts).where(
+                    accounts.c.username_lookup == service.cipher.lookup("second")
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert after["password_hash"] == before["password_hash"] and after["phone"] is None
+    assert after["username_lookup"] == before["username_lookup"]
+    assert after["profile_ciphertext"] != before["profile_ciphertext"]
+    assert after["name"] is None and after["age"] == 0 and after["region"] == "encrypted"
+    assert "김복지" not in after["profile_ciphertext"]
+    assert service.public_account(second)["name"] == "홍길동"
+    assert service.public_account(second)["age"] == 25
+    for extra in (
+        {"account_id": second["id"]},
+        {"username": "changed"},
+        {"phone": "01022223333"},
+        {"password": PASSWORD},
+    ):
+        assert client.post("/v1/auth/profile", json={**body, **extra}).status_code == 422
+    for invalid in (
+        {"age": "67"},
+        {"age": 121},
+        {"name": " "},
+        {"gender": "invalid"},
+        {"region": "전국"},
+    ):
+        assert client.post("/v1/auth/profile", json={**body, **invalid}).status_code == 422
+    client.post("/v1/auth/logout", json={})
+    assert client.post("/v1/auth/profile", json=body).status_code == 401
+    client.post("/v1/auth/login", json={"username": "second", "password": PASSWORD})
+    assert client.get("/v1/auth/me").json()["user"]["name"] == "홍길동"
+
+
 def test_signup_login_session_logout_and_password_storage(client):
     register(client)
     assert client.post("/v1/auth/signup", json=signup_body()).status_code == 409

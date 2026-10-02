@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     db_user: str = "bokji_dev"
     db_password: SecretStr = SecretStr("")
     db_ssl_ca: str = ""
+    policy_auto_publish: bool = True
     data_go_kr_api_key: SecretStr = SecretStr("")
     bokjiro_api_key: SecretStr = SecretStr("")
     codex_executable: str = ""
@@ -43,9 +44,34 @@ class Settings(BaseSettings):
     )
     codex_timeout_seconds: int = Field(default=300, ge=10, le=1800)
     parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
+    ingestion_enabled: bool = True
+    ingestion_page_size: int = Field(default=50, ge=1, le=100)
+    ingestion_max_pages: int = Field(default=3, ge=0, le=30)
+    ingestion_max_jobs: int = Field(default=5, ge=0, le=100)
+    ingestion_max_seconds: int = Field(default=600, ge=15, le=3600)
+    ingestion_max_http_calls: int = Field(default=10, ge=0, le=100)
+    ingestion_max_response_bytes: int = Field(default=2_000_000, ge=1000, le=20_000_000)
+    ingestion_http_interval_seconds: float = Field(default=2, ge=0, le=30)
+    ingestion_max_model_calls: int = Field(default=4, ge=0, le=100)
+    ingestion_max_tokens: int = Field(default=100000, ge=0, le=1000000)
+    ingestion_daily_model_calls: int = Field(default=20, ge=0, le=1000)
+    ingestion_daily_bokjiro_calls: int = Field(default=60, ge=0, le=100000)
+    ingestion_daily_gov24_calls: int = Field(default=200, ge=0, le=100000)
+    ingestion_daily_notice_calls: int = Field(default=20, ge=0, le=10000)
+    ingestion_scan_interval_seconds: int = Field(default=86400, ge=600, le=604800)
+    ingestion_recheck_seconds: int = Field(default=86400, ge=600, le=2592000)
+    ingestion_queue_limit: int = Field(default=200, ge=1, le=10000)
+    ingestion_max_attempts: int = Field(default=3, ge=1, le=10)
+    ingestion_min_available_memory_mb: int = Field(default=512, ge=0, le=65536)
+    ingestion_min_free_disk_mb: int = Field(default=512, ge=0, le=65536)
+    ingestion_discovery_enabled: bool = False
+    ingestion_discovery_domains: list[str] = ["youth.seoul.go.kr", "www.nowon.kr"]
+    ingestion_discovery_query: str = "서울 노원구 복지 지원금 장학금 주거 지원 참여자 모집 공고"
 
     @model_validator(mode="after")
     def check_database_configuration(self) -> "Settings":
+        if self.ingestion_queue_limit < self.ingestion_page_size:
+            raise ValueError("Collection queue limit must fit at least one page")
         if any("*" in origin for origin in self.cors_origins):
             raise ValueError("Credentialed auth requires explicit CORS origins, not wildcards")
         if self.db_enabled and not all(
@@ -53,6 +79,10 @@ class Settings(BaseSettings):
         ):
             raise ValueError("DB_ENABLED requires host, database, user and password")
         return self
+
+    @property
+    def auth_uses_mysql(self) -> bool:
+        return self.db_enabled
 
 
 def load_settings() -> Settings:
