@@ -150,7 +150,7 @@ class OverviewItem(StrictModel):
 
 
 class PolicyRequirementDraft(StrictModel):
-    condition_type: Literal["age", "birth_region", "residence_region", "other"]
+    condition_type: Literal["age", "birth_region", "residence_region", "gender", "other"]
     information_state: Literal["specified", "unrestricted", "unknown", "not_stated"]
     evidence_text: str = Field(min_length=1)
 

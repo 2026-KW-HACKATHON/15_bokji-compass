@@ -158,10 +158,13 @@ def test_policy_requirements_match_legacy_table_and_require_source_evidence():
          "evidence_text": "무소득자"},
     ])
     validate_overview(valid, source())
-    with pytest.raises(ValidationError):
-        overview(policy_requirements=[{"condition_type": "gender",
-                                      "information_state": "specified",
-                                      "evidence_text": "여성"}])
+    gender_source = normalize_record({"서비스ID": "gender-test", "서비스명": "가상 정책",
+                                     "지원대상": "여성"})
+    gender = overview(policy_requirements=[
+        {"condition_type": "gender", "information_state": "specified",
+         "evidence_text": "여성"},
+    ])
+    validate_overview(gender, gender_source)
     with pytest.raises(ValueError, match="evidence"):
         validate_overview(overview(policy_requirements=[
             {"condition_type": "other", "information_state": "specified",
@@ -308,7 +311,8 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
     assert "전국 대상(지역 제한 없음)" in captured["prompt"]
     assert "지역 표현은 region_conditions에만 두고" in captured["prompt"]
     assert "policy_requirements 테이블 행에 대응" in captured["prompt"]
-    assert "성별은 DB 스키마에 전용 타입이 없으므로 other" in captured["prompt"]
+    assert "공고의 성별 자격 조건은 gender" in captured["prompt"]
+    assert "ENUM('age','birth_region','residence_region','gender','other')" in captured["prompt"]
 
 
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):
