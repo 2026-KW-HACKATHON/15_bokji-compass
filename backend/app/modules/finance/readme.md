@@ -60,7 +60,7 @@ result = calculate(profile)
 
 ## DB 초기화
 
-개발·테스트에서 `DB_ENABLED=false`이면 기존 인증 SQLite 파일을 사용합니다. 로그인된 회원의 첫 금융정보 요청에서 금융 테이블만 추가합니다. 비회원 계산은 이 경로를 호출하지 않습니다.
+APP_ENV=test인 격리 테스트에서만 `DB_ENABLED=false`의 인증 SQLite 파일을 사용합니다. 개발·운영 회원 저장은 MySQL입니다. 로그인된 회원의 첫 금융정보 요청에서 금융 테이블만 추가합니다. 비회원 계산은 이 경로를 호출하지 않습니다.
 
 `DB_ENABLED=true`의 MySQL은 HTTP 요청에서 자동 초기화하지 않습니다. 설정한 DB를 확인한 뒤 backend 폴더에서 명시적으로 실행합니다.
 
@@ -71,7 +71,7 @@ result = calculate(profile)
 .venv/bin/python -m app.modules.finance
 ```
 
-이 명령은 기존 인증 초기화와 금융 테이블 추가를 수행합니다. 기존 데이터·정책 테이블·001 SQL의 초안 `users/user_profiles`를 삭제하거나 이관하지 않습니다. 금융 스키마의 `create_all`은 이미 존재하는 테이블 구조를 바꾸지 않으며, 금융 테이블 변경·저장 원입력 버전 이관을 위한 마이그레이션 체계는 미구현입니다. 운영 환경의 SQLite 인증은 기존 인증 규칙에 따라 차단됩니다. 금융 저장소의 실제 MySQL 실행 검증은 아직 하지 않았습니다.
+이 명령은 기존 인증 초기화와 금융 테이블 추가를 수행합니다. 기존 데이터·정책 테이블·001 SQL의 초안 `users/user_profiles`를 삭제하거나 이관하지 않습니다. 금융 스키마의 `create_all`은 이미 존재하는 테이블 구조를 바꾸지 않으며, 금융 테이블 변경·저장 원입력 버전 이관을 위한 마이그레이션 체계는 미구현입니다. 운영 환경의 SQLite 인증은 기존 인증 규칙에 따라 차단됩니다. 회원·금융 원입력 암호화 및 실제 MySQL 저장 검증은 [보안 저장 문서](../../../docs/member-privacy.md)를 참고합니다.
 
 ## 검증·후속 작업
 
@@ -79,4 +79,8 @@ result = calculate(profile)
 - `tests/test_finance_api.py`: 비회원 무저장, 회원 격리·동의·세션·삭제, 재계산·재시작 보존, 민감 오류, MySQL 모드의 자동 초기화 차단. DB 검증은 격리 SQLite를 사용합니다.
 - `tests/test_bootstrap.py`: 생성 OpenAPI 경로와 기존 앱 조립 계약.
 
-소득·차량 입력 기준 보완 후 금융 산식·API 두 파일에서 82개 통과를 확인했습니다. 전체 백엔드 및 후속 공고 계약 보완 결과는 [작업 기록](../../../docs/worklog.md)에 별도로 기록합니다. 실제 MySQL 금융 저장, 승인된 정책 저장소 연결, 추가 사업·연도·특수 공제는 후속 범위입니다.
+소득·차량 입력 기준 보완 후 금융 산식·API 두 파일에서 82개 통과를 확인했습니다. 전체 백엔드 및 후속 공고 계약 보완 결과는 [작업 기록](../../../docs/worklog.md)에 별도로 기록합니다. 실제 MySQL 금융 암호화 저장은 구현·검증했습니다. 승인된 정책 저장소 연결, 추가 사업·연도·특수 공제는 후속 범위입니다.
+
+## 저장 암호화
+
+FinancialProfileStore(engine, cipher)는 계정별 금융 JSON을 AES-256-GCM으로 암호화한 문자열로 profile_json에 저장합니다. read(account_id)는 서버에서 복호화·모델 검증한 StoredFinancialProfile 또는 None을 반환하고, save(account_id, profile)는 저장값과 갱신 시각을 반환합니다. delete(account_id)는 해당 계정의 저장값만 삭제합니다. 잘못된 키·암호문·다른 계정의 암호문은 PrivacyError이며 API는 원입력을 노출하지 않는 503을 반환합니다. 초기화 명령은 기존 평문 금융 데이터도 암호화합니다. [키·이관·실제 MySQL 검증](../../../docs/member-privacy.md).

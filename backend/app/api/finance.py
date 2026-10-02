@@ -34,7 +34,7 @@ def get_member_store(request: Request, service: Service, user: Member):
         if state.finance_store is None:
             if not state.settings.db_enabled and state.settings.app_env in {"development", "test"}:
                 initialize_finance_schema(service.engine)
-            state.finance_store = FinancialProfileStore(service.engine)
+            state.finance_store = FinancialProfileStore(service.engine, service.cipher)
     return user["id"], state.finance_store
 
 

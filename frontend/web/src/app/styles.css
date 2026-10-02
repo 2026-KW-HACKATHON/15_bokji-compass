@@ -2238,3 +2238,31 @@ html[data-easy='true'] *::after {
     font-size: 0.8rem;
   }
 }
+
+.kakao-login-section {
+  margin: 1.5rem 0;
+}
+.kakao-login-button {
+  background: #fee500;
+  color: #191919;
+  border: 1px solid #fee500;
+  gap: 0.6rem;
+  min-height: 48px;
+}
+.kakao-login-button:hover:not(:disabled) {
+  background: #f4dc00;
+  color: #191919;
+}
+.kakao-login-button:focus-visible {
+  outline: 3px solid #191919;
+  outline-offset: 3px;
+}
+.kakao-login-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.auth-divider {
+  text-align: center;
+  margin: 1rem 0;
+  color: #555;
+}

@@ -9,8 +9,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
+from app.modules.auth.migration import migrate_private_data, verify_lookup_key
+from app.modules.auth.privacy import PrivacyCipher
 from app.modules.auth.schema import initialize_auth_schema
-from app.modules.auth.service import SESSION_SECONDS, AuthService, DevelopmentSmsSender
+from app.modules.auth.service import SESSION_SECONDS, AuthService
 
 COOKIE = "bokji_session"
 REGIONS = {
@@ -49,8 +51,9 @@ def get_service(request: Request):
         raise HTTPException(503, "인증 서비스가 비활성화되어 있어요.")
     with state.auth_lock:
         if state.auth_service is None:
-            if settings.app_env == "production" and not settings.db_enabled:
-                raise HTTPException(503, "운영 인증 데이터베이스 설정이 필요해요.")
+            if settings.app_env != "test" and not settings.db_enabled:
+                raise HTTPException(503, "회원 저장을 위한 MySQL 데이터베이스 설정이 필요해요.")
+            cipher = PrivacyCipher(settings)
             if settings.db_enabled:
                 engine = state.database_engine
             else:
@@ -64,38 +67,18 @@ def get_service(request: Request):
                 )
                 try:
                     initialize_auth_schema(engine)
+                    migrate_private_data(engine, cipher)
                 except Exception:
                     engine.dispose()
                     raise
                 state.auth_engine = engine
-            development = settings.app_env in {"development", "test"}
-            dev_sms = development and settings.auth_sms_mode == "development"
-            state.auth_service = AuthService(
-                engine,
-                development_sms=dev_sms,
-                sender=DevelopmentSmsSender() if dev_sms else None,
-            )
+            with engine.connect() as connection:
+                verify_lookup_key(connection, cipher)
+            state.auth_service = AuthService(engine, cipher)
     return state.auth_service
 
 
 Service = Annotated[AuthService, Depends(get_service)]
-
-
-class PhoneInput(BaseModel):
-    phone: str = Field(min_length=10, max_length=20)
-
-    @field_validator("phone")
-    @classmethod
-    def normalize_phone(cls, value):
-        value = re.sub(r"[\s-]", "", value)
-        if not re.fullmatch(r"010[0-9]{8}", value):
-            raise ValueError("010으로 시작하는 휴대전화 번호를 입력해 주세요.")
-        return value
-
-
-class VerifyInput(PhoneInput):
-    challenge_id: str = Field(min_length=20, max_length=64)
-    code: str = Field(pattern=r"^[0-9]{6}$")
 
 
 class LoginInput(BaseModel):
@@ -108,13 +91,12 @@ class LoginInput(BaseModel):
         return value.lower()
 
 
-class SignupInput(LoginInput, PhoneInput):
+class ProfileInput(BaseModel):
+    model_config = {"extra": "forbid"}
     name: str = Field(min_length=1, max_length=50)
-    confirm_password: SecretStr = Field(min_length=8, max_length=128)
     age: int = Field(strict=True, ge=0, le=120)
     gender: Literal["male", "female", "other", "undisclosed"]
     region: str = Field(max_length=32)
-    verification_token: str = Field(min_length=20, max_length=64)
 
     @field_validator("name")
     @classmethod
@@ -131,6 +113,10 @@ class SignupInput(LoginInput, PhoneInput):
             raise ValueError("거주 지역을 선택해 주세요.")
         return value
 
+
+class SignupInput(LoginInput, ProfileInput):
+    confirm_password: SecretStr = Field(min_length=8, max_length=128)
+
     @model_validator(mode="after")
     def matching_passwords(self):
         password = self.password.get_secret_value()
@@ -144,16 +130,6 @@ class SignupInput(LoginInput, PhoneInput):
 def ip(request: Request):
     # Do not trust arbitrary X-Forwarded-For; configure trusted proxies in the ASGI server.
     return request.client.host if request.client else "unknown"
-
-
-@router.post("/phone/request")
-def request_code(data: PhoneInput, request: Request, service: Service):
-    return service.request_code(data.phone, ip(request))
-
-
-@router.post("/phone/verify")
-def verify_code(data: VerifyInput, request: Request, service: Service):
-    return service.verify_code(data.challenge_id, data.phone, data.code, ip(request))
 
 
 @router.post("/signup", status_code=201)

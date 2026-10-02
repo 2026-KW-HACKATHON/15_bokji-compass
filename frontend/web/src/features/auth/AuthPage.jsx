@@ -4,7 +4,7 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { regions } from '../policies/policyModel.js';
 import { authRequest } from './authApi.js';
 
-const steps = ['계정 만들기', '기본 정보', '전화번호 인증'];
+const steps = ['계정 만들기', '기본 정보'];
 const initialFields = {
   username: '',
   password: '',
@@ -20,48 +20,81 @@ export default function AuthPage({ type, onLogin, easy = false }) {
   const [fields, setFields] = useState(initialFields);
   const [step, setStep] = useState(0);
   const [visiblePasswords, setVisiblePasswords] = useState({});
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [challenge, setChallenge] = useState(null);
-  const [proof, setProof] = useState(null);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [invalidField, setInvalidField] = useState('');
   const [complete, setComplete] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const [retryAt, setRetryAt] = useState(0);
   const errorRef = useRef(null);
   const headings = useRef([]);
-  const codeRef = useRef(null);
   const formRef = useRef(null);
   const completeRef = useRef(null);
   useEffect(() => {
-    if (!signup) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [signup]);
-  useEffect(() => {
     if (complete) completeRef.current?.focus();
   }, [complete]);
-  const verified = Boolean(proof && proof.expiresAt > now);
-  const codeActive = Boolean(challenge && challenge.expiresAt > now);
-  const retrySeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
-  const secondsLeft = Math.max(
-    0,
-    Math.ceil(((proof?.expiresAt || challenge?.expiresAt || 0) - now) / 1000),
-  );
-  const normalizedPhone = phone.replace(/[\s-]/g, '');
+  useEffect(() => {
+    if (!error || busy) return;
+    const frame = requestAnimationFrame(() => {
+      errorRef.current?.focus();
+      errorRef.current?.scrollIntoView({ block: 'nearest' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [error, busy]);
+  const kakaoComplete =
+    signup && new URLSearchParams(window.location.hash.split('?')[1]).get('kakao') === 'complete';
+  const [kakaoEnabled, setKakaoEnabled] = useState(null);
+  const [pendingReady, setPendingReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    authRequest('kakao/status')
+      .then((result) => {
+        if (active) setKakaoEnabled(result.enabled);
+      })
+      .catch(() => {
+        if (active) setKakaoEnabled(false);
+      });
+    const outcome = new URLSearchParams(window.location.hash.split('?')[1]).get('kakao');
+    if (kakaoComplete) {
+      setStep(1);
+      authRequest('kakao/pending')
+        .then((result) => {
+          if (active) {
+            setFields((current) => ({ ...current, name: result.name }));
+            setPendingReady(true);
+          }
+        })
+        .catch((err) => {
+          if (active) setError(err.message);
+        });
+    } else if (outcome) {
+      setError(
+        outcome === 'cancelled'
+          ? '카카오 로그인을 취소했어요. 다시 시도할 수 있어요.'
+          : outcome === 'expired'
+            ? '로그인 요청이 만료됐어요. 카카오 로그인을 다시 눌러 주세요.'
+            : '카카오 로그인에 연결하지 못했어요. 다시 시도해 주세요.',
+      );
+    }
+    return () => {
+      active = false;
+    };
+  }, [kakaoComplete]);
+
+  function startKakao() {
+    run('kakao', async () => {
+      const result = await authRequest('kakao/start', {});
+      const url = new URL(result.authorization_url);
+      if (url.origin !== 'https://kauth.kakao.com' || url.pathname !== '/oauth/authorize')
+        throw new Error('카카오 로그인 주소를 확인하지 못했어요.');
+      window.location.assign(url.href);
+    });
+  }
 
   function showError(text, field = '', section = step) {
     setError(text);
     setInvalidField(field);
     setMessage('');
     if (signup && easy) setStep(section);
-    requestAnimationFrame(() => {
-      errorRef.current?.focus();
-      errorRef.current?.scrollIntoView({ block: 'nearest' });
-    });
   }
   function moveStep(next) {
     setStep(next);
@@ -122,8 +155,6 @@ export default function AuthPage({ type, onLogin, easy = false }) {
       if (!regions.filter((region) => region !== '전국').includes(fields.region))
         return ['거주 지역을 선택해 주세요.', 'region'];
     }
-    if (section === 2 && !/^010[0-9]{8}$/.test(normalizedPhone))
-      return ['010으로 시작하는 휴대전화 번호 11자리를 입력해 주세요.', 'phone'];
     return null;
   }
   async function run(action, callback) {
@@ -140,87 +171,37 @@ export default function AuthPage({ type, onLogin, easy = false }) {
       setBusy('');
     }
   }
-  function requestCode() {
-    setStep(2);
-    const issue = validate(2);
-    if (issue) {
-      showError(...issue, 2);
-      return;
-    }
-    run('request', async () => {
-      setProof(null);
-      setChallenge(null);
-      setCode('');
-      const result = await authRequest('phone/request', { phone: normalizedPhone });
-      setChallenge({ ...result, expiresAt: Date.now() + result.expires_in * 1000 });
-      setRetryAt(Date.now() + result.retry_after * 1000);
-      setNow(Date.now());
-      setMessage(
-        result.development_code
-          ? '시험용 인증번호를 아래에서 확인해 주세요. 실제 문자는 발송되지 않습니다.'
-          : '문자로 받은 인증번호를 입력해 주세요.',
-      );
-      requestAnimationFrame(() => codeRef.current?.focus());
-    });
-  }
-  function verifyCode() {
-    setStep(2);
-    if (!codeActive) {
-      showError('인증 시간이 지났습니다. 인증번호를 다시 받아 주세요.', 'code', 2);
-      return;
-    }
-    if (!/^[0-9]{6}$/.test(code)) {
-      showError('인증번호 6자리를 입력해 주세요.', 'code', 2);
-      return;
-    }
-    run('verify', async () => {
-      const result = await authRequest('phone/verify', {
-        phone: normalizedPhone,
-        challenge_id: challenge.challenge_id,
-        code,
-      });
-      setProof({
-        token: result.verification_token,
-        expiresAt: Date.now() + result.expires_in * 1000,
-      });
-      setNow(Date.now());
-      setCode('');
-      setMessage('전화번호를 확인했습니다. 5분 안에 회원가입 버튼을 눌러 주세요.');
-      requestAnimationFrame(() => formRef.current?.querySelector('[data-auth-submit]')?.focus());
-    });
-  }
   function submit(event) {
     event.preventDefault();
     if (busy) return;
-    if (signup && easy && step < 2) {
+    if (signup && !kakaoComplete && easy && step < 1) {
       const issue = validate(step);
       if (issue) showError(...issue, step);
       else moveStep(step + 1);
       return;
     }
-    for (const section of signup ? [0, 1, 2] : [0]) {
+    for (const section of kakaoComplete ? [1] : signup ? [0, 1] : [0]) {
       const issue = validate(section);
       if (issue) {
         showError(...issue, section);
         return;
       }
     }
-    if (signup && !verified) {
-      showError('전화번호 인증을 먼저 완료해 주세요.', 'phone', 2);
-      return;
-    }
     run('submit', async () => {
-      if (signup) {
+      if (kakaoComplete) {
+        const result = await authRequest('kakao/complete', {
+          name: fields.name,
+          age: Number(fields.age),
+          gender: fields.gender,
+          region: fields.region,
+        });
+        onLogin(result.user);
+      } else if (signup) {
         const result = await authRequest('signup', {
           ...fields,
           age: Number(fields.age),
-          phone: normalizedPhone,
-          verification_token: proof.token,
         });
         setComplete(true);
-        setProof(null);
-        setChallenge(null);
-        setPhone('');
         setFields(initialFields);
         setMessage(result.message);
       } else {
@@ -306,9 +287,42 @@ export default function AuthPage({ type, onLogin, easy = false }) {
         <h1>{signup ? '회원가입' : '로그인'}</h1>
         <p>
           {signup
-            ? '계정 정보와 전화번호를 확인하면 가입이 완료됩니다.'
+            ? kakaoComplete
+              ? '카카오 인증이 완료됐어요. 복지 안내에 필요한 기본 정보를 입력해 주세요.'
+              : '계정 정보와 기본 정보를 입력해 주세요.'
             : '아이디와 비밀번호를 입력해 주세요.'}
         </p>
+        {!complete && (
+          <div className="kakao-login-section">
+            <button
+              type="button"
+              className="button full kakao-login-button"
+              onClick={startKakao}
+              disabled={Boolean(busy) || !kakaoEnabled}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M12 3C6.5 3 2 6.5 2 10.8c0 2.8 1.9 5.3 4.7 6.7l-1 3.5c-.1.4.3.6.6.4l4.2-2.8 1.5.1c5.5 0 10-3.5 10-7.9S17.5 3 12 3Z"
+                />
+              </svg>
+              {busy === 'kakao'
+                ? '카카오로 이동 중…'
+                : kakaoComplete
+                  ? '다른 카카오 계정으로 로그인'
+                  : '카카오 로그인'}
+            </button>
+            {kakaoEnabled === false && (
+              <p className="auth-field-hint">
+                카카오 로그인을 준비 중이에요. 아이디로 가입하거나 로그인할 수 있어요.
+              </p>
+            )}
+            {kakaoEnabled === null && <p role="status">로그인 방법을 확인하고 있어요…</p>}
+            {!kakaoComplete && (
+              <p className="auth-divider">또는 아이디로 {signup ? '가입' : '로그인'}</p>
+            )}
+          </div>
+        )}
         {complete ? (
           <div ref={completeRef} tabIndex={-1}>
             <p role="status" className="notice-box">
@@ -325,7 +339,7 @@ export default function AuthPage({ type, onLogin, easy = false }) {
             noValidate
             aria-label={signup ? '회원가입 정보' : '로그인 정보'}
           >
-            {signup && easy && (
+            {signup && easy && !kakaoComplete && (
               <ol className="auth-progress" aria-label="회원가입 단계">
                 {steps.map((label, index) => (
                   <li
@@ -349,13 +363,11 @@ export default function AuthPage({ type, onLogin, easy = false }) {
               )}
               {busy && (
                 <p role="status">
-                  {busy === 'request'
-                    ? '인증번호를 보내는 중입니다…'
-                    : busy === 'verify'
-                      ? '인증번호를 확인하는 중입니다…'
-                      : signup
-                        ? '가입하는 중입니다…'
-                        : '로그인하는 중입니다…'}
+                  {busy === 'kakao'
+                    ? '카카오로 이동 중입니다…'
+                    : signup
+                      ? '가입하는 중입니다…'
+                      : '로그인하는 중입니다…'}
                 </p>
               )}
               {message && (
@@ -367,7 +379,7 @@ export default function AuthPage({ type, onLogin, easy = false }) {
             <fieldset disabled={Boolean(busy)} className="auth-fields">
               <section
                 className="auth-section"
-                hidden={signup && easy && step !== 0}
+                hidden={kakaoComplete || (signup && easy && step !== 0)}
                 aria-labelledby={signup ? 'auth-step-0' : undefined}
               >
                 {signup && sectionHeading(0, '로그인할 때 사용할 아이디와 비밀번호를 정해 주세요.')}
@@ -459,112 +471,10 @@ export default function AuthPage({ type, onLogin, easy = false }) {
                         ))}
                     </select>
                   </section>
-                  <section
-                    className="auth-section"
-                    hidden={easy && step !== 2}
-                    aria-labelledby="auth-step-2"
-                  >
-                    {sectionHeading(2, '휴대전화로 받은 인증번호를 입력해 주세요.')}
-                    <label className="field-label" htmlFor="auth-phone">
-                      전화번호
-                    </label>
-                    <input
-                      id="auth-phone"
-                      type="tel"
-                      name="phone"
-                      autoComplete="tel-national"
-                      required
-                      maxLength={20}
-                      placeholder="010-1234-5678"
-                      value={phone}
-                      aria-invalid={invalidField === 'phone' || undefined}
-                      aria-describedby={invalidField === 'phone' ? 'auth-error' : undefined}
-                      onChange={(event) => {
-                        setPhone(event.target.value);
-                        setChallenge(null);
-                        setProof(null);
-                        setCode('');
-                        setMessage('');
-                        setError('');
-                        setInvalidField('');
-                      }}
-                    />
-                    <div className="auth-phone-actions">
-                      <button
-                        className="button secondary full"
-                        type="button"
-                        onClick={requestCode}
-                        disabled={retrySeconds > 0 || verified}
-                      >
-                        {verified
-                          ? '전화번호 인증 완료'
-                          : retrySeconds > 0
-                            ? retrySeconds + '초 후 다시 받기'
-                            : challenge
-                              ? '인증번호 다시 받기'
-                              : '인증번호 받기'}
-                      </button>
-                    </div>
-                    {challenge && !verified && (
-                      <div className="auth-verification">
-                        {challenge.development_code && (
-                          <p className="notice-box">
-                            개발용 인증번호: <strong>{challenge.development_code}</strong>
-                            <br />
-                            실제 문자는 발송되지 않습니다.
-                          </p>
-                        )}
-                        <label className="field-label" htmlFor="auth-code">
-                          문자 인증번호
-                        </label>
-                        <input
-                          ref={codeRef}
-                          id="auth-code"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          value={code}
-                          onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-                          placeholder="6자리 인증번호"
-                          aria-invalid={invalidField === 'code' || undefined}
-                          aria-describedby={invalidField === 'code' ? 'auth-error' : undefined}
-                        />
-                        <button
-                          className="button secondary full"
-                          type="button"
-                          onClick={verifyCode}
-                          disabled={!codeActive || code.length !== 6}
-                        >
-                          인증번호 확인
-                        </button>
-                      </div>
-                    )}
-                    {verified && (
-                      <p className="auth-verified">
-                        <Icon name="check" size={20} /> 전화번호를 확인했습니다.
-                      </p>
-                    )}
-                    {challenge && (
-                      <p className="auth-timer">
-                        {secondsLeft > 0
-                          ? (verified ? '가입 완료까지 ' : '인증번호 입력까지 ') +
-                            Math.floor(secondsLeft / 60) +
-                            '분 ' +
-                            (secondsLeft % 60) +
-                            '초 남았습니다.'
-                          : '인증 시간이 지났습니다. 인증번호를 다시 받아 주세요.'}
-                      </p>
-                    )}
-                    {!verified && (
-                      <small className="auth-field-hint">
-                        전화번호 인증을 마치면 회원가입 버튼을 누를 수 있습니다.
-                      </small>
-                    )}
-                  </section>
                 </>
               )}
               <div className="auth-step-actions">
-                {signup && easy && step > 0 && (
+                {signup && !kakaoComplete && easy && step > 0 && (
                   <button
                     className="button secondary"
                     type="button"
@@ -577,11 +487,11 @@ export default function AuthPage({ type, onLogin, easy = false }) {
                   className="button primary full"
                   type="submit"
                   data-auth-submit
-                  disabled={signup && (!easy || step === 2) && !verified}
+                  disabled={kakaoComplete && !pendingReady}
                 >
                   {busy === 'submit'
                     ? '처리 중…'
-                    : signup && easy && step < 2
+                    : signup && !kakaoComplete && easy && step < 1
                       ? '다음'
                       : signup
                         ? '회원가입'

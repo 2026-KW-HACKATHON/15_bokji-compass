@@ -15,10 +15,12 @@ from app.api.auth import database_error_handler
 from app.api.auth import router as auth_router
 from app.api.finance import router as finance_router
 from app.api.health import router
+from app.api.kakao_auth import router as kakao_auth_router
 from app.api.mobile_auth import router as mobile_auth_router
 from app.api.policies import router as policies_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_database_engine
+from app.modules.auth.privacy import PrivacyError
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -54,12 +56,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type", "X-Auth-Request", "Authorization"],
     )
 
+    @application.exception_handler(PrivacyError)
+    async def safe_privacy_error(request, exc):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "회원 정보 보안 설정 및 데이터 이관 상태를 확인해 주세요."},
+            headers={"Cache-Control": "no-store"},
+        )
+
     @application.exception_handler(SQLAlchemyError)
     async def safe_database_error(request, exc):
         if request.url.path.startswith(("/v1/policies", "/v1/assistant/")):
-            return JSONResponse(status_code=503, content={
-                "detail": "공고 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
-            }, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "공고 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/finance/"):
             return JSONResponse(
                 status_code=503,
@@ -73,9 +87,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
         if request.url.path.startswith("/v1/assistant/"):
-            return JSONResponse(status_code=422, content={
-                "detail": "공고와 질문의 입력 형식을 확인해 주세요.",
-            }, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "공고와 질문의 입력 형식을 확인해 주세요.",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/finance/"):
             return JSONResponse(
                 status_code=422,
@@ -96,13 +114,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.middleware("http")
     async def private_auth_response(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(("/v1/auth/", "/v1/mobile/auth/", "/v1/finance/",
-                                        "/v1/assistant/", "/v1/policies")):
+        if request.url.path.startswith(
+            ("/v1/auth/", "/v1/mobile/auth/", "/v1/finance/", "/v1/assistant/", "/v1/policies")
+        ):
             response.headers["Cache-Control"] = "no-store"
         return response
 
     application.include_router(router)
     application.include_router(auth_router)
+    application.include_router(kakao_auth_router)
     application.include_router(mobile_auth_router)
     application.include_router(finance_router)
     application.include_router(policies_router)

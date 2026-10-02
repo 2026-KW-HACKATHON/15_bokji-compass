@@ -18,7 +18,13 @@ class Settings(BaseSettings):
     server_port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = []
     auth_enabled: bool = True
-    auth_sms_mode: Literal["development", "disabled"] = "development"
+    auth_encryption_keys: SecretStr = SecretStr("{}")
+    auth_encryption_key_id: str = "primary"
+    auth_lookup_key: SecretStr = SecretStr("")
+    kakao_client_id: str = ""
+    kakao_client_secret: SecretStr = SecretStr("")
+    kakao_redirect_uri: str = ""
+    kakao_web_url: str = ""
     auth_sqlite_path: Path = Path("data/auth.sqlite3")
     db_enabled: bool = False
     db_host: str = "127.0.0.1"
