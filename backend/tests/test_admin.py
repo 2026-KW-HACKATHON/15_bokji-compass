@@ -8,9 +8,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.modules.admin.access import admin_grants
 from app.modules.admin.provision import create_operator
-from app.modules.auth.migration import migrate_private_data
 from app.modules.auth.models import accounts, sessions
-from app.modules.auth.privacy import PrivacyCipher
 from app.modules.auth.schema import initialize_auth_schema
 
 
@@ -19,12 +17,12 @@ def admin_client(tmp_path):
     db = tmp_path / "auth.sqlite3"
     engine = create_engine("sqlite:///" + db.as_posix())
     settings = Settings(_env_file=None, app_env="test", db_enabled=False, auth_sqlite_path=db)
-    cipher = PrivacyCipher(settings)
     initialize_auth_schema(engine)
-    migrate_private_data(engine, cipher)
     account_id = create_operator(
-        engine, "bokji_admin", "PrivateTestPassword42!",
-        cipher=cipher, role="superadmin",
+        engine,
+        "bokji_admin",
+        "PrivateTestPassword42!",
+        role="superadmin",
     )
     app = create_app(settings)
     with TestClient(app, headers={"X-Auth-Request": "1"}) as client:
@@ -87,22 +85,18 @@ def test_operator_creation_hashes_password_has_no_real_phone_and_never_takes_ove
     admin_client,
 ):
     client, engine, account_id = admin_client
-    cipher = PrivacyCipher(client.app.state.settings)
     with engine.connect() as connection:
         row = (
             connection.execute(select(accounts).where(accounts.c.id == account_id)).mappings().one()
         )
     assert row["password_hash"] != "PrivateTestPassword42!"
     assert row["phone"] is None
-    assert row["username"] != "bokji_admin"
-    assert row["username_lookup"] == cipher.lookup("bokji_admin")
-    profile = cipher.decrypt_json(row["profile_ciphertext"], "account:" + account_id)
-    assert profile["username"] == "bokji_admin"
-    assert profile["phone"] is None
+    assert row["username"] == "bokji_admin"
+    assert row["username_lookup"] is None and row["profile_ciphertext"] is None
     with pytest.raises(ValueError, match="이미 존재"):
-        create_operator(engine, "bokji_admin", "DifferentPassword42!", cipher=cipher)
+        create_operator(engine, "bokji_admin", "DifferentPassword42!")
     with pytest.raises(ValueError):
-        create_operator(engine, "another_admin", "short", cipher=cipher)
+        create_operator(engine, "another_admin", "short")
 
 
 def test_superadmin_creates_only_qr_admin_and_subordinate_cannot_escalate(admin_client):
@@ -146,10 +140,7 @@ def test_superadmin_creates_only_qr_admin_and_subordinate_cannot_escalate(admin_
         connection.execute(
             delete(admin_grants).where(
                 admin_grants.c.account_id.in_(
-                    select(accounts.c.id).where(
-                        accounts.c.username_lookup
-                        == client.app.state.auth_service.cipher.lookup("qr_helper")
-                    )
+                    select(accounts.c.id).where(accounts.c.username == "qr_helper")
                 )
             )
         )

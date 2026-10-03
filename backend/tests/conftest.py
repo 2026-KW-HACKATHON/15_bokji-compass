@@ -20,18 +20,7 @@ def offline_pipeline_models(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def test_privacy_keys(monkeypatch):
-    import base64
-    import json
-
-    # Synthetic test-only keys; production has no implicit key or plaintext fallback.
-    monkeypatch.setenv(
-        "AUTH_ENCRYPTION_KEYS",
-        json.dumps(
-            {
-                "primary": base64.urlsafe_b64encode(b"e" * 32).decode(),
-            }
-        ),
-    )
-    monkeypatch.setenv("AUTH_ENCRYPTION_KEY_ID", "primary")
-    monkeypatch.setenv("AUTH_LOOKUP_KEY", base64.urlsafe_b64encode(b"l" * 32).decode())
+def no_member_encryption_keys(monkeypatch):
+    # Normal logins must work without any member encryption/HMAC secrets.
+    for key in ("AUTH_ENCRYPTION_KEYS", "AUTH_ENCRYPTION_KEY_ID", "AUTH_LOOKUP_KEY"):
+        monkeypatch.delenv(key, raising=False)

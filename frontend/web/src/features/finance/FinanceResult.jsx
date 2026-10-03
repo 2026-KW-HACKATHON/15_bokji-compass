@@ -8,6 +8,53 @@ export default function ResultView({ calculation, onRecommend, easy }) {
       <p className="finance-reference">
         {calculation.reference_year}년 공식 기준을 참고한 결과입니다.
       </p>
+      <section className="finance-result-guide" aria-labelledby="finance-result-guide-title">
+        <h3 id="finance-result-guide-title">결과에 나오는 용어를 먼저 알아보세요</h3>
+        <dl>
+          <div>
+            <dt>월 소득 합계</dt>
+            <dd>입력한 가구원들의 한 달 소득을 모두 더한 금액이에요.</dd>
+          </div>
+          <div>
+            <dt>기준 중위소득</dt>
+            <dd>
+              가구들의 소득 중 중간에 해당하는 금액을 바탕으로 정부가 정한 소득 기준이에요. 가구원
+              수에 따라 기준 금액이 달라요.
+            </dd>
+          </div>
+          <div>
+            <dt>기준 중위소득 대비</dt>
+            <dd>
+              우리 가구의 월 소득이 같은 인원수의 기준 금액에 비해 어느 정도인지 나타내요. 50%라면
+              기준 금액의 절반이라는 뜻이에요.
+            </dd>
+          </div>
+          <div>
+            <dt>소득인정액</dt>
+            <dd>
+              사업에서 정한 금액을 소득에서 빼고, 재산을 월 소득으로 바꿔 계산한 금액을 더한
+              값이에요. 월 소득 합계와는 다른 금액이에요.
+            </dd>
+          </div>
+          <div>
+            <dt>계산값과 기준</dt>
+            <dd>
+              계산값은 입력한 정보로 계산한 금액, 기준은 해당 사업이 정한 비교 금액이에요. 사업마다
+              소득과 재산을 비교하는 기준이 달라요.
+            </dd>
+          </div>
+          <div>
+            <dt>확인 필요</dt>
+            <dd>
+              정보가 부족하거나 적용 기준을 더 확인해야 한다는 뜻이에요. 0원이라는 뜻은 아니에요.
+            </dd>
+          </div>
+        </dl>
+        <p className="finance-help">
+          중위소득 비율은 입력한 월 소득의 단순 비교입니다. 사업별 소득인정액이나 최종 신청 자격과
+          다릅니다.
+        </p>
+      </section>
       <div className="finance-result-summary">
         <div>
           <span>월 소득 합계</span>
@@ -20,12 +67,12 @@ export default function ResultView({ calculation, onRecommend, easy }) {
           </strong>
         </div>
       </div>
-      <p className="finance-help">
-        중위소득 비율은 입력한 월 소득의 단순 비교입니다. 사업별 소득인정액이나 최종 신청 자격과
-        다릅니다.
-      </p>
       <details className="finance-details">
         <summary>중위소득 금액과 재산 합계 보기</summary>
+        <p className="finance-help">
+          재산 합계는 입력한 재산을 더한 금액입니다. 차량을 포함했는지, 부채를 뺐는지를 각 항목명에
+          표시합니다. 사업별 인정 범위와 공제는 아래 결과에서 확인하세요.
+        </p>
         <dl className="finance-facts">
           <div>
             <dt>가구 기준 중위소득 100%</dt>
@@ -60,9 +107,6 @@ export default function ResultView({ calculation, onRecommend, easy }) {
             <dd>{formatMoney(calculation.assets.net_total)}</dd>
           </div>
         </dl>
-        <p className="finance-help">
-          위 합계는 입력값을 정리한 것입니다. 사업별 인정 범위와 공제는 아래 결과에서 확인하세요.
-        </p>
       </details>
       {calculation.assessments.map((assessment) => (
         <article className="finance-assessment" key={assessment.rule_id}>

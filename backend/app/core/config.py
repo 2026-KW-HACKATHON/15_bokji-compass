@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     server_port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = []
     auth_enabled: bool = True
+    # Used only by explicit restoration of older encrypted databases.
     auth_encryption_keys: SecretStr = SecretStr("{}")
     auth_encryption_key_id: str = "primary"
     auth_lookup_key: SecretStr = SecretStr("")

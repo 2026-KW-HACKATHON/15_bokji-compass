@@ -11,7 +11,6 @@ from app.contracts.finance import FinancialProfile
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.auth.models import accounts, sessions
-from app.modules.auth.privacy import encrypted_account
 from app.modules.auth.service import digest
 from app.modules.finance import public
 from app.modules.finance.schema import initialize_finance_schema
@@ -51,19 +50,16 @@ def client(tmp_path):
             for index in (1, 2):
                 connection.execute(
                     insert(accounts).values(
-                        **encrypted_account(
-                            app.state.auth_service.cipher,
-                            dict(
-                                id=f"account-{index}",
-                                username=f"finance_{index}",
-                                name="시험 계정",
-                                password_hash="unused-in-this-test",
-                                age=40,
-                                gender="undisclosed",
-                                region="서울",
-                                phone=f"0100000000{index}",
-                                created_at=1,
-                            ),
+                        **dict(
+                            id=f"account-{index}",
+                            username=f"finance_{index}",
+                            name="시험 계정",
+                            password_hash="unused-in-this-test",
+                            age=40,
+                            gender="undisclosed",
+                            region="서울",
+                            phone=f"0100000000{index}",
+                            created_at=1,
                         )
                     )
                 )
@@ -129,13 +125,8 @@ def test_save_get_recalculate_and_restart_preserve_only_raw_facts(client, monkey
     engine = client.app.state.auth_service.engine
     with engine.connect() as connection:
         row = connection.execute(select(financial_profiles)).mappings().one()
-    assert "1234567" not in row["profile_json"]
-    assert (
-        client.app.state.auth_service.cipher.decrypt_json(
-            row["profile_json"], "finance:" + row["account_id"]
-        )
-        == data["profile"]
-    )
+    assert "1234567" in row["profile_json"]
+    assert json.loads(row["profile_json"]) == data["profile"]
     assert row["account_id"] == "account-1"
     monkeypatch.setattr(public, "calculate", lambda _: {"test_marker": "recalculated"})
     response = client.get("/v1/finance/profile")
@@ -148,6 +139,22 @@ def test_save_get_recalculate_and_restart_preserve_only_raw_facts(client, monkey
         assert loaded.json()["profile"] == data["profile"]
         assert loaded.json()["updated_at"] == data["updated_at"]
         assert loaded.json()["calculation"] == {"test_marker": "recalculated"}
+
+
+@pytest.mark.parametrize("occupation", ["student", "homemaker", "military", "other"])
+def test_occupation_survives_save_load_and_rejects_invalid_choices(client, occupation):
+    profile = {**PROFILE, "members": [{**PROFILE["members"][0], "occupation": occupation}]}
+    response = save(client, profile)
+    assert response.status_code == 200
+    assert response.json()["profile"]["members"][0]["occupation"] == occupation
+    loaded = client.get("/v1/finance/profile")
+    assert loaded.json()["profile"]["members"][0]["occupation"] == occupation
+    profile["members"][0]["occupation"] = "unsupported"
+    assert save(client, profile).status_code == 422
+    assert (
+        client.get("/v1/finance/profile").json()["profile"]["members"][0]["occupation"]
+        == occupation
+    )
 
 
 def test_account_isolation_update_delete_and_idempotent_delete(client):
@@ -272,13 +279,7 @@ def test_legacy_saved_income_and_car_evidence_loads_as_unknown(client):
         "vehicles": [{"value": 9000000, "kind": "passenger", "use": "ordinary"}],
     }
     with client.app.state.auth_service.engine.begin() as connection:
-        connection.execute(
-            update(financial_profiles).values(
-                profile_json=client.app.state.auth_service.cipher.encrypt(
-                    json.dumps(legacy), "finance:account-1"
-                )
-            )
-        )
+        connection.execute(update(financial_profiles).values(profile_json=json.dumps(legacy)))
     response = client.get("/v1/finance/profile")
     assert response.status_code == 200
     data = response.json()

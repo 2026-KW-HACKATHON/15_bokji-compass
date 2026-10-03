@@ -14,7 +14,6 @@ from app.core.config import Settings
 from app.main import create_app
 from app.modules.assistant import public
 from app.modules.auth.models import accounts
-from app.modules.auth.privacy import encrypted_account
 from app.modules.auth.service import password_hash
 from app.modules.normalization.raw import normalize_record
 
@@ -47,19 +46,16 @@ def client(tmp_path, monkeypatch):
             for index, region, age in ((1, "서울", 27), (2, "경기", 65)):
                 connection.execute(
                     insert(accounts).values(
-                        **encrypted_account(
-                            app.state.auth_service.cipher,
-                            dict(
-                                id=f"private-id-{index}",
-                                username=f"member{index}",
-                                name="private-name",
-                                phone=f"0100000000{index}",
-                                password_hash=password_hash("Password123!"),
-                                age=age,
-                                gender="undisclosed",
-                                region=region,
-                                created_at=1,
-                            ),
+                        **dict(
+                            id=f"private-id-{index}",
+                            username=f"member{index}",
+                            name="private-name",
+                            phone=f"0100000000{index}",
+                            password_hash=password_hash("Password123!"),
+                            age=age,
+                            gender="undisclosed",
+                            region=region,
+                            created_at=1,
                         )
                     )
                 )

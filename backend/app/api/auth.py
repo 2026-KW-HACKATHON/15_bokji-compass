@@ -10,8 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import with_capabilities
-from app.modules.auth.migration import migrate_private_data, verify_lookup_key
-from app.modules.auth.privacy import PrivacyCipher
+from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import SESSION_SECONDS, AuthService
 
@@ -52,9 +51,6 @@ def get_service(request: Request):
         raise HTTPException(503, "인증 서비스가 비활성화되어 있어요.")
     with state.auth_lock:
         if state.auth_service is None:
-            if settings.app_env != "test" and not settings.db_enabled:
-                raise HTTPException(503, "회원 저장을 위한 MySQL 데이터베이스 설정이 필요해요.")
-            cipher = PrivacyCipher(settings)
             if settings.auth_uses_mysql:
                 engine = state.database_engine
             else:
@@ -68,14 +64,14 @@ def get_service(request: Request):
                 )
                 try:
                     initialize_auth_schema(engine)
-                    migrate_private_data(engine, cipher)
+                    ensure_plaintext_storage(engine)
                 except Exception:
                     engine.dispose()
                     raise
                 state.auth_engine = engine
-            with engine.connect() as connection:
-                verify_lookup_key(connection, cipher)
-            state.auth_service = AuthService(engine, cipher)
+            if settings.auth_uses_mysql:
+                ensure_plaintext_storage(engine)
+            state.auth_service = AuthService(engine)
     return state.auth_service
 
 

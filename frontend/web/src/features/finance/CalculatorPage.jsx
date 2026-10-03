@@ -6,6 +6,7 @@ import {
   emptyFinancialProfile,
   emptyMember,
   emptyVehicle,
+  MAX_HOUSEHOLD_SIZE,
   toFinancialProfile,
 } from './financeModel.js';
 import { financeGroups, financeQuestions, validateQuestion } from './financeFlow.js';
@@ -15,23 +16,10 @@ import './calculator.css';
 
 const api = createFinanceApi({ baseUrl: appConfig.apiBaseUrl });
 
-function questionSection(question) {
-  if (question.group === 0) return { id: 'household', title: '가구 정보' };
-  if (question.group === 1) {
-    const member = question.id.match(/^member-(\d+)-/);
-    return { id: `member-${member[1]}`, title: `가구원 ${Number(member[1]) + 1} · 소득 정보` };
-  }
-  if (question.group === 2) return { id: 'assets', title: '재산 정보' };
-  if (question.group === 3) return { id: 'debts', title: '부채 정보' };
-  if (question.id === 'vehicles') return { id: 'vehicles', title: '차량 보유 여부' };
-  const vehicle = question.id.match(/^vehicle-(\d+)-/);
-  return { id: `vehicle-${vehicle[1]}`, title: `차량 ${Number(vehicle[1]) + 1} · 차량 정보` };
-}
-
 function groupedQuestions(questions) {
   const sections = [];
   for (const question of questions) {
-    const section = questionSection(question);
+    const section = { id: question.group, title: `${financeGroups[question.group]} 정보` };
     const previous = sections.at(-1);
     if (previous?.id === section.id) previous.questions.push(question);
     else sections.push({ ...section, questions: [question] });
@@ -45,16 +33,21 @@ function questionHeading(question) {
   if (question.id === 'assets-home') return '주택과 보증금';
   if (question.id === 'assets-other') return '그 밖의 재산';
   const suffix = question.id.split('-').at(-1);
+  const entry = question.id.match(/^(member|vehicle)-(\d+)-/);
+  const prefix = entry
+    ? `${entry[1] === 'member' ? '가구원' : '차량'} ${Number(entry[2]) + 1} · `
+    : '';
   return (
-    {
-      basic: '나이와 공제 유형',
+    prefix +
+    ({
+      basic: '나이·직업군·공제 유형',
       earned: '근로소득',
       business: '사업소득',
       other: '그 밖의 소득',
       use: '명의와 사용 목적',
       value: '차량 가액',
       spec: '차량 제원과 보조금',
-    }[suffix] ?? question.title
+    }[suffix] ?? question.title)
   );
 }
 
@@ -90,9 +83,7 @@ export default function CalculatorPage({
     questions.findIndex((question) => question.id === step),
   );
   const current = questions[currentIndex];
-  const sections = easy
-    ? groupedQuestions(questions)
-    : questions.map((question) => ({ ...question, questions: [question] }));
+  const sections = groupedQuestions(questions);
   const sectionIndex = Math.max(
     0,
     sections.findIndex((section) => section.questions.some((question) => question.id === step)),
@@ -157,6 +148,11 @@ export default function CalculatorPage({
         memberCache.current[index] = member;
       });
       next.household_size = count;
+      if (!Number.isInteger(count) || count < 1 || count > MAX_HOUSEHOLD_SIZE) {
+        next.household_size = value;
+        change(next);
+        return;
+      }
       next.members = Array.from(
         { length: count },
         (_, index) => draft.members[index] ?? memberCache.current[index] ?? emptyMember(),
@@ -326,7 +322,7 @@ export default function CalculatorPage({
   }
   const title =
     {
-      start: easy ? '계산에 필요한 정보를 확인하세요' : '아는 정보부터 하나씩 입력해요',
+      start: '6단계로 소득·재산 정보를 입력해요',
       review: '계산 전에 입력 내용을 확인해 주세요',
       edit: '입력 정보 수정',
       result: '계산 결과',
@@ -513,12 +509,7 @@ export default function CalculatorPage({
                 이전 단계
               </button>
             </div>
-            <FinanceReview
-              questions={questions}
-              sections={easy ? sections : undefined}
-              draft={draft}
-              onEdit={edit}
-            />
+            <FinanceReview questions={questions} sections={sections} draft={draft} onEdit={edit} />
             <div className="finance-actions finance-step-actions">
               <button type="button" className="button primary" onClick={calculate}>
                 계산하기

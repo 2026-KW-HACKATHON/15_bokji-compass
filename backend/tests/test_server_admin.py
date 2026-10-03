@@ -12,9 +12,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.modules.admin.access import admin_grants
 from app.modules.admin.provision import create_operator
-from app.modules.auth.migration import migrate_private_data
 from app.modules.auth.models import accounts, sessions
-from app.modules.auth.privacy import PrivacyCipher
 from app.modules.auth.schema import initialize_auth_schema
 
 ADMIN_COOKIE = "bokji_server_admin"
@@ -35,10 +33,9 @@ PROTECTED = [
 
 
 @pytest.fixture(autouse=True)
-def isolated_environment(monkeypatch, test_privacy_keys):
+def isolated_environment(monkeypatch):
     for field in Settings.model_fields:
-        if field not in {"auth_encryption_keys", "auth_encryption_key_id", "auth_lookup_key"}:
-            monkeypatch.delenv(field.upper(), raising=False)
+        monkeypatch.delenv(field.upper(), raising=False)
     monkeypatch.delenv("APP_CONFIG_FILE", raising=False)
 
 
@@ -53,13 +50,14 @@ def console(tmp_path):
         auth_sqlite_path=database,
         bokjiro_api_key=PORTAL_SECRET,
     )
-    cipher = PrivacyCipher(settings)
     initialize_auth_schema(engine)
-    migrate_private_data(engine, cipher)
-    admin_id = create_operator(engine, "server_admin", PASSWORD, cipher=cipher, role="superadmin")
-    create_operator(engine, "qr_operator", PASSWORD, cipher=cipher, role="qr_admin")
+    admin_id = create_operator(engine, "server_admin", PASSWORD, role="superadmin")
+    create_operator(engine, "qr_operator", PASSWORD, role="qr_admin")
     member_id = create_operator(
-        engine, "ordinary_member", PASSWORD, cipher=cipher, role="qr_admin",
+        engine,
+        "ordinary_member",
+        PASSWORD,
+        role="qr_admin",
     )
     with engine.begin() as connection:
         connection.execute(delete(admin_grants).where(admin_grants.c.account_id == member_id))
@@ -162,9 +160,16 @@ def test_web_login_does_not_grant_server_console_access(console):
 
 def test_session_tokens_cannot_be_relabelled_between_web_and_console(console):
     client, _, _, _ = console
-    assert client.post("/v1/auth/login", json={
-        "username": "server_admin", "password": PASSWORD,
-    }).status_code == 200
+    assert (
+        client.post(
+            "/v1/auth/login",
+            json={
+                "username": "server_admin",
+                "password": PASSWORD,
+            },
+        ).status_code
+        == 200
+    )
     web_token = client.cookies.get("bokji_session")
     client.cookies.clear()
     client.cookies.set(ADMIN_COOKIE, web_token, domain="testserver.local", path="/")
@@ -189,11 +194,7 @@ def test_every_endpoint_rechecks_role_and_does_not_trust_headers(console, role):
     saved_revision = revision(client)
     before = config_file.read_bytes()
     with engine.begin() as connection:
-        statement = (
-            delete(admin_grants)
-            if role is None
-            else update(admin_grants).values(role=role)
-        )
+        statement = delete(admin_grants) if role is None else update(admin_grants).values(role=role)
         connection.execute(statement.where(admin_grants.c.account_id == admin_id))
     for path in PROTECTED:
         assert client.get(path, headers={"X-Role": "superadmin"}).status_code == 403
@@ -221,14 +222,17 @@ def test_expired_forged_cookie_and_logout_are_rejected_safely(console):
     assert ADMIN_COOKIE not in client.cookies
 
 
-@pytest.mark.parametrize("headers", [
-    {"X-Auth-Request": ""},
-    {"Origin": "https://foreign.invalid"},
-    {"Origin": "null"},
-    {"Origin": "http://testserver.evil.invalid"},
-    {"Origin": "http://testserver", "Sec-Fetch-Site": "cross-site"},
-    {"Origin": "http://testserver", "Sec-Fetch-Site": "same-site"},
-])
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"X-Auth-Request": ""},
+        {"Origin": "https://foreign.invalid"},
+        {"Origin": "null"},
+        {"Origin": "http://testserver.evil.invalid"},
+        {"Origin": "http://testserver", "Sec-Fetch-Site": "cross-site"},
+        {"Origin": "http://testserver", "Sec-Fetch-Site": "same-site"},
+    ],
+)
 def test_console_write_guard_rejects_cross_origin_and_missing_header(console, headers):
     client, _, _, config_file = console
     assert login(client).status_code == 200
@@ -344,11 +348,14 @@ def test_login_validation_never_echoes_password_or_accepts_role(console):
         assert connection.execute(select(func.count()).select_from(accounts)).scalar_one() == 3
 
 
-@pytest.mark.parametrize("headers", [
-    {"X-Auth-Request": ""},
-    {"Origin": "null"},
-    {"Origin": "https://foreign.invalid"},
-])
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"X-Auth-Request": ""},
+        {"Origin": "null"},
+        {"Origin": "https://foreign.invalid"},
+    ],
+)
 def test_login_guard_rejects_request_before_creating_session(console, headers):
     client, engine, _, _ = console
     response = client.post(
@@ -443,9 +450,11 @@ def test_oversized_console_request_is_rejected_before_auth_or_mutation(console, 
     before = config_file.read_bytes()
     body = json.dumps(
         {"username": "server_admin", "password": "oversize-private-" + "x" * 66000}
-        if path == LOGIN else
-        {"revision": "0" * 64, "changes": {"policy_auto_publish": False,
-                                           "ingestion_discovery_query": "x" * 66000}}
+        if path == LOGIN
+        else {
+            "revision": "0" * 64,
+            "changes": {"policy_auto_publish": False, "ingestion_discovery_query": "x" * 66000},
+        }
     ).encode()
     content = iter([body[:40000], body[40000:]]) if chunked else body
     response = client.request(

@@ -9,8 +9,8 @@ from fastapi import HTTPException
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from app.modules.auth.models import accounts, limits, sessions
-from app.modules.auth.privacy import PROFILE_FIELDS, PrivacyError, encrypted_account
+from app.modules.auth.models import PROFILE_FIELDS, accounts, limits, sessions
+from app.modules.auth.privacy import PrivacyError
 
 SESSION_SECONDS = 7 * 24 * 60 * 60
 
@@ -32,9 +32,8 @@ def check_password(password: str, encoded: str) -> bool:
 
 
 class AuthService:
-    def __init__(self, engine, cipher):
+    def __init__(self, engine):
         self.engine = engine
-        self.cipher = cipher
         self.dummy_password = password_hash(secrets.token_urlsafe(32))
 
     def throttle(self, key: str, maximum: int, seconds: int):
@@ -67,9 +66,7 @@ class AuthService:
         self.throttle("username-check-ip:" + ip, 30, 60)
         with self.engine.connect() as connection:
             exists = connection.execute(
-                select(accounts.c.id).where(
-                    accounts.c.username_lookup == self.cipher.lookup(username)
-                )
+                select(accounts.c.id).where(accounts.c.username == username.lower())
             ).first()
         return {"username": username, "available": exists is None}
 
@@ -82,17 +79,14 @@ class AuthService:
             )
             if account is None:
                 raise HTTPException(401, "로그인이 필요해요.")
-            private = self.private_account(account)
-            private.update(data.model_dump(include={"name", "age", "gender", "region"}))
-            ciphertext = self.cipher.encrypt_json(private, "account:" + account_id)
+            self.private_account(account)
+            values = data.model_dump(include={"name", "age", "gender", "region"})
             changed = connection.execute(
-                update(accounts)
-                .where(accounts.c.id == account_id)
-                .values(profile_ciphertext=ciphertext)
+                update(accounts).where(accounts.c.id == account_id).values(**values)
             )
             if changed.rowcount != 1:
                 raise HTTPException(401, "로그인이 필요해요.")
-        return self.public_account({**account, "profile_ciphertext": ciphertext})
+        return self.public_account({**account, **values})
 
     def register(self, data, ip: str):
         self.throttle("signup-ip:" + ip, 20, 3600)
@@ -102,20 +96,15 @@ class AuthService:
             with self.engine.begin() as connection:
                 connection.execute(
                     insert(accounts).values(
-                        **encrypted_account(
-                            self.cipher,
-                            dict(
-                                id=secrets.token_urlsafe(24),
-                                username=data.username,
-                                name=data.name,
-                                password_hash=encoded,
-                                age=data.age,
-                                gender=data.gender,
-                                region=data.region,
-                                phone=None,
-                                created_at=now,
-                            ),
-                        )
+                        id=secrets.token_urlsafe(24),
+                        username=data.username,
+                        name=data.name,
+                        password_hash=encoded,
+                        age=data.age,
+                        gender=data.gender,
+                        region=data.region,
+                        phone=None,
+                        created_at=now,
                     )
                 )
         except IntegrityError:
@@ -133,12 +122,13 @@ class AuthService:
         console: bool = False,
     ):
         self.throttle("login-ip:" + ip, 50, 900)
-        self.throttle("login-user:" + self.cipher.lookup(username), 10, 900)
+        username = username.lower()
+        self.throttle("login-user:" + username, 10, 900)
         with self.engine.connect() as connection:
             account = (
                 connection.execute(
                     select(accounts).where(
-                        accounts.c.username_lookup == self.cipher.lookup(username),
+                        accounts.c.username == username,
                     )
                 )
                 .mappings()
@@ -174,16 +164,9 @@ class AuthService:
         return token, user
 
     def private_account(self, account):
-        private = self.cipher.decrypt_json(
-            account["profile_ciphertext"], "account:" + account["id"]
-        )
-        if not all(key in private for key in PROFILE_FIELDS):
-            raise PrivacyError("Incomplete encrypted profile")
-        if not hmac.compare_digest(
-            account["username_lookup"] or "", self.cipher.lookup(private["username"])
-        ):
-            raise PrivacyError("Account lookup mismatch")
-        return private
+        if account.get("profile_ciphertext"):
+            raise PrivacyError("Restore the older encrypted account before using it")
+        return {key: account.get(key) for key in PROFILE_FIELDS}
 
     def public_account(self, account):
         private = self.private_account(account)

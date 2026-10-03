@@ -168,7 +168,7 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 
 금융 응답은 오류를 포함해 `Cache-Control: no-store`를 사용합니다. 422 응답은 `{ "detail": "금액과 필수 항목, 저장 동의 여부를 확인해 주세요." }`이며 원입력·인증정보를 반사하거나 앱 로그에 기록하지 않습니다. 로그인 만료·로그아웃 후에는 회원 금융정보에 접근할 수 없습니다. 금융정보 삭제는 로그인한 본인의 금융 입력만 삭제하며 계정·다른 회원 정보·공고는 변경하지 않습니다.
 
-APP_ENV=test의 격리 SQLite는 로그인된 회원이 금융정보 경로를 처음 사용할 때 `account_financial_profiles`를 추가합니다. 기존 인증 DB 파일을 사용하며 `users/user_profiles` 개발 초안과 연결하지 않습니다. MySQL은 HTTP 요청에서 테이블을 자동 생성하지 않습니다. `DB_ENABLED=true` 설정 후 backend 폴더에서 다음 명령을 명시적으로 실행합니다.
+DB_ENABLED=false인 SQLite는 로그인된 회원이 금융정보 경로를 처음 사용할 때 `account_financial_profiles`를 추가합니다. 기존 인증 DB 파일을 사용하며 `users/user_profiles` 개발 초안과 연결하지 않습니다. MySQL은 HTTP 요청에서 테이블을 자동 생성하지 않습니다. `DB_ENABLED=true` 설정 후 backend 폴더에서 다음 명령을 명시적으로 실행합니다.
 
 ```text
 # Windows
@@ -177,7 +177,7 @@ APP_ENV=test의 격리 SQLite는 로그인된 회원이 금융정보 경로를 �
 .venv/bin/python -m app.modules.finance
 ```
 
-이 명령은 인증·금융 테이블 초기화 및 기존 회원/금융 개인정보 암호화를 수행하며 회원 ID·비밀번호 해시·카카오 연결을 유지합니다. [키 설정·이관·보안 저장](backend/docs/member-privacy.md). 금융 초기화는 `create_all` 기반이며 이미 존재하는 금융 테이블 구조 변경·저장 원입력 버전 이관을 지원하지 않습니다. [API 회귀 테스트](backend/tests/test_finance_api.py)는 격리 SQLite에서 계정 격리·저장 동의·세션·민감 오류·다시 계산·재시작 보존을 확인합니다. SQLite를 사용한 MySQL 모드의 자동 생성 차단 테스트는 실제 MySQL 저장 검증과 구분합니다.
+이 명령은 인증·금융 테이블 초기화 및 기존 암호화 데이터 복원을 수행하며 회원 ID·비밀번호 해시·카카오 연결을 유지합니다. [키 설정·이관·보안 저장](backend/docs/member-privacy.md). 금융 초기화는 `create_all` 기반이며 이미 존재하는 금융 테이블 구조 변경·저장 원입력 버전 이관을 지원하지 않습니다. [API 회귀 테스트](backend/tests/test_finance_api.py)는 격리 SQLite에서 계정 격리·저장 동의·세션·민감 오류·다시 계산·재시작 보존을 확인합니다. SQLite를 사용한 MySQL 모드의 자동 생성 차단 테스트는 실제 MySQL 저장 검증과 구분합니다.
 
 ## 3. 자동 문서·스키마 경로
 
@@ -201,10 +201,10 @@ APP_ENV=test의 격리 SQLite는 로그인된 회원이 금융정보 경로를 �
 | `APP_CONFIG_FILE` | 백엔드 프로세스 환경 | 미지정 시 `backend/.env`; 상대 경로는 backend 기준. 명시한 파일이 없으면 실패 |
 | `CORS_ORIGINS` | 백엔드 | JSON 배열 `[]`; GET/POST, credentials=true, Content-Type/X-Auth-Request 헤더 |
 | `AUTH_ENABLED` | 백엔드 | 기본 true; false이면 인증 API 503 |
-| `AUTH_ENCRYPTION_KEYS` | 백엔드 | 키ID→32바이트 Base64 암호키의 JSON; 서버 비밀 설정 |
-| `AUTH_ENCRYPTION_KEY_ID` | 백엔드 | 신규 암호화에 사용할 키ID, 기본 primary |
-| `AUTH_LOOKUP_KEY` | 백엔드 | 암호키와 분리한 32바이트 HMAC 키; 로그인 인덱스 확인 |
-| `AUTH_SQLITE_PATH` | 백엔드 | 기본 data/auth.sqlite3; APP_ENV=test, DB_ENABLED=false인 격리 테스트 전용 |
+| `AUTH_ENCRYPTION_KEYS` | 기존 데이터 복원 전용 | 이전 암호화 DB를 복원할 때만 원래 키 사용; 새 로그인은 불필요 |
+| `AUTH_ENCRYPTION_KEY_ID` | 과거 설정 | 현재 로그인에서 사용하지 않음 |
+| `AUTH_LOOKUP_KEY` | 기존 데이터 복원 전용 | 이전 암호화 DB의 아이디 인덱스 검증용; 새 로그인은 불필요 |
+| `AUTH_SQLITE_PATH` | 백엔드 | 기본 data/auth.sqlite3; DB_ENABLED=false일 때 회원·세션 저장소 |
 | `DB_ENABLED` | 백엔드 | `false`; true이면 DB 필수 설정 검사 및 lifespan에서 풀 구성 |
 | `DB_HOST/PORT/NAME/USER/PASSWORD`, `DB_SSL_CA` | 백엔드 | [비밀값 없는 설정 예시](backend/.env.example). MySQL 접속 전용 |
 | `VITE_API_BASE_URL` | 웹 빌드/개발 환경 | `/api`; 브라우저에 공개되는 값 |

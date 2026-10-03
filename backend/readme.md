@@ -1,6 +1,6 @@
 # 복지나침반 백엔드
 
-2026-10-02: 회원 저장은 개발·운영 모두 MySQL입니다. 서버 개인정보 암호화/HMAC 키가 필수이며 아이디·프로필·카카오 가입 대기 닉네임·금융 원입력은 암호화합니다. 기존 SQLite 회원 이관, 키 생성 및 초기화 명령은 [회원 보안 저장 안내](docs/member-privacy.md)를 참고하세요.
+2026-10-03: 회원 로그인에서 AES 암호화와 HMAC 키 설정을 제거했습니다. `DB_ENABLED=false`이면 SQLite에 회원·세션을 저장하며 일반 로그인과 카카오 로그인을 사용할 수 있습니다. `DB_ENABLED=true`이면 기존 MySQL을 사용합니다. 비밀번호 scrypt 해시와 세션·카카오 요청 검증은 유지합니다. [현재 저장 구조와 기존 암호화 데이터 복원](docs/member-privacy.md).
 
 > 2026-10-01: 공고 파싱은 기본 MySQL 저장으로 전환했습니다. 먼저 `python -m app.modules.storage init`을 실행하세요. [저장·JSON 이관·DB 개인 안내](docs/policy-storage.md). 아래 과거 파일 저장 설명은 명시적 `--storage json` 내보내기에만 적용됩니다.
 
