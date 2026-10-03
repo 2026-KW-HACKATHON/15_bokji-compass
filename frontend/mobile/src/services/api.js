@@ -3,6 +3,8 @@ import {
   toFinancialProfile,
 } from "@bokji/core/finance-model";
 import { ApiError } from "./client.js";
+import { createAssistantApi } from "../features/assistant/model.js";
+import { createNotificationApi } from "../features/notifications/model.js";
 import {
   parsePolicy,
   parsePolicyPage,
@@ -38,6 +40,8 @@ export function createApi(request) {
     };
   };
   return {
+    notifications: createNotificationApi(request),
+    assistant: createAssistantApi(request),
     listPolicies: async (filters, signal) =>
       parsePolicyPage(await request(policyPath(filters), { signal })),
     getPolicy: async (id, signal) =>

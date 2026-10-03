@@ -64,6 +64,11 @@ export function parsePolicy(item) {
     typeof item[key] === "string" && item[key].trim() ? item[key] : fallback;
   return {
     id: item.id,
+    revisionId:
+      typeof item.revisionId === "string" &&
+      /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(item.revisionId)
+        ? item.revisionId
+        : null,
     title: item.title,
     summary: item.summary,
     tags: [...new Set(item.tags)],

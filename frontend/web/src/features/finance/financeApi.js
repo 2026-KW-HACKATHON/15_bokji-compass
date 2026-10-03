@@ -21,6 +21,7 @@ export function createFinanceApi({
         method: body === undefined ? 'GET' : 'POST',
         credentials: member ? 'include' : 'omit',
         cache: 'no-store',
+        redirect: 'error',
         signal: controller.signal,
         headers: {
           Accept: 'application/json',

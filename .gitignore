@@ -6,6 +6,8 @@
 !.env.example
 !*.env.example
 .envrc
+.server-settings-*
+*.server-admin.lock
 
 # Local credentials and private keys.
 secrets/
@@ -16,6 +18,7 @@ credentials/
 *.pfx
 *.jks
 *.keystore
+google-services.json
 
 # Python environments and caches.
 .venv/
@@ -49,6 +52,8 @@ coverage/
 build/
 dist/
 out/
+# Local review screenshots and generated reports are not source assets.
+/output/
 
 # Android local configuration and generated output.
 .gradle/

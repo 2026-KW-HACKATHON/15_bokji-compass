@@ -1,5 +1,12 @@
 # DB 기반 개인 안내 — 회원 API와 웹 질문
 
+선택형 기본 질문: `GET /v1/assistant/faqs?revision_id=UUID` (회원 쿠키/Bearer 필수).
+지원 내용·지원 대상·신청 기간·신청 방법·준비 서류·자격 확인의 6개 질문과 준비된 답변을 반환한다.
+고정 질문/안내 문구는 faq.py의 FAQ_TOPICS와 prepared_faqs에서 관리한다. 공고별 사실은 DB
+원문에서만 채우며 미기재 항목은 확인 필요로 응답한다. LLM·개인 프로필·추론 제한을 사용하지 않는다.
+응답은 `{revision_id,items:[{id,question,response}]}`이며 response_type은 prepared다.
+source_json에 신청 방법/서류 필드가 없는 기존 공고는 해당 사실을 추정하지 않는다.
+
 담당: 백엔드. MySQL 공고 개정을 읽어 사용자 질문·선택 프로필로 안내한다.
 public.answer_question(repository, revision_id, question, profile, settings, include_drafts=False)
 → answer/status/citations/follow_up_questions/revision_id/source_url/review_status/preview/model.

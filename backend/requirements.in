@@ -8,3 +8,6 @@ sqlalchemy>=2,<3
 pymysql[rsa]>=1.1,<2
 alembic>=1.14,<2
 tzdata
+
+# Authenticated encryption for member and financial profiles.
+cryptography>=50,<51

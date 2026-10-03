@@ -1,4 +1,4 @@
-"""Run a public demo API with explicit settings and a separate SQLite database."""
+"""Run the local API proxy with configured MySQL and server privacy keys."""
 
 import sys
 from pathlib import Path
@@ -8,23 +8,28 @@ import uvicorn
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from app.core.config import Settings  # noqa: E402
+from app.core.config import Settings, load_settings  # noqa: E402
 from app.main import create_app  # noqa: E402
 
-if __name__ == "__main__":
-    settings = Settings(
+
+def share_settings() -> Settings:
+    configuration = load_settings().model_dump()
+    configuration.update(server_host="127.0.0.1", server_port=8001, cors_origins=[])
+    return Settings(
         _env_file=None,
-        app_env="development",
-        server_host="127.0.0.1",
-        server_port=8001,
-        db_enabled=False,
-        auth_enabled=True,
-        auth_sms_mode="development",
-        auth_sqlite_path=BACKEND / "data/tunnel-demo/auth.sqlite3",
-        cors_origins=[],
+        **configuration,
     )
+
+
+if __name__ == "__main__":
+    settings = share_settings()
     uvicorn.run(
-        create_app(settings), host="127.0.0.1", port=8001,
-        proxy_headers=True, forwarded_allow_ips="127.0.0.1",
-        access_log=False, loop="asyncio", http="h11",
+        create_app(settings),
+        host=settings.server_host,
+        port=settings.server_port,
+        proxy_headers=True,
+        forwarded_allow_ips="127.0.0.1",
+        access_log=False,
+        loop="asyncio",
+        http="h11",
     )

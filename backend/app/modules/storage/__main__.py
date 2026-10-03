@@ -7,13 +7,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT, load_settings
 from app.core.database import create_database_engine
-from app.modules.storage.public import PolicyRepository, initialize_policy_schema
+from app.modules.storage.public import (
+    PolicyRepository,
+    auto_publish_pending,
+    initialize_policy_schema,
+)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init")
+    commands.add_parser("auto-publish")
     importer = commands.add_parser("import-drafts")
     importer.add_argument("paths", nargs="+", help="Explicit draft.json paths relative to backend")
     listing = commands.add_parser("list")
@@ -34,8 +39,10 @@ def main() -> int:
         if args.command == "init":
             result = initialize_policy_schema(engine)
         else:
-            repository = PolicyRepository(engine)
-            if args.command == "import-drafts":
+            repository = PolicyRepository(engine, auto_publish=settings.policy_auto_publish)
+            if args.command == "auto-publish":
+                result = auto_publish_pending(repository)
+            elif args.command == "import-drafts":
                 result = []
                 for path in args.paths:
                     payload = json.loads((BACKEND_ROOT / path).read_text(encoding="utf-8-sig"))

@@ -32,9 +32,9 @@ def get_member_store(request: Request, service: Service, user: Member):
     state = request.app.state
     with state.finance_lock:
         if state.finance_store is None:
-            if not state.settings.db_enabled and state.settings.app_env in {"development", "test"}:
+            if not state.settings.auth_uses_mysql and state.settings.app_env == "test":
                 initialize_finance_schema(service.engine)
-            state.finance_store = FinancialProfileStore(service.engine)
+            state.finance_store = FinancialProfileStore(service.engine, service.cipher)
     return user["id"], state.finance_store
 
 

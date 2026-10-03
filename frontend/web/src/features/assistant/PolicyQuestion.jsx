@@ -1,26 +1,80 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { appConfig } from '../../shared/config.js';
-import { createQuestionApi } from './questionApi.js';
+import { createFaqApi, createQuestionApi } from './questionApi.js';
+import { policyQuestionLabels } from './assistantContent.js';
 
 const ask = createQuestionApi({ baseUrl: appConfig.apiBaseUrl });
+const loadFaqs = createFaqApi({ baseUrl: appConfig.apiBaseUrl });
 
-export default function PolicyQuestion({ revisionId, user }) {
+export default function PolicyQuestion({ revisionId, user, variant, initialFaqId }) {
   const id = useId();
   const active = useRef(null);
+  const interacted = useRef(false);
+  const answerPanel = useRef(null);
+  const choicesPanel = useRef(null);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [faqs, setFaqs] = useState([]);
+  const [faqState, setFaqState] = useState('loading');
+  const [faqRetry, setFaqRetry] = useState(0);
+  const [selectedQuestion, setSelectedQuestion] = useState('');
   useEffect(() => () => active.current?.abort(), []);
+  useEffect(() => {
+    if (answer) {
+      answerPanel.current?.focus({ preventScroll: true });
+      answerPanel.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  }, [answer]);
+  useEffect(() => {
+    if (!user || !revisionId) return;
+    const controller = new AbortController();
+    setFaqState('loading');
+    setFaqs([]);
+    loadFaqs(revisionId, { signal: controller.signal })
+      .then((items) => {
+        if (!controller.signal.aborted) {
+          const choices = items.map((item) => ({
+            ...item,
+            question: policyQuestionLabels[item.id] || item.question,
+          }));
+          setFaqs(choices);
+          setFaqState('ready');
+          const initial = choices.find((item) => item.id === initialFaqId);
+          if (initial && !interacted.current) {
+            setSelectedQuestion(initial.question);
+            setAnswer(initial.response);
+          }
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFaqState('error');
+      });
+    return () => controller.abort();
+  }, [revisionId, user?.id, faqRetry, initialFaqId]);
+
+  function selectFaq(item) {
+    interacted.current = true;
+    // A late free-text reply must never replace a newly selected prepared answer.
+    active.current?.abort();
+    active.current = null;
+    setBusy(false);
+    setError('');
+    setSelectedQuestion(item.question);
+    setAnswer(item.response);
+  }
 
   async function submit(event) {
     event.preventDefault();
     if (active.current || !question.trim()) return;
+    interacted.current = true;
     const controller = new AbortController();
     active.current = controller;
     setBusy(true);
     setError('');
     setAnswer(null);
+    setSelectedQuestion(question.trim());
     try {
       const result = await ask(revisionId, question, { signal: controller.signal });
       if (!controller.signal.aborted) setAnswer(result);
@@ -43,7 +97,108 @@ export default function PolicyQuestion({ revisionId, user }) {
         <p>전체 공고에서 최신 공고를 다시 열면 질문할 수 있어요.</p>
       ) : (
         <>
-          <p>질문과 가입한 지역·연령대로 안내해요. 이름과 전화번호는 질문에 적지 마세요.</p>
+          <p>궁금한 질문을 골라 주세요. 준비된 안내를 바로 보여드려요.</p>
+          {faqState === 'loading' && <p role="status">기본 질문을 준비하고 있어요.</p>}
+          {faqState === 'error' && (
+            <div className="faq-error">
+              <p role="status">
+                기본 질문을 불러오지 못했어요. 다시 시도하거나 직접 질문해 주세요.
+              </p>
+              <button
+                className="button secondary"
+                onClick={() => setFaqRetry((value) => value + 1)}
+              >
+                기본 질문 다시 불러오기
+              </button>
+            </div>
+          )}
+          {faqState === 'ready' && (
+            <div
+              ref={choicesPanel}
+              className="faq-choices"
+              role="group"
+              aria-label="자주 묻는 질문"
+            >
+              {faqs.map((item) => (
+                <button
+                  key={item.id}
+                  className="button secondary"
+                  aria-pressed={
+                    answer?.response_type === 'prepared' && selectedQuestion === item.question
+                  }
+                  aria-controls={`${id}-answer`}
+                  onClick={() => selectFaq(item)}
+                >
+                  {item.question}
+                </button>
+              ))}
+            </div>
+          )}
+          <div
+            ref={answerPanel}
+            id={`${id}-answer`}
+            tabIndex={-1}
+            role="region"
+            aria-label="질문 답변"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {answer && (
+              <div className="policy-answer">
+                <p className="selected-question">{selectedQuestion}</p>
+                <h4>
+                  {answer.response_type === 'prepared'
+                    ? '준비된 안내'
+                    : variant === 'chat'
+                      ? 'AI 답변'
+                      : '공고에 따른 안내'}
+                </h4>
+                {variant === 'chat' && answer.answer.length > 650 ? (
+                  <details className="policy-answer-full">
+                    <summary>안내 내용 펼쳐 보기</summary>
+                    <p className="policy-answer-text">{answer.answer}</p>
+                  </details>
+                ) : (
+                  <p className="policy-answer-text">{answer.answer}</p>
+                )}
+                {answer.citations.length > 0 && (
+                  <details>
+                    <summary>원문 근거 보기</summary>
+                    {answer.citations.map((item, index) => (
+                      <blockquote key={index}>{item.quote}</blockquote>
+                    ))}
+                  </details>
+                )}
+                {answer.follow_up_questions.length > 0 && (
+                  <>
+                    <h4>추가로 확인할 내용</h4>
+                    <ul>
+                      {answer.follow_up_questions.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <p>신청 자격과 현재 접수 여부는 담당 기관에서 확인해 주세요.</p>
+                {faqs.length > 0 && (
+                  <button
+                    className="button secondary"
+                    onClick={() => {
+                      const choice =
+                        choicesPanel.current?.querySelector('[aria-pressed="true"]') ||
+                        choicesPanel.current?.querySelector('button');
+                      choice?.focus({ preventScroll: true });
+                      choicesPanel.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
+                    }}
+                  >
+                    다른 질문 고르기
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <h4>다른 내용이 궁금하신가요?</h4>
+          <p>직접 질문하면 가입한 지역·연령대를 참고해 답변해요. 이름과 전화번호는 적지 마세요.</p>
           <form onSubmit={submit}>
             <label htmlFor={`${id}-input`}>궁금한 내용</label>
             <textarea
@@ -64,31 +219,6 @@ export default function PolicyQuestion({ revisionId, user }) {
             {busy && '답변을 준비하고 있어요.'}
           </div>
           {error && <p role="alert">{error}</p>}
-          {answer && (
-            <div className="policy-answer" aria-live="polite">
-              <h4>공고에 따른 안내</h4>
-              <p>{answer.answer}</p>
-              {answer.citations.length > 0 && (
-                <>
-                  <h4>원문 근거</h4>
-                  {answer.citations.map((item, index) => (
-                    <blockquote key={index}>{item.quote}</blockquote>
-                  ))}
-                </>
-              )}
-              {answer.follow_up_questions.length > 0 && (
-                <>
-                  <h4>추가로 확인할 내용</h4>
-                  <ul>
-                    {answer.follow_up_questions.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <p>신청 자격과 현재 접수 여부는 담당 기관에서 확인해 주세요.</p>
-            </div>
-          )}
         </>
       )}
     </section>

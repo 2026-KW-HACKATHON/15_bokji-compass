@@ -6,9 +6,11 @@ import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from app.contracts.public import RawDocument
+from app.modules.collectors.data_go_kr import CollectionAPIError
+from app.modules.collectors.http import read_response, urlopen, validate_url
 from app.modules.collectors.public import collect_notice_text
 from app.modules.storage.public import DEFAULT_STORAGE_PATH
 
@@ -32,6 +34,7 @@ def collect_seoul_open_api(
     """
 
     _validate_service_name(service_name)
+    validate_url(base_url, hosts={"openapi.seoul.go.kr"})
     if start < 1 or end < start:
         raise ValueError("start must be at least 1 and end must be >= start")
 
@@ -45,13 +48,12 @@ def collect_seoul_open_api(
     )
     request = Request(url, headers={"User-Agent": "bokji-compass/0.1"})
     with urlopen(request, timeout=15) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+        payload = json.loads(read_response(response).decode("utf-8"))
 
     service_payload = _get_service_payload(payload, service_name)
     result = service_payload.get("RESULT")
     if isinstance(result, dict) and result.get("CODE") not in {None, "INFO-000"}:
-        message = result.get("MESSAGE", "Seoul Open API request failed")
-        raise RuntimeError(f"{result.get('CODE')}: {message}")
+        raise CollectionAPIError("seoul_api_error")
 
     rows = service_payload.get("row", [])
     if not isinstance(rows, list):

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import {
   Button,
@@ -33,9 +33,12 @@ export default function Home() {
       <View style={styles.heading}>
         {!easy && (
           <View style={styles.brandRow}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandSymbol}>✳</Text>
-            </View>
+            <Image
+              source={require("../../assets/brand-logo.png")}
+              resizeMode="contain"
+              style={styles.brandMark}
+              accessibilityLabel="복지나침반 로고"
+            />
             <Text style={styles.brand}>복지나침반</Text>
             <Text style={styles.brandNote}>당신의 일상 곁에</Text>
           </View>
@@ -196,14 +199,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   brandMark: {
-    width: 28,
-    height: 28,
-    backgroundColor: colors.green,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 36,
+    height: 36,
   },
-  brandSymbol: { color: "#FFF", fontSize: 23, lineHeight: 28 },
   brand: { color: colors.ink, fontSize: 16, fontWeight: "700" },
   brandNote: { color: colors.muted, fontSize: 12, marginLeft: "auto" },
   title: {

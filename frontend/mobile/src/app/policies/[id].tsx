@@ -12,6 +12,7 @@ import {
 } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
 import { parsePolicy } from "../../features/policies/model";
+import { useAssistant } from "../../features/assistant/context";
 
 export default function PolicyDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,6 +20,7 @@ export default function PolicyDetail() {
 }
 
 function DetailContent({ id }: { id: string }) {
+  const { openChat } = useAssistant();
   const { api, configError, easy } = useRuntime();
   const [policy, setPolicy] = useState<ReturnType<typeof parsePolicy> | null>(
     null,
@@ -78,6 +80,10 @@ function DetailContent({ id }: { id: string }) {
             {policy.category} · {policy.region}
           </Copy>
           <ReadableText title text={policy.title} label="공고 제목" />
+          <Button
+            label="이 공고에 챗봇 질문하기"
+            onPress={() => openChat(policy)}
+          />
           <Details label="공고 요약 보기">
             <Copy>{policy.summary}</Copy>
           </Details>

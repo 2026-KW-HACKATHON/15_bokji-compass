@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.contracts.finance import FinancialProfile
 from app.modules.auth.models import accounts
+from app.modules.auth.privacy import PrivacyCipher
 
 metadata = MetaData()
 financial_profiles = Table(
@@ -42,8 +43,9 @@ class StoredFinancialProfile:
 
 
 class FinancialProfileStore:
-    def __init__(self, engine):
+    def __init__(self, engine, cipher: PrivacyCipher):
         self.engine = engine
+        self.cipher = cipher
 
     def read(self, account_id: str) -> StoredFinancialProfile | None:
         with self.engine.connect() as connection:
@@ -57,12 +59,18 @@ class FinancialProfileStore:
         if row is None:
             return None
         return StoredFinancialProfile(
-            FinancialProfile.model_validate_json(row["profile_json"]), row["updated_at"]
+            FinancialProfile.model_validate_json(
+                self.cipher.decrypt(row["profile_json"], "finance:" + account_id)
+            ),
+            row["updated_at"],
         )
 
     def save(self, account_id: str, profile: FinancialProfile) -> StoredFinancialProfile:
         updated_at = datetime.now(UTC).isoformat()
-        values = {"profile_json": profile.model_dump_json(), "updated_at": updated_at}
+        values = {
+            "profile_json": self.cipher.encrypt(profile.model_dump_json(), "finance:" + account_id),
+            "updated_at": updated_at,
+        }
         statement = (
             update(financial_profiles)
             .where(financial_profiles.c.account_id == account_id)

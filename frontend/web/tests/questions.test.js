@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createQuestionApi, parseAnswer } from '../src/features/assistant/questionApi.js';
+import {
+  createFaqApi,
+  createQuestionApi,
+  parseAnswer,
+  parseFaqs,
+} from '../src/features/assistant/questionApi.js';
 
 const revision = '11111111-1111-1111-1111-111111111111';
 const answer = {
@@ -53,4 +58,38 @@ test('authentication errors and cancellation never become a displayed answer', a
     },
   });
   await assert.rejects(ask(revision, '질문', { signal: controller.signal }), { code: 'aborted' });
+});
+
+const faq = {
+  id: 'benefits',
+  question: '어떤 지원을 받을 수 있나요?',
+  response: { ...answer, response_type: 'prepared' },
+};
+
+test('prepared FAQ transport only reads the selected revision with member credentials', async () => {
+  let sent;
+  const load = createFaqApi({
+    fetchImpl: async (url, options) => {
+      sent = { url, ...options };
+      return new Response(JSON.stringify({ revision_id: revision, items: [faq] }));
+    },
+  });
+  assert.deepEqual(await load(revision), [faq]);
+  assert.equal(sent.method, 'GET');
+  assert.equal(sent.credentials, 'include');
+  assert.equal(sent.body, undefined);
+  assert.match(sent.url, /faqs\?revision_id=/);
+});
+
+test('FAQ contracts reject wrong revisions, duplicate choices and unprepared answers', () => {
+  const valid = { revision_id: revision, items: [faq] };
+  for (const patch of [
+    { revision_id: 'other' },
+    { items: [] },
+    { items: [faq, faq] },
+    { items: [{ ...faq, response: answer }] },
+    { items: [{ ...faq, response: { ...faq.response, revision_id: 'other' } }] },
+  ]) {
+    assert.throws(() => parseFaqs({ ...valid, ...patch }, revision));
+  }
 });

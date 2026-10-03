@@ -15,6 +15,44 @@ try {
 
 외부 API 경로·요청 인수는 [Gov24 명세](../../../docs/api/gov24_services_api.md)를 참고합니다. 기본 테스트는 실제 외부 API를 호출하지 않습니다.
 
+## 제한된 서버 수집 계약 (2026-10-02)
+
+서버 수집 worker는 목록 확인과 상세/모델 처리를 분리합니다. 아래 페이지 함수는 한 번의
+HTTP 요청만 수행하며 재시도, 전체 페이지 순회, DB 저장, 모델 호출을 자동으로 하지 않습니다.
+공급자별 일일 호출 예산과 페이지 체크포인트는 worker의 책임입니다.
+
+- `pages.CollectionPage`: `rows`, `page`, `per_page`, `total_count`, `raw`를 반환합니다.
+  `raw`는 비밀 요청 URL이 아닌 응답 원본 바이트입니다. 총 건수가 없는 응답은 `None`입니다.
+- `gov24_services.fetch_gov24_page(*, page=1, per_page=10, endpoint="serviceList",
+  api_key=None, timeout=15, max_response_bytes=2_000_000, deadline=None)`.
+  endpoint는 `serviceList`, `serviceDetail`, `supportConditions` 중 하나입니다.
+  각 endpoint를 독립적으로 페이지 조회하고 `서비스ID`로 연결해야 합니다.
+  확인되지 않은 ID 필터나 최신순 정렬을 요청하지 않습니다.
+- `bokjiro_services.fetch_bokjiro_page(*, page=1, per_page=10, ...)`는 기존 목록 필터와
+  동일한 요청에 페이지 메타데이터를 보존합니다. 상세 함수에도 `timeout`,
+  `max_response_bytes`, `deadline`을 지정할 수 있습니다.
+  `fetch_bokjiro_detail_page(service_id, ...) -> CollectionPage`는 원본 상세 응답도 반환하며
+  요청한 ID와 상세 ID의 일치를 검증합니다. 기존 `fetch_bokjiro_service_detail`은 `dict`를
+  계속 반환합니다.
+- `deadline`은 `time.monotonic()` 기준 절대 시각입니다. HTTP timeout과 응답 읽기에 적용하며,
+  응답은 상한을 넘으면 즉시 거절합니다. 기본 socket timeout은 15초입니다.
+  요청 인증키의 전달과 숨은 추가 호출을 막기 위해 HTTP redirect를 따라가지 않습니다.
+- 전송 실패는 `CollectionTransportError`, 공급자 업무 오류는 `CollectionAPIError`입니다.
+  두 오류는 `CollectionError(RuntimeError)`를 상속하고 안전한 `code`, `retryable`,
+  `status_code`, `retry_after_seconds`를 제공합니다. 원문 URL, 키, 공급자 오류 본문은
+  오류 메시지에 포함하지 않습니다. 잘못된 인수/응답/XML DTD는 `ValueError`입니다.
+- 기존 `fetch_recent_public_services`와 `fetch_bokjiro_services`의 `list[dict]` 반환 계약을
+  유지합니다. 기존 호출도 HTTP 응답 바이트 상한을 적용합니다.
+
+API 원문의 신청방법·서류·접수기관·법령·연락처·서식은 `normalization.raw`에서
+선택한 근거 필드로 보존합니다. 복지로 반복/중첩 항목은 JSON 문자열로 보존하며
+첨부 파일 내용을 다운로드하거나 생성하지 않습니다. 기존 `source_hash`는 전체 레코드
+JSON hash이며 내용 변경 감지를 위한 별도 hash와 구분합니다.
+
+오프라인 검증: `python -m pytest app/modules/collectors/tests
+app/modules/normalization/tests/test_raw.py tests/test_raw_parsing.py`.
+실제 계정 쿼터·공급자 최신 동작·노트북에서의 부하 검증은 별도 서버 파일럿입니다.
+
 ## 복지로 중앙부처 복지서비스 API
 
 인증키: `backend/.env`의 `BokjiRO_API_KEY`. 공통 설정 로더에서 자동 로드, 프로세스 환경변수 우선. 함수에 명시한 `api_key`가 최우선.
@@ -33,7 +71,8 @@ try {
 - 목록: `fetch_bokjiro_services(...) -> list[dict]`.
 - 필터: `search_keyword`(검색어), `life_array`(생애주기), `household_situation`(가구상황), `desire`(관심 주제).
 - 상세: `fetch_bokjiro_service_detail(service_id) -> dict`. 목록의 `servId` 사용.
-- XML·JSON 응답 처리. API 결과 오류는 `RuntimeError`, 잘못된 인수·응답은 `ValueError` 또는 파서 예외, 전송 실패는 HTTP 계층 예외 전달.
+- XML·JSON 응답 처리. API 결과 오류는 안전한 `CollectionAPIError(RuntimeError)`,
+  잘못된 인수·응답은 `ValueError`, 전송 실패는 `CollectionTransportError(RuntimeError)`.
 - [복지로 명세 초안](../../../docs/api/bokjiro_services_api.md)은 참고 자료입니다. 2026-09-21 소량 실제 XML 응답을 [조사](../../../docs/api-data-analysis.md)했고, 2026-09-22 반복·중첩 보존을 수정했습니다. 기본 회귀 테스트는 HTTP 대역이며 최신 공급자 상태·개별 필터 효과·전체 데이터 검증과 구분합니다.
 
 # collectors
@@ -50,6 +89,12 @@ try {
 ## 공개 진입점과 호출 방법
 
 `app.modules.collectors.public.collect_notice_text`와 `collect_notice_from_url`을 동기 호출합니다.
+
+URL 수집은 HTTP(S)·공개 호스트만 허용하며 DNS 응답 전체의 공인 주소 여부를 확인하고
+선택한 IP에 연결을 고정합니다. 환경 프록시와 리다이렉트를 사용하지 않습니다.
+광운대·서울 API 어댑터는 각각 `www.kw.ac.kr`, `openapi.seoul.go.kr`로 제한합니다.
+응답은 2MB·15초 이내로 읽고 압축 응답을 거부합니다. 기존 404 건너뛰기 계약은
+유지하며 전송 오류에 원본 URL·API 키·공급자 오류 본문을 포함하지 않습니다.
 
 ```python
 from app.modules.collectors.public import collect_notice_text

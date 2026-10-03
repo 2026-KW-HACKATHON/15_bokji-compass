@@ -25,7 +25,7 @@
 | DB 기반 개인 LLM | 회원 API·웹 공고 질문 연결 | 로그인 지역·연령대, 공개 개정 원문 질의응답·인용 검증. 대화 이력·추천·알림은 후속 |
 | 조건 논리 조합 | 구현 | all/any/not/unknown AST·참조/누락 검증·3상태 조합. LLM 평면 그룹은 검토 전 UNKNOWN |
 | 사용자 자격 판정·추천 | 전체 판정·추천 미구현 | 금융조건 비교 함수는 별도 구현. 정책 저장소·검토 승인·다른 조건·추천과의 연결 필요 |
-| 계정 인증 | 구현·개발용 문자 인증 | `/v1/auth` 가입·로그인·세션·로그아웃·인증번호. 실제 문자 공급자 미연결. [계약](../app/modules/auth/readme.md) |
+| 계정 인증 | 구현·웹 카카오 로그인 추가 | `/v1/auth` 가입·로그인·세션·로그아웃. 전화번호 인증 제거, 카카오 앱 설정 필요. [계약](../app/modules/auth/readme.md) |
 | 모바일 인증 (2026-10-01) | 구현·격리 SQLite 검증 | `/v1/mobile/auth` Bearer 로그인/조회/폐기. 금융 회원 API 연동, 기존 웹 쿠키와 분리. [앱 이식](../../frontend/docs/mobile-migration.md) |
 | 소득·재산 참고 계산 | 구현 | `/v1/finance/rules`, `/calculate`. 비회원도 가능. 2026 기본 산식·미확정 항목 표시. [산정 규칙](financial-rules.md) |
 | 회원 금융정보 저장 | 구현·격리 SQLite 검증 | `/v1/finance/profile` 조회·동의 후 저장·삭제. 원입력만 저장하고 계산 결과는 재계산. MySQL 명시 초기화·실제 MySQL 저장 검증 후속 |
@@ -88,3 +88,7 @@ DB 장애 시 파일로 우회하지 않습니다. --storage json을 명시하�
 - API 연동: [현재 HTTP 계약](api/readme.md). CLI 결과 폴더를 프론트엔드 API처럼 사용하지 않음.
 - 금융 계산·계정 저장: [모듈 사용법](../app/modules/finance/readme.md), [공식 산정 규칙과 한계](financial-rules.md). `evaluate_policy`는 서버 내부 연결 함수이며 공고 기준을 받는 공개 HTTP 경로는 없음.
 - 검증: `backend/scripts/test.ps1`은 실제 DB·LLM 호출 없는 테스트. 실제 모델 호출·MySQL 테스트 이력은 [작업 기록](worklog.md)과 각 보고서 참조.
+
+## 2026-10-02 회원 MySQL·개인정보 암호화
+
+개발·운영 회원 저장을 MySQL로 고정하고 SQLite를 APP_ENV=test 격리 테스트로 제한했습니다. 아이디·이름·나이·성별·지역·기존 전화번호, 카카오 가입 대기 닉네임, 저장 동의한 금융 원입력을 AES-256-GCM으로 암호화합니다. 아이디 로그인/중복은 독립 HMAC 키 인덱스를 사용합니다. 키 누락·불일치·변조는 원문 없는 503으로 차단합니다. 기존 로컬 회원 1명과 카카오 연결 1건을 실제 MySQL로 이관하고 원본 SQLite도 암호화했습니다. [함수·명령·키 교체·보안 범위](member-privacy.md).

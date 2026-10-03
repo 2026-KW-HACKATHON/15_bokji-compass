@@ -220,16 +220,22 @@ test('removing the last saved notice from a second easy page keeps all remaining
     savedTitles[0],
   );
 });
-test('auth pages offer username login and phone-verified signup', async ({ page }) => {
+test('auth pages offer username login, phone-free signup and Kakao availability', async ({
+  page,
+}) => {
   await page.goto('/#login');
   await expect(page.getByRole('textbox', { name: '아이디' })).toBeVisible();
   await expect(page.getByLabel('비밀번호', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
   await page.getByRole('main').getByRole('link', { name: '회원가입', exact: true }).click();
-  await expect(page.getByLabel('비밀번호 확인', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('나이 (만 나이)')).toBeVisible();
-  await expect(page.getByLabel('전화번호', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '회원가입', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: '카카오톡으로 로그인/회원가입하기' }),
+  ).toBeDisabled();
+  await expect(page.getByLabel('비밀번호 확인', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '아이디로 회원가입' }).click();
+  await expect(page.getByLabel('전화번호', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('아이디', { exact: true })).toBeVisible();
 });
 test('narrow viewport supports easy mode and policy dialog', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });

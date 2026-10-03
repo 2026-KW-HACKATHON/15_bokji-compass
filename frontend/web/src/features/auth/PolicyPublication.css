@@ -1,0 +1,78 @@
+.publication-section {
+  margin-top: 36px;
+}
+.publication-list {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.publication-list > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  background: white;
+}
+.publication-list h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.publication-list p {
+  margin: 8px 0 0;
+}
+.publication-list .button {
+  flex-shrink: 0;
+}
+.publication-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.publication-review {
+  display: grid;
+  gap: 16px;
+  overflow-wrap: anywhere;
+}
+.publication-review p,
+.publication-review h3 {
+  margin: 0;
+}
+.publication-fields {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.publication-fields dt {
+  font-weight: 700;
+  margin-top: 12px;
+}
+.publication-fields dd {
+  margin: 6px 0 0;
+}
+.publication-review textarea {
+  min-height: 90px;
+  max-width: 100%;
+}
+.publication-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.publication-check input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+@media (max-width: 600px) {
+  .publication-list > li {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+}

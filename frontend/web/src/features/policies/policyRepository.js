@@ -1,4 +1,5 @@
-import { parsePolicyPage } from './policyModel.js';
+import { parsePolicy, parsePolicyPage } from './policyModel.js';
+import { isCalendarDate } from '../calendar/calendarModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
 export function filterPolicies(
   items,
@@ -33,6 +34,50 @@ export function filterPolicies(
 }
 export function createPolicyRepository({ mode, request, path = '/v1/policies' }) {
   return {
+    async calendar(month, filters = {}, { signal } = {}) {
+      if (mode !== 'api' || !request)
+        throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
+      const params = new URLSearchParams({ month });
+      for (const [key, value] of Object.entries({
+        q: filters.query,
+        category: filters.category,
+        region: filters.region,
+        audience: filters.audience,
+      })) {
+        if (
+          value &&
+          !((key === 'category' || key === 'audience') && value === '전체') &&
+          !(key === 'region' && value === '전국')
+        )
+          params.set(key, value);
+      }
+      const result = await request(path + '/calendar?' + params, { signal });
+      if (
+        result?.month !== month ||
+        !Array.isArray(result.items) ||
+        !Array.isArray(result.undatedItems) ||
+        !Number.isInteger(result.total) ||
+        result.total < result.items.length ||
+        !Number.isInteger(result.undatedTotal) ||
+        result.undatedTotal < result.undatedItems.length ||
+        typeof result.truncated !== 'boolean'
+      )
+        throw new ApiError('캘린더 정보의 형식이 올바르지 않아요.', 'invalid_response');
+      const items = result.items.map(parsePolicy),
+        undatedItems = result.undatedItems.map(parsePolicy);
+      for (const policy of [...items, ...undatedItems]) {
+        if (
+          [policy.applicationStart, policy.applicationEnd].some(
+            (date) => date !== null && !isCalendarDate(date),
+          ) ||
+          (policy.applicationStart &&
+            policy.applicationEnd &&
+            policy.applicationStart > policy.applicationEnd)
+        )
+          throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');
+      }
+      return { ...result, items, undatedItems };
+    },
     async list(filters = {}, { cursor = null, limit = 6, signal } = {}) {
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');

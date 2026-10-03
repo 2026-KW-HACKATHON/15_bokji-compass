@@ -19,6 +19,28 @@ def _text(row: dict, *keys: str) -> str:
     return ""
 
 
+def _structured_text(row: dict, *keys: str) -> str:
+    """Preserve repeated source items as text evidence without flattening their order."""
+    for key in keys:
+        value = row.get(key)
+        if value is None or value == "" or value == [] or value == {}:
+            continue
+        if isinstance(value, str):
+            return _text(row, key)
+        if isinstance(value, (list, dict)):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2)
+        raise ValueError(f"Expected text or repeated field: {key}")
+    return ""
+
+
+def _add_optional_fields(fields: dict[str, str], row: dict,
+                         mapping: dict[str, tuple[str, ...]]) -> None:
+    for field, keys in mapping.items():
+        text = _structured_text(row, *keys)
+        if text:
+            fields[field] = text
+
+
 def normalize_record(row: dict) -> SourcePolicy:
     if not isinstance(row, dict):
         raise ValueError("Raw record must be an object")
@@ -34,6 +56,16 @@ def normalize_record(row: dict) -> SourcePolicy:
             "application_period": _text(row, "신청기한"),
             "benefits": _text(row, "지원내용"),
         }
+        _add_optional_fields(fields, row, {
+            "application_method": ("신청방법",),
+            "documents": ("구비서류",),
+            "receipt_agency": ("접수기관",),
+            "application_url": ("온라인신청사이트URL",),
+            "contact": ("전화문의",),
+            "laws": ("법령", "근거법령"),
+            "support_type": ("지원유형",),
+            "attachments": ("첨부파일", "서식"),
+        })
         url = _text(row, "상세조회URL")
     elif "servId" in row:
         provider = "bokjiro"
@@ -43,6 +75,17 @@ def normalize_record(row: dict) -> SourcePolicy:
             "eligibility": _text(row, "tgtrDtlCn"), "selection": _text(row, "slctCritCn"),
             "benefits": _text(row, "alwServCn", "alwnServCn"),
         }
+        _add_optional_fields(fields, row, {
+            "purpose_summary": ("wlfareInfoOutlCn", "servDgst"),
+            "application_period": ("applPeriod", "applPrdCn"),
+            "application_method": ("applmetList", "applMethodCn"),
+            "contact": ("inqplCtadrList",),
+            "attachments": ("basfrmList",),
+            "laws": ("baslawList",),
+            "support_cycle": ("sprtCycNm",),
+            "support_type": ("srvPvsnNm",),
+            "source_year": ("crtrYr",),
+        })
         url = _text(row, "servDtlLink")
     elif "document_id" in row:
         provider = "notice"

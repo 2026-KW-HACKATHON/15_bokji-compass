@@ -27,6 +27,7 @@ export function createHttpClient({
         signal: controller.signal,
         credentials: 'omit',
         cache: 'no-store',
+        redirect: 'error',
         headers: {
           Accept: 'application/json',
           ...(body ? { 'Content-Type': 'application/json' } : {}),

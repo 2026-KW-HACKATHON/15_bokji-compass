@@ -210,7 +210,7 @@ em {
 .sidebar-footer {
   font-size: 0.62rem;
   letter-spacing: 0.05em;
-  margin: 24px 0 0 5px;
+  margin: auto 0 0 5px;
   color: var(--muted);
 }
 .main-shell {
@@ -1925,7 +1925,147 @@ html[data-easy='true'] *::after {
   gap: 28px;
 }
 .auth-page:has(.auth-card-signup) {
-  max-width: 660px;
+  max-width: 560px;
+}
+.signup-page .auth-fields {
+  gap: 14px;
+}
+.signup-page .auth-password-field {
+  margin-top: 0;
+}
+.signup-page .auth-card .round-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+.signup-step-title {
+  font-size: 1.2rem;
+  line-height: 1.6;
+}
+.signup-progress p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.signup-progress strong {
+  color: var(--green);
+}
+.signup-progress progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  accent-color: var(--green);
+  background: var(--soft);
+}
+.signup-progress progress::-webkit-progress-bar {
+  background: var(--soft);
+}
+.signup-progress progress::-webkit-progress-value {
+  background: var(--green);
+  border-radius: 10px;
+}
+.signup-methods {
+  display: grid;
+  gap: 16px;
+}
+.signup-method {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 20px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  min-height: 90px;
+}
+.signup-method > svg {
+  flex-shrink: 0;
+}
+.signup-method > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+.signup-method strong {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+.signup-method small {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.signup-method.signup-kakao:disabled {
+  background: #fee500;
+  border-color: #e5ce00;
+  color: #292516;
+  opacity: 1;
+}
+.signup-kakao small {
+  color: #514919;
+}
+.signup-verification-note {
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--soft);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.signup-verification-note .text-button {
+  margin-top: 6px;
+  min-height: 44px;
+}
+.signup-review {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 18px;
+}
+.signup-review > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0;
+}
+.signup-review > div + div {
+  border-top: 1px solid var(--line);
+}
+.signup-review dt {
+  color: var(--muted);
+}
+.signup-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.member-profile-form {
+  margin-bottom: 36px;
+}
+.member-profile-form .form-intro h2 {
+  margin-bottom: 10px;
+}
+.member-profile-form .auth-grid > div {
+  align-content: start;
+}
+.member-profile-form input[readonly] {
+  background: var(--soft);
+}
+.recommendation-settings-title {
+  margin-bottom: 18px;
+  font-size: 1.2rem;
+}
+.easy-mode .signup-step-title {
+  font-size: 1.3rem;
+}
+.easy-mode .signup-method strong {
+  font-size: 1.1rem;
 }
 .auth-section,
 .auth-verification {
@@ -2196,6 +2336,26 @@ html[data-easy='true'] *::after {
   display: grid;
   gap: 10px;
 }
+.faq-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.faq-choices .button {
+  min-height: 48px;
+  text-align: left;
+  white-space: normal;
+  justify-content: flex-start;
+}
+.faq-choices .button[aria-pressed='true'] {
+  border-color: #40664b;
+  background: #e4eee5;
+  color: #203a28;
+}
+.selected-question {
+  font-weight: 700;
+}
 .policy-question textarea {
   width: 100%;
   padding: 12px;
@@ -2237,4 +2397,32 @@ html[data-easy='true'] *::after {
     max-width: 85px;
     font-size: 0.8rem;
   }
+}
+
+.kakao-login-section {
+  margin: 1.5rem 0;
+}
+.kakao-login-button {
+  background: #fee500;
+  color: #191919;
+  border: 1px solid #fee500;
+  gap: 0.6rem;
+  min-height: 48px;
+}
+.kakao-login-button:hover:not(:disabled) {
+  background: #f4dc00;
+  color: #191919;
+}
+.kakao-login-button:focus-visible {
+  outline: 3px solid #191919;
+  outline-offset: 3px;
+}
+.kakao-login-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.auth-divider {
+  text-align: center;
+  margin: 1rem 0;
+  color: #555;
 }

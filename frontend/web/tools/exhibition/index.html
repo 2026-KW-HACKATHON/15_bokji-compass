@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>복지나침반 · 전시 QR 관리</title>
+    <link rel="icon" href="brand-logo.png" />
+    <link rel="stylesheet" href="page.css" />
+    <script src="page.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand"><img src="brand-logo.png" alt="" /><span>복지나침반</span></div>
+        <span class="badge admin-only">관리자 계정 전용</span>
+        <a class="admin-only" href="/">사이트로 돌아가기</a>
+      </header>
+      <div class="intro">
+        <p class="eyebrow">EXHIBITION DESK</p>
+        <h1>만나는 방법, 두 가지</h1>
+        <p>Android는 앱으로, iPhone은 웹으로 복지나침반을 만나보세요.</p>
+      </div>
+      <section class="settings admin-only" aria-label="QR 주소 설정">
+        <h2>연결 주소 설정</h2>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="auto" checked /> 고정 주소 자동 연결</label
+          ><label><input type="radio" name="mode" value="manual" /> 고정 주소 직접 입력</label>
+        </div>
+        <form id="settings">
+          <div class="fields">
+            <label
+              >웹 메인 주소<input
+                id="origin"
+                type="url"
+                placeholder="https://bokji.commitnaru.com"
+                maxlength="1200"
+                disabled /></label
+            ><label
+              >별도 APK 다운로드 주소 (선택)<input
+                id="apk"
+                type="url"
+                placeholder="비워두면 같은 서버의 /downloads/bokji-compass.apk"
+                maxlength="1200"
+            /></label>
+          </div>
+          <button type="submit">QR 주소 적용</button>
+        </form>
+        <p id="source" class="muted">고정 주소 확인 중…</p>
+        <p class="muted">
+          기본 주소는 https://bokji.commitnaru.com/입니다. 서버를 다시 실행해도 같은 주소로
+          연결됩니다.
+        </p>
+      </section>
+      <p id="error" class="warning" role="alert" hidden></p>
+      <p id="temporary" class="warning" hidden>
+        테스트용 임시 주소입니다. 서버를 다시 열면 새 QR이 필요합니다. 전시 인쇄물은 고정 주소를
+        정한 뒤 출력하세요.
+      </p>
+      <div class="cards">
+        <section class="card" id="android-card">
+          <p class="eyebrow">01 · ANDROID</p>
+          <h2>앱 설치하기</h2>
+          <p>카메라로 스캔하면 APK 다운로드 주소로 이동해요.</p>
+          <div class="qr-box">
+            <img id="android-qr" alt="Android APK 다운로드 QR" hidden /><span id="android-empty"
+              >연결 주소를 기다리고 있어요.</span
+            >
+          </div>
+          <a id="android-target" class="target" target="_blank" rel="noopener noreferrer"></a>
+          <p id="apk-status" class="warning">설치 파일 등록 여부를 확인하고 있어요.</p>
+          <p class="guide">
+            Android 전용입니다. 내려받은 APK를 열어 설치하세요. 출처 허용 요청이 나오면 배포 주소를
+            확인한 후 해당 브라우저에 허용해 주세요.
+          </p>
+          <div class="actions admin-only">
+            <a id="android-save" class="button" aria-disabled="true">QR PNG 저장</a
+            ><button id="android-copy" disabled>주소 복사</button>
+          </div>
+        </section>
+        <section class="card" id="web-card">
+          <p class="eyebrow">02 · WEB</p>
+          <h2>웹으로 바로 이용</h2>
+          <p>설치 없이 메인 페이지로 바로 연결돼요.</p>
+          <div class="qr-box">
+            <img id="web-qr" alt="복지나침반 메인 페이지 QR" hidden /><span id="web-empty"
+              >연결 주소를 기다리고 있어요.</span
+            >
+          </div>
+          <a id="web-target" class="target" target="_blank" rel="noopener noreferrer"></a>
+          <p class="web-note">iPhone은 이 QR을 이용해 주세요.</p>
+          <p class="guide">
+            Android에서도 웹을 이용할 수 있어요. 앱 설치가 어려울 때도 여기서 시작하세요.
+          </p>
+          <div class="actions admin-only">
+            <a id="web-save" class="button" aria-disabled="true">QR PNG 저장</a
+            ><button id="web-copy" disabled>주소 복사</button>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <p id="updated" class="muted" aria-live="polite"></p>
+        <p id="feedback" role="status"></p>
+        <button id="print" class="admin-only" disabled>안내판 인쇄 / PDF 저장</button>
+        <p class="muted admin-only">
+          인쇄 전 휴대폰 데이터망으로 두 주소를 확인하세요. QR 이미지는 이 PC에서 생성하며 외부 QR
+          서비스로 보내지 않습니다.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,23 +1,41 @@
 # 복지나침반 모바일
 
-담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙은 `../packages/core`에서 공유합니다. 홈·로그인·소득/재산 계산·동의 저장·조회·삭제와 공개 공고 목록·검색·상세를 제공합니다. 개인 추천·가입 화면·푸시·저장 공고 동기화는 후속 작업입니다.
+**2026-10-02 전시 배포 범위:** Android APK와 웹을 우선합니다. iPhone은 웹 접속으로 안내하며 iOS 네이티브 배포 작업은 이번 전시 범위에서 제외합니다. [고정 주소·QR 관리](../docs/exhibition.md).
+
+담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙은 `../packages/core`에서 공유합니다. 홈·로그인·소득/재산 계산·동의 저장·조회·삭제와 공개 공고 목록·검색·상세를 제공합니다. [알림 권한 안내·전체/유형별 수신 설정·기기 등록](src/features/notifications/readme.md)을 구현했습니다. 실제 자동 푸시 발송·개인 추천·가입 화면·저장 공고 동기화는 후속 작업입니다.
 
 문서 안내: [구현 범위와 이식 현황](../docs/mobile-migration.md) · [최신 보안 재검토와 배포 조건](../docs/mobile-security-review.md) · [배너 이미지·생성 프롬프트](assets/home/README.md). **main 반영은 소스 공유이며, 현재 개발 APK의 배포 승인을 의미하지 않습니다.**
 
+브랜드 로고는 웹의 `../web/public/brand-logo.png`와 동일한 `assets/brand-logo.png`를 사용합니다. 앱 아이콘·웹 미리보기 파비콘·홈 브랜드 영역에서 같은 원본을 사용하며, 로고 변경 시 두 파일을 함께 갱신합니다.
+
 ## 실행
+
+고정 서버 주소는 **`https://bokji.commitnaru.com/api`**입니다. `.env.example`과 EAS development/preview/production 프로필에 반영했습니다. 이 PC의 `.env`도 같은 주소를 사용합니다. 전시 웹·QR 주소는 `https://bokji.commitnaru.com/`이며 앱 API에는 `/api`가 필요합니다.
+
+주소는 JS 번들 생성 시 포함됩니다. 기존 설치된 독립 APK는 새 주소로 다시 빌드·서명해 업데이트해야 합니다. 주소 변경 후 개발 앱은 `npm start -- --clear`로 Metro 캐시를 초기화하고 전체 새로고침합니다. 이전 서버의 저장된 로그인은 서버 주소가 달라지면 초기화되므로 고정 사이트 계정으로 다시 로그인합니다. 로컬 API 점검이 필요할 때만 환경변수나 `android:local -- -ApiBaseUrl ...`로 명시적으로 덮어씁니다.
+
+로컬 배포 검증은 Expo 설정 사전 검사와 Gradle에도 주소가 전달되도록 셸에 명시합니다. EAS는 각 프로필의 `env`를 사용합니다.
+
+```powershell
+$env:EXPO_PUBLIC_API_BASE_URL='https://bokji.commitnaru.com/api'
+$env:BOKJI_RELEASE='1'
+npx expo export --platform android --clear
+```
+
+2026-10-02: 타입·린트, Android Hermes 번들 생성, 앱 클라이언트의 실제 health/공고 응답 검증 완료. 프록시에 기존 모바일 인증·알림 API 경로를 연결했고 비로그인 401·로그인 빈 입력 422 확인. 이 검증은 서명 APK 생성·실기기 설치 완료를 의미하지 않습니다.
 
 Node.js 22.13 이상. 이 폴더에서 실행합니다. 저장소 전체를 내려받아 `../packages/core` 경로를 유지해야 합니다.
 
 ```powershell
 npm ci
 Copy-Item .env.example .env
-# .env의 EXPO_PUBLIC_API_BASE_URL을 접근 가능한 서버 주소로 편집
+# 기본값: https://bokji.commitnaru.com/api
 npm start
 ```
 
 `EXPO_PUBLIC_API_BASE_URL`은 앱에 포함되는 공개 주소입니다. 키·비밀번호를 넣지 마세요. 직접 백엔드 주소는 `https://호스트`, `/api`를 제거해 전달하는 프록시는 `https://호스트/api`입니다. 앱은 Vite proxy를 사용하지 않습니다. 휴대폰의 localhost는 휴대폰 자체입니다. Android 에뮬레이터의 PC 주소는 보통 `10.0.2.2`이며 실제 기기는 접근 가능한 HTTPS 개발 서버를 사용합니다. 개발 JS에서만 HTTP 설정을 허용하지만 네이티브 OS가 HTTP를 차단할 수 있으므로 HTTPS를 권장합니다. 서버 CORS는 브라우저 미리보기에서만 필요하며 Origin을 명시적으로 등록합니다.
 
-API 주소가 없으면 설정 안내를 표시하고 네트워크 작업을 막습니다. 서버 상태 확인은 프로세스 응답만 의미하며 DB/SMS/정책 API 준비를 보장하지 않습니다.
+API 주소가 없으면 설정 안내를 표시하고 네트워크 작업을 막습니다. 서버 상태 확인은 프로세스 응답만 의미하며 회원 저장소/정책 API 준비를 보장하지 않습니다.
 
 - `npm run android`: Expo Prebuild 후 Android APK를 로컬 빌드·설치·실행. Android SDK/JDK와 기기는 별도 필요.
 - `npm run android:local -- -ApiBaseUrl http://127.0.0.1:8766`: Windows에서 SDK와 Android Studio JDK를 찾아 실행하는 보조 명령. 켜진 기기가 정확히 하나 필요하며, 여러 기기는 `-Device emulator-5554`처럼 지정합니다. localhost API와 Metro 포트는 adb reverse로 연결합니다.
@@ -168,3 +186,7 @@ APK 검사는 디버그 여부, 서명, 노출 컴포넌트, 권한, XML 정책�
 `src/features/home/HomeBanner.tsx`의 3개 배너는 앱 기능 안내입니다. 이미지는 `assets/home/`에서 로컬 번들로 로드하며 외부 이미지 서비스에 요청하지 않습니다. 생성 방식과 프롬프트는 해당 폴더의 README.md에 있습니다.
 
 좌우 스와이프 또는 48dp 이상의 이전/다음 버튼으로 페이지를 넘기고, 배너를 누르면 공고·계산기·계정으로 이동합니다. 자동 재생은 하지 않습니다. 쉬운 화면에서는 설명을 줄이고 가로형 배너를 사용합니다. `node tests/easy-layout-preview.mjs`로 모바일 크기별 배치와 배너 동작을 확인할 수 있습니다.
+
+### 챗봇과 전체 메뉴
+
+오른쪽 아래 상담원 아이콘과 오른쪽 위 ≡ 메뉴를 제공합니다. X로 끌 때 확인과 재진입 위치를 안내하며 메뉴에서 다시 켤 수 있습니다. 공고 상세에서도 해당 공고에 바로 질문할 수 있습니다. 웹과 동일한 FAQ·직접 질문 API에 모바일 Bearer로 연결합니다. [동작·보안·검증 범위](src/features/assistant/README.md)를 확인하세요.

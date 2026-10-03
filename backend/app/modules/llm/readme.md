@@ -6,6 +6,13 @@
 
 `cli_environment()`는 OS·로그인 경로만 전달하며 앱 비밀정보 제외. `stop_codex_process(process)`는 Windows에서 해당 PID의 프로세스 트리, POSIX에서 새 세션의 프로세스 그룹 종료. 호출 제한시간 초과·사용자 중단 시 적용. [macOS 설치·사용법](../../../docs/macos-development.md).
 
+구조화 출력이 잘못된 경우 `CodexOutputError(ValueError)`의 metadata에 완료 event 사용량을
+보존합니다. 서버 worker는 이 정보로 실패한 출력의 모델 호출·토큰 예산도 계산합니다.
+
+실행 중 0.2초마다 출력 파일을 검사합니다. 이벤트 2MB·stderr 256KB·결과 2MB 및
+이벤트 한 줄 256KB를 넘거나 허용하지 않은 도구 이벤트가 나오면 해당 프로세스 트리를
+중단합니다. 종료 직후에도 같은 상한과 이벤트 형식을 검사한 뒤 JSON을 읽습니다.
+
 모델·reasoning·재시도·실행 방법: [사용법](../../../docs/raw-parsing.md).
 
 요약·분야 생성은 조건이 코드 규칙으로 완결되는 정책에도 별도 LLM 호출을 합니다. 따라서 파싱당 추가 모델 호출 비용·시간이 들 수 있으며, 요약은 검토용 안내이지 자격 판정이 아닙니다.

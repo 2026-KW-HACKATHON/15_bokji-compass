@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 
 const backend = path.resolve('../../backend');
 const webPort = Number(process.env.E2E_WEB_PORT || 5173);
@@ -32,7 +33,13 @@ export default defineConfig({
         APP_ENV: 'test',
         DB_ENABLED: 'false',
         AUTH_ENABLED: 'true',
-        AUTH_SMS_MODE: 'development',
+        KAKAO_CLIENT_ID: '',
+        KAKAO_CLIENT_SECRET: '',
+        KAKAO_REDIRECT_URI: '',
+        KAKAO_WEB_URL: '',
+        AUTH_ENCRYPTION_KEYS: JSON.stringify({ primary: randomBytes(32).toString('base64url') }),
+        AUTH_ENCRYPTION_KEY_ID: 'primary',
+        AUTH_LOOKUP_KEY: randomBytes(32).toString('base64url'),
         AUTH_SQLITE_PATH: path.join(backend, `.cache/auth-e2e-${process.pid}.sqlite3`),
         CORS_ORIGINS: '[]',
       },

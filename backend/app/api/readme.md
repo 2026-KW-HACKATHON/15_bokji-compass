@@ -2,6 +2,24 @@
 
 현재 상태: 상태 점검, 인증, 금융 계산·저장, 공개 공고 목록·상세·검색과 회원 공고 질문 API 구현.
 
+## 백엔드 서버 관리자
+
+`server_admin.pages`는 백엔드 `/`의 로그인·관리 화면과 제한된 정적 자산을 제공합니다.
+`server_admin.router`의 `/v1/server-admin`은 기존 인증 저장소의 최고 관리자만 허용합니다.
+전용 `bokji_server_admin` 쿠키를 발급하고 매 설정·상태 요청에서 권한을 새로 확인합니다.
+일반 웹 쿠키·QR 관리자 등급으로 서버 관리 권한을 대신할 수 없습니다.
+
+login/logout/session, 서버·자원·DB·수집 overview, 설정 GET/PATCH, 저장된 수집
+status/changes/candidates GET이 구현되어 있습니다. POST/PATCH는 같은 출처·
+`X-Auth-Request: 1`, 64KB 이하 JSON을 요구합니다. 페이지와 API는 no-store·CSP·프레임
+차단을 적용하고 입력 오류에서 비밀번호·키를 반영하지 않습니다.
+
+허용된 설정만 저장하고 DB 엔진·인증 저장소 변경은 재시작까지 대기합니다. 조회·설정 저장은
+수집·모델·Windows 스케줄을 실행하지 않습니다. 임의 SQL·서버 파일·프로세스 관리 API는
+제공하지 않습니다. [함수 계약](../modules/server_admin/readme.md),
+[운영 순서](../../docs/server-admin.md), [HTTP 관리대장](../../../api-management.md).
+검증은 `tests/test_server_admin.py`, `tests/test_server_settings.py`의 오프라인 대역을 사용합니다.
+
 `policies.router`는 MySQL의 공개된 최신 공고 목록·상세·검색을 제공합니다.
 `assistant.router`는 로그인 회원의 공고 질문을 받으며 최소 프로필과 공개 원문으로 답변합니다.
 `members.get_member`는 금융/질문 API의 웹 쿠키·모바일 Bearer 검증을 공유합니다.

@@ -345,6 +345,8 @@ def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypat
 
 def test_cli_timeout_terminates_own_process(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "IS_WINDOWS", True)
+    times = iter([0.0, 301.0])
+    monkeypatch.setattr(llm.time, "monotonic", lambda: next(times))
     executable = tmp_path / "codex.exe"
     executable.touch()
     killed = []
@@ -384,6 +386,64 @@ def test_tool_event_rejects_an_otherwise_valid_response(tmp_path, monkeypatch):
     with pytest.raises(llm.CodexRunError, match="unexpected_tool"):
         llm.extract_policy(source(), Settings(_env_file=None, codex_executable=str(executable)),
                            tmp_path / "attempt", "gpt-5.6-luna")
+
+
+@pytest.mark.parametrize("filename,limit,code", [
+    ("events.jsonl", "MAX_EVENT_BYTES", "event_limit"),
+    ("stderr.log", "MAX_STDERR_BYTES", "stderr_limit"),
+    ("response.json", "MAX_RESULT_BYTES", "result_limit"),
+])
+@pytest.mark.parametrize("running", [False, True])
+def test_cli_output_limits_apply_before_parsing_and_stop_running_process(
+    tmp_path, monkeypatch, filename, limit, code, running,
+):
+    monkeypatch.setattr(llm, "resolve_codex_executable", lambda _: tmp_path / "codex.exe")
+    monkeypatch.setattr(llm, limit, 32)
+    stopped = []
+    monkeypatch.setattr(llm, "stop_codex_process", lambda process: stopped.append(process))
+
+    class OversizedProcess:
+        returncode = 0
+
+        def __init__(self, args, **kwargs):
+            output = Path(args[args.index("-o") + 1]).parent
+            (output / filename).write_bytes(b"x" * 33)
+
+        def communicate(self, *args, **kwargs):
+            if running:
+                raise subprocess.TimeoutExpired("fake-codex", 0.2)
+
+    monkeypatch.setattr(llm.subprocess, "Popen", OversizedProcess)
+    with pytest.raises(llm.CodexRunError, match=code):
+        llm.extract_policy(source(), Settings(_env_file=None), tmp_path / "attempt", "test-model")
+    assert len(stopped) == int(running)
+
+
+@pytest.mark.parametrize("event,code", [
+    (b'[]\n', "invalid_cli_event"),
+    (b'{"type":"item.started","item":null}\n', "invalid_cli_event"),
+    (b'{"type":"unknown.tool"}\n', "invalid_cli_event"),
+    (b'{"type":"item.started","item":{"type":"command_execution"}}\n', "unexpected_tool"),
+])
+def test_cli_rejects_malformed_or_tool_events_before_process_finishes(
+    tmp_path, monkeypatch, event, code,
+):
+    monkeypatch.setattr(llm, "resolve_codex_executable", lambda _: tmp_path / "codex.exe")
+    stopped = []
+    monkeypatch.setattr(llm, "stop_codex_process", lambda process: stopped.append(process))
+
+    class EventProcess:
+        def __init__(self, args, **kwargs):
+            kwargs["stdout"].write(event)
+            kwargs["stdout"].flush()
+
+        def communicate(self, *args, **kwargs):
+            raise subprocess.TimeoutExpired("fake-codex", 0.2)
+
+    monkeypatch.setattr(llm.subprocess, "Popen", EventProcess)
+    with pytest.raises(llm.CodexRunError, match=code):
+        llm.extract_policy(source(), Settings(_env_file=None), tmp_path / "attempt", "test-model")
+    assert len(stopped) == 1
 
 
 def test_batch_writes_drafts_using_safe_ids(tmp_path, monkeypatch):
@@ -445,6 +505,8 @@ def test_posix_login_environment_keeps_home_but_not_application_secrets(monkeypa
 
 def test_posix_timeout_uses_own_new_session(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "IS_WINDOWS", False)
+    times = iter([0.0, 301.0])
+    monkeypatch.setattr(llm.time, "monotonic", lambda: next(times))
     monkeypatch.setattr(signal, "SIGKILL", 9, raising=False)
     monkeypatch.setattr(llm, "resolve_codex_executable", lambda _: tmp_path / "codex")
     process = Mock(pid=12345)
