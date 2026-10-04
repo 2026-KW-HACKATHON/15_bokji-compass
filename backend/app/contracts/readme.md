@@ -16,7 +16,7 @@
 
 `app.contracts.parsing`의 `SourcePolicy`, `ParsedCondition`, `ConditionGroup`, `PolicyExtraction`은 원문 입력·상태/값·주체·조건 그룹을 정의합니다. 숫자·범위·날짜·텍스트·불리언별 모델과 Pydantic 검증 사용. [전체 계약](../../docs/data-contracts.md).
 
-같은 모듈의 `PolicyOverview`는 제목, 입력에서 복사한 `source_url`, 웹과 일치하는 6개 분야 또는 미분류 `null`, 지역·성별·나이·기타 조건, 혜택을 표현하는 검토용 계약입니다. URL은 모델이 생성하지 않으며 원문 URL이 없으면 `null`입니다. 지역·성별·나이·혜택은 `specified`, `unrestricted`, `not_stated`, `unclear` 상태와 원문 인용을 가집니다. `SourceEvidence`의 실제 원문 일치와 제목·URL 일치는 validation 모듈에서 확인합니다. 자격 판정 계약이 아닙니다.
+같은 모듈의 `PolicyOverview`는 제목, 입력에서 복사한 `source_url`, 웹과 일치하는 6개 분야 또는 미분류 `null`, 지역·성별·나이·기타 조건, 혜택과 인용된 신청 기간·방법·URL·문의처·게시일·수정일을 표현하는 검토용 계약입니다. URL은 모델이 생성하지 않으며 원문 URL이 없으면 `null`입니다. 지역·성별·나이·혜택은 `specified`, `unrestricted`, `not_stated`, `unclear` 상태와 원문 인용을 가집니다. 출처 정보는 `specified`, `not_stated`, `unclear` 상태이며, 지정된 경우 원문 발췌를 인용해야 합니다. `SourceEvidence`의 실제 원문 일치와 제목·URL 일치는 validation 모듈에서 확인합니다. 자격 판정 계약이 아닙니다. 공지 원문의 application URL 후보는 HTTP(S) 링크 중 처음 20개, URL 최대 512자까지만 보조 필드로 전달합니다.
 
 [`app.contracts.finance`](finance.py)의 `FinancialProfile`, `CalculationInput`, `SaveFinancialProfile`은 가구 구성·가구원 소득·재산·부채·차량과 계산·저장 요청을 정의합니다. 금액은 음수가 아닌 정수 원이며 미입력 `null`과 실제 금액 `0`을 구분합니다. 계약 외 필드는 거부하며 소유 계정 ID와 계산 결과는 클라이언트 입력으로 받지 않습니다. `PolicyFinancialCriteria`는 검토된 공고의 산정 방식·기준연도·가구 범위를 서버 계산에 연결하기 위한 내부 계약입니다. [금융 모듈 사용법](../modules/finance/readme.md).
 
