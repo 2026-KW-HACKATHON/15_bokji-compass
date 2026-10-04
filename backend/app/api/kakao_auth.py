@@ -13,7 +13,6 @@ from app.api.auth import COOKIE, ProfileInput, Service, guard, ip
 from app.modules.admin.access import with_capabilities
 from app.modules.auth import kakao
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities
-from app.modules.auth.privacy import PrivacyCipher, PrivacyError, encrypted_account
 from app.modules.auth.service import SESSION_SECONDS, digest, password_hash
 
 router = APIRouter(prefix="/v1/auth/kakao", tags=["auth"], dependencies=[Depends(guard)])
@@ -62,10 +61,7 @@ def create_flow(service, token, binding, subject=None, nickname=None):
                 binding_hash=digest(binding),
                 expires_at=now + FLOW_SECONDS,
                 subject=subject,
-                nickname=None,
-                nickname_ciphertext=service.cipher.encrypt(
-                    nickname or "", "kakao-flow:" + digest(token)
-                ),
+                nickname=nickname or "",
             )
         )
 
@@ -88,9 +84,8 @@ def status(request: Request):
     settings = request.app.state.settings
     try:
         kakao.require_configuration(settings)
-        PrivacyCipher(settings)
-        enabled = settings.auth_enabled and (settings.db_enabled or settings.app_env == "test")
-    except (HTTPException, PrivacyError):
+        enabled = settings.auth_enabled
+    except HTTPException:
         enabled = False
     return {"enabled": enabled}
 
@@ -177,11 +172,7 @@ def pending(request: Request, service: Service):
         flow = find_flow(connection, token)
     if not flow or not flow["subject"]:
         raise HTTPException(401, "카카오 인증이 만료됐어요. 다시 로그인해 주세요.")
-    return {
-        "name": service.cipher.decrypt(
-            flow["nickname_ciphertext"], "kakao-flow:" + flow["token_hash"]
-        )
-    }
+    return {"name": flow["nickname"] or ""}
 
 
 @router.post("/complete", status_code=201)
@@ -189,16 +180,13 @@ def complete(data: ProfileInput, request: Request, response: Response, service: 
     service.throttle("kakao-complete:" + ip(request), 20, 900)
     pending_token = request.cookies.get(PENDING_COOKIE, "")
     # No usable password or phone is created for a social identity.
-    account = encrypted_account(
-        service.cipher,
-        dict(
-            id=secrets.token_urlsafe(24),
-            username="k_" + secrets.token_hex(12),
-            password_hash=password_hash(secrets.token_urlsafe(48)),
-            phone=None,
-            created_at=int(time.time()),
-            **data.model_dump(),
-        ),
+    account = dict(
+        id=secrets.token_urlsafe(24),
+        username="k_" + secrets.token_hex(12),
+        password_hash=password_hash(secrets.token_urlsafe(48)),
+        phone=None,
+        created_at=int(time.time()),
+        **data.model_dump(),
     )
     try:
         with service.engine.begin() as connection:

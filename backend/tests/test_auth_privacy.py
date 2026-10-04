@@ -1,273 +1,124 @@
-"""Private storage must fail closed, preserve identities and resist ciphertext substitution."""
+"""Keyless login and one-time restoration of older encrypted member data."""
 
 import base64
 import json
-import os
+import secrets
 import time
-from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
-from uuid import uuid4
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
-from sqlalchemy import create_engine, delete, insert, select, text, update
+from sqlalchemy import create_engine, insert, select, update
 
-from app.core.config import BACKEND_ROOT, Settings
-from app.core.database import create_database_engine
+from app.core.config import Settings
 from app.main import create_app
-from app.modules.auth.migration import import_sqlite_accounts, migrate_private_data
-from app.modules.auth.models import accounts, kakao_flows, kakao_identities, privacy_state, sessions
-from app.modules.auth.privacy import PrivacyCipher, PrivacyError
+from app.modules.admin.access import admin_grants, admin_role
+from app.modules.auth import kakao
+from app.modules.auth.migration import (
+    ensure_plaintext_storage,
+    import_sqlite_accounts,
+    restore_plaintext_data,
+)
+from app.modules.auth.models import accounts, kakao_flows, kakao_identities, sessions
+from app.modules.auth.privacy import LegacyCipher, PrivacyError
 from app.modules.auth.schema import initialize_auth_schema
-from app.modules.auth.service import digest, password_hash
+from app.modules.auth.service import AuthService, digest, password_hash
 from app.modules.finance.schema import initialize_finance_schema
 from app.modules.finance.storage import financial_profiles
 
 HEADERS = {"X-Auth-Request": "1"}
-PROFILE = {"name": "암호화검증회원", "age": 35, "gender": "female", "region": "서울"}
+PROFILE = {"name": "테스트회원", "age": 35, "gender": "female", "region": "서울"}
 PASSWORD = "PrivatePassword42!"
 FINANCE = {"household_size": 1, "members": [{"age": 35, "earned_income": 1234567}]}
 
 
-def cipher():
-    return PrivacyCipher(Settings(_env_file=None))
+def legacy_settings():
+    return Settings(
+        _env_file=None,
+        auth_encryption_keys=json.dumps({"primary": base64.urlsafe_b64encode(b"e" * 32).decode()}),
+        auth_lookup_key=base64.urlsafe_b64encode(b"l" * 32).decode(),
+    )
 
 
-def seed_legacy(engine):
+def encrypted(value, context):
+    # Only test fixtures write the obsolete ciphertext format.
+    nonce = secrets.token_bytes(12)
+    payload = nonce + AESGCM(b"e" * 32).encrypt(nonce, value.encode(), context.encode())
+    return "enc:v1:primary:" + base64.urlsafe_b64encode(payload).decode()
+
+
+def store(path):
+    engine = create_engine("sqlite:///" + path.as_posix())
     initialize_auth_schema(engine)
     initialize_finance_schema(engine)
+    return engine
+
+
+def seed_encrypted(engine):
+    private = {"username": "legacy_user", "phone": "01012345678", **PROFILE}
     with engine.begin() as connection:
         connection.execute(
             insert(accounts).values(
                 id="legacy",
-                username="legacy_user",
-                password_hash=password_hash(PASSWORD),
-                phone="01012345678",
+                username="u_obsolete",
+                name=None,
+                age=0,
+                gender="encrypted",
+                region="encrypted",
+                phone=None,
                 created_at=1,
-                **PROFILE,
+                password_hash=password_hash(PASSWORD),
+                username_lookup=LegacyCipher(legacy_settings()).lookup("legacy_user"),
+                profile_ciphertext=encrypted(json.dumps(private), "account:legacy"),
             )
         )
         connection.execute(
-            insert(kakao_identities).values(
-                subject=digest("kakao:100:123"),
+            insert(admin_grants).values(
                 account_id="legacy",
+                role="superadmin",
+                created_at=1,
             )
         )
         connection.execute(
             insert(sessions).values(
-                token_hash=digest("legacy-session"),
+                token_hash=digest("old-session"),
                 account_id="legacy",
                 expires_at=int(time.time()) + 3600,
             )
         )
         connection.execute(
-            insert(financial_profiles).values(
-                account_id="legacy",
-                profile_json=json.dumps(FINANCE),
-                updated_at="old",
-            )
+            insert(kakao_identities).values(subject="old-kakao", account_id="legacy")
         )
         connection.execute(
             insert(kakao_flows).values(
                 token_hash="pending",
                 binding_hash="binding",
-                expires_at=1,
-                subject=digest("kakao:100:123"),
-                nickname="가입대기별명",
+                expires_at=2**31,
+                subject="old-kakao",
+                nickname=None,
+                nickname_ciphertext=encrypted("카카오별명", "kakao-flow:pending"),
+            )
+        )
+        connection.execute(
+            insert(financial_profiles).values(
+                account_id="legacy",
+                profile_json=encrypted(json.dumps(FINANCE), "finance:legacy"),
+                updated_at="old",
             )
         )
 
 
-def test_random_nonces_tamper_wrong_key_and_cross_account_substitution():
-    value = cipher()
-    first = value.encrypt_json(PROFILE, "account:one")
-    second = value.encrypt_json(PROFILE, "account:one")
-    assert first != second
-    assert value.decrypt_json(first, "account:one") == PROFILE
-    for context, ciphertext in (
-        ("account:two", first),
-        ("finance:one", first),
-        ("account:one", first[:-8] + "AAAAAAAA"),
-        ("account:one", json.dumps(PROFILE)),
-    ):
-        with pytest.raises(PrivacyError):
-            value.decrypt_json(ciphertext, context)
+@pytest.mark.parametrize("mode", ["development", "test", "production"])
+def test_password_login_without_mysql_or_member_keys_persists_after_restart(tmp_path, mode):
     settings = Settings(
         _env_file=None,
-        auth_encryption_keys=json.dumps(
-            {
-                "primary": base64.urlsafe_b64encode(b"x" * 32).decode(),
-            }
-        ),
-    )
-    with pytest.raises(PrivacyError):
-        PrivacyCipher(settings).decrypt(first, "account:one")
-    assert value.lookup("TESTER") == value.lookup("tester")
-    assert value.lookup("tester") != digest("tester")
-
-
-@pytest.mark.parametrize("mode", ["development", "production"])
-def test_sqlite_is_never_a_live_member_fallback(tmp_path, mode):
-    path = tmp_path / "must-not-exist.sqlite3"
-    with TestClient(
-        create_app(
-            Settings(
-                _env_file=None,
-                app_env=mode,
-                db_enabled=False,
-                auth_sqlite_path=path,
-            )
-        )
-    ) as client:
-        response = client.post(
-            "/v1/auth/signup",
-            headers=HEADERS,
-            json={
-                **PROFILE,
-                "username": "tester",
-                "password": PASSWORD,
-                "confirm_password": PASSWORD,
-            },
-        )
-        assert response.status_code == 503
-        assert not path.exists()
-
-
-@pytest.mark.parametrize(
-    "keys,lookup",
-    [
-        ("{}", ""),
-        ("not-json", ""),
-        ('{"primary":"invalid"}', ""),
-    ],
-)
-def test_missing_or_invalid_keys_never_create_private_storage(tmp_path, keys, lookup):
-    path = tmp_path / "missing.sqlite3"
-    with TestClient(
-        create_app(
-            Settings(
-                _env_file=None,
-                app_env="test",
-                db_enabled=False,
-                auth_sqlite_path=path,
-                auth_encryption_keys=keys,
-                auth_lookup_key=lookup,
-            )
-        )
-    ) as client:
-        response = client.get("/v1/auth/me")
-        assert response.status_code == 503 and not path.exists()
-        assert "not-json" not in response.text
-
-
-def test_legacy_conversion_import_and_rotation_preserve_account_sessions_and_finance(tmp_path):
-    old = create_engine("sqlite:///" + (tmp_path / "old.sqlite3").as_posix())
-    target = create_engine("sqlite:///" + (tmp_path / "target.sqlite3").as_posix())
-    value = cipher()
-    try:
-        seed_legacy(old)
-        initialize_auth_schema(target)
-        initialize_finance_schema(target)
-        migrate_private_data(target, value)
-        assert import_sqlite_accounts(old, target, value) == 1
-        assert import_sqlite_accounts(old, target, value) == 0
-        assert migrate_private_data(old, value) == 1
-        assert migrate_private_data(old, value) == 0
-        with old.connect() as connection:
-            row = connection.execute(select(accounts)).mappings().one()
-            assert row["name"] is None and row["phone"] is None and row["age"] == 0
-            assert row["username"] != "legacy_user"
-            assert value.decrypt_json(row["profile_ciphertext"], "account:legacy")["phone"]
-            pending = connection.execute(select(kakao_flows)).mappings().one()
-            assert pending["nickname"] is None
-            assert (
-                value.decrypt(pending["nickname_ciphertext"], "kakao-flow:pending")
-                == "가입대기별명"
-            )
-        settings = Settings(_env_file=None)
-        keys = json.loads(settings.auth_encryption_keys.get_secret_value())
-        keys["next"] = base64.urlsafe_b64encode(b"n" * 32).decode()
-        settings.auth_encryption_keys = SecretStr(json.dumps(keys))
-        settings.auth_encryption_key_id = "next"
-        rotated = PrivacyCipher(settings)
-        assert migrate_private_data(target, rotated) == 1
-        assert migrate_private_data(target, rotated) == 0
-        settings.auth_encryption_keys = SecretStr(json.dumps({"next": keys["next"]}))
-        rotated = PrivacyCipher(settings)
-        with TestClient(
-            create_app(
-                Settings(
-                    _env_file=None,
-                    app_env="test",
-                    db_enabled=False,
-                    auth_sqlite_path=tmp_path / "target.sqlite3",
-                    auth_encryption_keys=settings.auth_encryption_keys,
-                    auth_encryption_key_id="next",
-                )
-            ),
-            headers=HEADERS,
-        ) as client:
-            client.cookies.set("bokji_session", "legacy-session")
-            assert client.get("/v1/auth/me").json()["user"]["username"] == "legacy_user"
-            assert (
-                client.get("/v1/finance/profile").json()["profile"]["members"][0]["earned_income"]
-                == 1234567
-            )
-            assert (
-                client.post(
-                    "/v1/auth/login",
-                    json={
-                        "username": "legacy_user",
-                        "password": PASSWORD,
-                    },
-                ).status_code
-                == 200
-            )
-            with target.connect() as connection:
-                row = connection.execute(select(accounts)).mappings().one()
-                assert row["profile_ciphertext"].startswith(rotated.active_prefix)
-                assert (
-                    connection.execute(select(kakao_identities)).mappings().one()["account_id"]
-                    == "legacy"
-                )
-    finally:
-        old.dispose()
-        target.dispose()
-
-
-def test_wrong_lookup_key_and_corrupt_rows_roll_back_conversion(tmp_path):
-    engine = create_engine("sqlite:///" + (tmp_path / "rollback.sqlite3").as_posix())
-    try:
-        seed_legacy(engine)
-        with engine.begin() as connection:
-            connection.execute(update(financial_profiles).values(profile_json="not-json"))
-        with pytest.raises(ValueError):
-            migrate_private_data(engine, cipher())
-        with engine.connect() as connection:
-            row = connection.execute(select(accounts)).mappings().one()
-            assert row["username"] == "legacy_user" and row["profile_ciphertext"] is None
-            assert connection.execute(select(privacy_state)).first() is None
-        with engine.begin() as connection:
-            connection.execute(update(financial_profiles).values(profile_json=json.dumps(FINANCE)))
-        migrate_private_data(engine, cipher())
-        settings = Settings(
-            _env_file=None, auth_lookup_key=base64.urlsafe_b64encode(b"w" * 32).decode()
-        )
-        with pytest.raises(PrivacyError):
-            migrate_private_data(engine, PrivacyCipher(settings))
-    finally:
-        engine.dispose()
-
-
-def test_modified_account_ciphertext_returns_safe_error_and_issues_no_session(tmp_path):
-    settings = Settings(
-        _env_file=None,
-        app_env="test",
+        app_env=mode,
         db_enabled=False,
-        auth_sqlite_path=tmp_path / "tamper.sqlite3",
+        auth_sqlite_path=tmp_path / "members.sqlite3",
     )
-    with TestClient(create_app(settings), headers=HEADERS) as client:
+    assert settings.auth_encryption_keys.get_secret_value() == "{}"
+    with TestClient(create_app(settings), headers=HEADERS, base_url="https://localhost") as client:
         assert (
             client.post(
                 "/v1/auth/signup",
@@ -280,173 +131,118 @@ def test_modified_account_ciphertext_returns_safe_error_and_issues_no_session(tm
             ).status_code
             == 201
         )
-        engine = client.app.state.auth_service.engine
-        with engine.begin() as connection:
-            row = connection.execute(select(accounts)).mappings().one()
-            connection.execute(
-                update(accounts).values(
-                    profile_ciphertext=row["profile_ciphertext"][:-8] + "AAAAAAAA",
-                )
-            )
-        response = client.post("/v1/auth/login", json={"username": "tester", "password": PASSWORD})
-        assert response.status_code == 503
-        assert PROFILE["name"] not in response.text and "enc:" not in response.text
-        with engine.connect() as connection:
-            assert connection.execute(select(sessions)).first() is None
+        response = client.post("/v1/auth/login", json={"username": "TESTER", "password": PASSWORD})
+        assert response.status_code == 200
+        assert client.get("/v1/auth/me").json()["user"]["name"] == PROFILE["name"]
+        cookies = client.cookies
+    with TestClient(create_app(settings), base_url="https://localhost") as restarted:
+        restarted.cookies.update(cookies)
+        assert restarted.get("/v1/auth/me").json()["user"]["username"] == "tester"
 
 
-def test_real_mysql_password_kakao_and_finance_are_encrypted(monkeypatch):
-    if os.environ.get("BOKJI_TEST_MYSQL") != "1":
-        pytest.skip("Explicit local MySQL integration opt-in required")
-    state = json.loads((BACKEND_ROOT / "data/mysql-dev/credentials.json").read_text())
+@pytest.mark.parametrize("mode", ["development", "production"])
+def test_kakao_signup_without_mysql_or_member_keys(tmp_path, monkeypatch, mode):
     settings = Settings(
         _env_file=None,
-        app_env="test",
-        db_enabled=True,
-        db_host="127.0.0.1",
-        db_port=state["port"],
-        db_name="bokji_compass_test",
-        db_user="bokji_test",
-        db_password=state["app_password"],
-        kakao_client_id="test",
-        kakao_client_secret="synthetic-secret",
-        kakao_redirect_uri="http://localhost/v1/auth/kakao/callback",
-        kakao_web_url="http://localhost/",
+        app_env=mode,
+        db_enabled=False,
+        auth_sqlite_path=tmp_path / "kakao.sqlite3",
+        kakao_client_id="test-app",
+        kakao_client_secret="test-secret",
+        kakao_redirect_uri="https://localhost/v1/auth/kakao/callback",
+        kakao_web_url="https://localhost/",
+        auth_encryption_keys="obsolete-invalid-value",
+        auth_lookup_key="obsolete-invalid-value",
     )
-    engine = create_database_engine(settings)
-    username = "t_" + uuid4().hex[:16]
-    subject = "test-app:" + uuid4().hex
-    ids = []
-    flows = []
-    try:
-        with engine.connect() as connection:
-            assert connection.scalar(text("SELECT DATABASE()")) == "bokji_compass_test"
-            assert (
-                Path(connection.scalar(text("SELECT @@datadir"))).resolve()
-                == (BACKEND_ROOT / "data/mysql-dev/data").resolve()
-            )
-        initialize_auth_schema(engine)
-        initialize_finance_schema(engine)
-        migrate_private_data(engine, PrivacyCipher(settings))
-        monkeypatch.setattr(
-            "app.modules.auth.kakao.exchange_identity", lambda *_: (subject, "검증용카카오별명")
+    monkeypatch.setattr(kakao, "exchange_identity", lambda *_: ("100:123", "카카오별명"))
+    with TestClient(create_app(settings), headers=HEADERS, base_url="https://localhost") as client:
+        assert client.get("/v1/auth/kakao/status").json() == {"enabled": True}
+        url = client.post("/v1/auth/kakao/start", json={}).json()["authorization_url"]
+        state = parse_qs(urlsplit(url).query)["state"][0]
+        callback = client.get(
+            "/v1/auth/kakao/callback",
+            params={"state": state, "code": "code"},
+            follow_redirects=False,
         )
-        with TestClient(
-            create_app(settings), headers=HEADERS, base_url="http://localhost"
-        ) as client:
-            body = {
-                **PROFILE,
-                "username": username,
-                "password": PASSWORD,
-                "confirm_password": PASSWORD,
-            }
-            assert client.post("/v1/auth/signup", json=body).status_code == 201
-            assert client.post("/v1/auth/signup", json=body).status_code == 409
-            response = client.post(
-                "/v1/auth/login", json={"username": username, "password": PASSWORD}
-            )
-            assert response.status_code == 200
-            ids.append(response.json()["user"]["id"])
+        assert callback.headers["location"].endswith("#signup?kakao=complete")
+        assert client.get("/v1/auth/kakao/pending").json() == {"name": "카카오별명"}
+        assert client.post("/v1/auth/kakao/complete", json=PROFILE).status_code == 201
+        assert client.get("/v1/auth/me").json()["user"]["name"] == PROFILE["name"]
+        with client.app.state.auth_service.engine.connect() as connection:
+            row = connection.execute(select(accounts)).mappings().one()
+            assert row["name"] == PROFILE["name"] and row["profile_ciphertext"] is None
+
+
+def test_restoration_keeps_identity_password_session_role_kakao_and_finance(tmp_path):
+    engine = store(tmp_path / "legacy.sqlite3")
+    seed_encrypted(engine)
+    try:
+        with pytest.raises(PrivacyError):
+            ensure_plaintext_storage(engine)
+        assert restore_plaintext_data(engine, legacy_settings()) == 1
+        assert restore_plaintext_data(engine, Settings(_env_file=None)) == 0
+        ensure_plaintext_storage(engine)
+        service = AuthService(engine)
+        assert service.me("old-session")["username"] == "legacy_user"
+        assert service.login("legacy_user", PASSWORD, "local")[1]["id"] == "legacy"
+        assert admin_role(engine, "legacy") == "superadmin"
+        with engine.connect() as connection:
+            row = connection.execute(select(accounts)).mappings().one()
+            assert row["phone"] == "01012345678"
+            assert row["username_lookup"] is None and row["profile_ciphertext"] is None
             assert (
-                client.post(
-                    "/v1/finance/profile",
-                    json={
-                        "consent": True,
-                        "profile": FINANCE,
-                    },
-                ).status_code
-                == 200
+                connection.execute(select(kakao_identities.c.subject)).scalar_one() == "old-kakao"
             )
+            assert connection.execute(select(kakao_flows.c.nickname)).scalar_one() == "카카오별명"
             assert (
-                client.get("/v1/finance/profile").json()["profile"]["members"][0]["earned_income"]
-                == 1234567
+                json.loads(
+                    connection.execute(select(financial_profiles.c.profile_json)).scalar_one()
+                )
+                == FINANCE
             )
-            with engine.connect() as connection:
-                row = (
-                    connection.execute(select(accounts).where(accounts.c.id == ids[0]))
-                    .mappings()
-                    .one()
-                )
-                assert row["username"] != username and row["name"] is None
-                assert "암호화검증회원" not in row["profile_ciphertext"]
-                financial = (
-                    connection.execute(
-                        select(financial_profiles).where(financial_profiles.c.account_id == ids[0])
-                    )
-                    .mappings()
-                    .one()
-                )
-                assert "1234567" not in financial["profile_json"]
-            state_token = parse_qs(
-                urlsplit(
-                    client.post("/v1/auth/kakao/start", json={}).json()["authorization_url"]
-                ).query
-            )["state"][0]
-            flows.append(digest(state_token))
-            response = client.get(
-                "/v1/auth/kakao/callback",
-                params={
-                    "state": state_token,
-                    "code": "synthetic-code",
-                },
-                follow_redirects=False,
-            )
-            assert response.headers["location"].endswith("#signup?kakao=complete")
-            pending = client.cookies.get("bokji_kakao_signup")
-            flows.append(digest(pending))
-            assert client.get("/v1/auth/kakao/pending").json()["name"] == "검증용카카오별명"
-            with engine.connect() as connection:
-                row = (
-                    connection.execute(
-                        select(kakao_flows).where(kakao_flows.c.token_hash == digest(pending))
-                    )
-                    .mappings()
-                    .one()
-                )
-                assert (
-                    row["nickname"] is None and "검증용카카오별명" not in row["nickname_ciphertext"]
-                )
-                assert len(row["subject"]) == 64
-            response = client.post("/v1/auth/kakao/complete", json=PROFILE)
-            assert response.status_code == 201
-            ids.append(response.json()["user"]["id"])
-            assert client.get("/v1/auth/me").json()["user"]["name"] == PROFILE["name"]
-            client.post("/v1/auth/logout", json={})
-            state_token = parse_qs(
-                urlsplit(
-                    client.post("/v1/auth/kakao/start", json={}).json()["authorization_url"]
-                ).query
-            )["state"][0]
-            flows.append(digest(state_token))
-            response = client.get(
-                "/v1/auth/kakao/callback",
-                params={
-                    "state": state_token,
-                    "code": "synthetic-code",
-                },
-                follow_redirects=False,
-            )
-            assert response.headers["location"].endswith("#home")
-            assert client.get("/v1/auth/me").json()["user"]["id"] == ids[1]
     finally:
-        with engine.begin() as connection:
-            if ids:
-                for table in (financial_profiles, kakao_identities, sessions):
-                    connection.execute(delete(table).where(table.c.account_id.in_(ids)))
-                connection.execute(delete(accounts).where(accounts.c.id.in_(ids)))
-            if flows:
-                connection.execute(delete(kakao_flows).where(kakao_flows.c.token_hash.in_(flows)))
         engine.dispose()
 
 
-def test_unpadded_base64url_server_keys_are_supported():
-    settings = Settings(
-        _env_file=None,
-        auth_encryption_keys=json.dumps({
-            "primary": base64.urlsafe_b64encode(b"e" * 32).decode().rstrip("="),
-        }),
-        auth_lookup_key=base64.urlsafe_b64encode(b"l" * 32).decode().rstrip("="),
-    )
-    value = PrivacyCipher(settings)
-    encrypted = value.encrypt_json(PROFILE, "account:base64url")
-    assert value.decrypt_json(encrypted, "account:base64url") == PROFILE
+@pytest.mark.parametrize("failure", ["missing-keys", "wrong-key", "tampered-finance"])
+def test_restoration_failure_preserves_all_original_ciphertext(tmp_path, failure):
+    engine = store(tmp_path / "protected.sqlite3")
+    seed_encrypted(engine)
+    settings = legacy_settings()
+    if failure == "missing-keys":
+        settings = Settings(_env_file=None)
+    elif failure == "wrong-key":
+        settings = settings.model_copy(
+            update={
+                "auth_encryption_keys": __import__("pydantic").SecretStr(
+                    json.dumps({"primary": base64.b64encode(b"x" * 32).decode()})
+                )
+            }
+        )
+    else:
+        with engine.begin() as connection:
+            connection.execute(update(financial_profiles).values(profile_json="enc:v1:primary:bad"))
+    try:
+        with pytest.raises(PrivacyError):
+            restore_plaintext_data(engine, settings)
+        with engine.connect() as connection:
+            row = connection.execute(select(accounts)).mappings().one()
+            assert row["username"] == "u_obsolete" and row["profile_ciphertext"].startswith("enc:")
+            assert connection.execute(select(kakao_flows.c.nickname_ciphertext)).scalar_one()
+    finally:
+        engine.dispose()
+
+
+def test_encrypted_sqlite_import_restores_target_without_modifying_backup(tmp_path):
+    source = store(tmp_path / "source.sqlite3")
+    target = store(tmp_path / "target.sqlite3")
+    seed_encrypted(source)
+    try:
+        assert import_sqlite_accounts(source, target, legacy_settings()) == 1
+        assert import_sqlite_accounts(source, target, legacy_settings()) == 0
+        assert AuthService(target).me("old-session")["username"] == "legacy_user"
+        with source.connect() as connection:
+            assert connection.execute(select(accounts.c.profile_ciphertext)).scalar_one()
+    finally:
+        source.dispose()
+        target.dispose()

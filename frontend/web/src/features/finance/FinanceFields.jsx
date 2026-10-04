@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import FinanceHelp from './FinanceHelp.jsx';
 import { fieldValue, visibleFields } from './financeFlow.js';
 import {
@@ -6,24 +7,82 @@ import {
   moneyInput,
   moneyInputValue,
   parseMoney,
+  MAX_HOUSEHOLD_SIZE,
 } from './financeModel.js';
 
 const numericValue = (value) => (typeof value === 'number' ? formatNumber(value) : (value ?? ''));
 
+function HouseholdSizeField({ field, value, onChange }) {
+  const [expanded, setExpanded] = useState(Number(value) >= 12);
+  const large = expanded || Number(value) >= 12;
+  return (
+    <div className="finance-field">
+      <label htmlFor={large ? `${field.id}-selection` : field.id}>{field.label}</label>
+      <select
+        id={large ? `${field.id}-selection` : field.id}
+        value={Number(value) >= 1 && Number(value) < 12 ? value : large ? 12 : value}
+        onChange={(event) => {
+          setExpanded(Number(event.target.value) === 12);
+          onChange(field.path, event.target.value);
+        }}
+      >
+        {field.options.map(([key, label]) => (
+          <option key={key} value={key}>
+            {Number(key) === 12 ? '12명 이상' : label}
+          </option>
+        ))}
+      </select>
+      {large && (
+        <>
+          <label htmlFor={field.id}>실제 가구원 수</label>
+          <div className="finance-number">
+            <input
+              id={field.id}
+              inputMode="numeric"
+              autoComplete="off"
+              value={value ?? ''}
+              aria-describedby={`${field.id}-hint`}
+              onChange={(event) => onChange(field.path, event.target.value)}
+            />
+            <span aria-hidden="true">명</span>
+          </div>
+          <small id={`${field.id}-hint`}>
+            12명 이상은 실제 인원을 입력해 주세요. 최대 {MAX_HOUSEHOLD_SIZE}명까지 입력할 수 있어요.
+          </small>
+        </>
+      )}
+    </div>
+  );
+}
+
 function FinanceField({ field, draft, onChange, easy }) {
   const value = fieldValue(draft, field.path);
   const hintId = field.hint ? `${field.id}-hint` : undefined;
+  const exampleId = field.example ? `${field.id}-example` : undefined;
+  if (field.path === 'household_size')
+    return <HouseholdSizeField field={field} value={value} onChange={onChange} />;
   if (field.type === 'check')
     return (
-      <label className="finance-check">
-        <input
-          id={field.id}
-          type="checkbox"
-          checked={Boolean(value)}
-          onChange={(event) => onChange(field.path, event.target.checked)}
-        />
-        {field.label}
-      </label>
+      <div className="finance-check-field">
+        <label className="finance-check">
+          <input
+            id={field.id}
+            type="checkbox"
+            checked={Boolean(value)}
+            aria-describedby={hintId}
+            onChange={(event) => onChange(field.path, event.target.checked)}
+          />
+          <span>
+            {field.label}
+            {field.optional && <small className="finance-optional">선택 · 필수 아님</small>}
+          </span>
+        </label>
+        {field.hint && (
+          <p className="finance-help" id={hintId}>
+            {field.hint}
+          </p>
+        )}
+      </div>
     );
   if (field.type === 'select')
     return (
@@ -65,24 +124,31 @@ function FinanceField({ field, draft, onChange, easy }) {
   }
   return (
     <div className="finance-field">
-      {money && easy ? (
-        <label id={`${field.id}-label`} htmlFor={presence === 'yes' ? field.id : presenceId}>
-          {field.label}
-        </label>
-      ) : money ? (
-        <span id={`${field.id}-label`} className="finance-field-label">
-          {field.label}
-        </span>
-      ) : (
-        <label htmlFor={field.id}>{field.label}</label>
-      )}
+      <div className="finance-field-heading">
+        {money && easy ? (
+          <label id={`${field.id}-label`} htmlFor={presence === 'yes' ? field.id : presenceId}>
+            {field.label}
+          </label>
+        ) : money ? (
+          <span id={`${field.id}-label`} className="finance-field-label">
+            {field.label}
+          </span>
+        ) : (
+          <label htmlFor={field.id}>{field.label}</label>
+        )}
+        {field.example && <small id={exampleId}>{field.example}</small>}
+      </div>
       {money && easy && (
         <select
           id={presenceId}
           className="finance-presence-select"
           aria-label={`${field.label} 입력 상태`}
           aria-describedby={
-            [presence === 'yes' ? unitHintId : presence === 'none' ? presenceHintId : null, hintId]
+            [
+              presence === 'yes' ? unitHintId : presence === 'none' ? presenceHintId : null,
+              exampleId,
+              hintId,
+            ]
               .filter(Boolean)
               .join(' ') || undefined
           }
@@ -95,7 +161,12 @@ function FinanceField({ field, draft, onChange, easy }) {
         </select>
       )}
       {money && !easy && (
-        <div className="finance-presence" role="group" aria-label={`${field.label} 여부`}>
+        <div
+          className="finance-presence"
+          role="group"
+          aria-label={`${field.label} 여부`}
+          aria-describedby={exampleId}
+        >
           {[
             ['yes', '있어요'],
             ['none', '없어요'],
@@ -123,8 +194,10 @@ function FinanceField({ field, draft, onChange, easy }) {
             onChange={(event) =>
               onChange(field.path, money ? moneyInput(event.target.value) : event.target.value)
             }
-            placeholder={money ? '예: 500' : '모르면 비워두세요'}
-            aria-describedby={[unitHintId, hintId].filter(Boolean).join(' ') || undefined}
+            placeholder={field.placeholder ?? (money ? '예: 500' : '모르면 비워두세요')}
+            aria-describedby={
+              [unitHintId, exampleId, hintId].filter(Boolean).join(' ') || undefined
+            }
           />
           <span aria-hidden="true">{money ? '만원' : field.unit}</span>
         </div>
@@ -239,7 +312,11 @@ export function FinanceReview({ questions, sections, draft, onEdit }) {
             {section.questions.flatMap((question) =>
               visibleFields(question, draft).map((field) => (
                 <div key={field.path}>
-                  <dt>{field.label}</dt>
+                  <dt>
+                    {sections && /^(member|vehicle)-\d+-/.test(question.id)
+                      ? `${question.title.split(' · ')[0]} · ${field.label}`
+                      : field.label}
+                  </dt>
                   <dd>{displayValue(field, draft)}</dd>
                 </div>
               )),

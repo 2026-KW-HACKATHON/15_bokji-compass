@@ -9,7 +9,6 @@ from sqlalchemy import insert, update
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.auth.models import accounts, sessions
-from app.modules.auth.privacy import encrypted_account
 from app.modules.auth.service import AuthService, digest
 from app.modules.notifications.models import NotificationEvent
 from app.modules.notifications.public import build_messages
@@ -22,37 +21,56 @@ CATEGORIES = ("policy_changes", "similar_policies", "eligible_policies", "applic
 
 @pytest.fixture
 def client(tmp_path):
-    app = create_app(Settings(
-        _env_file=None, app_env="test", db_enabled=False,
-        auth_sqlite_path=tmp_path / "notification-api.sqlite3",
-    ))
+    app = create_app(
+        Settings(
+            _env_file=None,
+            app_env="test",
+            db_enabled=False,
+            auth_sqlite_path=tmp_path / "notification-api.sqlite3",
+        )
+    )
     with TestClient(app, headers={"X-Auth-Request": "1"}) as value:
         assert value.get("/v1/auth/me").status_code == 401
         engine = app.state.auth_service.engine
         with engine.begin() as connection:
             for index, token in enumerate(TOKENS):
-                account = encrypted_account(app.state.auth_service.cipher, dict(
-                    id=f"account-{index}", username=f"notifications_{index}", name="시험",
-                    password_hash="unused", age=40, gender="undisclosed", region="서울",
-                    phone=None, created_at=1,
-                ))
+                account = dict(
+                    id=f"account-{index}",
+                    username=f"notifications_{index}",
+                    name="시험",
+                    password_hash="unused",
+                    age=40,
+                    gender="undisclosed",
+                    region="서울",
+                    phone=None,
+                    created_at=1,
+                )
                 connection.execute(insert(accounts).values(**account))
-                connection.execute(insert(sessions).values(
-                    token_hash=AuthService.session_digest(token, mobile=True),
-                    account_id=f"account-{index}", expires_at=int(time.time()) + 3600,
-                ))
-            connection.execute(insert(sessions).values(
-                token_hash=digest("web-session"), account_id="account-0",
-                expires_at=int(time.time()) + 3600,
-            ))
+                connection.execute(
+                    insert(sessions).values(
+                        token_hash=AuthService.session_digest(token, mobile=True),
+                        account_id=f"account-{index}",
+                        expires_at=int(time.time()) + 3600,
+                    )
+                )
+            connection.execute(
+                insert(sessions).values(
+                    token_hash=digest("web-session"),
+                    account_id="account-0",
+                    expires_at=int(time.time()) + 3600,
+                )
+            )
         value.headers["Authorization"] = "Bearer " + TOKENS[0]
         yield value
 
 
 def event(category="policy_changes", account_id="account-0"):
     return NotificationEvent(
-        account_id=account_id, category=category, policy_id="policy-test",
-        title="공고 소식", body="변경된 공고를 확인해 주세요.",
+        account_id=account_id,
+        category=category,
+        policy_id="policy-test",
+        title="공고 소식",
+        body="변경된 공고를 확인해 주세요.",
     )
 
 
@@ -72,9 +90,15 @@ def test_preferences_are_opt_in_private_persistent_and_account_scoped(client):
     client.headers["Authorization"] = "Bearer " + TOKENS[1]
     assert client.get(PREFIX + "/preferences").json()["enabled"] is False
     with TestClient(create_app(client.app.state.settings)) as reopened:
-        assert reopened.get(PREFIX + "/preferences", headers={
-            "Authorization": "Bearer " + TOKENS[0],
-        }).json() == settings
+        assert (
+            reopened.get(
+                PREFIX + "/preferences",
+                headers={
+                    "Authorization": "Bearer " + TOKENS[0],
+                },
+            ).json()
+            == settings
+        )
 
 
 def test_requires_mobile_bearer_and_post_guard(client):

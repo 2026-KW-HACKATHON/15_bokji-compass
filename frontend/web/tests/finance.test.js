@@ -13,6 +13,7 @@ import {
   moneyInputValue,
   parseMoney,
   officialSourceUrl,
+  occupationTypes,
 } from '../src/features/finance/financeModel.js';
 import {
   financeQuestions,
@@ -292,6 +293,44 @@ test('finance profile enforces household, children, vehicle and enum coherence',
   draft.vehicle_status = 'none';
   draft.region = 'unlisted';
   assert.throws(() => toFinancialProfile(draft), /지역/);
+});
+
+test('occupation is optional, validates choices and stays separate from income deductions', () => {
+  const draft = emptyFinancialProfile();
+  delete draft.members[0].occupation;
+  assert.equal(toFinancialProfile(draft).members[0].occupation, 'unknown');
+  const basic = financeQuestions(draft).find((question) => question.id === 'member-0-basic');
+  assert.equal(validateQuestion(basic, draft), null);
+  for (const [occupation] of occupationTypes) {
+    draft.members[0].occupation = occupation;
+    assert.equal(validateQuestion(basic, draft), null);
+    const member = toFinancialProfile(draft).members[0];
+    assert.equal(member.occupation, occupation);
+    assert.equal(member.deduction, 'unknown');
+    assert.equal(member.earned_income, null);
+  }
+  draft.members[0].occupation = 'unsupported';
+  assert.equal(validateQuestion(basic, draft).field, 'finance-occupation-0');
+  assert.throws(() => toFinancialProfile(draft), /직업군/);
+});
+
+test('large households keep the actual count and unified region without changing optional checks', () => {
+  const draft = emptyFinancialProfile();
+  draft.household_size = 13;
+  draft.members = Array.from({ length: 13 }, emptyMember);
+  draft.region = 'jeonnam_gwangju';
+  const household = financeQuestions(draft)[0];
+  assert.equal(validateQuestion(household, draft), null);
+  const profile = toFinancialProfile(draft);
+  assert.equal(profile.household_size, 13);
+  assert.equal(profile.members.length, 13);
+  assert.equal(profile.region, 'jeonnam_gwangju');
+  assert.equal(profile.household_scope_confirmed, false);
+  assert.equal(profile.additional_review, false);
+  for (const count of ['', 0, 101, '12.5']) {
+    draft.household_size = count;
+    assert.equal(validateQuestion(household, draft).field, 'finance-household');
+  }
 });
 test('calculation requires usable server fields and permits unknown results without making eligibility claims', () => {
   const data = calculation();

@@ -72,7 +72,10 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     async def safe_privacy_error(request, exc):
         return JSONResponse(
             status_code=503,
-            content={"detail": "회원 정보 보안 설정 및 데이터 이관 상태를 확인해 주세요."},
+            content={
+                "detail": "기존 암호화 회원 데이터 이관이 필요해요. "
+                "서버에서 초기화 명령을 실행해 주세요."
+            },
             headers={"Cache-Control": "no-store"},
         )
 
@@ -99,17 +102,29 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
         if request.url.path.startswith("/v1/server-admin/"):
-            return JSONResponse(status_code=422, content={
-                "detail": "관리자 로그인 정보와 설정 입력 형식을 확인해 주세요.",
-            }, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "관리자 로그인 정보와 설정 입력 형식을 확인해 주세요.",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/admin/policies"):
-            return JSONResponse(status_code=422, content={
-                "detail": "공고 개정·공개 상태·검토 메모의 형식을 확인해 주세요.",
-            }, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "공고 개정·공개 상태·검토 메모의 형식을 확인해 주세요.",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/mobile/notifications/"):
-            return JSONResponse(status_code=422, content={
-                "detail": "알림 설정과 기기 등록 정보의 입력 형식을 확인해 주세요.",
-            }, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "알림 설정과 기기 등록 정보의 입력 형식을 확인해 주세요.",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/assistant/"):
             return JSONResponse(
                 status_code=422,
@@ -138,13 +153,22 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     @application.middleware("http")
     async def private_auth_response(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(("/v1/auth/", "/v1/mobile/auth/", "/v1/finance/",
-                                        "/v1/mobile/notifications/",
-                                        "/v1/assistant/", "/v1/policies", "/v1/admin/",
-                                        "/v1/server-admin/")):
+        if request.url.path.startswith(
+            (
+                "/v1/auth/",
+                "/v1/mobile/auth/",
+                "/v1/finance/",
+                "/v1/mobile/notifications/",
+                "/v1/assistant/",
+                "/v1/policies",
+                "/v1/admin/",
+                "/v1/server-admin/",
+            )
+        ):
             response.headers["Cache-Control"] = "no-store"
         if request.url.path == "/" or request.url.path.startswith(
-                ("/v1/server-admin/", "/server-admin-assets/")):
+            ("/v1/server-admin/", "/server-admin-assets/")
+        ):
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-Frame-Options"] = "DENY"
@@ -152,7 +176,8 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; script-src 'self'; style-src 'self'; "
                 "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
-                "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+                "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+            )
         return response
 
     application.include_router(router)

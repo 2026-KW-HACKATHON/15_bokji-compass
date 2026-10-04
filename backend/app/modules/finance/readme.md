@@ -83,4 +83,4 @@ APP_ENV=test인 격리 테스트에서만 `DB_ENABLED=false`의 인증 SQLite �
 
 ## 저장 암호화
 
-FinancialProfileStore(engine, cipher)는 계정별 금융 JSON을 AES-256-GCM으로 암호화한 문자열로 profile_json에 저장합니다. read(account_id)는 서버에서 복호화·모델 검증한 StoredFinancialProfile 또는 None을 반환하고, save(account_id, profile)는 저장값과 갱신 시각을 반환합니다. delete(account_id)는 해당 계정의 저장값만 삭제합니다. 잘못된 키·암호문·다른 계정의 암호문은 PrivacyError이며 API는 원입력을 노출하지 않는 503을 반환합니다. 초기화 명령은 기존 평문 금융 데이터도 암호화합니다. [키·이관·실제 MySQL 검증](../../../docs/member-privacy.md).
+`FinancialProfileStore(engine)`는 계정별 금융 원입력을 JSON으로 저장합니다. `read(account_id)`는 모델 검증을 거친 저장값 또는 None을 반환하고, `save`/`delete`는 로그인한 계정의 값만 처리합니다. 회원 암호화 키는 필요하지 않습니다. 기존 암호화 데이터는 먼저 [복원 절차](../../../docs/member-privacy.md)를 실행합니다.

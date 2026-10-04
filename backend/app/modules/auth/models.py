@@ -3,6 +3,7 @@
 from sqlalchemy import Column, Index, Integer, MetaData, String, Table, Text
 
 metadata = MetaData()
+PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
 accounts = Table(
     "auth_accounts",
     metadata,
@@ -16,6 +17,7 @@ accounts = Table(
     Column("region", String(32), nullable=False),
     Column("phone", String(16), nullable=True, unique=True),
     Column("created_at", Integer, nullable=False),
+    # Retained for one-time restoration of older encrypted databases.
     Column("username_lookup", String(64), nullable=True),
     Column("profile_ciphertext", Text, nullable=True),
 )

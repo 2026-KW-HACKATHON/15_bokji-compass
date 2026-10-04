@@ -20,11 +20,11 @@ backend/.env에 다음 값을 설정합니다. 키와 시크릿은 프론트 환
 
 ## 기존 DB 갱신
 
-MySQL은 backend 폴더에서 배포 전에 명시적으로 실행합니다.
+회원 저장은 기본 SQLite이며 MySQL 설정과 회원 암호화/HMAC 키 없이 카카오 로그인을 사용할 수 있습니다. `DB_ENABLED=true` 환경은 MySQL을 사용하므로 backend 폴더에서 테이블을 초기화합니다. 이미 암호화된 DB는 원래 키를 보관한 상태에서 아래 명령으로 먼저 복원하세요.
 
     .venv/Scripts/python.exe -m app.modules.auth
 
-auth_kakao_identities와 auth_kakao_flows를 추가하고 auth_accounts.phone의 NOT NULL만 해제합니다. 기존 전화번호·계정·세션을 보존합니다. 기존 auth_phone_challenges 테이블은 더 이상 읽거나 쓰지 않지만 자동 삭제하지 않습니다. 기존 데이터는 백업 후 갱신하세요. SQLite는 APP_ENV=test인 격리 테스트에서만 자동 초기화합니다. 개발·운영은 MySQL과 회원 암호화 키가 필수이며 기존 SQLite 계정은 [보안 저장·이관 안내](member-privacy.md)에 따라 명시적으로 이관합니다. 기존 계정 로그인 보존과 반복 초기화는 테스트합니다. 실제 운영 MySQL의 마이그레이션 실행은 별도입니다.
+초기화는 `auth_kakao_identities`와 `auth_kakao_flows` 및 금융 저장 테이블을 준비하고 기존 계정·세션·권한을 보존합니다. SQLite는 회원 API 첫 호출에서 스키마를 자동 준비합니다. 기존 암호화 데이터는 자동으로 덮어쓰지 않으며 [복원 안내](member-privacy.md)에 따라 초기화 명령을 먼저 실행해야 합니다. 회원 정보·가입 대기 닉네임·금융 원입력은 일반 열/JSON으로 저장하며 비밀번호와 세션 토큰은 해시로 저장합니다.
 
 ## 동작과 API
 

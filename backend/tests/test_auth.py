@@ -83,21 +83,12 @@ def test_member_profile_update_only_changes_authenticated_account(client):
     body = {"name": "  김복지  ", "age": 67, "gender": "female", "region": "부산"}
     assert client.post("/v1/auth/profile", json=body).status_code == 401
     register(client)
-    assert (
-        client.post(
-            "/v1/auth/signup", json=signup_body(username="second")
-        ).status_code
-        == 201
-    )
+    assert client.post("/v1/auth/signup", json=signup_body(username="second")).status_code == 201
     client.post("/v1/auth/login", json={"username": "tester", "password": PASSWORD})
     service = client.app.state.auth_service
     with service.engine.connect() as connection:
         before = (
-            connection.execute(
-                select(accounts).where(
-                    accounts.c.username_lookup == service.cipher.lookup("tester")
-                )
-            )
+            connection.execute(select(accounts).where(accounts.c.username == "tester"))
             .mappings()
             .one()
         )
@@ -120,28 +111,19 @@ def test_member_profile_update_only_changes_authenticated_account(client):
     assert client.post("/v1/auth/profile", json=body).status_code == 200
     with service.engine.connect() as connection:
         after = (
-            connection.execute(
-                select(accounts).where(
-                    accounts.c.username_lookup == service.cipher.lookup("tester")
-                )
-            )
+            connection.execute(select(accounts).where(accounts.c.username == "tester"))
             .mappings()
             .one()
         )
         second = (
-            connection.execute(
-                select(accounts).where(
-                    accounts.c.username_lookup == service.cipher.lookup("second")
-                )
-            )
+            connection.execute(select(accounts).where(accounts.c.username == "second"))
             .mappings()
             .one()
         )
     assert after["password_hash"] == before["password_hash"] and after["phone"] is None
-    assert after["username_lookup"] == before["username_lookup"]
-    assert after["profile_ciphertext"] != before["profile_ciphertext"]
-    assert after["name"] is None and after["age"] == 0 and after["region"] == "encrypted"
-    assert "김복지" not in after["profile_ciphertext"]
+    assert after["username"] == before["username"]
+    assert after["profile_ciphertext"] is None and after["username_lookup"] is None
+    assert after["name"] == "김복지" and after["age"] == 67 and after["region"] == "부산"
     assert service.public_account(second)["name"] == "홍길동"
     assert service.public_account(second)["age"] == 25
     for extra in (
@@ -184,9 +166,9 @@ def test_signup_login_session_logout_and_password_storage(client):
     with engine.connect() as connection:
         account = connection.execute(select(accounts)).mappings().one()
         session = connection.execute(select(sessions)).mappings().one()
-    assert account["username"] != "tester" and account["name"] is None
-    assert account["age"] == 0 and account["gender"] == "encrypted"
-    assert "홍길동" not in account["profile_ciphertext"]
+    assert account["username"] == "tester" and account["name"] == "홍길동"
+    assert account["age"] == 25 and account["gender"] == "undisclosed"
+    assert account["profile_ciphertext"] is None and account["username_lookup"] is None
     assert account["password_hash"].startswith("scrypt$")
     assert PASSWORD not in account["password_hash"]
     assert token != session["token_hash"]
@@ -367,11 +349,7 @@ def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):
                 .mappings()
                 .one()
             )
-            assert old["phone"] is None
-            assert old["username"] != "legacy" and old["name"] is None
-            private = client.app.state.auth_service.cipher.decrypt_json(
-                old["profile_ciphertext"], "account:" + old["id"]
-            )
-            assert private["phone"] == PHONE
+            assert old["username"] == "legacy" and old["name"] is None
+            assert old["phone"] == PHONE
         assert client.get("/v1/auth/me").json()["user"]["id"] == "legacy-id"
     engine.dispose()
