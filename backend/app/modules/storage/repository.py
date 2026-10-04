@@ -13,14 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import (
     LegacyPolicyOverview,
-    PeriodPolicyOverview,
     PolicyExtraction,
     PolicyOverview,
-    StoredPolicyOverview,
     SourcePolicy,
 )
 from app.modules.normalization.public import normalize_conditions
-from app.modules.storage.application_dates import application_date_columns
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 TABLES = (
@@ -63,14 +60,8 @@ def validate_draft(payload: dict) -> dict:
                 c.condition_id for c in canonical.conditions}:
             raise ValueError("Extraction/canonical condition identities differ")
     if draft.get("overview") is not None:
-        if "application_method" in draft["overview"]:
-            overview_model = PolicyOverview
-        elif "application_period" in draft["overview"]:
-            overview_model = PeriodPolicyOverview
-        elif "policy_requirements" in draft["overview"]:
-            overview_model = StoredPolicyOverview
-        else:
-            overview_model = LegacyPolicyOverview
+        overview_model = (PolicyOverview if "policy_requirements" in draft["overview"]
+                          else LegacyPolicyOverview)
         validate_overview(overview_model.model_validate(draft["overview"]), source)
         if draft.get("overview_status") != "validated":
             raise ValueError("Overview status mismatch")
@@ -199,17 +190,14 @@ class PolicyRepository:
         provider, _, identity = source_key.partition(":")
         source_url = source["source_url"] or f"{provider}://service/{identity}"
         source_text = json.dumps(source, ensure_ascii=False, sort_keys=True)
-        overview = draft.get("overview") or {}
-        application_start, application_end = application_date_columns(
-            source["fields"], overview.get("application_period"))
         values = {
             "source_key": source_key,
             "title": source["title"],
             "organization": source["organization"] or "미상",
             "source_url": source_url,
             "source_text": source_text,
-            "application_start": application_start,
-            "application_end": application_end,
+            "application_start": None,
+            "application_end": None,
             "review_status": "draft",
             "is_synthetic": False,
         }
@@ -238,6 +226,7 @@ class PolicyRepository:
 
         connection.execute(delete(requirements).where(
             requirements.c.policy_id == policy_id))
+        overview = draft.get("overview") or {}
         requirement_rows = overview.get("policy_requirements") or [{
             "condition_type": "other",
             "information_state": "not_stated",

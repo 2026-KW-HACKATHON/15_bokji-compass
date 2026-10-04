@@ -1,6 +1,6 @@
 # Codex CLI 조건 추출
 
-`extract_policy(source, settings, output, model) -> (PolicyExtraction, metadata)`는 공개 정책 한 건의 조건을 추출합니다. `extract_policy_overview(source, settings, output, model) -> (PolicyOverview, metadata)`는 요약 필드, `policy_requirements` 행 후보, 인용 근거가 있는 신청 기간·방법·URL·문의처·게시일·수정일을 함께 생성합니다. 원문 발췌 그대로 반환하고 추측하거나 정규화하지 않습니다. 공지 수집기는 링크 문구/URL 및 명시적인 게시/수정 메타데이터를 `SourcePolicy.fields`로 제공합니다. 파이프라인은 모든 인용을 원문 대조하며 날짜 형식이 명확한 신청 기간만 `policies.application_start/application_end`로 매핑합니다. 행의 `condition_type`, `information_state`, `evidence_text`는 001 SQL의 `policy_requirements` 계약을 따릅니다. 성별은 001에 전용 타입이 없으므로 `other`와 원문 인용으로 보존합니다. 출처 URL은 입력에서 복사하며 모델이 만들지 않습니다. 이 출력은 검토용 후보이며 DB 저장·승인·자격 판정이 아닙니다.
+`extract_policy(source, settings, output, model) -> (PolicyExtraction, metadata)`는 공개 정책 한 건의 조건을 추출합니다. `extract_policy_overview(source, settings, output, model) -> (PolicyOverview, metadata)`는 요약 필드와 `policy_requirements` 행 후보를 함께 생성합니다. 행의 `condition_type`, `information_state`, `evidence_text`는 001 SQL의 `policy_requirements` 계약을 따릅니다. 성별은 001에 전용 타입이 없으므로 `other`와 원문 인용으로 보존합니다. 출처 URL은 입력에서 복사하며 모델이 만들지 않습니다. 파이프라인은 제목·URL과 근거 인용을 원문 대조합니다. 이 출력은 검토용 후보이며 DB 저장·승인·자격 판정이 아닙니다.
 
 `resolve_codex_executable(configured) -> Path`는 Windows의 native `codex.exe` 또는 macOS/POSIX의 PATH `codex` 탐색. 명시한 실행 파일은 절대 경로·실행 권한 확인. CLI 실패는 `CodexRunError`, 구조화 출력 오류는 `ValueError` 계열 반환. 비밀 설정을 오류 메시지에 포함하지 않음.
 

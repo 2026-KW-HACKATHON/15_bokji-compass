@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import MetaData, Table, func, insert, select, text, update
 
-from app.modules.storage.application_dates import resolved_application_period
+from app.modules.storage.application_dates import application_period
 from app.modules.storage.catalog import card
 from app.modules.storage.repository import validate_draft
 
@@ -35,7 +35,7 @@ def review_summary(record):
     if not source.get("source_url"):
         warnings.append("공식 원문 링크가 저장되지 않았습니다.")
     fields = source.get("fields") or {}
-    if not resolved_application_period(fields, draft.get("overview")):
+    if not application_period(fields):
         warnings.append("신청 기간을 공식 공고에서 확인해야 합니다.")
     if not draft.get("overview"):
         warnings.append("화면용 요약이 없어 원문과 기본 안내로 표시됩니다.")
