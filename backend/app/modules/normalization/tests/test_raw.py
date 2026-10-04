@@ -50,24 +50,3 @@ def test_notice_field_contract_and_record_hash_are_unchanged():
     expected = hashlib.sha256(json.dumps(row, ensure_ascii=False, sort_keys=True,
                                          separators=(",", ":")).encode()).hexdigest()
     assert record.source_hash == expected
-
-
-def test_notice_maps_explicit_application_period():
-    record = normalize_record({
-        "document_id": "A", "title": "가상 공고", "text": "모집 공고",
-        "application_period": "신청 기간: 2026-10-01 ~ 2026-10-31",
-        "application_method": "온라인 신청",
-        "application_url": "https://example.gov/apply",
-        "contact": "담당부서 02-1234-5678",
-        "published_date": "2026-09-01",
-        "modified_date": "2026-09-12",
-        "links": '[{"label":"신청","url":"https://example.gov/apply"}]',
-        "source_url": "https://example.gov/A",
-    })
-    assert record.fields["application_period"] == "신청 기간: 2026-10-01 ~ 2026-10-31"
-    assert record.fields["application_method"] == "온라인 신청"
-    assert record.fields["application_url"] == "https://example.gov/apply"
-    assert record.fields["contact"] == "담당부서 02-1234-5678"
-    assert record.fields["published_date"] == "2026-09-01"
-    assert record.fields["modified_date"] == "2026-09-12"
-    assert record.fields["links"] == '[{"label":"신청","url":"https://example.gov/apply"}]'

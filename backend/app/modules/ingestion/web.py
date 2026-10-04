@@ -59,44 +59,22 @@ class NoticeParser(HTMLParser):
         self.all_text = []
         self.main_text = []
         self.links = []
-        self._active_link = None
-        self.published_dates = []
-        self.modified_dates = []
 
     def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
         if tag == "title":
             self.in_title = True
-        if tag == "meta":
-            name = (attributes.get("property") or attributes.get("name")
-                    or attributes.get("itemprop") or "").strip().lower()
-            content = (attributes.get("content") or "").strip()
-            if content and name in {
-                "article:published_time", "datepublished", "dc.date", "dcterms.created",
-                "publishdate", "pubdate",
-            } and content not in self.published_dates and len(self.published_dates) < 4:
-                self.published_dates.append(content)
-            elif content and name in {
-                "article:modified_time", "datemodified", "dc.modified", "dcterms.modified",
-                "last-modified", "modified",
-            } and content not in self.modified_dates and len(self.modified_dates) < 4:
-                self.modified_dates.append(content)
         if tag in {"script", "style", "noscript", "nav", "footer", "header"}:
             self.ignored += 1
         if tag in {"main", "article"}:
             self.main += 1
         if tag == "a":
-            href = attributes.get("href")
+            href = dict(attrs).get("href")
             if href:
-                self._active_link = {"href": href, "text": []}
+                self.links.append(href)
 
     def handle_endtag(self, tag):
         if tag == "title":
             self.in_title = False
-        if tag == "a" and self._active_link is not None:
-            self.links.append((self._active_link["href"], " ".join(
-                self._active_link["text"]).strip()))
-            self._active_link = None
         if tag in {"script", "style", "noscript", "nav", "footer", "header"}:
             self.ignored = max(0, self.ignored - 1)
         if tag in {"main", "article"}:
@@ -105,8 +83,6 @@ class NoticeParser(HTMLParser):
     def handle_data(self, value):
         if self.in_title:
             self.title += value
-        if self._active_link is not None and value.strip():
-            self._active_link["text"].append(value.strip())
         if self.ignored or not value.strip():
             return
         self.all_text.append(value.strip())
@@ -175,28 +151,12 @@ def fetch_notice(url, domains, http_budget):
             text = "\n".join(parser.main_text or parser.all_text)
             if len(text.strip()) < 30 or not parser.title.strip():
                 raise CollectionTransportError("notice_content_missing")
-            links = []
-            for href, label in parser.links[:20]:
-                absolute = urljoin(current, href)
-                link_parts = urlsplit(absolute)
-                if (link_parts.scheme in {"http", "https"} and link_parts.netloc
-                        and len(absolute) <= 512):
-                    links.append({"label": label[:100], "url": absolute})
-            attachments = sorted({url for link in links
-                if urlsplit(link["url"]).path.lower().endswith((".pdf", ".hwp", ".hwpx"))
-                for url in [link["url"]]})
-            published_date = (parser.published_dates[0] if len(parser.published_dates) == 1
-                              else json.dumps(parser.published_dates, ensure_ascii=False)
-                              if parser.published_dates else "")
-            modified_date = (parser.modified_dates[0] if len(parser.modified_dates) == 1
-                             else json.dumps(parser.modified_dates, ensure_ascii=False)
-                             if parser.modified_dates else "")
+            attachments = sorted({urljoin(current, link) for link in parser.links if
+                urlsplit(link).path.lower().endswith((".pdf", ".hwp", ".hwpx"))})
             return {"title": parser.title.strip(), "text": text,
                     "source_url": current, "attachments": json.dumps(attachments,
                         ensure_ascii=False), "attachment_status": "not_parsed" if attachments else
-                    "none_detected", "links": json.dumps(links, ensure_ascii=False),
-                    "published_date": published_date,
-                    "modified_date": modified_date}, bytes(raw)
+                    "none_detected"}, bytes(raw)
         except (TimeoutError, OSError, http.client.HTTPException):
             raise CollectionTransportError("notice_request_failed", retryable=True) from None
         finally:

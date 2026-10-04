@@ -255,7 +255,7 @@ def test_pipeline_requires_database_by_default(tmp_path):
 def test_legacy_overview_stays_importable_without_weakening_new_model_contract():
     from pydantic import ValidationError
 
-    from app.contracts.parsing import PeriodPolicyOverview, PolicyOverview
+    from app.contracts.parsing import PolicyOverview
 
     record = source()
     value = draft(record)
@@ -289,17 +289,6 @@ def test_legacy_overview_stays_importable_without_weakening_new_model_contract()
         ],
     }
     validate_draft(value)
-    value["overview"] = {
-        **value["overview"],
-        "application_period": {
-            "status": "not_stated", "text": None, "evidence": [],
-            "unresolved_reason": None,
-        },
-    }
-    assert PeriodPolicyOverview.model_validate(value["overview"])
-    validate_draft(value)
-    with pytest.raises(ValidationError):
-        PolicyOverview.model_validate(value["overview"])
     value["overview"]["policy_requirements"][0]["evidence_text"] = "없는 원문"
     with pytest.raises(ValueError, match="evidence"):
         validate_draft(value)

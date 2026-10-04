@@ -24,7 +24,6 @@ from app.modules.ingestion.web import fetch_notice
 from app.modules.normalization.raw import normalize_record
 from app.modules.pipeline.budget import BudgetExhausted, WorkBudget
 from app.modules.pipeline.public import parse_policy, processing_signature
-from app.modules.storage.application_dates import application_period
 
 
 class CallBudgetExhausted(BudgetExhausted):
@@ -188,9 +187,6 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                     row, raw = notice_fetcher(job["payload"]["url"],
                                              settings.ingestion_discovery_domains, http)
                     row["document_id"] = job["policy_key"].split(":", 1)[1]
-                    period = application_period({"text": row["text"]})
-                    if period:
-                        row["application_period"] = period
                     proposed = job["payload"]["candidate"]["organization"]
                     row["organization"] = proposed if proposed in row["text"] else ""
                     source = normalize_record(row)

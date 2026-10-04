@@ -4,10 +4,7 @@ from datetime import date
 
 from sqlalchemy import and_, func, or_, select
 
-from app.modules.storage.application_dates import (
-    application_schedule,
-    resolved_application_period,
-)
+from app.modules.storage.application_dates import application_period, application_schedule
 
 
 def published_catalog(repository):
@@ -56,7 +53,7 @@ def card(record):
         )
 
     category = record["category"] or "기타"
-    period = resolved_application_period(fields, overview)
+    period = application_period(fields)
     return {
         "id": record["policy_key"],
         "revisionId": record["revision_id"],
