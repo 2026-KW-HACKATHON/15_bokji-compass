@@ -25,8 +25,12 @@ DOMAINS = ["youth.seoul.go.kr", "www.nowon.kr"]
 NOTICE_URL = "https://youth.seoul.go.kr/notice?id=123"
 BODY = ("서울시가 청년의 생활 안정을 위해 주거 지원사업 참여자를 모집합니다. "
         "신청자는 만 19세 이상입니다.")
-HTML = ("<html><title>공식 주거 지원 공고</title><nav>navigation</nav><main>" + BODY
-        + "</main><footer>footer</footer><a href='/forms/application.pdf'>서식</a></html>").encode()
+HTML = ("<html><head><meta property='article:published_time' "
+        "content='2026-09-01'><meta property='article:modified_time' "
+        "content='2026-09-12'></head><title>공식 주거 지원 공고</title>"
+        "<nav>navigation</nav><main>" + BODY
+        + "</main><footer>footer</footer><a href='/apply'>온라인 신청</a>"
+        "<a href='/forms/application.pdf'>서식</a></html>").encode()
 
 
 def forbidden(*args, **kwargs):
@@ -117,11 +121,12 @@ def test_admitted_notice_uses_fetched_title_body_and_grounded_organization(
     cid = extra_store.list_candidates()[0]["candidate_id"]
     extra_store.queue_candidate(cid, time.time())
     fetches = []
+    notice_body = BODY + "\n신청 기간: 2026-10-01 ~ 2026-10-31"
 
     def fetch(url, domains, budget):
         fetches.append(url)
         assert domains == DOMAINS
-        return {"title": "공식 원문 제목", "text": BODY, "source_url": url,
+        return {"title": "공식 원문 제목", "text": notice_body, "source_url": url,
                 "attachment_status": "none_detected", "attachments": "[]"}, HTML
 
     report = worker.run_tick(settings(ingestion_max_jobs=1), extra_store, NoPolicyWrites(),
@@ -136,7 +141,9 @@ def test_admitted_notice_uses_fetched_title_body_and_grounded_organization(
     assert fetches == [NOTICE_URL]
     assert record["source_json"]["title"] == "공식 원문 제목"
     assert record["source_json"]["organization"] == expected
-    assert record["source_json"]["fields"]["text"] == BODY
+    assert record["source_json"]["fields"]["text"] == notice_body
+    assert record["source_json"]["fields"]["application_period"] == (
+        "신청 기간: 2026-10-01 ~ 2026-10-31")
     assert "추정 지역" not in json.dumps(record["source_json"], ensure_ascii=False)
     assert "추정 일정" not in json.dumps(record["source_json"], ensure_ascii=False)
     assert notice_job["status"] == "done" and parse_job["status"] == "pending"
@@ -323,8 +330,24 @@ def test_safe_redirect_rechecks_dns_and_budget_and_only_extracts_body(fake_web):
     assert result["text"] == BODY and raw == HTML
     assert result["attachment_status"] == "not_parsed"
     assert json.loads(result["attachments"]) == ["https://www.nowon.kr/forms/application.pdf"]
+    assert json.loads(result["links"]) == [
+        {"label": "온라인 신청", "url": "https://www.nowon.kr/apply"},
+        {"label": "서식", "url": "https://www.nowon.kr/forms/application.pdf"},
+    ]
+    assert result["published_date"] == "2026-09-01"
+    assert result["modified_date"] == "2026-09-12"
     # The attachment is retained as unresolved source metadata; no third request occurs.
     assert len(fake_web.requests) == 2
+
+
+def test_notice_preserves_conflicting_published_metadata_for_review(fake_web):
+    html = (HTML.decode().replace(
+        "content='2026-09-01'>",
+        "content='2026-09-01'><meta name='publishdate' content='2026-09-02'>"
+    )).encode()
+    fake_web.responses = [FakeResponse(body=html)]
+    result, _ = web.fetch_notice(NOTICE_URL, DOMAINS, FakeHttpBudget())
+    assert json.loads(result["published_date"]) == ["2026-09-01", "2026-09-02"]
 
 
 @pytest.mark.parametrize("location", [

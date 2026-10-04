@@ -14,7 +14,7 @@ from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy
 from app.core.config import Settings
 
 PROMPT_VERSION = "welfare-extract-v3"
-OVERVIEW_PROMPT_VERSION = "welfare-overview-v2"
+OVERVIEW_PROMPT_VERSION = "welfare-overview-v4"
 IS_WINDOWS = sys.platform == "win32"
 MAX_EVENT_BYTES = 2_000_000
 MAX_STDERR_BYTES = 256_000
@@ -103,6 +103,28 @@ information_state ENUM('specified','unrestricted','unknown','not_stated'), evide
 category_reason은 주된 지원 내용을 근거로 간단히 쓴다. category_evidence와 각 evidence의
 source_field은 입력의 title, organization 또는 fields 안의 필드명이어야 하며 quote는
 해당 원문 필드에 실제로 있는 연속된 부분 문자열이어야 한다.
+application_period 객체도 반드시 반환한다. 신청·접수 시작일/마감일 또는 기간의 원문을
+별도 정보 설명이나 발표일과 혼동하지 말고 추출한다. status는 specified, not_stated,
+unclear 중 하나다. specified이면 text는 공고 원문의 신청 기간 표현을 그대로 복사하고,
+evidence에는 해당 text를 포함하는 원문 인용을 source_field과 quote로 제공한다.
+날짜를 정규화하거나 원문에 없는 연도·월·일을 보충하지 않는다. 복수의 서로 다른 기간,
+상충하는 일정, 신청 기간인지 불명확한 날짜는 unclear로 두고 unresolved_reason을 적는다.
+원문에 신청 기간이 없으면 not_stated, text=null, evidence=[],
+unresolved_reason=null로 반환한다. 공고 게시일·발표일·사업 수행기간·행사일은 신청 기간이 아니다.
+application_method, application_url, contact, published_date, modified_date 객체도 각각 반드시
+반환하며 형식은 application_period와 동일하다: status, text, evidence, unresolved_reason.
+신청 방법은 실제 신청/접수 절차, 접수처, 온라인/방문/우편 등 원문의 안내만 추출한다.
+신청 URL은 신청 접수에 직접 연결된 URL만 반환한다. 입력 fields.links에 있는 링크는
+링크 표시 문구와 URL을 대조하고, 신청 링크임이 분명한 경우 URL 전체를 text와 evidence에
+그대로 포함한다. 공고 상세 URL이나 첨부 서식 URL을 신청 URL로 오인하지 않는다.
+문의처는 원문에 명시된 기관/담당 부서/전화/이메일 등 문의 정보를 추출한다.
+published_date와 modified_date는 공고의 게시일과 수정일만 각각 추출한다. 본문에 표시된
+명확한 게시/등록/작성일 또는 수정/변경일, 그리고 fields에 있는 해당 의미의 구조화 메타데이터를
+근거로 사용한다. 사업 기간, 접수 기간, 행사일, 크롤링 시각을 게시/수정일로 추정하지 않는다.
+날짜 문자열은 정규화하지 말고 원문 그대로 인용한다. 각 specified 객체의 text는 원문 인용에
+그대로 포함되어야 하며 evidence는 실제 source_field과 연속된 quote를 제공한다.
+확인할 수 없으면 not_stated, 서로 다르거나 의미가 모호하면 unclear로 두고 이유를 적는다.
+근거가 없으면 각 객체를 not_stated, text=null, evidence=[], unresolved_reason=null로 반환한다.
 원문에 없는 사실이나 신청 자격 확정은 덧붙이지 않는다. 간결한 JSON만 반환하라.
 """
 

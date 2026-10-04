@@ -155,6 +155,31 @@ class PolicyRequirementDraft(StrictModel):
     evidence_text: str = Field(min_length=1)
 
 
+class SourcedFieldDraft(StrictModel):
+    status: Literal["specified", "not_stated", "unclear"]
+    text: str | None
+    evidence: list[SourceEvidence] = Field(max_length=4)
+    unresolved_reason: str | None
+
+    @model_validator(mode="after")
+    def validate_status(self):
+        if self.status == "specified":
+            if not self.text or not self.evidence or self.unresolved_reason is not None:
+                raise ValueError("Specified field requires cited source text")
+            if not any(self.text in evidence.quote for evidence in self.evidence):
+                raise ValueError("Field text must occur in its source evidence")
+        elif self.status == "not_stated":
+            if self.text is not None or self.evidence or self.unresolved_reason is not None:
+                raise ValueError("Not-stated field cannot contain inferred data")
+        elif not self.unresolved_reason:
+            raise ValueError("Unclear field requires a reason")
+        return self
+
+
+class ApplicationPeriodDraft(SourcedFieldDraft):
+    """Cited source text describing when applications are accepted."""
+
+
 class LegacyPolicyOverview(StrictModel):
     """Read-only validation of stored welfare-overview-v1 results."""
     title: str = Field(min_length=1, max_length=300)
@@ -176,10 +201,26 @@ class LegacyPolicyOverview(StrictModel):
         return self
 
 
-class PolicyOverview(LegacyPolicyOverview):
-    """Fresh model output must include the v2 requirements; legacy imports stay intact."""
+class StoredPolicyOverview(LegacyPolicyOverview):
+    """Previously stored overview with SQL requirement rows."""
 
     policy_requirements: list[PolicyRequirementDraft] = Field(min_length=1, max_length=128)
+
+
+class PeriodPolicyOverview(StoredPolicyOverview):
+    """Previously stored overview with cited application period extraction."""
+
+    application_period: ApplicationPeriodDraft
+
+
+class PolicyOverview(PeriodPolicyOverview):
+    """Fresh model output includes cited application details and metadata."""
+
+    application_method: SourcedFieldDraft
+    application_url: SourcedFieldDraft
+    contact: SourcedFieldDraft
+    published_date: SourcedFieldDraft
+    modified_date: SourcedFieldDraft
 
 
 class SourcePolicy(StrictModel):
