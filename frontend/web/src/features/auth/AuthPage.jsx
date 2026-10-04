@@ -3,17 +3,14 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { authRequest } from './authApi.js';
 import PasswordInput from './PasswordInput.jsx';
 import SignupWizard from './SignupWizard.jsx';
+import KakaoSignup from './KakaoSignup.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
 
 export default function AuthPage({ type, onLogin }) {
   const outcome = new URLSearchParams(window.location.hash.split('?')[1]).get('kakao');
+  if (type === 'signup' && outcome === 'complete') return <KakaoSignup onLogin={onLogin} />;
   return type === 'signup' ? (
-    <SignupWizard
-      key={outcome || 'regular'}
-      kakaoComplete={outcome === 'complete'}
-      onLogin={onLogin}
-      outcome={outcome}
-    />
+    <SignupWizard key={outcome || 'regular'} outcome={outcome} />
   ) : (
     <LoginForm key={outcome || 'regular'} onLogin={onLogin} outcome={outcome} />
   );

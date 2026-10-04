@@ -40,13 +40,12 @@ const titles = {
 const regularGroups = ['아이디', '비밀번호', '기본 정보', '가입 확인'];
 const regionOptions = regions.filter((region) => region !== '전국');
 
-export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }) {
-  const [step, setStep] = useState(kakaoComplete ? 'name' : 'method');
+export default function SignupWizard({ outcome }) {
+  const [step, setStep] = useState('method');
   const [fields, setFields] = useState(initialFields);
   const [checkedUsername, setCheckedUsername] = useState('');
   const [busy, setBusy] = useState('');
   const [kakaoBusy, setKakaoBusy] = useState(false);
-  const [pendingReady, setPendingReady] = useState(!kakaoComplete);
   const [error, setError] = useState(() => kakaoOutcomeError(outcome));
   const [invalidField, setInvalidField] = useState('');
   const [message, setMessage] = useState('');
@@ -56,13 +55,10 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
   const completeRef = useRef(null);
   const pending = useRef(null);
   const usernameChecked = checkedUsername === fields.username && Boolean(checkedUsername);
-  const activeStages = kakaoComplete ? stages.slice(stages.indexOf('name')) : stages;
-  const groups = kakaoComplete ? ['기본 정보', '가입 확인'] : regularGroups;
-  const group = kakaoComplete
-    ? step === 'review'
-      ? 1
-      : 0
-    : step === 'review'
+  const activeStages = stages;
+  const groups = regularGroups;
+  const group =
+    step === 'review'
       ? 3
       : ['name', 'age', 'gender', 'region'].includes(step)
         ? 2
@@ -71,21 +67,6 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
           : 0;
 
   useEffect(() => () => pending.current?.abort(), []);
-  useEffect(() => {
-    if (!kakaoComplete) return;
-    const controller = new AbortController();
-    authRequest('kakao/pending', undefined, { signal: controller.signal })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setFields((current) => ({ ...current, name: result.name || '' }));
-          setPendingReady(true);
-        }
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) setError(err.message);
-      });
-    return () => controller.abort();
-  }, [kakaoComplete]);
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
@@ -187,7 +168,7 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
   }
   function submit(event) {
     event.preventDefault();
-    if (busy || kakaoBusy || !pendingReady) return;
+    if (busy || kakaoBusy) return;
     if (step === 'username' && !usernameChecked) {
       checkUsername();
       return;
@@ -208,33 +189,21 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
     }
     run('signup', async (request) => {
       try {
-        if (kakaoComplete) {
-          const result = await request('kakao/complete', {
-            name: fields.name,
-            age: Number(fields.age),
-            gender: fields.gender,
-            region: fields.region,
-          });
-          onLogin(result.user);
-          return;
-        }
         const result = await request('signup', { ...fields, age: Number(fields.age) });
         setFields(initialFields);
         setMessage(result.message);
         setComplete(true);
       } catch (err) {
-        if (!kakaoComplete && err.status === 409) {
+        if (err.status === 409) {
           setCheckedUsername('');
           moveStep('username');
         }
-        if (kakaoComplete && err.status === 401) setPendingReady(false);
         throw err;
       }
     });
   }
   const buttonText = step === 'review' ? '회원가입' : '다음';
-  const submitDisabled =
-    Boolean(busy) || kakaoBusy || !pendingReady || (step === 'username' && !usernameChecked);
+  const submitDisabled = Boolean(busy) || kakaoBusy || (step === 'username' && !usernameChecked);
   return (
     <section className="auth-page signup-page">
       <a className="back-link" href="#home">
@@ -245,11 +214,7 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
           <Icon name="user" size={28} />
         </span>
         <h1>회원가입</h1>
-        <p>
-          {kakaoComplete
-            ? '카카오 인증이 완료됐어요. 기본 정보를 한 단계씩 입력해 주세요.'
-            : '한 단계씩 입력하면 가입이 완료돼요.'}
-        </p>
+        <p>한 단계씩 입력하면 가입이 완료돼요.</p>
         {complete ? (
           <div ref={completeRef} tabIndex={-1}>
             <p role="status" className="notice-box">
@@ -290,20 +255,15 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
                 {busy === 'username' ? '아이디를 확인하는 중입니다…' : '가입하는 중입니다…'}
               </p>
             )}
-            {(step === 'method' || kakaoComplete) && (
+            {step === 'method' && (
               <KakaoLogin
                 busy={Boolean(busy) || kakaoBusy}
                 onBusy={setKakaoBusy}
                 onError={showError}
-                label={
-                  kakaoComplete ? '다른 카카오 계정으로 로그인' : '카카오톡으로 로그인/회원가입하기'
-                }
+                label="카카오톡으로 로그인/회원가입하기"
               />
             )}
-            <fieldset
-              className="auth-fields"
-              disabled={Boolean(busy) || kakaoBusy || !pendingReady}
-            >
+            <fieldset className="auth-fields" disabled={Boolean(busy) || kakaoBusy}>
               {step === 'method' && (
                 <div className="signup-methods">
                   <button
@@ -424,7 +384,7 @@ export default function SignupWizard({ kakaoComplete = false, onLogin, outcome }
                 <>
                   <dl className="signup-review">
                     {[
-                      ...(!kakaoComplete ? [['아이디', fields.username.toLowerCase()]] : []),
+                      ['아이디', fields.username.toLowerCase()],
                       ['이름', fields.name.trim()],
                       ['만 나이', `${fields.age}세`],
                       ['성별', genders.find(([value]) => value === fields.gender)?.[1]],

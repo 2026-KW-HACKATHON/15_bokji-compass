@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import insert
+from sqlalchemy import insert, update
 from sqlalchemy.exc import OperationalError
 
 from app.api import assistant, policies
@@ -106,6 +106,29 @@ def test_cookie_bearer_profiles_are_isolated_and_no_client_profile_override(clie
         )
     client.post("/v1/mobile/auth/logout", headers=token, json={})
     assert client.post("/v1/assistant/questions", json=BODY, headers=token).status_code == 401
+
+
+@pytest.mark.parametrize("age,region", [(None, None), (None, "부산"), (0, None)])
+def test_questions_work_with_incomplete_member_profile(client, monkeypatch, age, region):
+    received = []
+
+    def answer(source, question, profile, settings, output):
+        received.append(profile.model_dump())
+        return PolicyAnswer(
+            status="grounded", answer="만 19세 이상입니다.",
+            citations=[{"source_field": "text", "quote": "만 19세 이상"}],
+            follow_up_questions=[],
+        ), {"model": "fixture"}
+
+    monkeypatch.setattr(public, "answer_policy_question", answer)
+    with client.app.state.auth_service.engine.begin() as connection:
+        connection.execute(update(accounts).where(accounts.c.id == "private-id-1")
+                           .values(age=age, region=region))
+    login(client)
+    response = client.post("/v1/assistant/questions", json=BODY)
+    assert response.status_code == 200
+    assert received == [{"region": region, "age_band": None if age is None else "10세 미만",
+                         "interests": []}]
 
 
 def test_unauthorized_drafts_guard_and_invalid_questions_never_invoke_model(client, monkeypatch):

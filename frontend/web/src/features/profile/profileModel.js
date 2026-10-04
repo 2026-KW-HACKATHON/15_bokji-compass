@@ -24,6 +24,11 @@ export const defaultProfile = {
   household: '선택하지 않음',
   interests: [],
 };
+export function memberRecommendationProfile(user, previous = defaultProfile) {
+  const age = user.age;
+  const band = age == null ? 0 : age < 19 ? 1 : age < 35 ? 2 : age < 50 ? 3 : age < 65 ? 4 : 5;
+  return { ...previous, region: user.region || '전국', ageBand: ageBands[band] };
+}
 export function isProfile(value) {
   return (
     !!value &&

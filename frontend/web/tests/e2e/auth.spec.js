@@ -43,6 +43,36 @@ async function mockSignup(page, { signupStatus = 201 } = {}) {
   );
 }
 
+async function mockKakaoSignup(page, name = '카카오별명') {
+  const state = { user: null, signupBodies: [], profileBodies: [] };
+  await page.route('**/v1/auth/me', (route) =>
+    route.fulfill({
+      status: state.user ? 200 : 401,
+      json: state.user ? { user: state.user } : { detail: '로그인이 필요해요.' },
+    }),
+  );
+  await page.route('**/v1/auth/kakao/pending', (route) => route.fulfill({ json: { name } }));
+  await page.route('**/v1/auth/kakao/complete', (route) => {
+    state.signupBodies.push(route.request().postDataJSON());
+    state.user = {
+      id: 'kakao-test',
+      username: 'k_test',
+      name: name || null,
+      age: null,
+      gender: 'undisclosed',
+      region: null,
+    };
+    return route.fulfill({ status: 201, json: { user: state.user } });
+  });
+  await page.route('**/v1/auth/profile', (route) => {
+    const body = route.request().postDataJSON();
+    state.profileBodies.push(body);
+    state.user = { ...state.user, ...body };
+    return route.fulfill({ json: { user: state.user } });
+  });
+  return state;
+}
+
 test('phone-free signup, DB username check, login, member edit, reload and logout', async ({
   page,
 }, testInfo) => {
@@ -230,37 +260,107 @@ test('Kakao availability, start failure and cancellation are visible', async ({ 
   await expect(page.getByRole('alert')).toContainText('취소');
 });
 
-test('Kakao first signup only asks for basic profile and establishes user UI', async ({ page }) => {
-  let submitted;
-  await page.route('**/v1/auth/kakao/status', (route) =>
-    route.fulfill({ json: { enabled: true } }),
-  );
-  await page.route('**/v1/auth/kakao/pending', (route) =>
-    route.fulfill({ json: { name: '카카오별명' } }),
-  );
-  await page.route('**/v1/auth/kakao/complete', (route) => {
-    submitted = route.request().postDataJSON();
-    return route.fulfill({
-      status: 201,
-      json: { user: { id: 'kakao-test', username: 'k_test', ...submitted } },
+for (const name of ['카카오별명', '']) {
+  test(`Kakao signup without profile supports skipping and reload (${name || 'no nickname'})`, async ({
+    page,
+  }, testInfo) => {
+    const state = await mockKakaoSignup(page, name);
+    await page.goto('/#signup?kakao=complete');
+    await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
+    await expect(page.locator('.auth-card input, .auth-card select')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '다른 카카오 계정으로 로그인' })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath('kakao-signup.png'), fullPage: true });
+    await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/#profile\?setup=1$/);
+    const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
+    await expect(setup.getByLabel('나이 (만 나이)')).toHaveValue('');
+    await expect(setup.getByLabel('거주 지역')).toHaveValue('');
+    await expect(setup.getByLabel('이름', { exact: true })).toHaveCount(0);
+    await expect(setup.getByLabel('성별', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'AI 챗봇 열기' })).toHaveCount(0);
+    await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath('kakao-optional-setup.png'),
+      fullPage: true,
     });
+    await setup.getByLabel('나이 (만 나이)').fill('35');
+    await setup.getByRole('link', { name: '나중에 하기' }).click();
+    await expect(page).toHaveURL(/#home$/);
+    expect(state.signupBodies).toEqual([{}]);
+    expect(state.profileBodies).toEqual([]);
+    await page.reload();
+    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    const member = page.getByRole('form', { name: '회원 정보 수정' });
+    await expect(member.getByLabel('이름', { exact: true })).toHaveValue(name);
+    await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('');
+    await expect(member.getByLabel('회원 거주 지역')).toHaveValue('');
+    await member.getByRole('button', { name: '회원 정보 저장' }).click();
+    await expect(member.getByRole('status')).toContainText('저장했어요');
+    expect(state.profileBodies).toEqual([
+      { name: name || null, age: null, gender: 'undisclosed', region: null },
+    ]);
+  });
+}
+
+test('Kakao optional setup validates, saves once and supplies recommendation settings', async ({
+  page,
+}) => {
+  const state = await mockKakaoSignup(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/#signup?kakao=complete');
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+  const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
+  await setup.getByLabel('나이 (만 나이)').fill('121');
+  await setup.getByRole('button', { name: '저장하고 시작하기' }).click();
+  await expect(setup.getByRole('alert')).toContainText('0~120');
+  await expect(setup.getByRole('alert')).toBeFocused();
+  expect(state.profileBodies).toEqual([]);
+  await setup.getByLabel('나이 (만 나이)').fill('35');
+  await setup.getByLabel('거주 지역').selectOption('부산');
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(setup.getByLabel('나이 (만 나이)')).toHaveValue('35');
+  await expect(setup.getByLabel('거주 지역')).toHaveValue('부산');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await setup.getByRole('button', { name: '저장하고 시작하기' }).click();
+  await expect(page).toHaveURL(/#home$/);
+  expect(state.signupBodies).toEqual([{}]);
+  expect(state.profileBodies).toEqual([{ age: 35, region: '부산' }]);
+  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
+  await expect(
+    page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),
+  ).toHaveValue('부산');
+  const member = page.getByRole('form', { name: '회원 정보 수정' });
+  await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
+  await expect(member.getByLabel('이름', { exact: true })).toHaveValue('카카오별명');
+  await page.reload();
+  await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
+  await expect(member.getByLabel('회원 거주 지역')).toHaveValue('부산');
+  await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
+  await expect(
+    page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),
+  ).toHaveValue('부산');
+});
+
+test('Kakao signup cancellation returns to the initial method screen', async ({ page }) => {
+  await mockKakaoSignup(page);
+  let cancellations = 0;
+  await page.route('**/v1/auth/kakao/cancel', (route) => {
+    cancellations += 1;
+    return route.fulfill({ json: { message: '가입 방법을 다시 선택해 주세요.' } });
   });
   await page.goto('/#signup?kakao=complete');
-  await expect(page.getByLabel('이름', { exact: true })).toHaveValue('카카오별명');
-  await expect(page.getByLabel('아이디', { exact: true })).toBeHidden();
-  await expect(page.getByLabel('전화번호', { exact: true })).toHaveCount(0);
-  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.getByLabel('이름', { exact: true })).toBeVisible();
-  await next(page);
-  await page.getByLabel('나이 (만 나이)').fill('35');
-  await next(page);
-  await page.getByRole('combobox', { name: '성별', exact: true }).selectOption('undisclosed');
-  await next(page);
-  await page.getByRole('combobox', { name: '거주 지역', exact: true }).selectOption('서울');
-  await next(page);
-  await page.getByRole('button', { name: '회원가입', exact: true }).click();
-  await expect(page.getByText('카카오별명님', { exact: true })).toBeVisible();
-  expect(submitted).toEqual({ name: '카카오별명', age: 35, gender: 'undisclosed', region: '서울' });
+  await page.getByRole('button', { name: '가입 방법 다시 선택' }).click();
+  await expect(page).toHaveURL(/#signup$/);
+  await expect(page.getByRole('heading', { name: '가입 방법을 선택해 주세요' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
+  await expect(page.getByLabel('이름', { exact: true })).toHaveCount(0);
+  expect(cancellations).toBe(1);
 });
 
 test('expired Kakao signup requires a new login', async ({ page }) => {
@@ -272,7 +372,8 @@ test('expired Kakao signup requires a new login', async ({ page }) => {
   );
   await page.goto('/#signup?kakao=complete');
   await expect(page.getByRole('alert')).toContainText('만료');
-  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '가입 방법 다시 선택' })).toBeEnabled();
 });
 
 test('Kakao start rejects other sites and navigates to the expected authorization page', async ({
@@ -300,9 +401,7 @@ test('Kakao start rejects other sites and navigates to the expected authorizatio
   await expect(page.getByRole('heading', { name: 'OAuth test destination' })).toBeVisible();
 });
 
-test('Kakao expiry at final submission preserves profile and requires a new login', async ({
-  page,
-}) => {
+test('Kakao expiry at completion requires returning to login methods', async ({ page }) => {
   await page.route('**/v1/auth/kakao/status', (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
@@ -318,20 +417,12 @@ test('Kakao expiry at final submission preserves profile and requires a new logi
     });
   });
   await page.goto('/#signup?kakao=complete');
-  await expect(page.getByLabel('이름', { exact: true })).toHaveValue('카카오회원');
-  await next(page);
-  await page.getByLabel('나이 (만 나이)').fill('35');
-  await next(page);
-  await page.getByLabel('성별', { exact: true }).selectOption('undisclosed');
-  await next(page);
-  await page.getByLabel('거주 지역', { exact: true }).selectOption('서울');
-  await next(page);
-  await page.getByRole('button', { name: '회원가입', exact: true }).click();
+  await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   await expect(page.getByRole('alert')).toContainText('만료');
   await expect(page.getByRole('alert')).toBeFocused();
-  await expect(page.locator('.signup-review')).toContainText('카카오회원');
-  await expect(page.getByRole('button', { name: '회원가입', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '다른 카카오 계정으로 로그인' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '가입 방법 다시 선택' })).toBeEnabled();
   expect(attempts).toBe(1);
 });
 

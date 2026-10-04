@@ -12,7 +12,11 @@ import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
 import { parsePolicy } from '../features/policies/policyModel.js';
 import ProfileForm from '../features/profile/ProfileForm.jsx';
-import { defaultProfile, isProfile } from '../features/profile/profileModel.js';
+import {
+  defaultProfile,
+  isProfile,
+  memberRecommendationProfile,
+} from '../features/profile/profileModel.js';
 import { readStoredValue, writeStoredValue, removeStoredValue } from '../shared/storage.js';
 import { appConfig } from '../shared/config.js';
 import Icon from '../shared/ui/Icon.jsx';
@@ -35,7 +39,8 @@ function readRoute() {
   const page = [...navigation.map((item) => item.id), 'login', 'signup', 'admin'].includes(name)
     ? name
     : 'home';
-  return { page, tag: new URLSearchParams(query).get('tag') || '' };
+  const params = new URLSearchParams(query);
+  return { page, tag: params.get('tag') || '', setup: params.get('setup') === '1' };
 }
 function validSaved(value) {
   try {
@@ -94,6 +99,9 @@ export default function App() {
       .then(({ user: current }) => {
         if (active && revision === authRevision.current) {
           setUser(current);
+          if (current && (current.region || current.age != null)) {
+            setProfile((previous) => previous || memberRecommendationProfile(current));
+          }
           setFinancial({ owner: current?.id || null, profile: null });
           if (calculatorSession.current.owner !== (current?.id || null)) {
             calculatorSession.current = { owner: current?.id || null, value: null };
@@ -105,19 +113,22 @@ export default function App() {
       active = false;
     };
   }, []);
-  const onLogin = (current) => {
+  const onLogin = (current, destination = 'home') => {
     authRevision.current += 1;
     calculatorSession.current = {
       owner: current.id,
       value: calculatorSession.current.owner === null ? calculatorSession.current.value : null,
     };
     setUser(current);
+    if (current.region || current.age != null) {
+      setProfile((previous) => previous || memberRecommendationProfile(current));
+    }
     setFinancial((previous) => ({
       owner: current.id,
       profile: previous.owner === null ? previous.profile : null,
     }));
     setUseFinancial(false);
-    window.location.hash = 'home';
+    window.location.hash = destination;
   };
   const logout = async () => {
     authRevision.current += 1;
@@ -361,40 +372,63 @@ export default function App() {
                 {!easy && (
                   <span className="eyebrow">{user ? '회원·추천 정보' : '맞춤 추천 설정'}</span>
                 )}
-                <h1>내 정보</h1>
+                <h1>{route.setup ? '가입이 완료됐어요' : '내 정보'}</h1>
                 <p>
-                  {user
-                    ? '회원 정보와 공고 추천에 사용할 정보를 관리해요.'
-                    : easy
-                      ? '공고 추천에 사용할 정보를 관리합니다.'
-                      : '나에게 맞는 공고를 추천하는 데 사용해요.'}
+                  {route.setup
+                    ? '맞춤 정보는 지금 설정하거나 나중에 내 정보에서 입력할 수 있어요.'
+                    : user
+                      ? '회원 정보와 공고 추천에 사용할 정보를 관리해요.'
+                      : easy
+                        ? '공고 추천에 사용할 정보를 관리합니다.'
+                        : '나에게 맞는 공고를 추천하는 데 사용해요.'}
                 </p>
-                <a className="text-button calculator-entry" href="#calculator">
-                  <Icon name="calculator" /> 소득·재산 계산하고 저장하기
-                </a>
+                {!route.setup && (
+                  <a className="text-button calculator-entry" href="#calculator">
+                    <Icon name="calculator" /> 소득·재산 계산하고 저장하기
+                  </a>
+                )}
               </div>
               {user && (
                 <MemberProfileForm
-                  key={user.id}
+                  key={user.id + (route.setup ? '-setup' : '')}
                   user={user}
-                  onSaved={(current) =>
-                    setUser((previous) => (previous?.id === current.id ? current : previous))
-                  }
+                  setup={route.setup}
+                  onSaved={(current) => {
+                    setUser((previous) => (previous?.id === current.id ? current : previous));
+                    if (route.setup) {
+                      if (current.region || current.age != null) {
+                        saveProfile(
+                          memberRecommendationProfile(current, profile || defaultProfile),
+                          remembered,
+                        );
+                      } else navigate('home');
+                    }
+                  }}
                 />
               )}
-              {user && <h2 className="recommendation-settings-title">맞춤 추천 설정</h2>}
-              <ProfileForm
-                key={JSON.stringify(profile)}
-                profile={profile || defaultProfile}
-                onSave={saveProfile}
-                easy={easy}
-                remembered={remembered}
-                mode={appConfig.dataMode}
-              />
-              {profile && (
-                <button className="text-button clear-profile" onClick={clearProfile}>
-                  내 정보 지우기
-                </button>
+              {route.setup && !user && (
+                <p className="notice-box">
+                  맞춤 정보를 저장하려면 <a href="#login">로그인</a>해 주세요.{' '}
+                  <a href="#home">나중에 하기</a>
+                </p>
+              )}
+              {!route.setup && (
+                <>
+                  {user && <h2 className="recommendation-settings-title">맞춤 추천 설정</h2>}
+                  <ProfileForm
+                    key={JSON.stringify(profile)}
+                    profile={profile || defaultProfile}
+                    onSave={saveProfile}
+                    easy={easy}
+                    remembered={remembered}
+                    mode={appConfig.dataMode}
+                  />
+                  {profile && (
+                    <button className="text-button clear-profile" onClick={clearProfile}>
+                      내 정보 지우기
+                    </button>
+                  )}
+                </>
               )}
             </section>
           )}
@@ -502,7 +536,11 @@ export default function App() {
         easy={easy}
         user={user}
         repository={policyRepository}
-        blocked={Boolean(selected) || ['login', 'signup', 'admin'].includes(route.page)}
+        blocked={
+          Boolean(selected) ||
+          ['login', 'signup', 'admin'].includes(route.page) ||
+          (route.page === 'profile' && route.setup)
+        }
         onNavigate={navigate}
         onToggleEasy={toggleEasy}
       />

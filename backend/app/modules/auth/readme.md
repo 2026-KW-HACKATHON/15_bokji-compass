@@ -20,17 +20,20 @@ app/api/auth.py는 일반 가입·로그인·세션·회원 수정을, app/api/k
 | POST /signup | name, username, password, confirm_password, age, gender, region | 201, message |
 | POST /login | username, password | user, HttpOnly 세션 쿠키 |
 | GET /me | 세션 쿠키 | user, 비로그인·만료는 401 |
-| POST /profile | 세션 쿠키, name, age, gender, region | 변경된 user |
+| POST /profile | 세션 쿠키, 선택적 name, age, gender, region | 변경된 user |
 | POST /logout | 빈 JSON | 서버 세션 폐기·쿠키 삭제 |
 | GET /kakao/status | 없음 | enabled |
 | POST /kakao/start | 빈 JSON | authorization_url, 임시 쿠키 |
 | GET /kakao/callback | code/state 또는 error | 웹으로 303 이동 |
 | GET /kakao/pending | 가입 대기 쿠키 | name |
-| POST /kakao/complete | name, age, gender, region | 201, user, 세션 쿠키 |
+| POST /kakao/complete | 빈 JSON (기존 클라이언트의 기본 정보도 허용) | 201, user, 세션 쿠키 |
+| POST /kakao/cancel | 빈 JSON | 가입 증명 폐기·가입 대기 쿠키 삭제 |
 
 phone/request와 phone/verify는 삭제되어 404입니다. SignupInput은 phone·verification_token 등 계약 밖 필드를 422로 거부합니다. 전화번호는 신규 가입에서 수집하지 않습니다.
 
 이름은 공백 제거 후 1~50자, 나이는 정수 0~120, 성별은 male/female/other/undisclosed, 지역은 17개 시도 약칭입니다. 일반 아이디는 영문·숫자·밑줄 4~20자이며 소문자로 저장합니다. 비밀번호는 영문+숫자 8~128자, 확인값 일치가 필요합니다. 기존 이름 없는 계정은 name=null입니다. 가입 시 나이는 자동 갱신하지 않습니다.
+
+2026-10-05: 카카오 가입은 개인정보 입력 없이 완료할 수 있습니다. name은 전달된 표시 이름 또는 가입 대기 닉네임을 사용하고, 둘 다 없으면 null입니다. age/region은 null, gender는 undisclosed가 기본입니다. 회원 수정은 전달한 필드만 변경하고 name/age/region의 null을 허용합니다. 질문 API는 나이·지역이 없는 회원도 빈 문맥으로 안내합니다. 기존 스키마의 age/region/phone은 SQLite 테이블 재구성 또는 MySQL ALTER로 nullable로 갱신하며 계정 ID·기존 행·연결·세션을 보존합니다. MySQL은 배포 전 init을 실행합니다.
 
 일반 가입은 IP당 시간당 20회, 로그인은 IP당 15분 50회·아이디당 10회입니다. 아이디 중복 확인은 IP당 1분 30회이며 소문자 아이디의 UNIQUE 열로 조회합니다. 아이디를 예약하지 않으므로 최종 가입 유일성 검사와 409 처리도 유지합니다. 카카오 시작/가입 완료는 IP당 15분 20회이며 초과 시 429입니다.
 

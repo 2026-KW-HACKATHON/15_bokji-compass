@@ -351,5 +351,12 @@ def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):
             )
             assert old["username"] == "legacy" and old["name"] is None
             assert old["phone"] == PHONE
+            connection.execute(
+                accounts.insert().values(
+                    id="profile-later", username="profile_later",
+                    password_hash=old["password_hash"], name=None, age=None,
+                    gender="undisclosed", region=None, phone=None, created_at=2,
+                )
+            )
         assert client.get("/v1/auth/me").json()["user"]["id"] == "legacy-id"
     engine.dispose()

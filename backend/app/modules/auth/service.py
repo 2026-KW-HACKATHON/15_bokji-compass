@@ -80,7 +80,11 @@ class AuthService:
             if account is None:
                 raise HTTPException(401, "로그인이 필요해요.")
             self.private_account(account)
-            values = data.model_dump(include={"name", "age", "gender", "region"})
+            values = data.model_dump(
+                include={"name", "age", "gender", "region"}, exclude_unset=True
+            )
+            if not values:
+                return self.public_account(account)
             changed = connection.execute(
                 update(accounts).where(accounts.c.id == account_id).values(**values)
             )

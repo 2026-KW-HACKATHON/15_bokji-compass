@@ -94,14 +94,16 @@ class LoginInput(UsernameInput):
 class ProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=50)
-    age: int = Field(strict=True, ge=0, le=120)
-    gender: Literal["male", "female", "other", "undisclosed"]
-    region: str = Field(max_length=32)
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    age: int | None = Field(default=None, strict=True, ge=0, le=120)
+    gender: Literal["male", "female", "other", "undisclosed"] = "undisclosed"
+    region: str | None = Field(default=None, max_length=32)
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
+        if value is None:
+            return None
         value = value.strip()
         if not value or any(ord(character) < 32 for character in value):
             raise ValueError("이름을 입력해 주세요.")
@@ -110,12 +112,17 @@ class ProfileInput(BaseModel):
     @field_validator("region")
     @classmethod
     def validate_region(cls, value):
-        if value not in REGIONS:
+        if value is not None and value not in REGIONS:
             raise ValueError("거주 지역을 선택해 주세요.")
         return value
 
 
 class SignupInput(LoginInput, ProfileInput):
+    # Password signup retains its existing required fields.
+    name: str = Field(min_length=1, max_length=50)
+    age: int = Field(strict=True, ge=0, le=120)
+    gender: Literal["male", "female", "other", "undisclosed"]
+    region: str = Field(max_length=32)
     confirm_password: SecretStr = Field(min_length=8, max_length=128)
 
     @model_validator(mode="after")

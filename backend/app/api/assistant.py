@@ -55,8 +55,8 @@ def question(data: QuestionInput, request: Request, member: Member, service: Ser
                             headers={"Retry-After": "30"})
     try:
         age = member["age"]
-        profile = GuidanceProfile(region=member["region"],
-                                  age_band=f"{age // 10 * 10}대" if age >= 10 else "10세 미만")
+        age_band = None if age is None else (f"{age // 10 * 10}대" if age >= 10 else "10세 미만")
+        profile = GuidanceProfile(region=member["region"], age_band=age_band)
         # Bound HTTP work independently of the longer batch ingestion timeout.
         settings = request.app.state.settings.model_copy(update={"codex_timeout_seconds": 60})
         answer = public.answer_question(repository, data.revision_id, data.question,

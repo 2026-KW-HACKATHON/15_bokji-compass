@@ -175,6 +175,16 @@ def pending(request: Request, service: Service):
     return {"name": flow["nickname"] or ""}
 
 
+@router.post("/cancel")
+def cancel(request: Request, response: Response, service: Service):
+    token = request.cookies.get(PENDING_COOKIE, "")
+    if token:
+        with service.engine.begin() as connection:
+            connection.execute(delete(kakao_flows).where(kakao_flows.c.token_hash == digest(token)))
+    clear_cookie(response, request, PENDING_COOKIE)
+    return {"message": "가입 방법을 다시 선택해 주세요."}
+
+
 @router.post("/complete", status_code=201)
 def complete(data: ProfileInput, request: Request, response: Response, service: Service):
     service.throttle("kakao-complete:" + ip(request), 20, 900)
@@ -198,6 +208,7 @@ def complete(data: ProfileInput, request: Request, response: Response, service: 
             )
             if consumed.rowcount != 1:
                 raise HTTPException(401, "카카오 로그인을 다시 진행해 주세요.")
+            account["name"] = data.name or flow["nickname"] or None
             connection.execute(insert(accounts).values(**account))
             connection.execute(
                 insert(kakao_identities).values(subject=flow["subject"], account_id=account["id"])

@@ -9,12 +9,12 @@ accounts = Table(
     metadata,
     Column("id", String(64), primary_key=True),
     Column("username", String(32), nullable=False, unique=True),
-    # Legacy accounts have no name; new signups require one at the API boundary.
+    # Social accounts can start with only a nickname and no recommendation profile.
     Column("name", String(50), nullable=True),
     Column("password_hash", String(256), nullable=False),
-    Column("age", Integer, nullable=False),
+    Column("age", Integer, nullable=True),
     Column("gender", String(16), nullable=False),
-    Column("region", String(32), nullable=False),
+    Column("region", String(32), nullable=True),
     Column("phone", String(16), nullable=True, unique=True),
     Column("created_at", Integer, nullable=False),
     # Retained for one-time restoration of older encrypted databases.
