@@ -12,7 +12,7 @@ from app.modules.regions.public import default_catalog
 MIGRATIONS = (
     "004_condition_schema.sql", "005_policy_ingestion.sql",
     "006_policy_publication.sql", "007_policy_collection.sql",
-    "008_legacy_policy_projection.sql",
+    "008_legacy_policy_projection.sql", "009_raw_documents.sql",
 )
 
 

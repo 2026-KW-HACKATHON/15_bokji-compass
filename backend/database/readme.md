@@ -6,7 +6,7 @@ DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중�
 
 ## 마이그레이션
 
-초기화기는 004부터 008까지 아래 순서로 SQL을 적용한다.
+초기화기는 004부터 009까지 아래 순서로 SQL을 적용한다.
 
 | 파일 | 역할 | 주요 테이블·객체 |
 |---|---|---|
@@ -18,6 +18,7 @@ DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중�
 | `006_policy_publication.sql` | 관리자 공개·비공개 변경 감사 이력 | `policy_publication_events` |
 | `007_policy_collection.sql` | 서버 수집 작업, 체크포인트, 원문 변경 이력, 호출량 및 외부 공고 후보 | 수집 관련 테이블 |
 | `008_legacy_policy_projection.sql` | 기존 조회 계약과의 호환 테이블 | `policies`, `policy_requirements` |
+| `009_raw_documents.sql` | 사이트별 수집 원문 보관 | `raw_documents` |
 
 적용 SQL 파일명과 체크섬은 `policy_schema_versions`에 기록한다. 초기화기는 공식 지역 스냅샷의
 무결성을 확인하고 약 63,000개 지역 행을 설치한다. 재실행 시 적용된 체크섬을 검증하며 기존
@@ -52,10 +53,13 @@ revision 저장과 같은 트랜잭션에서 이 테이블에도 반영된다. `
 `policies.source_text`에는 파이프라인이 추출에 사용한 정규화 입력 JSON을 저장한다. 이는 공급자
 응답의 원본 JSON/XML 전체를 의미하지 않는다. 원본 payload는 별도로 수집·보관한 경우에만 조회할 수 있다.
 
+`raw_documents`는 공지 크롤러가 수집한 제목·본문·원본 URL·수집/게시 시각을 보존한다.
+광운대 원문 seed는 `seeds/kwangwoon_notices.sql`이며, 스키마 초기화 후 한 번 적재한다.
+
 ## 초기화와 안전성
 
 `python -m app.modules.storage init`은 004, 005, `006_policy_publication`,
-`007_policy_collection`, `008_legacy_policy_projection`을 순서대로 체크섬과 함께 적용한 뒤
+`007_policy_collection`, `008_legacy_policy_projection`, `009_raw_documents`를 순서대로 체크섬과 함께 적용한 뒤
 공식 지역 스냅샷을 설치한다.
 `condition_*` 테이블이 적용 기록 없이 이미 존재하거나 부분 DDL이 발견되면 초기화를 중단한다.
 자동 삭제나 덮어쓰기는 수행하지 않는다. MySQL DDL은 암묵적으로 커밋될 수 있으므로 초기화가
