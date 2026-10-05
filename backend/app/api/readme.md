@@ -20,7 +20,9 @@ status/changes/candidates GET이 구현되어 있습니다. POST/PATCH는 같은
 [운영 순서](../../docs/server-admin.md), [HTTP 관리대장](../../../api-management.md).
 검증은 `tests/test_server_admin.py`, `tests/test_server_settings.py`의 오프라인 대역을 사용합니다.
 
-`policies.router`는 MySQL의 공개된 최신 공고 목록·상세·검색을 제공합니다.
+`policies.router`는 MySQL의 공개된 최신 공고 목록·상세·검색을 제공합니다. 광운대 상세 원문도
+전체 공고 목록·상세와 캘린더 응답에 합쳐집니다. 원문 공고는 분석/공개된 정책 revision으로
+취급하지 않으며, 신청 기간이 명확하게 확인된 경우만 날짜 일정으로 반환합니다.
 `assistant.router`는 로그인 회원의 공고 질문을 받으며 최소 프로필과 공개 원문으로 답변합니다.
 `members.get_member`는 금융/질문 API의 웹 쿠키·모바일 Bearer 검증을 공유합니다.
 [공고/질문 계약과 제한](../../docs/policy-storage.md), `test_policy_api.py`를 참고하세요.

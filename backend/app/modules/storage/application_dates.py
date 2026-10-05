@@ -16,10 +16,16 @@ def application_period(fields):
     lines = {
         line.strip()
         for line in text.splitlines()
-        if re.match(r"^\s*(?:신청|접수)\s*(?:기간|기한|마감|시작일)\s*[:：]", line)
+        if re.match(
+            r"^\s*(?:\d+\s*[.)、]\s*)?(?:신청|접수)\s*"
+            r"(?:기간|기한|마감|시작일)\s*[:：]",
+            line,
+        )
     }
     # Multiple distinct periods cannot be resolved without reviewing the source.
-    return lines.pop() if len(lines) == 1 else ""
+    if len(lines) != 1:
+        return ""
+    return re.sub(r"^\d+\s*[.)、]\s*", "", lines.pop())
 
 
 def application_schedule(value):

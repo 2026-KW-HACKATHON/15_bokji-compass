@@ -6,6 +6,7 @@
 - filterPolicies(items,{query,tag,category,region,audience,sort,savedIds}) → 새 배열. AND 검색·정확한 태그·전국 포함·정렬. 입력 배열 변경 없음.
 - parsePolicy(item) → 표시 모델. 필수값 오류 시 ApiError. parsePolicyPage(response) → {items,total,nextCursor}.
 - safeSourceUrl(value) → HTTP(S) URL 또는 null.
+- API 목록에는 공개 정책 공고와 광운대 등록·장학 원문 공고가 함께 포함됩니다. 원문 공고는 정책 개정 ID가 없으며 신청 기간이 명확하지 않으면 캘린더의 날짜 미정 목록에 표시됩니다.
 - PolicyExplorer({repository,tag,onClearTag,easy,saved,onSave,onOpen,onTag}) → 검색/페이지 React UI.
 - PolicyCard({policy,saved,onSave,onOpen,onTag,easy?,reason?}) → 카드. 콜백은 정책 객체 또는 태그 문자열을 전달.
 - PolicyDetail({policy,saved,onSave,onClose,onTag,mode,easy}) → native dialog. 공식 링크는 검증된 API URL만.

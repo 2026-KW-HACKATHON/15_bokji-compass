@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import and_, func, or_, select
 
 from app.modules.storage.application_dates import (
+    application_period,
     application_schedule,
     resolved_application_period,
 )
@@ -76,6 +77,58 @@ def card(record):
     }
 
 
+def raw_document_card(record):
+    text = record["text"]
+    period = application_period({"text": text})
+    schedule = application_schedule(period)
+    published_at = record["published_at"]
+    collected_at = record["collected_at"]
+    date_value = published_at or (collected_at[:10] if collected_at else "")
+    category = "생활·금융"
+    summary = " ".join(text.split())[:320] or "광운대학교 공지사항"
+    return {
+        "id": f"kwangwoon:{record['document_id']}",
+        "revisionId": None,
+        "title": record["title"],
+        "organization": "광운대학교",
+        "summary": summary,
+        "benefit": text or "공식 공고에서 확인해 주세요.",
+        "region": "지역 확인 필요",
+        "audience": "지원 대상 확인 필요",
+        "applicationPeriod": period or "공식 공고에서 확인",
+        **schedule,
+        "date": date_value,
+        "sourceUrl": record["source_url"],
+        "category": category,
+        "tags": [category],
+    }
+
+
+def raw_document_cards(
+    repository, connection, *, q="", category="", region="", audience="", tag=""
+):
+    table = repository.tables["raw_documents"]
+    statement = select(table).where(table.c.source_url.contains("DUID="))
+    documents = connection.execute(statement).mappings()
+    terms = q.casefold().split()
+    if region and region != "전국":
+        return []
+    if audience and audience != "전체":
+        return []
+    if category and category not in {"전체", "생활·금융"}:
+        return []
+    if tag and tag not in {"전체", "생활·금융"}:
+        return []
+    cards = []
+    for document in documents:
+        searchable = " ".join(
+            (document["title"], "광운대학교", document["text"])
+        ).casefold()
+        if all(term in searchable for term in terms):
+            cards.append(raw_document_card(document))
+    return cards
+
+
 def filtered_catalog(repository, *, q="", category="", region="", audience="", tag=""):
     catalog = published_catalog(repository)
     query = select(catalog)
@@ -134,10 +187,30 @@ def list_policies(
         else (catalog.c.created_at.desc(), catalog.c.policy_key)
     )
     with repository.engine.connect() as connection:
-        # Both statements share MySQL's repeatable-read snapshot.
-        total = connection.scalar(select(func.count()).select_from(query.subquery()))
-        records = connection.execute(query.order_by(*order).limit(limit).offset(offset)).mappings()
+        policy_total = connection.scalar(
+            select(func.count()).select_from(query.subquery())
+        )
+        records = connection.execute(
+            query.order_by(*order).limit(offset + limit)
+        ).mappings()
         items = [card(row) for row in records]
+        raw_items = raw_document_cards(
+            repository,
+            connection,
+            q=q,
+            category=category,
+            region=region,
+            audience=audience,
+            tag=tag,
+        )
+        items.extend(raw_items)
+    if sort == "name":
+        items.sort(key=lambda item: (item["title"].casefold(), item["id"]))
+    else:
+        items.sort(key=lambda item: item["id"])
+        items.sort(key=lambda item: item["date"], reverse=True)
+    total = policy_total + len(raw_items)
+    items = items[offset : offset + limit]
     return {
         "items": items,
         "total": total,
@@ -160,8 +233,18 @@ def list_calendar(repository, *, month, q="", category="", region="", audience="
             .execute(query.order_by(catalog.c.title, catalog.c.policy_key))
             .mappings()
         )
-        for record in records:
-            item = card(record)
+        policies = [card(record) for record in records]
+        policies.extend(
+            raw_document_cards(
+                repository,
+                connection,
+                q=q,
+                category=category,
+                region=region,
+                audience=audience,
+            )
+        )
+        for item in policies:
             start, end = item["applicationStart"], item["applicationEnd"]
             if not start and not end:
                 undated_total += 1
@@ -188,6 +271,21 @@ def list_calendar(repository, *, month, q="", category="", region="", audience="
 
 
 def get_policy(repository, policy_key):
+    if policy_key.startswith("kwangwoon:"):
+        document_id = policy_key.removeprefix("kwangwoon:")
+        table = repository.tables["raw_documents"]
+        with repository.engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(table).where(table.c.document_id == document_id)
+                )
+                .mappings()
+                .first()
+            )
+            if row and "DUID=" in row["source_url"]:
+                return raw_document_card(row)
+        return None
+
     catalog = published_catalog(repository)
     with repository.engine.connect() as connection:
         row = (

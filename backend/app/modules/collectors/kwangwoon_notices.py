@@ -135,7 +135,7 @@ def parse_kwangwoon_notice(html: str) -> tuple[str, str, str | None]:
 
     parser = _KwangwoonNoticeParser()
     parser.feed(html)
-    lines = _normalized_lines(parser.text_parts)
+    lines = _normalized_lines(parser.board_view_parts or parser.text_parts)
     full_text = "\n".join(lines)
 
     title = next(
@@ -159,23 +159,39 @@ class _KwangwoonNoticeParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.text_parts: list[str] = []
+        self.board_view_parts: list[str] = []
         self._ignored_depth = 0
+        self._board_view_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        is_board_view = tag == "div" and "board-view-box" in (
+            attributes.get("class") or ""
+        ).split()
+        if is_board_view or (tag == "div" and self._board_view_depth):
+            self._board_view_depth += 1
         if tag in self._ignored_tags:
             self._ignored_depth += 1
         elif not self._ignored_depth and tag in self._block_tags:
             self.text_parts.append("\n")
+            if self._board_view_depth:
+                self.board_view_parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self._ignored_tags and self._ignored_depth:
             self._ignored_depth -= 1
         elif not self._ignored_depth and tag in self._block_tags:
             self.text_parts.append("\n")
+            if self._board_view_depth:
+                self.board_view_parts.append("\n")
+        if tag == "div" and self._board_view_depth:
+            self._board_view_depth -= 1
 
     def handle_data(self, data: str) -> None:
         if not self._ignored_depth:
             self.text_parts.append(data)
+            if self._board_view_depth:
+                self.board_view_parts.append(data)
 
 
 def _normalized_lines(parts: list[str]) -> list[str]:
