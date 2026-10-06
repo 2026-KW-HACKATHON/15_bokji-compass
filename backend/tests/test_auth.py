@@ -12,6 +12,7 @@ from app.main import create_app
 from app.modules.auth.models import accounts, sessions
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import password_hash
+from tests.email_helpers import verify_email
 
 HEADERS = {"X-Auth-Request": "1"}
 PHONE = "01012345678"
@@ -35,6 +36,7 @@ def client(tmp_path):
 def signup_body(**overrides):
     return {
         "username": "tester",
+        "email": "tester@example.com",
         "name": "  홍길동  ",
         "password": PASSWORD,
         "confirm_password": PASSWORD,
@@ -46,6 +48,7 @@ def signup_body(**overrides):
 
 
 def register(client):
+    verify_email(client)
     response = client.post("/v1/auth/signup", json=signup_body())
     assert response.status_code == 201, response.text
 
@@ -83,7 +86,13 @@ def test_member_profile_update_only_changes_authenticated_account(client):
     body = {"name": "  김복지  ", "age": 67, "gender": "female", "region": "부산"}
     assert client.post("/v1/auth/profile", json=body).status_code == 401
     register(client)
-    assert client.post("/v1/auth/signup", json=signup_body(username="second")).status_code == 201
+    verify_email(client, "second@example.com")
+    assert (
+        client.post(
+            "/v1/auth/signup", json=signup_body(username="second", email="second@example.com")
+        ).status_code
+        == 201
+    )
     client.post("/v1/auth/login", json={"username": "tester", "password": PASSWORD})
     service = client.app.state.auth_service
     with service.engine.connect() as connection:
@@ -97,6 +106,8 @@ def test_member_profile_update_only_changes_authenticated_account(client):
     user = response.json()["user"]
     assert user == {
         "id": before["id"],
+        "email": "tester@example.com",
+        "email_verified": True,
         "username": "tester",
         "is_admin": False,
         "admin_role": None,
@@ -149,7 +160,7 @@ def test_member_profile_update_only_changes_authenticated_account(client):
 
 def test_signup_login_session_logout_and_password_storage(client):
     register(client)
-    assert client.post("/v1/auth/signup", json=signup_body()).status_code == 409
+    assert client.post("/v1/auth/signup", json=signup_body()).status_code == 401
     assert client.get("/v1/auth/me").status_code == 401
     response = client.post("/v1/auth/login", json={"username": "TESTER", "password": PASSWORD})
     assert response.status_code == 200
@@ -210,9 +221,13 @@ def test_server_validates_all_signup_fields_and_never_echoes_password(client, ov
 
 def test_duplicate_account_and_multiple_accounts_without_phone(client):
     register(client)
-    assert client.post("/v1/auth/signup", json=signup_body()).status_code == 409
+    assert client.post("/v1/auth/signup", json=signup_body()).status_code == 401
+    verify_email(client, "second@example.com")
     assert (
-        client.post("/v1/auth/signup", json=signup_body(username="second_user")).status_code == 201
+        client.post(
+            "/v1/auth/signup", json=signup_body(username="second_user", email="second@example.com")
+        ).status_code
+        == 201
     )
     with client.app.state.auth_service.engine.connect() as connection:
         assert all(row.phone is None for row in connection.execute(select(accounts)))
@@ -256,9 +271,18 @@ def test_concurrent_signup_unique_username(client):
     client.get("/v1/auth/me")
     service = client.app.state.auth_service
 
+    tokens = []
+    for index in (1, 2):
+        client.cookies.clear()
+        tokens.append(verify_email(client, f"race{index}@example.com"))
+
     def attempt(index):
         try:
-            service.register(SignupInput(**signup_body()), str(index))
+            service.register(
+                SignupInput(**signup_body(email=f"race{index}@example.com")),
+                str(index),
+                tokens[index - 1],
+            )
             return 201
         except HTTPException as exc:
             return exc.status_code
@@ -339,9 +363,14 @@ def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):
         initialize_auth_schema(engine)
         user = client.get("/v1/auth/me").json()["user"]
         assert user["id"] == "legacy-id" and user["age"] == 25
+        verify_email(client)
         assert client.post("/v1/auth/signup", json=signup_body()).status_code == 201
+        verify_email(client, "second@example.com")
         assert (
-            client.post("/v1/auth/signup", json=signup_body(username="tester2")).status_code == 201
+            client.post(
+                "/v1/auth/signup", json=signup_body(username="tester2", email="second@example.com")
+            ).status_code
+            == 201
         )
         with engine.connect() as connection:
             old = (
@@ -353,9 +382,15 @@ def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):
             assert old["phone"] == PHONE
             connection.execute(
                 accounts.insert().values(
-                    id="profile-later", username="profile_later",
-                    password_hash=old["password_hash"], name=None, age=None,
-                    gender="undisclosed", region=None, phone=None, created_at=2,
+                    id="profile-later",
+                    username="profile_later",
+                    password_hash=old["password_hash"],
+                    name=None,
+                    age=None,
+                    gender="undisclosed",
+                    region=None,
+                    phone=None,
+                    created_at=2,
                 )
             )
         assert client.get("/v1/auth/me").json()["user"]["id"] == "legacy-id"

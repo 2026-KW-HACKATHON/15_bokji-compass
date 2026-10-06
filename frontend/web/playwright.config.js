@@ -25,7 +25,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `"${python}" -m uvicorn app.main:app --app-dir "${backend}" --host 127.0.0.1 --port ${apiPort}`,
+      command: `"${python}" -m uvicorn tests.e2e_server:app --app-dir "${backend}" --host 127.0.0.1 --port ${apiPort}`,
       url: `${apiUrl}/health`,
       reuseExistingServer: false,
       env: {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import { regions } from '../policies/policyModel.js';
 import { authRequest } from './authApi.js';
-import { genders, memberFieldError } from './authFields.js';
+import { emailError, genders, memberFieldError, normalizeEmail } from './authFields.js';
 import PasswordInput from './PasswordInput.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
 import AuthLayout from './AuthLayout.jsx';
@@ -11,6 +11,7 @@ const initialFields = {
   username: '',
   password: '',
   confirm_password: '',
+  email: '',
   name: '',
   age: '',
   gender: '',
@@ -21,6 +22,7 @@ const stages = [
   'username',
   'password',
   'confirm_password',
+  'email',
   'name',
   'age',
   'gender',
@@ -32,19 +34,26 @@ const titles = {
   username: '사용할 아이디를 정해 주세요',
   password: '비밀번호를 만들어 주세요',
   confirm_password: '비밀번호를 한 번 더 입력해 주세요',
+  email: '이메일을 인증해 주세요',
   name: '이름을 알려주세요',
   age: '만 나이를 알려주세요',
   gender: '성별을 선택해 주세요',
   region: '거주 지역을 선택해 주세요',
   review: '가입 정보를 확인해 주세요',
 };
-const regularGroups = ['아이디', '비밀번호', '기본 정보', '가입 확인'];
+const regularGroups = ['아이디', '비밀번호', '이메일 인증', '기본 정보', '가입 확인'];
 const regionOptions = regions.filter((region) => region !== '전국');
 
 export default function SignupWizard({ outcome, easy }) {
   const [step, setStep] = useState('method');
   const [fields, setFields] = useState(initialFields);
   const [checkedUsername, setCheckedUsername] = useState('');
+  const [sentEmail, setSentEmail] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [resendAt, setResendAt] = useState(0);
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState('');
   const [kakaoBusy, setKakaoBusy] = useState(false);
   const [error, setError] = useState(() => kakaoOutcomeError(outcome));
@@ -56,18 +65,27 @@ export default function SignupWizard({ outcome, easy }) {
   const completeRef = useRef(null);
   const pending = useRef(null);
   const usernameChecked = checkedUsername === fields.username && Boolean(checkedUsername);
+  const emailVerified =
+    Boolean(verifiedEmail) && verifiedEmail === normalizeEmail(fields.email) && now < expiresAt;
+  const resendSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const activeStages = stages;
   const groups = regularGroups;
   const group =
     step === 'review'
-      ? 3
+      ? 4
       : ['name', 'age', 'gender', 'region'].includes(step)
-        ? 2
-        : ['password', 'confirm_password'].includes(step)
-          ? 1
-          : 0;
+        ? 3
+        : step === 'email'
+          ? 2
+          : ['password', 'confirm_password'].includes(step)
+            ? 1
+            : 0;
 
   useEffect(() => () => pending.current?.abort(), []);
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
@@ -101,6 +119,11 @@ export default function SignupWizard({ outcome, easy }) {
       onChange: (event) => {
         setFields((current) => ({ ...current, [name]: event.target.value }));
         if (name === 'username') setCheckedUsername('');
+        if (name === 'email') {
+          setVerifiedEmail('');
+          setSentEmail('');
+          setCode('');
+        }
         setError('');
         setInvalidField('');
         setMessage('');
@@ -108,6 +131,8 @@ export default function SignupWizard({ outcome, easy }) {
     };
   }
   function validate(name) {
+    if (name === 'email')
+      return emailError(fields.email) || (!emailVerified ? '이메일 인증을 완료해 주세요.' : '');
     if (name === 'username' && !/^[a-zA-Z0-9_]{4,20}$/.test(fields.username))
       return '아이디는 영문, 숫자, 밑줄(_)을 사용해 4~20자로 입력해 주세요.';
     if (
@@ -164,6 +189,33 @@ export default function SignupWizard({ outcome, easy }) {
       setMessage('사용할 수 있는 아이디예요. 다음으로 진행해 주세요.');
     });
   }
+  function sendEmailCode() {
+    const issue = emailError(fields.email);
+    if (issue) return showError(issue, 'email');
+    run('email-send', async (request) => {
+      const email = normalizeEmail(fields.email);
+      const result = await request('email/request', { email });
+      setVerifiedEmail('');
+      setCode('');
+      setSentEmail(email);
+      setResendAt(Date.now() + result.resend_after * 1000);
+      setExpiresAt(Date.now() + result.expires_in * 1000);
+      setNow(Date.now());
+      setMessage(result.message);
+    });
+  }
+  function verifyEmailCode() {
+    if (!/^[0-9]{6}$/.test(code)) return showError('6자리 인증번호를 입력해 주세요.', 'code');
+    run('email-verify', async (request) => {
+      const email = normalizeEmail(fields.email);
+      const result = await request('email/verify', { email, code });
+      setVerifiedEmail(email);
+      setExpiresAt(Date.now() + result.expires_in * 1000);
+      setNow(Date.now());
+      setCode('');
+      setMessage(result.message);
+    });
+  }
   function previous() {
     moveStep(activeStages[activeStages.indexOf(step) - 1]);
   }
@@ -190,7 +242,11 @@ export default function SignupWizard({ outcome, easy }) {
     }
     run('signup', async (request) => {
       try {
-        const result = await request('signup', { ...fields, age: Number(fields.age) });
+        const result = await request('signup', {
+          ...fields,
+          email: normalizeEmail(fields.email),
+          age: Number(fields.age),
+        });
         setFields(initialFields);
         setMessage(result.message);
         setComplete(true);
@@ -199,12 +255,20 @@ export default function SignupWizard({ outcome, easy }) {
           setCheckedUsername('');
           moveStep('username');
         }
+        if (err.status === 401) {
+          setVerifiedEmail('');
+          moveStep('email');
+        }
         throw err;
       }
     });
   }
   const buttonText = step === 'review' ? '회원가입' : '다음';
-  const submitDisabled = Boolean(busy) || kakaoBusy || (step === 'username' && !usernameChecked);
+  const submitDisabled =
+    Boolean(busy) ||
+    kakaoBusy ||
+    (step === 'username' && !usernameChecked) ||
+    (step === 'email' && !emailVerified);
   const kakaoMethod = step === 'method' && (
     <KakaoLogin
       busy={Boolean(busy) || kakaoBusy}
@@ -253,7 +317,14 @@ export default function SignupWizard({ outcome, easy }) {
             )}
             {busy && (
               <p role="status">
-                {busy === 'username' ? '아이디를 확인하는 중입니다…' : '가입하는 중입니다…'}
+                {
+                  {
+                    username: '아이디를 확인하는 중입니다…',
+                    'email-send': '인증번호를 보내는 중입니다…',
+                    'email-verify': '인증번호를 확인하는 중입니다…',
+                    signup: '가입하는 중입니다…',
+                  }[busy]
+                }
               </p>
             )}
             {!easy && kakaoMethod}
@@ -329,6 +400,75 @@ export default function SignupWizard({ outcome, easy }) {
                   <input {...inputProps('name')} autoComplete="name" maxLength={50} />
                 </>
               )}
+              {step === 'email' && (
+                <>
+                  <label className="field-label" htmlFor="signup-email">
+                    이메일
+                  </label>
+                  <input
+                    {...inputProps('email')}
+                    type="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={254}
+                  />
+                  <button
+                    type="button"
+                    className="button secondary full"
+                    onClick={sendEmailCode}
+                    disabled={resendSeconds > 0 || emailVerified}
+                  >
+                    {emailVerified
+                      ? '이메일 인증 완료'
+                      : resendSeconds > 0
+                        ? `재발송까지 ${resendSeconds}초`
+                        : sentEmail
+                          ? '인증번호 다시 발송'
+                          : '인증번호 발송'}
+                  </button>
+                  {sentEmail === normalizeEmail(fields.email) && !emailVerified && (
+                    <>
+                      <label className="field-label" htmlFor="signup-code">
+                        이메일 인증번호
+                      </label>
+                      <input
+                        id="signup-code"
+                        name="code"
+                        value={code}
+                        onChange={(event) => {
+                          setCode(event.target.value.replace(/[^0-9]/g, ''));
+                          setError('');
+                          setInvalidField('');
+                        }}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        aria-invalid={invalidField === 'code' || undefined}
+                        aria-describedby="email-code-hint"
+                      />
+                      <small id="email-code-hint">
+                        메일로 받은 6자리 번호를 10분 안에 입력해 주세요. 메일이 보이지 않으면
+                        스팸함도 확인해 주세요.
+                      </small>
+                      <button
+                        type="button"
+                        className="button secondary full"
+                        onClick={verifyEmailCode}
+                        disabled={now >= expiresAt}
+                      >
+                        인증번호 확인
+                      </button>
+                      {now >= expiresAt && (
+                        <p role="status">인증 시간이 만료됐어요. 인증번호를 다시 발송해 주세요.</p>
+                      )}
+                    </>
+                  )}
+                  {emailVerified && (
+                    <small>이메일 인증이 완료됐어요. 다음 단계로 진행해 주세요.</small>
+                  )}
+                </>
+              )}
               {step === 'age' && (
                 <>
                   <label className="field-label" htmlFor="signup-age">
@@ -379,6 +519,7 @@ export default function SignupWizard({ outcome, easy }) {
                   <dl className="signup-review">
                     {[
                       ['아이디', fields.username.toLowerCase()],
+                      ['이메일', normalizeEmail(fields.email)],
                       ['이름', fields.name.trim()],
                       ['만 나이', `${fields.age}세`],
                       ['성별', genders.find(([value]) => value === fields.gender)?.[1]],

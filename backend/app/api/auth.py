@@ -10,11 +10,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import with_capabilities
+from app.modules.auth.mail import EMAIL_SECONDS, RESEND_SECONDS, normalize_email
 from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import SESSION_SECONDS, AuthService
 
 COOKIE = "bokji_session"
+EMAIL_COOKIE = "bokji_signup_email"
 REGIONS = {
     "서울",
     "경기",
@@ -71,7 +73,7 @@ def get_service(request: Request):
                 state.auth_engine = engine
             if settings.auth_uses_mysql:
                 ensure_plaintext_storage(engine)
-            state.auth_service = AuthService(engine)
+            state.auth_service = AuthService(engine, settings)
     return state.auth_service
 
 
@@ -117,7 +119,28 @@ class ProfileInput(BaseModel):
         return value
 
 
-class SignupInput(LoginInput, ProfileInput):
+class EmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value):
+        return normalize_email(value)
+
+
+class EmailVerifyInput(EmailInput):
+    code: SecretStr = Field(min_length=6, max_length=6)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value):
+        if not re.fullmatch(r"[0-9]{6}", value.get_secret_value()):
+            raise ValueError("6자리 인증번호를 입력해 주세요.")
+        return value
+
+
+class SignupInput(LoginInput, ProfileInput, EmailInput):
     # Password signup retains its existing required fields.
     name: str = Field(min_length=1, max_length=50)
     age: int = Field(strict=True, ge=0, le=120)
@@ -141,8 +164,47 @@ def ip(request: Request):
 
 
 @router.post("/signup", status_code=201)
-def signup(data: SignupInput, request: Request, service: Service):
-    return service.register(data, ip(request))
+def signup(data: SignupInput, request: Request, response: Response, service: Service):
+    result = service.register(data, ip(request), request.cookies.get(EMAIL_COOKIE, ""))
+    email_cookie(response, request)
+    return result
+
+
+def email_cookie(response, request, token=""):
+    options = dict(
+        httponly=True,
+        samesite="lax",
+        path="/",
+        secure=request.app.state.settings.app_env == "production",
+    )
+    if token:
+        response.set_cookie(EMAIL_COOKIE, token, max_age=EMAIL_SECONDS, **options)
+    else:
+        response.delete_cookie(EMAIL_COOKIE, **options)
+
+
+@router.post("/email/request")
+def request_email(data: EmailInput, request: Request, response: Response, service: Service):
+    token = service.request_email_code(
+        data.email, ip(request), request.cookies.get(EMAIL_COOKIE, "")
+    )
+    email_cookie(response, request, token)
+    return {
+        "message": "인증번호를 보냈어요. 이메일을 확인해 주세요.",
+        "expires_in": EMAIL_SECONDS,
+        "resend_after": RESEND_SECONDS,
+    }
+
+
+@router.post("/email/verify")
+def verify_email(data: EmailVerifyInput, request: Request, response: Response, service: Service):
+    token = request.cookies.get(EMAIL_COOKIE, "")
+    service.verify_email_code(data.email, data.code.get_secret_value(), token, ip(request))
+    email_cookie(response, request, token)
+    return {
+        "message": "이메일 인증이 완료됐어요. 10분 안에 가입을 마쳐 주세요.",
+        "expires_in": EMAIL_SECONDS,
+    }
 
 
 @router.post("/username/check")

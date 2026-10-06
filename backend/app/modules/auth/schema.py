@@ -39,12 +39,11 @@ def initialize_auth_schema(engine):
                 if "name" not in columns:
                     raise
 
-        account_columns = {
-            c["name"]: c for c in inspect(connection).get_columns("auth_accounts")
-        }
+        account_columns = {c["name"]: c for c in inspect(connection).get_columns("auth_accounts")}
         optional_columns = {"phone": String(16), "age": Integer(), "region": String(32)}
         required_columns = {
-            name: sql_type for name, sql_type in optional_columns.items()
+            name: sql_type
+            for name, sql_type in optional_columns.items()
             if not account_columns[name]["nullable"]
         }
         if required_columns:
@@ -59,13 +58,21 @@ def initialize_auth_schema(engine):
             "auth_accounts": {
                 "username_lookup": "VARCHAR(64)",
                 "profile_ciphertext": "TEXT",
+                "email": "VARCHAR(254)",
+                "email_verified_at": "INTEGER",
             },
             "auth_kakao_flows": {"nickname_ciphertext": "TEXT"},
         }.items():
             columns = {c["name"] for c in inspect(connection).get_columns(table)}
             for name, sql_type in additions.items():
                 if name not in columns:
-                    connection.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}")
+                    try:
+                        connection.exec_driver_sql(
+                            f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"
+                        )
+                    except DBAPIError:
+                        if name not in {c["name"] for c in inspect(connection).get_columns(table)}:
+                            raise
         username_lookup_index.create(connection, checkfirst=True)
 
         if connection.dialect.name == "mysql":

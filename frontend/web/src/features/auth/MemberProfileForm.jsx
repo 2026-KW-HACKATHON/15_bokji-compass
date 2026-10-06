@@ -124,6 +124,22 @@ export default function MemberProfileForm({ user, onSaved, setup = false }) {
           )}
           {!setup && (
             <div>
+              <label className="field-label" htmlFor="member-email">
+                이메일
+              </label>
+              <input
+                id="member-email"
+                value={user.email || ''}
+                placeholder="등록된 이메일 없음"
+                readOnly
+              />
+              <small>
+                {user.email_verified ? '인증한 이메일이에요.' : '가입 시 입력한 이메일이에요.'}
+              </small>
+            </div>
+          )}
+          {!setup && (
+            <div>
               <label className="field-label" htmlFor="member-name">
                 이름
               </label>

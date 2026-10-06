@@ -3,8 +3,18 @@
 import pytest
 
 from app.modules.assistant import public as assistant
+from app.modules.auth import mail
 from app.modules.llm.public import CodexRunError
 from app.modules.pipeline import public as pipeline
+from tests.email_helpers import mailbox
+
+
+@pytest.fixture(autouse=True)
+def offline_signup_email(monkeypatch):
+    mailbox.clear()
+    monkeypatch.setattr(
+        mail, "send_verification_code", lambda settings, email, code: mailbox.update({email: code})
+    )
 
 
 @pytest.fixture(autouse=True)

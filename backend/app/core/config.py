@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     kakao_redirect_uri: str = ""
     kakao_web_url: str = ""
     auth_sqlite_path: Path = Path("data/auth.sqlite3")
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_security: Literal["starttls", "ssl"] = "starttls"
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from_email: str = ""
     db_enabled: bool = False
     db_host: str = "127.0.0.1"
     db_port: int = Field(default=3307, ge=1, le=65535)

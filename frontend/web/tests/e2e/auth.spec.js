@@ -12,11 +12,37 @@ async function chooseUsername(page, username = 'wizard_user') {
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeEnabled();
   await next(page);
 }
+async function confirmEmail(page, email = 'wizard@example.com', actual = false) {
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
+  await page.getByLabel('이메일', { exact: true }).fill(email);
+  await page.getByRole('button', { name: '인증번호 발송', exact: true }).click();
+  await expect(page.getByLabel('이메일 인증번호', { exact: true })).toBeVisible();
+  const code = actual
+    ? (
+        await (
+          await page.request.get(`/api/__test/email-code?email=${encodeURIComponent(email)}`)
+        ).json()
+      ).code
+    : '123456';
+  await page.getByLabel('이메일 인증번호', { exact: true }).fill(code);
+  await page.getByRole('button', { name: '인증번호 확인', exact: true }).click();
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeEnabled();
+  await next(page);
+}
+async function mockEmail(page) {
+  await page.route('**/v1/auth/email/request', (route) =>
+    route.fulfill({ json: { message: '인증번호를 보냈어요.', expires_in: 600, resend_after: 60 } }),
+  );
+  await page.route('**/v1/auth/email/verify', (route) =>
+    route.fulfill({ json: { message: '이메일 인증이 완료됐어요.', expires_in: 600 } }),
+  );
+}
 async function fillRemaining(page) {
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await next(page);
   await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
   await next(page);
+  await confirmEmail(page);
   await page.getByLabel('이름', { exact: true }).fill('홍길동');
   await next(page);
   await page.getByLabel('나이 (만 나이)').fill('25');
@@ -27,6 +53,7 @@ async function fillRemaining(page) {
   await next(page);
 }
 async function mockSignup(page, { signupStatus = 201 } = {}) {
+  await mockEmail(page);
   await page.route('**/v1/auth/username/check', (route) =>
     route.fulfill({
       json: { username: route.request().postDataJSON().username.toLowerCase(), available: true },
@@ -57,6 +84,8 @@ async function mockKakaoSignup(page, name = '카카오별명') {
     state.user = {
       id: 'kakao-test',
       username: 'k_test',
+      email: route.request().postDataJSON().email,
+      email_verified: false,
       name: name || null,
       age: null,
       gender: 'undisclosed',
@@ -196,6 +225,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await expect(page.getByRole('alert')).toBeFocused();
   await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
   await next(page);
+  await confirmEmail(page, `${username}@example.com`, true);
   await page.getByLabel('이름', { exact: true }).fill('홍길동');
   await next(page);
   await page.getByLabel('나이 (만 나이)').fill('25');
@@ -222,6 +252,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await page.goto('/#profile');
   const member = page.getByRole('form', { name: '회원 정보 수정' });
   await expect(member.getByLabel('아이디', { exact: true })).toHaveValue(username);
+  await expect(member.getByLabel('이메일', { exact: true })).toHaveValue(`${username}@example.com`);
   await expect(member.getByLabel('아이디', { exact: true })).toHaveAttribute('readonly', '');
   await member.getByLabel('이름', { exact: true }).fill('김복지');
   await member.getByLabel('나이 (만 나이)').fill('67');
@@ -286,6 +317,7 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
   await next(page);
   await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
   await next(page);
+  await confirmEmail(page);
   await next(page);
   await expect(page.getByRole('alert')).toContainText('이름을');
   await page.getByLabel('이름', { exact: true }).fill('김복지');
@@ -306,6 +338,7 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
   await expect(page.getByRole('status')).toContainText('회원가입이 완료');
   expect(submitted).toEqual({
     username: 'changed_user',
+    email: 'wizard@example.com',
     password,
     confirm_password: password,
     name: '김복지',
@@ -327,6 +360,81 @@ test('final uniqueness conflict returns to username check and preserves entered 
   await expect(page.getByLabel('아이디', { exact: true })).toHaveValue('wizard_user');
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '중복확인', exact: true })).toBeEnabled();
+});
+
+test('email errors, address edits and expired signup proof require verification', async ({
+  page,
+}, testInfo) => {
+  await mockSignup(page);
+  await startSignup(page);
+  await chooseUsername(page);
+  await page.getByLabel('비밀번호', { exact: true }).fill(password);
+  await next(page);
+  await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
+  await next(page);
+  await page.getByRole('button', { name: '인증번호 발송', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('올바른 이메일');
+  await page.route('**/v1/auth/email/request', (route) =>
+    route.fulfill({ status: 503, json: { detail: '인증 메일 발송 설정이 필요해요.' } }),
+  );
+  await page.getByLabel('이메일', { exact: true }).fill('wizard@example.com');
+  await page.getByRole('button', { name: '인증번호 발송', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('설정이 필요');
+  await mockEmail(page);
+  await page.getByRole('button', { name: '인증번호 발송', exact: true }).click();
+  await expect(page.getByRole('button', { name: /재발송까지/ })).toBeDisabled();
+  await page.route('**/v1/auth/email/verify', (route) =>
+    route.fulfill({ status: 400, json: { detail: '인증번호를 확인해 주세요.' } }),
+  );
+  await page.getByLabel('이메일 인증번호', { exact: true }).fill('111111');
+  await page.getByRole('button', { name: '인증번호 확인', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('인증번호를 확인');
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
+  await mockEmail(page);
+  await page.getByLabel('이메일 인증번호', { exact: true }).fill('123456');
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await page.screenshot({ path: testInfo.outputPath('email-verification.png'), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: '인증번호 확인', exact: true }).click();
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeEnabled();
+  await page.getByLabel('이메일', { exact: true }).fill('changed@example.com');
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('이메일 인증번호', { exact: true })).toHaveCount(0);
+});
+
+test('expired proof at final signup returns to email without clearing other fields', async ({
+  page,
+}) => {
+  await mockSignup(page);
+  await page.route('**/v1/auth/signup', (route) =>
+    route.fulfill({
+      status: 401,
+      json: { detail: '이메일 인증이 만료됐어요. 다시 인증해 주세요.' },
+    }),
+  );
+  await startSignup(page);
+  await chooseUsername(page);
+  await fillRemaining(page);
+  await page.getByRole('button', { name: '회원가입', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '이메일을 인증해 주세요' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('만료');
+  await expect(page.getByLabel('이메일', { exact: true })).toHaveValue('wizard@example.com');
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
+});
+
+test('Kakao signup requires valid email before creating an account', async ({ page }) => {
+  const state = await mockKakaoSignup(page);
+  await page.goto('/#signup?kakao=complete');
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+  await expect(page.getByRole('alert')).toContainText('올바른 이메일');
+  expect(state.signupBodies).toEqual([]);
+  await page.getByLabel('이메일', { exact: true }).fill('missing-at');
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+  expect(state.signupBodies).toEqual([]);
+  await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+  await expect(page).toHaveURL(/#profile\?setup=1$/);
+  expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
 });
 
 test('login network failure is visible and focused', async ({ page }) => {
@@ -365,9 +473,10 @@ for (const name of ['카카오별명', '']) {
     const state = await mockKakaoSignup(page, name);
     await page.goto('/#signup?kakao=complete');
     await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
-    await expect(page.locator('.auth-card input, .auth-card select')).toHaveCount(0);
+    await expect(page.locator('.auth-card input, .auth-card select')).toHaveCount(1);
     await expect(page.getByRole('button', { name: '다른 카카오 계정으로 로그인' })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath('kakao-signup.png'), fullPage: true });
+    await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
     await page.getByRole('button', { name: '가입하고 시작하기' }).click();
     await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
     await expect(page).toHaveURL(/#profile\?setup=1$/);
@@ -388,7 +497,7 @@ for (const name of ['카카오별명', '']) {
     await setup.getByLabel('나이 (만 나이)').fill('35');
     await setup.getByRole('link', { name: '나중에 하기' }).click();
     await expect(page).toHaveURL(/#home$/);
-    expect(state.signupBodies).toEqual([{}]);
+    expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
     expect(state.profileBodies).toEqual([]);
     await page.reload();
     await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
@@ -411,6 +520,7 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   const state = await mockKakaoSignup(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#signup?kakao=complete');
+  await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
   await setup.getByLabel('나이 (만 나이)').fill('121');
@@ -426,7 +536,7 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await setup.getByRole('button', { name: '저장하고 시작하기' }).click();
   await expect(page).toHaveURL(/#home$/);
-  expect(state.signupBodies).toEqual([{}]);
+  expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
   expect(state.profileBodies).toEqual([{ age: 35, region: '부산' }]);
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
@@ -523,6 +633,7 @@ test('Kakao expiry at completion requires returning to login methods', async ({ 
   });
   await page.goto('/#signup?kakao=complete');
   await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
+  await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   await expect(page.getByRole('alert')).toContainText('만료');
   await expect(page.getByRole('alert')).toBeFocused();
