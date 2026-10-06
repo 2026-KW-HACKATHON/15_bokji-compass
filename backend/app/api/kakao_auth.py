@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.auth import COOKIE, ProfileInput, Service, guard, ip
+from app.api.auth import COOKIE, EmailInput, ProfileInput, Service, guard, ip
 from app.modules.admin.access import with_capabilities
 from app.modules.auth import kakao
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities
@@ -19,6 +19,10 @@ router = APIRouter(prefix="/v1/auth/kakao", tags=["auth"], dependencies=[Depends
 FLOW_COOKIE = "bokji_kakao_flow"
 PENDING_COOKIE = "bokji_kakao_signup"
 FLOW_SECONDS = 600
+
+
+class KakaoSignupInput(ProfileInput, EmailInput):
+    pass
 
 
 def cookie(response, request, name, value, seconds=FLOW_SECONDS):
@@ -186,7 +190,7 @@ def cancel(request: Request, response: Response, service: Service):
 
 
 @router.post("/complete", status_code=201)
-def complete(data: ProfileInput, request: Request, response: Response, service: Service):
+def complete(data: KakaoSignupInput, request: Request, response: Response, service: Service):
     service.throttle("kakao-complete:" + ip(request), 20, 900)
     pending_token = request.cookies.get(PENDING_COOKIE, "")
     # No usable password or phone is created for a social identity.

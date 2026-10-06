@@ -5,6 +5,26 @@ export const genders = [
   ['undisclosed', '응답하지 않음'],
 ];
 
+export const normalizeEmail = (value) => value.trim().toLowerCase();
+
+export function emailError(value) {
+  const email = normalizeEmail(value);
+  const [local, domain, extra] = email.split('@');
+  if (
+    email.length > 254 ||
+    !local ||
+    !domain ||
+    extra !== undefined ||
+    local.length > 64 ||
+    !/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/.test(local) ||
+    domain.split('.').length < 2 ||
+    domain.split('.').some((label) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ||
+    !/[a-z]/.test(domain.split('.').at(-1))
+  )
+    return '올바른 이메일 주소를 입력해 주세요.';
+  return '';
+}
+
 export function memberFieldError(name, value) {
   if (name === 'name' && (!value.trim() || value.length > 50 || /[\x00-\x1f]/.test(value)))
     return '이름을 1~50자로 입력해 주세요.';

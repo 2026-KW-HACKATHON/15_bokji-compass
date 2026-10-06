@@ -155,13 +155,17 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 | Method | 백엔드 경로 | 성공 | 오류 |
 |---|---|---|---|
 | POST | `/v1/auth/username/check` | 소문자로 정규화한 username, available; IP당 분당 30회 | 422, 429 |
-| POST | `/v1/auth/signup` | 201, 가입 완료 | 400, 409, 422, 429 |
+| POST | `/v1/auth/email/request` | 이메일 인증번호 발송, HttpOnly 인증 쿠키, expires_in·resend_after | 422, 429, 503 |
+| POST | `/v1/auth/email/verify` | 같은 브라우저의 이메일·6자리 code 확인, 인증 증명 10분 | 400, 422, 429 |
+| POST | `/v1/auth/signup` | 201, 가입 완료; 동일 이메일의 인증 증명을 한 번 소비 | 400, 401, 409, 422, 429 |
 | POST | `/v1/auth/login` | user, HttpOnly 세션 쿠키 | 401, 422, 429 |
 | GET | `/v1/auth/me` | 현재 user | 401 |
 | POST | `/v1/auth/profile` | 로그인 회원의 name·age·gender·region 변경, user 반환 | 401, 422 |
 | POST | `/v1/auth/logout` | 서버 세션 및 쿠키 폐기 | 503 |
 
-모든 POST는 JSON과 `X-Auth-Request: 1` 헤더가 필요합니다(누락 403). 공통 저장소 장애/비활성은 503입니다. 가입 필드는 이름(name, 필수 1~50자)·아이디·비밀번호·비밀번호 확인·만 나이·성별·시도입니다. 로그인과 세션 조회의 user에 name을 포함하며 기존 이름 없는 계정은 null입니다. [정확한 입력·응답·제한·저장소·실행법](backend/app/modules/auth/readme.md), [호출자](frontend/web/src/features/auth/authApi.js), [생성 스키마](backend/app/api/auth.py)를 기준으로 합니다.
+모든 POST는 JSON과 `X-Auth-Request: 1` 헤더가 필요합니다(누락 403). 공통 저장소 장애/비활성은 503입니다. 가입 필드는 이름(name, 필수 1~50자)·아이디·비밀번호·비밀번호 확인·이메일·만 나이·성별·시도입니다. 일반 신규 가입은 같은 브라우저에서 이메일 인증을 먼저 완료해야 합니다. 로그인과 세션 조회의 user에는 name·email·email_verified가 포함되며 기존 이메일 없는 계정도 로그인할 수 있습니다. [정확한 입력·응답·제한·저장소·실행법](backend/app/modules/auth/readme.md), [호출자](frontend/web/src/features/auth/authApi.js), [생성 스키마](backend/app/api/auth.py)를 기준으로 합니다.
+
+카카오 신규 가입은 직접 입력한 이메일을 요구하되 소유 인증은 하지 않습니다. 이메일은 계정 연결이나 로그인 식별자로 쓰지 않으며 프로필 수정 API에서 바꿀 수 없습니다. 실제 일반 가입에는 SMTP 설정과 MySQL 회원 스키마의 명시적 초기화가 필요합니다. [이메일 인증·SMTP 설정](backend/docs/email-signup.md).
 
 카카오 추가 경로는 GET `/v1/auth/kakao/status`, POST `/start`, GET `/callback`, GET `/pending`, POST `/complete`입니다(동일 `/v1/auth/kakao` 접두사). 전화번호 요청·확인 경로는 제거되어 404입니다. `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`, `KAKAO_WEB_URL`을 서버에 설정해야 합니다. [상세 계약](backend/app/modules/auth/readme.md).
 

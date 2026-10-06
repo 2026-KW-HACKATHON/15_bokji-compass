@@ -1,6 +1,6 @@
 """Separate auth tables; never modify the existing draft users/profile tables."""
 
-from sqlalchemy import Column, Index, Integer, MetaData, String, Table, Text
+from sqlalchemy import Boolean, Column, Index, Integer, MetaData, String, Table, Text
 
 metadata = MetaData()
 PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
@@ -16,6 +16,9 @@ accounts = Table(
     Column("gender", String(16), nullable=False),
     Column("region", String(32), nullable=True),
     Column("phone", String(16), nullable=True, unique=True),
+    # Nullable for existing members; both new signup APIs require an email.
+    Column("email", String(254), nullable=True),
+    Column("email_verified_at", Integer, nullable=True),
     Column("created_at", Integer, nullable=False),
     # Retained for one-time restoration of older encrypted databases.
     Column("username_lookup", String(64), nullable=True),
@@ -33,6 +36,16 @@ limits = Table(
     metadata,
     Column("key", String(64), primary_key=True),
     Column("hits", Integer, nullable=False),
+    Column("expires_at", Integer, nullable=False, index=True),
+)
+email_verifications = Table(
+    "auth_email_verifications",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("email", String(254), nullable=False),
+    Column("code_hash", String(64), nullable=False),
+    Column("attempts", Integer, nullable=False),
+    Column("verified", Boolean, nullable=False),
     Column("expires_at", Integer, nullable=False, index=True),
 )
 
