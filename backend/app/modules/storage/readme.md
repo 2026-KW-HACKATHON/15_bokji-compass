@@ -31,6 +31,7 @@
 
 LLM 호출 없음. 검증 오류는 ValueError, DB 오류는 SQLAlchemyError 계열이다.
 기본 조회는 공개 공고만 반환하고 로컬 검토에서만 published_only=False를 지정한다.
+지역 필터는 공식 행정구역 스냅샷으로 선택한 광역 지역의 하위 시·군 이름도 함께 검색하며, 전국 대상 공고는 계속 포함한다.
 CLI: python -m app.modules.storage init|import-drafts|list|get (--help 참고).
 MySQL 통합 테스트: BOKJI_TEST_MYSQL=1 python -m pytest tests/test_policy_database.py.
 Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생성 데이터는 종료 시 정리한다.

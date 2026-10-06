@@ -37,7 +37,7 @@ def test_published_pipeline_revision_is_used_for_list_detail_and_calendar():
     )
     metadata.create_all(engine)
     source = {
-        "title": "광운대학교 장학 공고",
+        "title": "[논산시] 장학 공고",
         "organization": "광운대학교",
         "source_url": "https://www.kw.ac.kr/ko/life/notice.jsp?DUID=notice-1",
         "fields": {
@@ -60,7 +60,14 @@ def test_published_pipeline_revision_is_used_for_list_detail_and_calendar():
             details.insert(),
             {
                 "revision_id": "revision-1",
-                "draft_json": {"overview": {}},
+                "draft_json": {
+                    "overview": {
+                        "region_conditions": {
+                            "status": "specified",
+                            "text": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+                        }
+                    }
+                },
                 "title": source["title"],
                 "category": "교육",
             },
@@ -74,15 +81,22 @@ def test_published_pipeline_revision_is_used_for_list_detail_and_calendar():
         },
     )
     listing = catalog.list_policies(repository)
+    chungnam_listing = catalog.list_policies(repository, region="충남")
+    seoul_listing = catalog.list_policies(repository, region="서울")
     detail = catalog.get_policy(repository, "notice:notice-1")
     calendar = catalog.list_calendar(repository, month="2026-10")
+    chungnam_calendar = catalog.list_calendar(repository, month="2026-10", region="충남")
 
     assert listing["total"] == 1
     assert listing["items"][0]["organization"] == "광운대학교"
+    assert chungnam_listing["total"] == 1
+    assert chungnam_listing["items"][0]["title"] == "[논산시] 장학 공고"
+    assert seoul_listing["total"] == 0
     assert detail is not None
     assert detail["revisionId"] == "revision-1"
     assert detail["applicationStart"] == "2026-10-01"
     assert detail["applicationEnd"] == "2026-10-31"
     assert calendar["total"] == 1
     assert calendar["items"][0]["id"] == "notice:notice-1"
+    assert chungnam_calendar["total"] == 1
     engine.dispose()

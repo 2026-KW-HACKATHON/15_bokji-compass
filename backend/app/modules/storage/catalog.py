@@ -4,10 +4,37 @@ from datetime import date
 
 from sqlalchemy import and_, func, or_, select
 
+from app.modules.regions.public import default_catalog
 from app.modules.storage.application_dates import (
     application_schedule,
     resolved_application_period,
 )
+
+_REGION_PROVINCE_CODES = {
+    "서울": "1100000000",
+    "경기": "4100000000",
+    "인천": "2800000000",
+    "부산": "2600000000",
+    "대구": "2700000000",
+    "광주": "1200000000",
+    "대전": "3000000000",
+    "울산": "3100000000",
+    "세종": "3600000000",
+    "강원": "5100000000",
+    "충북": "4300000000",
+    "충남": "4400000000",
+    "전북": "5200000000",
+    "전남": "1200000000",
+    "경북": "4700000000",
+    "경남": "4800000000",
+    "제주": "5000000000",
+}
+_LEGACY_REGION_NAMES = {
+    "강원": ("강원도",),
+    "전북": ("전라북도",),
+    "광주": ("광주광역시",),
+    "전남": ("전라남도",),
+}
 
 
 def published_catalog(repository):
@@ -40,6 +67,29 @@ def json_text(column, path):
     return func.coalesce(
         func.nullif(func.json_unquote(func.json_extract(column, path)), "null"), ""
     )
+
+
+def _region_search_terms(region):
+    terms = {region}
+    province_code = _REGION_PROVINCE_CODES.get(region)
+    if province_code is None:
+        return terms
+
+    regions = default_catalog()
+    province = regions.by_code.get(("ADMIN", province_code))
+    if province is None or not province.active(regions.as_of):
+        return terms
+
+    terms.add(province.name)
+    terms.update(_LEGACY_REGION_NAMES.get(region, ()))
+    terms.update(
+        row.name.split()[-1]
+        for row in regions.rows
+        if row.system == "ADMIN"
+        and row.active(regions.as_of)
+        and regions.parents.get((row.system, row.code)) == province.code
+    )
+    return terms
 
 
 def card(record):
@@ -93,14 +143,14 @@ def filtered_catalog(repository, *, q="", category="", region="", audience="", t
             query = query.where(func.coalesce(catalog.c.category, "기타") == value)
     if region and region != "전국":
         region_status = json_text(catalog.c.draft_json, "$.overview.region_conditions.status")
+        region_text = json_text(catalog.c.draft_json, "$.overview.region_conditions.text")
+        region_matches = or_(
+            *(region_text.contains(term, autoescape=True)
+              for term in _region_search_terms(region))
+        )
         query = query.where(
             or_(
-                and_(
-                    region_status == "specified",
-                    json_text(catalog.c.draft_json, "$.overview.region_conditions.text").contains(
-                        region, autoescape=True
-                    ),
-                ),
+                and_(region_status == "specified", region_matches),
                 region_status == "unrestricted",
             )
         )
