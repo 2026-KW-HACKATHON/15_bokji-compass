@@ -432,11 +432,14 @@ def test_collection_views_are_bounded_and_read_only(console, monkeypatch):
             return [{"candidate_id": "offline-candidate", "status": "candidate"}]
 
     monkeypatch.setattr(public, "collection_repository", lambda _: ReadOnlyStore())
+    monkeypatch.setattr(public, "inventory_counts", lambda _: {
+        "available": True, "total": 800, "raw": 759, "analyzed": 4, "published": 4})
     for kind in ("status", "changes", "candidates"):
         result = client.get(f"/v1/server-admin/collection/{kind}?limit=7")
         assert result.status_code == 200
         if kind == "status":
             assert "jobs" in result.json()
+            assert result.json()["inventory"]["total"] == 800
         else:
             assert "items" in result.json()
     assert calls == [("status", 7), ("changes", 7), ("candidates", 7)]

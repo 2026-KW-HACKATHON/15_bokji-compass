@@ -17,6 +17,8 @@ from app.contracts.parsing import ParsedCondition, PolicyExtraction, PolicyOverv
 from app.core.config import BACKEND_ROOT, Settings, load_settings
 from app.core.database import create_database_engine
 from app.modules.llm.public import (
+    BATCH_PROMPT,
+    BATCH_PROMPT_VERSION,
     OVERVIEW_PROMPT,
     OVERVIEW_PROMPT_VERSION,
     PROMPT,
@@ -72,6 +74,7 @@ def processing_signature(settings: Settings) -> dict:
         "app/modules/normalization/raw.py", "app/modules/regions/public.py",
         "app/modules/validation/public.py", "app/modules/pipeline/public.py",
         "app/modules/llm/public.py",
+        "app/modules/pipeline/batching.py",
     )
     code_hashes = {name: hashlib.sha256((BACKEND_ROOT / name).read_bytes()).hexdigest()
                    for name in files}
@@ -82,6 +85,9 @@ def processing_signature(settings: Settings) -> dict:
         "schema_version": "welfare-parsing-v2", "rule_version": RULE_VERSION,
         "model": settings.codex_model, "fallback_model": settings.codex_fallback_model,
         "reasoning_effort": settings.codex_reasoning_effort,
+        "fallback_reasoning_effort": settings.codex_fallback_reasoning_effort,
+        "batch_prompt_version": BATCH_PROMPT_VERSION,
+        "batch_prompt_hash": hashlib.sha256(BATCH_PROMPT.encode()).hexdigest(),
         "prompt_version": PROMPT_VERSION, "overview_prompt_version": OVERVIEW_PROMPT_VERSION,
         "prompt_hash": hashlib.sha256(PROMPT.encode()).hexdigest(),
         "overview_prompt_hash": hashlib.sha256(OVERVIEW_PROMPT.encode()).hexdigest(),
@@ -173,7 +179,9 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         if any(a.get("model") == model and a.get("status") == "validation_failed"
                for a in base["attempts"]):
             continue
-        call_settings = budget.before_model(settings) if budget else settings
+        model_settings = settings if model == settings.codex_model else settings.model_copy(
+            update={"codex_reasoning_effort": settings.codex_fallback_reasoning_effort})
+        call_settings = budget.before_model(model_settings) if budget else model_settings
         try:
             result, metadata = extract_policy(
                 source, call_settings, output / f"attempt-{index}", model)
@@ -340,7 +348,9 @@ def _extract_overview(source: SourcePolicy, settings: Settings,
         if any(a.get("model") == model and a.get("status") == "validation_failed"
                for a in attempts):
             continue
-        call_settings = budget.before_model(settings) if budget else settings
+        model_settings = settings if model == settings.codex_model else settings.model_copy(
+            update={"codex_reasoning_effort": settings.codex_fallback_reasoning_effort})
+        call_settings = budget.before_model(model_settings) if budget else model_settings
         try:
             result, metadata = extract_policy_overview(
                 source, call_settings, output / f"overview-attempt-{index}", model)

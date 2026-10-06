@@ -45,7 +45,7 @@ export default function PolicyDetail({
         <dl className="policy-detail detail-key-facts">
           <div>
             <dt>지원 대상</dt>
-            <dd>{policy.audience} · 자세한 조건은 공식 공고를 확인하세요.</dd>
+            <dd>{policy.audience}</dd>
           </div>
           <div>
             <dt>신청 기간</dt>
@@ -80,7 +80,7 @@ export default function PolicyDetail({
               </div>
               <div>
                 <dt>지원 대상</dt>
-                <dd>{policy.audience} · 자세한 조건은 공식 공고를 확인하세요.</dd>
+                <dd>{policy.audience}</dd>
               </div>
             </>
           )}
@@ -94,22 +94,12 @@ export default function PolicyDetail({
       ) : (
         relatedTags
       )}
-      <p className="notice-box">
-        추천받은 공고도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를 확인하세요.
-      </p>
       <div className="detail-actions">
         {onAsk && (
           <button className="button secondary" onClick={onAsk}>
             <Icon name="headset" size={20} />
             챗봇 창에서 질문하기
           </button>
-        )}
-        {mode === 'api' && source && (
-          <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
-            공식 공고 보기
-            <Icon name="external" size={18} />
-            <span className="sr-only">새 창</span>
-          </a>
         )}
         <button className="button secondary" onClick={() => onSave(policy)}>
           <Icon name="bookmark" size={18} />
@@ -121,6 +111,16 @@ export default function PolicyDetail({
         revisionId={policy.revisionId}
         user={user}
       />
+      <div className="notice-box detail-source">
+        <p>신청 전에 공식 공고에서 자세한 지원 조건과 최신 일정을 확인해 주세요.</p>
+        {mode === 'api' && source && (
+          <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
+            자세한 공고 확인하기
+            <Icon name="external" size={18} />
+            <span className="sr-only">새 창</span>
+          </a>
+        )}
+      </div>
     </Modal>
   );
 }

@@ -88,6 +88,9 @@ test('member selects FAQs, sends a grounded question and closing clears the repl
   await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
   let panel = await open(page);
   await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
+  await expect(panel.getByRole('heading', { name: '현재 진행중인 공고' })).toBeVisible();
+  await expect(panel.locator('.chat-policy-list-heading')).toHaveCSS('border-top-style', 'solid');
+  await page.screenshot({ path: testInfo.outputPath('assistant-policy-chooser.png') });
   await panel.getByRole('button', { name: new RegExp(policy.title) }).click();
   await panel.getByRole('button', { name: faqItems[0].question, exact: true }).click();
   await expect(panel.getByText(faqItems[0].response.answer, { exact: true })).toBeVisible();
@@ -95,6 +98,7 @@ test('member selects FAQs, sends a grounded question and closing clears the repl
   await panel.getByRole('textbox', { name: '궁금한 내용' }).fill('대상은?');
   await panel.getByRole('button', { name: '질문 보내기' }).click();
   await expect(panel.getByText('직접 질문한 답변입니다.', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('textbox', { name: '궁금한 내용' })).toHaveValue('');
   await panel.getByText('원문 근거 보기', { exact: true }).click();
   await expect(panel.getByText('공고 원문 근거', { exact: true })).toBeVisible();
   expect(modelCalls).toBe(1);
@@ -104,6 +108,107 @@ test('member selects FAQs, sends a grounded question and closing clears the repl
   panel = await open(page);
   await expect(panel.getByText('직접 질문한 답변입니다.', { exact: true })).toHaveCount(0);
   await expect(panel.getByRole('heading', { name: '어떤 내용이 궁금하세요?' })).toBeVisible();
+});
+
+test('question history keeps earlier replies across closing and changing policies without new requests', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60000);
+  await mock(page, true);
+  const second = {
+    ...policy,
+    id: 'second-policy',
+    title: '다른 주거 공고',
+    revisionId: '22222222-2222-2222-2222-222222222222',
+  };
+  await page.route('**/api/v1/policies?**', (route) =>
+    route.fulfill({ json: { items: [policy, second], total: 2, nextCursor: null } }),
+  );
+  await page.route('**/api/v1/assistant/faqs?**', (route) => {
+    const revisionId = new URL(route.request().url()).searchParams.get('revision_id');
+    return route.fulfill({
+      json: {
+        revision_id: revisionId,
+        items: faqItems.map((item) => ({
+          ...item,
+          response: { ...item.response, revision_id: revisionId },
+        })),
+      },
+    });
+  });
+  let modelCalls = 0;
+  await page.route('**/api/v1/assistant/questions', (route) => {
+    modelCalls++;
+    const body = route.request().postDataJSON();
+    return route.fulfill({
+      json: {
+        ...faqItems[0].response,
+        revision_id: body.revision_id,
+        response_type: undefined,
+        answer: `${body.question}에 대한 저장된 답변`,
+      },
+    });
+  });
+  await page.goto('/');
+  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  let panel = await open(page);
+  await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
+  await panel.getByRole('button', { name: new RegExp(policy.title) }).click();
+  await panel.getByRole('button', { name: faqItems[0].question, exact: true }).click();
+  for (const question of ['첫 번째 질문', '두 번째 질문']) {
+    await panel.getByRole('textbox', { name: '궁금한 내용' }).fill(question);
+    await panel.getByRole('button', { name: '질문 보내기' }).click();
+    await expect(panel.getByRole('region', { name: '질문 답변', exact: true })).toContainText(
+      `${question}에 대한 저장된 답변`,
+    );
+    await expect(panel.getByRole('textbox', { name: '궁금한 내용' })).toHaveValue('');
+  }
+  await panel.getByRole('button', { name: '공고 바꾸기' }).click();
+  await panel.getByRole('button', { name: new RegExp(second.title) }).click();
+  await panel.getByRole('textbox', { name: '궁금한 내용' }).fill('다른 공고 질문');
+  await panel.getByRole('button', { name: '질문 보내기' }).click();
+  await expect(panel.getByRole('region', { name: '질문 답변', exact: true })).toContainText(
+    '다른 공고 질문에 대한 저장된 답변',
+  );
+  await panel.getByRole('button', { name: '상담창 닫기' }).click();
+  panel = await open(page);
+  await panel.getByRole('button', { name: '질문 내역', exact: true }).click();
+  await expect(panel.locator('.chat-history-list > button')).toHaveCount(4);
+  await expect(panel.locator('.chat-history-list > button').first()).toContainText(
+    '다른 공고 질문',
+  );
+  await page.screenshot({ path: testInfo.outputPath('assistant-history.png') });
+  await panel.getByRole('button', { name: /첫 번째 질문/ }).click();
+  await expect(panel.getByRole('heading', { name: policy.title, exact: true })).toBeVisible();
+  await expect(panel.getByRole('region', { name: '질문 답변', exact: true })).toContainText(
+    '첫 번째 질문에 대한 저장된 답변',
+  );
+  await panel.getByText('원문 근거 보기', { exact: true }).click();
+  await expect(panel.getByText('공고 원문 근거', { exact: true })).toBeVisible();
+  expect(modelCalls).toBe(3);
+  await page.reload();
+  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  panel = await open(page);
+  await panel.getByRole('button', { name: '질문 내역', exact: true }).click();
+  await expect(panel.getByText(/아직 질문 내역이 없어요/)).toBeVisible();
+});
+
+test('failed questions keep the draft and do not add a reply to history', async ({ page }) => {
+  await mock(page, true);
+  await page.route('**/api/v1/assistant/questions', (route) =>
+    route.fulfill({ status: 503, json: { detail: '잠시 후 다시 시도해 주세요.' } }),
+  );
+  await page.goto('/');
+  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  const panel = await open(page);
+  await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
+  await panel.getByRole('button', { name: new RegExp(policy.title) }).click();
+  await panel.getByRole('textbox', { name: '궁금한 내용' }).fill('신청 방법은?');
+  await panel.getByRole('button', { name: '질문 보내기' }).click();
+  await expect(panel.getByRole('alert')).toContainText('잠시 후 다시 시도');
+  await expect(panel.getByRole('textbox', { name: '궁금한 내용' })).toHaveValue('신청 방법은?');
+  await panel.getByRole('button', { name: '질문 내역', exact: true }).click();
+  await expect(panel.getByText(/아직 질문 내역이 없어요/)).toBeVisible();
 });
 
 test('policy detail opens its own policy in the chatbot without stacked dialogs', async ({
@@ -204,6 +309,7 @@ test('policy loading can retry and searching starts a fresh cursor', async ({ pa
   await expect(panel.getByRole('button', { name: '이전 공고' })).toBeVisible();
   await panel.getByRole('searchbox', { name: '공고 이름이나 관심 분야' }).fill('주거');
   await panel.getByRole('button', { name: '검색', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: '검색 결과', exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: '이전 공고' })).toHaveCount(0);
   expect(queries.at(-1).get('q')).toBe('주거');
   expect(queries.at(-1).has('cursor')).toBe(false);

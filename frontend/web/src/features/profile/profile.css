@@ -1,0 +1,295 @@
+.profile-manager {
+  width: 100%;
+}
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  margin-bottom: 28px;
+}
+.profile-tabs [role='tab'] {
+  flex: 1 1 auto;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.profile-tabs [role='tab']:hover {
+  background: #f0f9ff;
+}
+.profile-tabs [aria-selected='true'] {
+  background: var(--soft);
+  color: var(--green);
+  font-weight: 750;
+}
+.profile-draft-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  vertical-align: middle;
+}
+.profile-overview-heading {
+  margin-bottom: 20px;
+}
+.profile-overview-heading h2,
+.profile-category-heading h2 {
+  font-size: 1.2rem;
+}
+.profile-overview-heading p,
+.profile-category-heading p {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.profile-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.profile-category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--white);
+  text-align: left;
+  min-width: 0;
+}
+.profile-category-card:hover {
+  border-color: var(--green);
+  background: #f5fbff;
+}
+.profile-category-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.profile-category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: var(--soft);
+  color: var(--green);
+  border-radius: 12px;
+}
+.profile-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #f1f5f9;
+}
+.profile-status.is-filled {
+  color: var(--green);
+  background: var(--soft);
+}
+.profile-category-card strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.profile-category-description {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.profile-category-preview {
+  margin: 16px 0;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.profile-category-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  color: var(--green);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.profile-category-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.profile-category-heading .button {
+  flex-shrink: 0;
+}
+.profile-facts {
+  margin: 0 0 20px;
+}
+.profile-facts > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr);
+  gap: 24px;
+  padding: 17px 0;
+}
+.profile-facts > div + div {
+  border-top: 1px solid var(--line);
+}
+.profile-facts dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.profile-facts dd {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 550;
+}
+.profile-facts .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  text-align: left;
+}
+.profile-readonly-card {
+  padding-block: 12px 22px;
+}
+.profile-recommendation-options,
+.profile-finance-details {
+  margin-bottom: 22px;
+}
+.profile-recommendation-options > summary,
+.profile-finance-details > summary {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-height: 44px;
+  padding-block: 10px;
+  cursor: pointer;
+}
+.profile-recommendation-options > .field-hint {
+  margin: 10px 0 16px;
+}
+.profile-finance-details .finance-review {
+  margin-top: 12px;
+}
+.profile-manager .member-profile-form {
+  margin-bottom: 18px;
+}
+.profile-manager .member-profile-form .auth-fields > .secondary {
+  margin-left: 12px;
+}
+.profile-account-note {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  margin-top: 22px;
+}
+.profile-account-note > svg {
+  margin-top: 4px;
+}
+.profile-account-note .text-button {
+  display: inline;
+  min-height: auto;
+}
+.profile-finance-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 22px 0 28px;
+  text-align: center;
+}
+.profile-finance-empty > svg {
+  color: var(--green);
+}
+.profile-finance-empty p,
+.profile-finance-error {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.profile-finance-error {
+  margin-bottom: 18px;
+}
+.profile-finance-card > .primary {
+  margin-top: 20px;
+}
+.profile-save-message {
+  margin-bottom: 20px;
+}
+.profile-manage-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.easy-mode .profile-tabs [role='tab'],
+.easy-mode .profile-category-preview,
+.easy-mode .profile-category-description,
+.easy-mode .profile-facts dt,
+.easy-mode .profile-facts dd {
+  font-size: 1rem;
+}
+.easy-mode .profile-status {
+  font-size: 0.9rem;
+}
+.easy-mode .profile-overview-heading p,
+.easy-mode .profile-category-heading p,
+.easy-mode .profile-account-note {
+  font-size: 1rem;
+}
+@media (max-width: 600px) {
+  .profile-tabs {
+    gap: 4px;
+    margin-bottom: 22px;
+  }
+  .profile-tabs [role='tab'] {
+    flex-basis: calc(50% - 4px);
+    padding-inline: 8px;
+    font-size: 0.85rem;
+  }
+  .profile-tabs [role='tab']:first-child {
+    flex-basis: 100%;
+  }
+  .profile-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .profile-category-card {
+    padding: 20px;
+  }
+  .profile-category-heading {
+    flex-wrap: wrap;
+  }
+  .profile-facts > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding-block: 14px;
+  }
+  .profile-finance-card > .primary {
+    width: 100%;
+  }
+}

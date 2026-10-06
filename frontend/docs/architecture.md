@@ -9,7 +9,7 @@
 현재 서버에는 health/readiness, 회원가입·로그인·전화번호 인증·세션 조회·로그아웃, 소득·재산 계산과 회원별 금융정보 저장 API가 있습니다. 공고 목록과 추천 API는 미구현이며 [해당 HTTP 계약은 제안](service-contract.md)입니다. 웹은 개발 기본 demo, 운영 기본 api 모드를 사용합니다. 공고·추천의 demo 모드에서도 인증과 계산기는 실제 서버를 호출합니다. 구현 현황과 정확한 요청·응답은 [루트 API 관리대장](../../api-management.md)을 기준으로 합니다.
 
 웹 화면: 내 비서 → 내 정보 → 추천 이유·공고 상세. 전체 공고·저장한 공고·소득·재산 계산기도 별도 제공합니다.
-경로는 #home, #explore, #calculator, #saved, #profile, #login, #signup. 태그는 #explore?tag=...에 보관하며 브라우저 뒤로 가기로 복원됩니다. 계산기는 비회원도 사용하며 회원 저장은 선택입니다.
+경로는 #home, #explore, #calculator, #calculator-details, #saved, #profile, #login, #signup. 태그는 #explore?tag=...에 보관하며 브라우저 뒤로 가기로 복원됩니다. 계산기는 비회원도 사용하며 회원 저장은 선택입니다.
 
 ## 책임
 

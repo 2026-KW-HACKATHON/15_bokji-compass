@@ -2,7 +2,6 @@ import {
   financeRegions,
   recipientTypes,
   deductionTypes,
-  occupationTypes,
   earnedIncomeBases,
   businessIncomeBases,
   vehicleOwnerships,
@@ -81,17 +80,37 @@ export function financeQuestions(draft) {
             ? '통합 지역의 재산 공제 기준은 추가 확인이 필요해요. 관련 계산 결과는 ‘확인 필요’로 표시합니다.'
             : '전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.',
         ),
-        select(
-          'household_size',
-          'household',
-          '가구원 수',
-          Array.from({ length: 12 }, (_, i) => [i + 1, `${i + 1}명`]),
-        ),
+        {
+          // Keep the native client's select contract; web renders countChoices before type.
+          ...select(
+            'household_size',
+            'household',
+            '가구원 수',
+            Array.from({ length: 12 }, (_, i) => [i + 1, `${i + 1}명`]),
+          ),
+          min: 1,
+          max: MAX_HOUSEHOLD_SIZE,
+          countChoices: {
+            groupFrom: 7,
+            manualFrom: 12,
+            allowUnknown: false,
+            exactLabel: '실제 가구원 수',
+          },
+        },
       ],
       'household',
     ),
     question('household-details', 0, '가구에 해당하는 정보를 알려주세요', [
-      number('minor_children', 'children', '18세 미만 자녀 수', '명', Number(draft.household_size)),
+      {
+        ...number(
+          'minor_children',
+          'children',
+          '18세 미만 자녀 수',
+          '명',
+          Number(draft.household_size),
+        ),
+        countChoices: { groupFrom: 3, manualFrom: 9, exactLabel: '실제 자녀 수' },
+      },
       select('recipient_status', 'recipient', '현재 수급 상태', recipientTypes),
       {
         ...check('household_scope_confirmed', '계산할 사업의 가구원 범위를 확인했어요'),
@@ -114,20 +133,13 @@ export function financeQuestions(draft) {
         question(
           `member-${i}-basic`,
           1,
-          `${prefix} · 나이·직업군·공제 유형`,
+          `${prefix} · 나이·공제 유형`,
           [
             {
               ...number(path('age'), `age-${i}`, '만 나이', '세', 120),
               placeholder: '계산한 만 나이를 입력하세요',
               hint: '오늘 기준으로 올해 연도에서 태어난 연도를 빼세요. 올해 생일이 아직 오지 않았다면 1을 더 빼세요. 예: 연도 차이가 66이면 생일이 지났거나 오늘일 때 만 66세, 생일 전이면 만 65세예요.',
             },
-            select(
-              path('occupation'),
-              `occupation-${i}`,
-              '직업군',
-              occupationTypes,
-              '현재 상태에 가장 가까운 항목을 선택하세요. 선택 사항이며, 입력하지 않아도 다음 단계로 갈 수 있어요.',
-            ),
             select(path('deduction'), `deduction-${i}`, '이 가구원의 공제 유형', deductionTypes),
           ],
           'deduction',
@@ -273,7 +285,7 @@ export function financeQuestions(draft) {
         question(`vehicle-${i}-spec`, 4, `${prefix} · 차량 제원과 보조금`, [
           select(path('kind'), `vehicle-kind-${i}`, '차종', vehicleKinds),
           number(path('displacement_cc'), `cc-${i}`, '배기량', 'cc', 20000),
-          number(path('age_years'), `vehicle-age-${i}`, '차령', '년', 100),
+          number(path('age_years'), `vehicle-age-${i}`, '차량 사용 연수', '년', 100),
           number(path('seats'), `seats-${i}`, '승차 정원', '명', 100, 1),
           select(
             path('eco_subsidy'),

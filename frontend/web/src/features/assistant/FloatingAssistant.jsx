@@ -25,6 +25,19 @@ export default function FloatingAssistant({
 }) {
   const launcher = useRef(null);
   const [dismissed, setDismissed] = useState(false);
+  const owner = user?.id || null;
+  const [conversation, setConversation] = useState({ owner, entries: [] });
+  if (conversation.owner !== owner) setConversation({ owner, entries: [] });
+  const history = conversation.owner === owner ? conversation.entries : [];
+  const recordQuestion = (policy, entry) => {
+    setConversation((current) => ({
+      owner,
+      entries: [
+        ...(current.owner === owner ? current.entries : []),
+        { ...entry, policy, id: crypto.randomUUID(), createdAt: new Date().toISOString() },
+      ],
+    }));
+  };
   if (blocked) return null;
   return (
     <>
@@ -67,6 +80,8 @@ export default function FloatingAssistant({
           launcher={launcher}
           onNavigate={onNavigate}
           onToggleEasy={onToggleEasy}
+          history={history}
+          onRecord={recordQuestion}
         />
       )}
     </>
@@ -82,12 +97,15 @@ function AssistantDialog({
   launcher,
   onNavigate,
   onToggleEasy,
+  history,
+  onRecord,
 }) {
   const id = useId();
   const dialog = useRef(null);
   const content = useRef(null);
   const title = useRef(null);
   const { topic, policy, guideId } = session;
+  const historyEntry = history.find((entry) => entry.id === session.historyId);
   const guide = assistantGuides.find((item) => item.id === guideId);
   const close = () => onChange(null);
   const go = (page) => {
@@ -109,9 +127,10 @@ function AssistantDialog({
     };
   }, []);
   useEffect(() => {
+    if (session.historyId) return;
     content.current?.scrollTo(0, 0);
     title.current?.focus({ preventScroll: true });
-  }, [topic, policy?.revisionId, guideId]);
+  }, [topic, policy?.revisionId, guideId, session.historyId]);
   const source = safeSourceUrl(policy?.sourceUrl);
   const pick = (item) =>
     onChange({
@@ -148,7 +167,11 @@ function AssistantDialog({
           <Icon name="house" size={17} />
           처음으로
         </button>
-        {topic !== 'home' && (
+        {user && topic !== 'history' && (
+          <button onClick={() => onChange({ topic: 'history' })}>질문 내역</button>
+        )}
+        {topic === 'history' && <span>질문 내역</span>}
+        {!user && topic !== 'home' && (
           <span>
             {topic === 'guides' ? '이용 방법' : topic === 'schedule' ? '신청 일정' : '공고 질문'}
           </span>
@@ -158,14 +181,50 @@ function AssistantDialog({
         <h3 className="chat-view-title" ref={title} tabIndex={-1}>
           {topic === 'home'
             ? '어떤 내용이 궁금하세요?'
-            : topic === 'guides'
-              ? guide?.question || '이용 방법을 골라 주세요'
-              : policy
-                ? '선택한 공고에 질문해 주세요'
-                : topic === 'schedule'
-                  ? '신청 일정을 확인해 보세요'
-                  : '어떤 공고가 궁금하세요?'}
+            : topic === 'history'
+              ? '이전에 한 질문'
+              : topic === 'guides'
+                ? guide?.question || '이용 방법을 골라 주세요'
+                : policy
+                  ? '선택한 공고에 질문해 주세요'
+                  : topic === 'schedule'
+                    ? '신청 일정을 확인해 보세요'
+                    : '어떤 공고가 궁금하세요?'}
         </h3>
+        {topic === 'history' && (
+          <>
+            {history.length ? (
+              <div className="chat-history-list">
+                {[...history].reverse().map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() =>
+                      onChange({ topic: 'policy', policy: entry.policy, historyId: entry.id })
+                    }
+                  >
+                    <span>
+                      <strong>{entry.question}</strong>
+                      <small>{entry.policy.title}</small>
+                      <time dateTime={entry.createdAt}>
+                        {new Date(entry.createdAt).toLocaleString('ko-KR', {
+                          timeZone: 'Asia/Seoul',
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </time>
+                    </span>
+                    <Icon name="right" size={18} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="chat-empty">아직 질문 내역이 없어요. 공고를 골라 질문해 보세요.</p>
+            )}
+            <p className="chat-footnote">질문 내역은 새로고침하거나 로그아웃하면 초기화돼요.</p>
+          </>
+        )}
         {topic === 'home' && (
           <>
             <p className="chat-intro">안녕하세요. 궁금한 내용을 골라 주세요.</p>
@@ -261,11 +320,13 @@ function AssistantDialog({
                 </button>
               </div>
               <PolicyQuestion
-                key={`${user?.id || 'guest'}:${policy.revisionId || policy.id}`}
+                key={`${user?.id || 'guest'}:${policy.revisionId || policy.id}:${session.historyId || ''}`}
                 revisionId={policy.revisionId}
                 user={user}
                 variant="chat"
                 initialFaqId={session.initialFaqId}
+                historyEntry={historyEntry}
+                onRecord={(entry) => onRecord(policy, entry)}
               />
               <div className="chat-policy-actions">
                 {source && (
@@ -354,6 +415,7 @@ function PolicyChooser({ repository, onChoose }) {
           </button>
         </div>
       </form>
+      <h4 className="chat-policy-list-heading">{term ? '검색 결과' : '현재 진행중인 공고'}</h4>
       {state === 'loading' && <p role="status">공고를 불러오고 있어요.</p>}
       {state === 'error' && (
         <div className="chat-empty">

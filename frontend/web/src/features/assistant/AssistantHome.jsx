@@ -9,6 +9,7 @@ export default function AssistantHome({
   error,
   onRetry,
   onProfile,
+  onLogin,
   onExplore,
   onCalendar,
   easy,
@@ -187,19 +188,33 @@ export default function AssistantHome({
                 </div>
               ) : state === 'error' ? (
                 <div className="empty-state" role="alert">
-                  <h3>추천 공고를 불러오지 못했어요</h3>
-                  <p>{error}</p>
-                  <button className="button primary" onClick={onRetry}>
-                    다시 시도하기
+                  <Icon name="info" size={30} />
+                  <h3>{error.title}</h3>
+                  <p>{error.message}</p>
+                  <button
+                    className="button primary"
+                    onClick={
+                      error.action === 'login'
+                        ? onLogin
+                        : error.action === 'profile'
+                          ? onProfile
+                          : onRetry
+                    }
+                  >
+                    {error.action === 'login'
+                      ? '로그인하기'
+                      : error.action === 'profile'
+                        ? '내 정보 수정하기'
+                        : '다시 시도하기'}
                   </button>
                 </div>
-              ) : (
+              ) : state === 'ready' ? (
                 <>
-                  <p className="recommendation-summary" role="status">
-                    {result.summary}
-                  </p>
                   {items.length ? (
                     <>
+                      <p className="recommendation-summary" role="status">
+                        {result.summary}
+                      </p>
                       <div
                         className={
                           'policy-grid recommendation-grid' + (easy ? ' easy-policy-list' : '')
@@ -243,19 +258,38 @@ export default function AssistantHome({
                       )}
                     </>
                   ) : (
-                    <div className="empty-state">
-                      <h3>지금은 추천할 공고가 없어요</h3>
-                      <p>관심 분야를 바꾸거나 전체 공고를 확인해 보세요.</p>
+                    <div className="empty-state recommendation-empty" role="status">
+                      <Icon name="search" size={30} />
+                      <h3>현재 내 정보에 맞는 추천 공고가 없어요</h3>
+                      <p>
+                        새 공고가 등록되면 다시 확인해 주세요. 전체 공고에서 다른 지원도 찾아볼 수
+                        있어요.
+                      </p>
+                      <div className="recommendation-empty-actions">
+                        <button
+                          className="button secondary"
+                          disabled
+                          aria-describedby="recommendation-email-status"
+                        >
+                          새 공고 메일로 받기 · 준비 중
+                        </button>
+                        <button className="button primary" onClick={onExplore}>
+                          전체 공고 보기
+                        </button>
+                      </div>
+                      <p id="recommendation-email-status" className="fine-print">
+                        메일 알림은 준비 중이에요. 아직 알림 신청은 할 수 없어요.
+                      </p>
                     </div>
                   )}
-                  {mode === 'api' && (
+                  {mode === 'api' && items.length > 0 && (
                     <p className="fine-print">
                       추천받은 공고라도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를
                       확인하세요.
                     </p>
                   )}
                 </>
-              )}
+              ) : null}
             </>
           )}
         </section>

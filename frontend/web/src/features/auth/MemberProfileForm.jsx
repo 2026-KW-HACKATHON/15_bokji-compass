@@ -11,7 +11,7 @@ const draftOf = (user) => ({
   region: user.region || '',
 });
 
-export default function MemberProfileForm({ user, onSaved, setup = false }) {
+export default function MemberProfileForm({ user, onSaved, setup = false, onCancel }) {
   const [draft, setDraft] = useState(() => draftOf(user));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -169,6 +169,11 @@ export default function MemberProfileForm({ user, onSaved, setup = false }) {
         <button type="submit" className="button primary">
           {busy ? '저장 중…' : setup ? '저장하고 시작하기' : '회원 정보 저장'}
         </button>
+        {onCancel && (
+          <button type="button" className="button secondary" onClick={onCancel}>
+            취소
+          </button>
+        )}
         {setup && (
           <a className="text-button" href="#home">
             나중에 하기

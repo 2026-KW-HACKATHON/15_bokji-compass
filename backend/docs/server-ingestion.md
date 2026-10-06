@@ -62,6 +62,11 @@ Codex 로그인, 별도로 실행 중인 MySQL이 필요합니다. API 키와 DB
 기록합니다. 외부 API나 모델은 호출하지 않습니다. 페이지 cursor를 저장하므로 `complete=true`가
 될 때까지 같은 명령을 반복할 수 있습니다. 이미 관측한 수집 레코드는 덮어쓰지 않습니다.
 
+관리 화면은 **기존 공고 전체 연결** 한 번으로 끝까지 자동 반복합니다. CLI에서는
+`seed-existing --all`을 쓰면 작은 DB 커밋과 lease 갱신을 반복해 전체를 처리합니다.
+최초 대량 수집/평상시 운영은 [수집 튜닝 프리셋](ingestion-tuning.md)을 참고하세요.
+`tick --profile bootstrap --live`와 `tick --profile steady --live`도 지원합니다.
+
 ```powershell
 .\.venv\Scripts\python.exe -m app.modules.ingestion seed-existing --limit 100
 ```

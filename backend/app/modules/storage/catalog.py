@@ -4,7 +4,7 @@ from datetime import date
 
 from sqlalchemy import and_, func, or_, select
 
-from app.modules.presentation.public import format_notice_text, payment_schedule
+from app.modules.presentation.public import format_notice_text, payment_schedule, policy_description
 from app.modules.storage.application_dates import (
     application_schedule,
     resolved_application_period,
@@ -100,9 +100,9 @@ def card(record):
         "revisionId": record["revision_id"],
         "title": source["title"],
         "organization": source["organization"],
-        "summary": format_notice_text(section(
-            "benefits", fields.get("purpose_summary") or fields.get("benefits")
-            or "지원 내용 확인 필요")),
+        "summary": policy_description(
+            source["title"], fields.get("purpose_summary"),
+            section("benefits", fields.get("benefits") or "지원 내용 확인 필요")),
         "benefit": format_notice_text(section("benefits", fields.get("benefits")
                                                or "지원 내용 확인 필요")),
         "region": format_notice_text(section("region_conditions", "지역 확인 필요")),

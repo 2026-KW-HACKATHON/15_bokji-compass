@@ -20,6 +20,10 @@ class WorkBudget:
     max_tokens: int = 100000
     model_calls: int = field(default=0, init=False)
     tokens: int = field(default=0, init=False)
+    input_tokens: int = field(default=0, init=False)
+    cached_input_tokens: int = field(default=0, init=False)
+    output_tokens: int = field(default=0, init=False)
+    reasoning_tokens: int = field(default=0, init=False)
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.deadline):
@@ -59,8 +63,18 @@ class WorkBudget:
             total = event.get("total_tokens")
             if isinstance(total, int) and not isinstance(total, bool) and total >= 0:
                 self.tokens += total
-                continue
-            for key in ("input_tokens", "output_tokens"):
+            else:
+                for key in ("input_tokens", "output_tokens"):
+                    value = event.get(key)
+                    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                        self.tokens += value
+            for key in ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens"):
                 value = event.get(key)
+                details = event.get("input_tokens_details" if key == "cached_input_tokens"
+                                    else "output_tokens_details")
+                if value is None and isinstance(details, dict):
+                    value = details.get("cached_tokens" if key == "cached_input_tokens"
+                                        else "reasoning_tokens") if key in {
+                                            "cached_input_tokens", "reasoning_tokens"} else None
                 if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                    self.tokens += value
+                    setattr(self, key, getattr(self, key) + value)

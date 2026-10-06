@@ -1,5 +1,11 @@
 # Codex CLI 조건 추출
 
+2026-10-06 묶음 최적화: `extract_policy_batch(requests, settings, output, model)`은
+최대 8건의 transport를 지원하며 운영 프리셋은 4건/24,000글자로 시작한다. 지시문·스키마를
+공유하고 요약+조건을 통합한다. 결정 가능한 제목·URL·중첩 ID는 서버에서 채운다.
+최종 스키마는 CLI에 제공하되 응답 검증은 pipeline/batching.py에서 공고별 수행한다.
+이웃 성공 결과가 한 공고의 실패로 유실되지 않는다. [예산·조사 근거](../../../docs/ingestion-tuning.md).
+
 2026-10-06 공고 문체 보완: 혜택·조건의 설명 text는 `장학생 선발`, `장학금 지급 예정` 같은
 짧은 명사형으로 요약합니다. 인용 quote와 policy_requirements.evidence_text는 원문 그대로
 유지하며 아래의 원문 발췌 원칙은 인용·신청 기간·신청 방법·URL·문의처·게시/수정일에 적용합니다.

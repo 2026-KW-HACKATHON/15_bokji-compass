@@ -5,6 +5,32 @@ import { demoPolicies } from '../fixtures/policies.js';
 test.beforeEach(async ({ page }) => {
   await mockPolicyApi(page);
 });
+
+test('policy cards show a short description and keep guarantee limits in the details', async ({
+  page,
+}) => {
+  const policy = {
+    ...demoPolicies[0],
+    title: '주택금융공사 월세자금보증',
+    summary: '월세 자금 대출을 보증해 주거비 부담을 덜어주는 제도입니다.',
+    benefit: '보증 한도: 최대 1,152만원 이내. 보증 범위: 대출금액의 80%.',
+  };
+  await page.route('**/api/v1/policies?**', (route) =>
+    route.fulfill({ json: { items: [policy], total: 1, nextCursor: null } }),
+  );
+  await page.goto('/#explore');
+  const article = page.getByRole('article');
+  await expect(article.locator('.card-summary')).toHaveText(policy.summary);
+  await expect(article).not.toContainText('1,152만원');
+  await expect(article.locator('.policy-icon')).toHaveCSS('background-color', 'rgb(224, 242, 254)');
+  await expect(article.locator('.policy-icon')).toHaveCSS('color', 'rgb(0, 104, 183)');
+  await expect(article.locator('.tags button').first()).toHaveCSS('color', 'rgb(0, 104, 183)');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await article.getByRole('button', { name: policy.title + ' 자세히 보기', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('.detail-highlight')).toContainText(policy.benefit);
+});
 test('notice summary and payment schedule stay separate from application dates in both modes', async ({
   page,
 }) => {
@@ -105,20 +131,24 @@ test('search with region and audience filters resets pagination and clearing res
   await expect(page.locator('.results-heading')).toContainText('총 6개');
   await expect(page.getByRole('textbox', { name: '공고 검색', exact: true })).toHaveValue('');
 });
-test('easy mode keeps the profile in one form and recommendations together, opt-in survives reload', async ({
+test('easy profile categories save independently and opted-in recommendations survive reload', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/#profile');
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await page.getByRole('button', { name: '맞춤 공고 찾기', exact: true }).click();
-  await expect(page.getByRole('combobox')).toHaveCount(4);
-  await expect(page.getByRole('region', { name: '지역과 연령', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: '생활 정보', exact: true })).toBeVisible();
-  await expect(page.locator('.profile-form').getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('tabpanel', { name: '전체 요약' })).toBeVisible();
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
+  await page.getByRole('button', { name: '기본 정보 추가', exact: true }).click();
   await page.getByRole('combobox', { name: '거주 지역' }).selectOption('서울');
-  await page.getByRole('checkbox', { name: '주거', exact: true }).check();
   await page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' }).check();
-  await page.getByRole('button', { name: '내 정보로 추천받기' }).click();
+  await page.getByRole('button', { name: '정보 저장', exact: true }).click();
+  await expect(page).toHaveURL(/#profile$/);
+  await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
+  await page.getByRole('button', { name: '관심 분야 추가', exact: true }).click();
+  await page.getByRole('checkbox', { name: '주거', exact: true }).check();
+  await page.getByRole('button', { name: '정보 저장', exact: true }).click();
+  await page.getByRole('link', { name: '내 비서', exact: true }).first().click();
   await expect(page.getByRole('article')).toHaveCount(3);
   await expect(page.getByText('추천 이유', { exact: true })).toHaveCount(3);
   await expect(page.getByRole('navigation', { name: '추천 공고 넘기기' })).toHaveCount(0);
@@ -126,44 +156,54 @@ test('easy mode keeps the profile in one form and recommendations together, opt-
   await expect(page.getByRole('article')).toHaveCount(3);
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 });
-test('switching easy mode preserves an unfinished profile and storage choice', async ({ page }) => {
+
+test('category switches and easy mode preserve unfinished profile inputs and storage choice', async ({
+  page,
+}) => {
   await page.goto('/#profile');
+  await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
+  await page.getByRole('button', { name: '기본 정보 추가', exact: true }).click();
   await page.getByRole('combobox', { name: '거주 지역' }).selectOption('서울');
   await page
     .getByRole('combobox', { name: '연령대 (선택)', exact: true })
     .selectOption('65세 이상');
+  await page.getByRole('tab', { name: '직업·가구', exact: true }).click();
+  await page.getByRole('button', { name: '직업·가구 추가', exact: true }).click();
   await page
     .getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true })
-    .selectOption('은퇴 후');
+    .selectOption('기타');
   await page
     .getByRole('combobox', { name: '함께 사는 사람 (선택)', exact: true })
     .selectOption('혼자 살아요');
+  await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
+  await page.getByRole('button', { name: '관심 분야 추가', exact: true }).click();
   await page.getByRole('checkbox', { name: '건강·돌봄', exact: true }).check();
   await page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' }).check();
 
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(page.getByRole('checkbox', { name: '건강·돌봄', exact: true })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked();
+  await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
   await expect(page.getByRole('combobox', { name: '거주 지역' })).toHaveValue('서울');
   await expect(page.getByRole('combobox', { name: '연령대 (선택)', exact: true })).toHaveValue(
     '65세 이상',
   );
+  await expect(page.getByRole('combobox')).toHaveCount(2);
+  await page.getByRole('tab', { name: '직업·가구', exact: true }).click();
   await expect(
     page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true }),
-  ).toHaveValue('은퇴 후');
+  ).toHaveValue('기타');
   await expect(
     page.getByRole('combobox', { name: '함께 사는 사람 (선택)', exact: true }),
   ).toHaveValue('혼자 살아요');
-  await expect(page.getByRole('checkbox', { name: '건강·돌봄', exact: true })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked();
-  await expect(page.getByRole('combobox')).toHaveCount(4);
-  await expect(page.getByRole('button', { name: '다음', exact: true })).toHaveCount(0);
-
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.getByRole('combobox', { name: '거주 지역' })).toHaveValue('서울');
   await expect(
     page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true }),
-  ).toHaveValue('은퇴 후');
+  ).toHaveValue('기타');
+  await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: '건강·돌봄', exact: true })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked();
+  await expect(page.getByRole('button', { name: '다음', exact: true })).toHaveCount(0);
 });
 test('switching easy mode preserves search text, applied filters and tag', async ({ page }) => {
   await page.goto('/#explore?tag=' + encodeURIComponent('청년'));

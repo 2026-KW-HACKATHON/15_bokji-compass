@@ -1,5 +1,10 @@
 # 원문 처리 파이프라인
 
+2026-10-06: 서버 수집 프리셋은 `batching.parse_policy_batch`로 최대 4건의 요약+조건을
+한 호출로 처리한다. 코드로 조건을 완료한 공고는 요약만 요청하며 검증 실패 공고만 상위
+모델로 재처리한다. 공고별 checkpoint/근거 검증과 shared usage 1회 집계를 유지한다.
+기존 단건 parse_policy 계약은 유지한다. [모드·예산·근거](../../../docs/ingestion-tuning.md).
+
 2026-10-02: MySQL 저장 시 `POLICY_AUTO_PUBLISH=true` 기본값에 따라 검증된 새 개정은 자동 공개합니다. 순수 parse_policy/JSON 내보내기의 결과는 기존 draft 형식을 유지합니다. false는 수동 승인 방식이며 미검증 failed/pending은 공개하지 않습니다.
 
 담당: 백엔드. 원문 → 코드/LLM 추출 → 근거 검증 → MySQL 저장.

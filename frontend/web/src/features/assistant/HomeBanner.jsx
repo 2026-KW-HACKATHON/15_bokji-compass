@@ -47,10 +47,19 @@ export default function HomeBanner({ children, easy, onCalendar }) {
           setPlaying(false);
       }}
     >
-      <div className="home-banner-slide" key={index}>
-        {index === 0 ? (
-          children
-        ) : (
+      <div className="home-banner-viewport">
+        <div
+          className={'home-banner-slide' + (index === 0 ? ' is-active' : '')}
+          aria-hidden={index !== 0}
+          inert={index !== 0}
+        >
+          {children}
+        </div>
+        <div
+          className={'home-banner-slide' + (index === 1 ? ' is-active' : '')}
+          aria-hidden={index !== 1}
+          inert={index !== 1}
+        >
           <section className="calendar-promo">
             <div className="calendar-promo-copy">
               <span className="calendar-promo-kicker">
@@ -115,7 +124,7 @@ export default function HomeBanner({ children, easy, onCalendar }) {
               </span>
             </div>
           </section>
-        )}
+        </div>
       </div>
       <div className="home-banner-controls">
         <span className="home-banner-name">

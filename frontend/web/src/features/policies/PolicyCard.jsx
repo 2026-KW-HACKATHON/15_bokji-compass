@@ -57,7 +57,7 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
   return (
     <article className="policy-card">
       <div className="card-top">
-        <span className={'policy-icon ' + policy.tone}>
+        <span className="policy-icon">
           <Icon name={policy.icon} size={25} />
         </span>
         <span className="category-label">{policy.category}</span>
@@ -89,12 +89,6 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
         </div>
       ) : (
         <p className="card-summary">{policy.summary}</p>
-      )}
-      {!easy && (
-        <p className="benefit">
-          <Icon name="check" size={17} />
-          {policy.benefit}
-        </p>
       )}
       {policy.paymentSchedule && <p className="card-meta">지급 시기: {policy.paymentSchedule}</p>}
       <div className="card-bottom">

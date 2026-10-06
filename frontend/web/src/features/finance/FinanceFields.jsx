@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import FinanceHelp from './FinanceHelp.jsx';
+import CountField from './CountField.jsx';
 import { fieldValue, visibleFields } from './financeFlow.js';
 import {
   formatMoney,
@@ -12,55 +12,23 @@ import {
 
 const numericValue = (value) => (typeof value === 'number' ? formatNumber(value) : (value ?? ''));
 
-function HouseholdSizeField({ field, value, onChange }) {
-  const [expanded, setExpanded] = useState(Number(value) >= 12);
-  const large = expanded || Number(value) >= 12;
-  return (
-    <div className="finance-field">
-      <label htmlFor={large ? `${field.id}-selection` : field.id}>{field.label}</label>
-      <select
-        id={large ? `${field.id}-selection` : field.id}
-        value={Number(value) >= 1 && Number(value) < 12 ? value : large ? 12 : value}
-        onChange={(event) => {
-          setExpanded(Number(event.target.value) === 12);
-          onChange(field.path, event.target.value);
-        }}
-      >
-        {field.options.map(([key, label]) => (
-          <option key={key} value={key}>
-            {Number(key) === 12 ? '12명 이상' : label}
-          </option>
-        ))}
-      </select>
-      {large && (
-        <>
-          <label htmlFor={field.id}>실제 가구원 수</label>
-          <div className="finance-number">
-            <input
-              id={field.id}
-              inputMode="numeric"
-              autoComplete="off"
-              value={value ?? ''}
-              aria-describedby={`${field.id}-hint`}
-              onChange={(event) => onChange(field.path, event.target.value)}
-            />
-            <span aria-hidden="true">명</span>
-          </div>
-          <small id={`${field.id}-hint`}>
-            12명 이상은 실제 인원을 입력해 주세요. 최대 {MAX_HOUSEHOLD_SIZE}명까지 입력할 수 있어요.
-          </small>
-        </>
-      )}
-    </div>
-  );
-}
-
 function FinanceField({ field, draft, onChange, easy }) {
   const value = fieldValue(draft, field.path);
   const hintId = field.hint ? `${field.id}-hint` : undefined;
   const exampleId = field.example ? `${field.id}-example` : undefined;
-  if (field.path === 'household_size')
-    return <HouseholdSizeField field={field} value={value} onChange={onChange} />;
+  if (field.countChoices)
+    return (
+      <CountField
+        id={field.id}
+        label={field.label}
+        value={value}
+        onChange={(next) => onChange(field.path, next)}
+        min={field.min}
+        max={field.max}
+        hint={field.hint}
+        {...field.countChoices}
+      />
+    );
   if (field.type === 'check')
     return (
       <div className="finance-check-field">
@@ -227,8 +195,28 @@ function FinanceField({ field, draft, onChange, easy }) {
 }
 
 export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemoveVehicle, easy }) {
+  const basicMember = question.id.match(/^member-(\d+)-basic$/);
+  const memberIndex = basicMember ? Number(basicMember[1]) : null;
   return (
     <>
+      {memberIndex !== null && (
+        <button
+          type="button"
+          className="text-button"
+          aria-label={`가구원 ${memberIndex + 1}의 소득 모두 없음으로 선택`}
+          onClick={() =>
+            onChange(`members.${memberIndex}`, {
+              ...draft.members[memberIndex],
+              earned_income: 0,
+              business_income: 0,
+              other_income: 0,
+              private_transfer_income: 0,
+            })
+          }
+        >
+          {easy ? '이 가구원의 소득 모두 없음으로 선택' : '이 가구원의 소득이 모두 없어요'}
+        </button>
+      )}
       {question.id === 'debts' && (
         <button
           type="button"
@@ -305,14 +293,16 @@ export function FinanceReview({ questions, sections, draft, onEdit }) {
         <article key={section.id}>
           <div className="finance-review-heading">
             <h3>{section.title}</h3>
-            <button
-              type="button"
-              className="text-button"
-              aria-label={`${section.title} 수정`}
-              onClick={() => onEdit(section.questions[0].id)}
-            >
-              수정
-            </button>
+            {onEdit && (
+              <button
+                type="button"
+                className="text-button"
+                aria-label={`${section.title} 수정`}
+                onClick={() => onEdit(section.questions[0].id)}
+              >
+                수정
+              </button>
+            )}
           </div>
           <dl className="finance-facts">
             {section.questions.flatMap((question) =>

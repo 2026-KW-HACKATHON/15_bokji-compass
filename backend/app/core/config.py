@@ -40,12 +40,16 @@ class Settings(BaseSettings):
     codex_executable: str = ""
     codex_model: str = Field(default="gpt-5.6-luna", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$")
     codex_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
+    codex_fallback_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
     codex_fallback_model: str = Field(
         default="gpt-5.6-terra", pattern=r"^(?:[a-zA-Z0-9][a-zA-Z0-9._:/-]*)?$"
     )
     codex_timeout_seconds: int = Field(default=300, ge=10, le=1800)
     parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
     ingestion_enabled: bool = True
+    ingestion_profile: Literal["custom", "bootstrap", "steady"] = "custom"
+    ingestion_ai_batch_size: int = Field(default=1, ge=1, le=8)
+    ingestion_ai_batch_input_chars: int = Field(default=24000, ge=4000, le=100000)
     ingestion_page_size: int = Field(default=50, ge=1, le=100)
     ingestion_max_pages: int = Field(default=3, ge=0, le=30)
     ingestion_max_jobs: int = Field(default=5, ge=0, le=100)
@@ -61,7 +65,7 @@ class Settings(BaseSettings):
     ingestion_daily_notice_calls: int = Field(default=20, ge=0, le=10000)
     ingestion_scan_interval_seconds: int = Field(default=86400, ge=600, le=604800)
     ingestion_recheck_seconds: int = Field(default=86400, ge=600, le=2592000)
-    ingestion_queue_limit: int = Field(default=200, ge=1, le=10000)
+    ingestion_queue_limit: int = Field(default=200, ge=1, le=100000)
     ingestion_max_attempts: int = Field(default=3, ge=1, le=10)
     ingestion_min_available_memory_mb: int = Field(default=512, ge=0, le=65536)
     ingestion_min_free_disk_mb: int = Field(default=512, ge=0, le=65536)

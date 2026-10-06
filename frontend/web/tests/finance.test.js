@@ -295,11 +295,15 @@ test('finance profile enforces household, children, vehicle and enum coherence',
   assert.throws(() => toFinancialProfile(draft), /지역/);
 });
 
-test('occupation is optional, validates choices and stays separate from income deductions', () => {
+test('occupation is not asked for calculations and legacy values remain compatible', () => {
   const draft = emptyFinancialProfile();
   delete draft.members[0].occupation;
   assert.equal(toFinancialProfile(draft).members[0].occupation, 'unknown');
   const basic = financeQuestions(draft).find((question) => question.id === 'member-0-basic');
+  assert.equal(
+    basic.fields.some((field) => field.path.endsWith('.occupation')),
+    false,
+  );
   assert.equal(validateQuestion(basic, draft), null);
   for (const [occupation] of occupationTypes) {
     draft.members[0].occupation = occupation;
@@ -310,7 +314,7 @@ test('occupation is optional, validates choices and stays separate from income d
     assert.equal(member.earned_income, null);
   }
   draft.members[0].occupation = 'unsupported';
-  assert.equal(validateQuestion(basic, draft).field, 'finance-occupation-0');
+  assert.equal(validateQuestion(basic, draft), null);
   assert.throws(() => toFinancialProfile(draft), /직업군/);
 });
 

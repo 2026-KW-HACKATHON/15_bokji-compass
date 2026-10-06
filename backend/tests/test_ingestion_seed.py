@@ -1,17 +1,30 @@
 """Seed commands are fenced using fake CLI dependencies and in-memory SQLite only."""
 
 import json
+import time
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from sqlalchemy import JSON, Column, Float, MetaData, String, Table, create_engine, insert, select
+from sqlalchemy import (
+    JSON,
+    Column,
+    Float,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+    delete,
+    insert,
+    select,
+)
 
 from app.core.config import Settings
 from app.modules.ingestion import __main__ as cli
 from app.modules.ingestion import models as m
 from app.modules.ingestion import repository as ingestion_repository
 from app.modules.ingestion.repository import IngestionRepository, LeaseLost
+from app.modules.normalization.raw import normalize_record
 
 
 @pytest.mark.parametrize("outcome", ["success", "busy", "failure"])
@@ -115,3 +128,49 @@ def test_seed_rechecks_current_worker_lease_before_any_writes(
             m.state.c.state_key == "worker")).mappings().one()) == before_worker
         for table in (m.records, m.snapshots, m.jobs):
             assert c.execute(select(table)).first() is None
+
+
+def test_seed_all_commits_201_policies_and_reports_progress(seeded_repository):
+    repository, existing = seeded_repository
+    docs = existing.tables["condition_documents"]
+    details = existing.tables["policy_revision_details"]
+    with repository.engine.begin() as c:
+        c.execute(delete(docs))
+        c.execute(delete(details))
+        for index in range(201):
+            source = normalize_record({"document_id": str(index), "title": "합성 공고",
+                                       "text": "별도 심사"})
+            draft = {"schema_version": "welfare-parsing-v2", "source": source.model_dump(),
+                "status": "pending", "processing_state": 8, "review_status": "draft",
+                "matching_enabled": False, "analysis": None, "attempts": [],
+                "overview": None, "overview_status": "not_run", "overview_attempts": []}
+            c.execute(insert(docs).values(revision_id=str(index), policy_key=source.policy_key,
+                                          created_at=1))
+            c.execute(insert(details).values(revision_id=str(index), draft_json=draft,
+                                             processing_json={}))
+    assert repository.acquire_worker("seed-worker", time.time(), 60)
+    progress = []
+    result = repository.seed_all_existing(existing, {"hash": "current"},
+                                          worker_token="seed-worker", progress=progress.append)
+    assert result == {"indexed": 201, "reused": 0, "scanned": 201, "batches": 3, "complete": True}
+    assert [item["scanned"] for item in progress] == [100, 200, 201]
+    again = repository.seed_all_existing(existing, {"hash": "current"}, worker_token="seed-worker")
+    assert again["scanned"] == again["indexed"] == 0 and again["complete"] is True
+
+
+def test_seed_all_stops_when_worker_ownership_changes(seeded_repository, monkeypatch):
+    repository, existing = seeded_repository
+    assert repository.acquire_worker("old", 100, 60)
+    monkeypatch.setattr(ingestion_repository.time, "time", lambda: 110)
+    called = []
+    def seed(*args, **kwargs):
+        called.append(1)
+        return {"indexed": 1, "reused": 0, "scanned": 100, "complete": False}
+    def progress(_):
+        with repository.engine.begin() as c:
+            c.execute(m.state.update().where(m.state.c.state_key == "worker").values(
+                lease_token="new"))
+    monkeypatch.setattr(repository, "seed_existing", seed)
+    with pytest.raises(LeaseLost):
+        repository.seed_all_existing(existing, {}, worker_token="old", progress=progress)
+    assert len(called) == 1

@@ -28,17 +28,21 @@
     publication: ["공고 공개", "검증된 결과의 공개 기준을 관리합니다."],
   };
   const descriptions = {
+    ingestion_profile: "최초 모드는 원문 확보 후 묶음 분석하고 작업 종료 후 평상시 예산으로 전환합니다. 프리셋 전체 수치를 저장하려면 수집 실행에서 프리셋 적용·저장을 사용하세요.",
+    ingestion_ai_batch_size: "한 AI 호출로 처리할 공고 수입니다. 운영 프리셋은 4건이며 긴 원문은 더 작은 묶음이나 단건으로 처리합니다.",
+    ingestion_ai_batch_input_chars: "지시문과 공고를 합친 묶음 프롬프트의 글자 한도입니다. 내용을 잘라내지 않고 묶음 크기를 줄입니다.",
+    codex_fallback_reasoning_effort: "기본 모델의 근거 검증에 실패한 공고를 재처리할 때 적용합니다.",
     ingestion_enabled: "끄면 다음 수집 회차부터 대기합니다. 진행 중인 회차는 기존 제한 시간 내 종료합니다. 켜도 스케줄 또는 명시적 실행이 있어야 수집합니다.",
-    ingestion_page_size: "한 페이지에서 요청할 공고 수입니다. 대기열 한도보다 작거나 같아야 합니다.",
-    ingestion_max_pages: "한 차례에 조회할 최대 페이지 수입니다. 0이면 목록 조회를 쉬어갑니다.",
-    ingestion_max_jobs: "한 차례에 처리할 상세 수집·분석 작업 수입니다.",
+    ingestion_page_size: "목록을 한 번 요청할 때 가져올 공고 수입니다. 이 수 × 수집 반복 횟수가 목록 조회량의 상한이며, 실제 수집량은 남은 데이터와 다른 한도에 따라 줄어들 수 있습니다. 대기열 한도보다 작거나 같아야 합니다.",
+    ingestion_max_pages: "한 번 실행할 때 목록을 수집할 최대 횟수입니다. 자동 수집의 실행 횟수와는 별개이며, 0이면 목록 수집을 건너뜁니다.",
+    ingestion_max_jobs: "한 번 실행할 때 처리할 작업 수입니다. 상세 수집과 AI 분석을 각각 1개 작업으로 세므로 분석 완료 공고 수와 다를 수 있습니다.",
     ingestion_max_seconds: "한 차례 작업의 최대 실행 시간입니다. 단위: 초.",
-    ingestion_max_http_calls: "재시도와 원문 이동을 포함한 한 차례 HTTP 호출 한도입니다.",
+    ingestion_max_http_calls: "목록·상세·원문 요청과 재시도를 모두 포함한 최대 횟수입니다.",
     ingestion_max_response_bytes: "원문 응답 하나의 최대 크기입니다. 단위: 바이트.",
-    ingestion_http_interval_seconds: "HTTP 요청 사이의 최소 간격입니다. 단위: 초.",
-    ingestion_max_model_calls: "한 차례에 허용할 모델 호출 수입니다. 대체 모델도 포함됩니다.",
+    ingestion_http_interval_seconds: "데이터 요청 사이의 최소 간격입니다. 단위: 초.",
+    ingestion_max_model_calls: "한 번 실행할 때 AI를 사용할 최대 횟수입니다. 추가 분석·대체 모델·외부 검색도 포함하므로 분석 완료 공고 수와 다를 수 있습니다.",
     ingestion_max_tokens: "보고된 토큰 사용량을 기준으로 후속 호출을 멈추는 한도입니다.",
-    ingestion_daily_model_calls: "하루에 허용할 모델 호출 수입니다. 한국 시간 자정 기준입니다.",
+    ingestion_daily_model_calls: "하루 동안 AI를 사용할 최대 횟수입니다. 추가 분석·대체 모델·외부 검색도 포함하며, 한국 시간 자정에 초기화됩니다.",
     ingestion_daily_bokjiro_calls: "복지로의 실제 계정 한도에 맞춰 지정하세요. 재시도도 포함됩니다.",
     ingestion_daily_gov24_calls: "정부24의 실제 계정 한도에 맞춰 지정하세요. 재시도도 포함됩니다.",
     ingestion_daily_notice_calls: "외부 공고 원문 조회의 일일 호출 한도입니다.",
@@ -163,11 +167,24 @@
   function panel(title, description = "") { const node = element("section", "panel"); const heading = element("div", "panel-heading"); const titles = element("div"); titles.append(element("h2", "", title)); if (description) titles.append(element("p", "", description)); heading.append(titles); const body = element("div", "panel-content"); node.append(heading, body); return { node, heading, body }; }
   function statusRow(container, label, detail, text, type = "") { const row = element("div", "status-row"); const name = element("span", "status-label", label); if (detail) name.append(element("small", "", detail)); row.append(name, badge(text, type)); container.append(row); }
   function metric(label, value, caption, iconName, emphasis = false) { const node = element("div", `metric-card${emphasis ? " emphasis" : ""}`); const symbol = element("span", "metric-icon"); symbol.append(icon(iconName)); node.append(element("div", "metric-label", label), symbol, element("div", `metric-value${typeof value === "string" && value.length > 4 ? " word-value" : ""}`, value), element("div", "metric-caption", caption)); return node; }
+  function limitReason(code) {
+    const match = /^(daily_calls|provider_blocked)_(bokjiro|gov24|notice)$/.exec(code || "");
+    if (!match) return "";
+    const provider = providerLabels[match[2]] || match[2];
+    return match[1] === "daily_calls" ? `${provider}: 서버에 설정한 일일 호출 한도에 도달했습니다. 한국 시간 자정에 한도가 초기화되며, 대기 작업은 다음 수집 실행에서 이어집니다.` : `${provider}: 이전 API 응답으로 요청을 잠시 보류하고 있습니다. API 키와 공급자 사용 상태를 확인하세요.`;
+  }
   function tickBanner(tick, available = true) {
     const node = element("div", "tick-banner"); const symbol = element("span", "tick-symbol"); symbol.append(icon("layers")); const text = element("div");
     if (!available) { text.append(element("strong", "", "수집 상태를 확인하려면 데이터베이스 연결이 필요합니다."), element("p", "", "서버 설정에서 MySQL 연결을 설정하고 서버를 재시작하세요.")); }
     else if (!tick) { text.append(element("strong", "", "아직 저장된 수집 실행 기록이 없습니다."), element("p", "", "스케줄이 실행되면 처리 결과가 이곳에 표시됩니다.")); }
     else { text.append(element("strong", "", `최근 실행 · ${statusLabels[tick.status] || "상태 확인"}`), element("p", "", `신규 ${number(tick.new ?? 0)}건 · 변경 ${number(tick.changed ?? 0)}건 · 동일 ${number(tick.unchanged ?? 0)}건 · 완료 작업 ${number(tick.jobs_completed ?? 0)}건`)); }
+    if (tick) {
+      const oldDeferrals = (tick.errors || []).filter((item) => limitReason(item.code));
+      const deferrals = [...(tick.deferrals || []), ...oldDeferrals];
+      const errors = (tick.errors || []).length - oldDeferrals.length;
+      if (deferrals.length || errors) text.append(element("p", "", `실제 오류 ${number(errors)}건 · 한도 보류 ${number(deferrals.filter((item) => item.job_id).length)}작업`));
+      for (const code of new Set(deferrals.map((item) => item.code))) if (limitReason(code)) text.append(element("p", "", limitReason(code)));
+    }
     node.append(symbol, text); if (tick) node.append(badge(`HTTP ${number(tick.http_calls ?? 0)} · 모델 ${number(tick.model_calls ?? 0)}`, tick.status === "failed" ? "error" : "")); return node;
   }
   function currentKoreanDay() { const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()); const values = Object.fromEntries(parts.map((part) => [part.type, part.value])); return `${values.year}-${values.month}-${values.day}`; }
@@ -176,18 +193,30 @@
     const values = state.settings?.values || {}; const today = currentKoreanDay();
     for (const provider of ["bokjiro", "gov24", "notice", "model"]) {
       const limitKey = provider === "model" ? "ingestion_daily_model_calls" : `ingestion_daily_${provider}_calls`;
-      const limit = values[limitKey]; const usage = (collection.usage || []).find((row) => row.provider === provider && String(row.day).slice(0, 10) === today);
+      const limit = provider === "model" ? collection.effective_daily_model_calls ?? values[limitKey] : values[limitKey]; const usage = (collection.usage || []).find((row) => row.provider === provider && String(row.day).slice(0, 10) === today);
       const used = usage?.calls ?? 0; const row = element("div", "quota-item"); const line = element("div", "quota-line"); const value = element("span", "quota-value");
       value.append(element("strong", "", collection.available === false ? "—" : number(used)), document.createTextNode(` / ${number(limit)}회`)); line.append(element("span", "", providerLabels[provider]), value);
       const progress = element("progress", `quota-progress${limit && used / limit >= .8 ? " warn" : ""}`); progress.max = Math.max(Number(limit) || 1, 1); progress.value = collection.available === false ? 0 : Math.min(used, progress.max); progress.setAttribute("aria-label", `${providerLabels[provider]} 호출 사용량`); row.append(line, progress); item.body.append(row);
     }
     item.body.append(element("p", "quota-note", "실제 공공 API 계정의 허용량은 공급자에서 확인하세요. 모델 토큰은 보고된 사용량을 기준으로 제한합니다.")); return item.node;
   }
+  function inventoryMetrics(data) {
+    const counts = data?.inventory || {}, available = counts.available === true;
+    const grid = element("div", "metric-grid"); grid.setAttribute("aria-label", "보유 공고 수");
+    for (const [key, label, caption, symbol] of [
+      ["total", "총 보유 공고", "공고 ID 기준 · 변경 이력 중복 제외", "layers"],
+      ["raw", "원문 확보 공고", "상세 원문을 확보한 고유 공고", "grid"],
+      ["analyzed", "분석 저장 공고", "분석 결과가 저장된 고유 공고", "check"],
+      ["published", "공개 공고", "현재 서비스에서 공개 중인 고유 공고", "eye"],
+    ]) grid.append(metric(label, available ? `${number(counts[key])}건` : "—", available ? caption : "공고 저장소 연결 후 확인할 수 있습니다", symbol, key === "total"));
+    return grid;
+  }
   function renderOverview() {
     const data = state.overview; if (!data) return;
     const server = data.server || {}, database = data.database || {}, collection = data.collection || {}, resources = data.resources || {}, jobs = collection.jobs || {};
     $("environment-label").textContent = { development: "개발 환경", production: "운영 환경", test: "테스트 환경" }[server.app_env] || "서버 환경";
     const container = $("overview-content"); container.replaceChildren();
+    container.append(inventoryMetrics(collection));
     const metrics = element("div", "metric-grid"); metrics.append(metric("서버 가동 시간", duration(server.uptime_seconds), `시작 · ${date(server.started_at)}`, "server", true), metric("대기 중인 작업", collection.available ? number(jobs.pending || 0) : "—", `처리 중 ${collection.available ? number(jobs.running || 0) : "—"}건`, "layers"), metric("사용 가능 메모리", resources.available_memory_mb == null ? "—" : `${number(Math.round(resources.available_memory_mb))} MB`, "현재 서버의 남은 메모리", "grid"), metric("남은 디스크", resources.free_disk_mb == null ? "—" : `${number(Math.round(resources.free_disk_mb / 1024))} GB`, "수집 원문 저장 공간", "server")); container.append(metrics, tickBanner(collection.state?.last_tick, collection.available));
     const grid = element("div", "overview-grid"); const readiness = panel("서버 준비 상태", "현재 실행 중인 서버의 연결 상태입니다.");
     statusRow(readiness.body, "백엔드 서버", `${server.host || ""}${server.port ? ` : ${server.port}` : ""}`, "실행 중");
@@ -207,12 +236,13 @@
   function detailList(pairs) { const list = element("ul", "detail-list"); for (const [key, value] of pairs) { const row = element("li"); row.append(element("span", "", key), element("span", "", value)); list.append(row); } return list; }
   function renderCollectionStatus(data) {
     const container = $("collection-content"); container.replaceChildren(); const jobs = data.jobs || {}; const metrics = element("div", "metric-grid");
+    container.append(inventoryMetrics(data));
     for (const [key, label, description] of [["pending", "대기 작업", "처리 순서를 기다리는 작업"], ["running", "처리 중", "현재 진행 중인 작업"], ["done", "완료 작업", "저장까지 완료한 작업"], ["dead", "재확인 필요", "최대 시도 횟수에 도달한 작업"]]) metrics.append(metric(label, number(jobs[key] || 0), description, key === "dead" ? "sliders" : "layers", key === "pending"));
     container.append(metrics, tickBanner(data.state?.last_tick));
     const cursors = Object.entries(data.state || {}).filter(([key]) => key !== "last_tick" && key !== "worker" && key !== "scan_offset" && !key.startsWith("blocked:"));
     if (cursors.length) { const section = panel("수집 위치", "중단되더라도 저장된 위치부터 이어서 처리합니다."); section.body.replaceChildren(table(["수집 범위", "다음 페이지", "다음 확인", "상태"], cursors.map(([key, value]) => [providerLabels[key] || key.replace(/^scan:/, ""), value?.page ?? "—", date(value?.next_due ?? value?.next_due_at), value?.last_error ? badge("오류 확인", "warn") : badge("저장됨", "muted")]))); container.append(section.node); }
-    const failures = data.failures || []; const section = panel("최근 오류 작업", "원인 확인이 필요한 작업을 최대 20건까지 표시합니다.");
-    if (failures.length) section.body.replaceChildren(table(["공고 / 작업", "종류", "상태", "시도", "오류 코드"], failures.map((row) => [row.policy_key || row.job_id, { parse: "분석", notice: "원문 수집", bokjiro_detail: "상세 수집" }[row.kind] || row.kind, badge(statusLabels[row.status] || row.status, row.status === "dead" ? "error" : "warn"), number(row.attempts), element("span", "mono", row.error_code || "—")])));
+    const failures = data.failures || []; const section = panel("보류·오류 작업", "한도 도달로 대기 중인 작업과 실제 실패를 구분해 표시합니다. 최대 20건.");
+    if (failures.length) section.body.replaceChildren(table(["공고 / 작업", "종류", "상태", "시도", "보류·오류 원인"], failures.map((row) => [row.policy_key || row.job_id, { parse: "분석", notice: "원문 수집", detail: "상세 수집", bokjiro_detail: "상세 수집" }[row.kind] || row.kind, badge(limitReason(row.error_code) && row.status === "pending" ? "한도 보류" : statusLabels[row.status] || row.status, row.status === "dead" ? "error" : "warn"), number(row.attempts), element("span", "", limitReason(row.error_code) || row.error_code || "—")])));
     else empty(section.body, "현재 표시할 오류 작업이 없습니다.", "작업 오류가 발생하면 상태와 오류 코드가 이곳에 표시됩니다."); container.append(section.node);
   }
   function renderChanges(items) {
@@ -282,9 +312,9 @@
     finally { setSaving(false); }
   }
   const operationNames = { check: "DB 준비 확인", tick: "공고 수집", seed: "기존 공고 연결", "schedule-enable": "자동 수집 등록", "schedule-remove": "자동 수집 해제" };
-  const operationReasons = { collection_disabled: "새 수집 회차가 꺼져 있습니다.", another_worker: "다른 수집 작업이 실행 중입니다. 완료 후 다시 실행하세요.", operation_failed: "작업을 완료하지 못했습니다. DB 연결, 모델 로그인 또는 Windows 작업 권한을 확인하세요.", http_calls: "HTTP 호출 한도에 도달했습니다.", model_calls: "모델 호출 한도에 도달했습니다.", tokens: "토큰 한도에 도달했습니다.", deadline: "이번 회차의 제한 시간이 지났습니다.", memory: "사용 가능한 메모리가 부족합니다.", disk: "저장 공간이 부족합니다." };
+  const operationReasons = { collection_disabled: "새 수집 회차가 꺼져 있습니다.", another_worker: "다른 수집 작업이 실행 중입니다. 완료 후 다시 실행하세요.", operation_failed: "작업을 완료하지 못했습니다. DB 연결, 모델 로그인 또는 Windows 작업 권한을 확인하세요.", http_calls: "데이터 요청 최대 횟수에 도달했습니다.", model_calls: "AI 분석 최대 횟수에 도달했습니다.", tokens: "토큰 한도에 도달했습니다.", deadline: "이번 회차의 제한 시간이 지났습니다.", memory: "사용 가능한 메모리가 부족합니다.", disk: "저장 공간이 부족합니다." };
   function updateOperationButtons() {
-    for (const button of document.querySelectorAll("[data-operation], #run-submit")) button.disabled = operationActive || operationSubmitting;
+    for (const button of document.querySelectorAll("[data-operation], #run-submit, #save-collection-profile")) button.disabled = operationActive || operationSubmitting || state.saving;
   }
   function renderOperation(operation) {
     const container = $("operation-result"); container.replaceChildren(); operationActive = operation?.status === "running";
@@ -293,21 +323,29 @@
     const result = operation.result || {}, running = operationActive;
     const header = element("div", "operation-result-heading"); header.append(element("strong", "", operationNames[operation.action] || "수집 작업"), badge(running ? "실행 중" : statusLabels[result.status] || ({ database_ready: "DB 준비 완료" }[result.status]) || "작업 종료", operation.status === "failed" || result.error_count ? "warn" : "")); container.append(header);
     container.append(element("p", "operation-caption", `${date(operation.started_at)} 시작${operation.finished_at ? ` · ${date(operation.finished_at)} 종료` : " · 완료될 때까지 자동으로 상태를 확인합니다."}`));
-    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode("서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); return; }
+    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode(operation.action === "seed" ? `기존 공고 ${number(result.scanned || 0)}건 확인 · ${number(result.indexed || 0)}건 연결. 끝까지 자동으로 이어서 처리합니다.` : "서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); return; }
     const metrics = element("div", "operation-result-grid");
-    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["http_calls", "HTTP 호출"], ["model_calls", "모델 호출"], ["tokens", "보고된 토큰"], ["error_count", "발생 오류"], ["indexed", "연결 공고"]]) {
-      if (result[key] != null && (key !== "error_count" || result[key])) { const item = element("div"); item.append(element("span", "", label), element("strong", "", number(result[key]))); metrics.append(item); }
+    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["http_calls", "데이터 요청 횟수"], ["model_calls", "AI 사용 횟수"], ["tokens", "보고된 토큰"], ["error_count", "실제 오류"], ["deferred_count", "한도 보류 작업"], ["indexed", "연결 공고"]]) {
+      if (result[key] != null && (!["error_count", "deferred_count"].includes(key) || result[key])) { const item = element("div"); item.append(element("span", "", label), element("strong", "", number(result[key]))); metrics.append(item); }
     }
     if (metrics.childNodes.length) container.append(metrics);
+    if (result.input_tokens != null) container.append(element("p", "operation-caption", `입력 ${number(result.input_tokens)} · 캐시 입력 ${number(result.cached_input_tokens || 0)} · 출력 ${number(result.output_tokens || 0)} · 추론 ${number(result.reasoning_tokens || 0)}토큰. 캐시 입력은 입력에, 추론은 출력에 포함됩니다.`));
     if (result.reason) container.append(element("p", "operation-caption", operationReasons[result.reason] || "이번 회차가 제한 또는 준비 상태에 따라 종료되었습니다. 수집 현황에서 세부 상태를 확인하세요."));
+    for (const code of result.limit_reasons || []) if (limitReason(code)) container.append(element("p", "operation-caption", limitReason(code)));
     if (result.status === "database_ready") container.append(element("p", "operation-caption", `MySQL과 수집 테이블 연결을 확인했습니다. 복지로 키 ${result.bokjiro_key_configured ? "등록" : "미등록"} · 정부24 키 ${result.gov24_key_configured ? "등록" : "미등록"}. 실제 API 응답과 Codex 로그인은 수집 실행에서 확인합니다.`));
-    if (result.complete === false) container.append(element("p", "operation-caption", "아직 연결할 공고가 남아 있습니다. 기존 공고 연결을 다시 실행하면 이어서 처리합니다."));
+    if (result.phase) container.append(element("p", "operation-caption", ({ collect: "최초 수집: 원문·상세를 먼저 확보하고 있습니다.", analyze: "최초 수집: 확보한 공고를 묶어서 AI 분석합니다.", complete: "최초 수집 완료: 다음 자동 회차부터 평상시 예산으로 전환합니다." })[result.phase] || result.phase));
+    if (result.failed_jobs) container.append(element("p", "operation-caption", `재확인이 필요한 작업 ${number(result.failed_jobs)}건이 남아 있습니다. 데이터 수집의 실패 목록에서 확인하세요.`));
     if (operation.action === "tick" && !result.model_calls) container.append(element("p", "operation-caption", "원문 수집과 AI 분석은 단계별로 진행됩니다. 대기 작업은 다음 분석 회차에서 이어서 처리합니다."));
     if (result.schedule) renderSchedule(result.schedule);
   }
   function refreshRunSummary() {
     const mode = $("run-mode").value, calls = Number($("run-max_model_calls").value) || 0;
-    $("run-summary").textContent = mode === "raw" ? "공공 API 목록만 수집합니다. AI 분석과 외부 검색은 실행하지 않습니다." : mode === "analysis" ? `대기 중인 상세·분석 작업을 최대 ${$("run-max_jobs").value}개 처리합니다. 모델은 최대 ${calls}회 호출하며 다음 회차에서 이어갈 수 있습니다.` : `직접 입력한 한도로 수집합니다. 모델 최대 ${calls}회 · 외부 검색은 저장된 서버 설정을 따릅니다.`;
+    const count = Number($("run-page_size").value) || 0, repeats = Number($("run-max_pages").value) || 0;
+    const collection = repeats > 0 ? `한 번에 ${number(count)}개씩 최대 ${number(repeats)}회 수집합니다. 목록 조회 기준 최대 ${number(count * repeats)}개이며, 실제 수집량은 남은 데이터·중복·요청 한도에 따라 달라집니다.` : "목록 수집은 건너뜁니다.";
+    const analysis = `상세 수집·분석 작업을 최대 ${$("run-max_jobs").value}개 처리하고, AI는 최대 ${calls}회 사용합니다. 완료하지 못한 작업은 다음 실행에서 이어갑니다.`;
+    $("run-summary").textContent = `${collection} ${mode === "raw" ? "AI 분석과 외부 검색은 실행하지 않습니다." : mode === "analysis" ? analysis : `${analysis} 외부 검색은 저장된 서버 설정을 따릅니다.`}`;
+    if (mode === "bootstrap") $("run-summary").textContent = `${collection} 최초 1회: 원문·상세 확보 후 4건씩 AI 분석합니다. 다음 회차에서 이어가며 초기 작업 완료 후 평상시 예산으로 전환합니다.`;
+    if (mode === "steady") $("run-summary").textContent = `${collection} 평상시: 신규·변경 공고를 4건씩 분석하고 동일한 원문의 결과는 재사용합니다.`;
     for (const key of ["max_jobs", "max_model_calls", "max_tokens"]) $("run-" + key).disabled = mode === "raw";
   }
   function applyRunPreset(mode) {
@@ -328,7 +366,9 @@
     operationLoading = true; window.clearTimeout(operationTimer); $("refresh-operations").disabled = true;
     try {
       const data = await api("/operations"); if (!state.user) return;
-      const previous = operationActive; state.runPresets = data.presets;
+      const previous = operationActive; state.runPresets = data.presets; state.runProfiles = data.profiles;
+      if (!state.runInitialized && state.settings?.values?.ingestion_profile === "steady") $("collection-profile").value = "steady";
+      renderCollectionProfile();
       renderOperation(data.operation); renderRunReadiness(); refreshed();
       if (!state.runInitialized) { applyRunPreset($("run-mode").value); state.runInitialized = true; }
       if (previous && !operationActive && state.view === "operations") loadSchedule();
@@ -362,6 +402,26 @@
     try { const data = await api("/operations", { method: "POST", body }); if (!state.user) return; renderOperation(data.operation); message("operation-message", `${operationNames[action]}을 시작했습니다.`); loadOperations(); }
     catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); loadOperations(); } }
     finally { operationSubmitting = false; updateOperationButtons(); }
+  }
+  function renderCollectionProfile() {
+    const name = $("collection-profile").value, preset = state.runProfiles?.[name];
+    if (!preset) return;
+    $("collection-profile-detail").textContent = `${name === "bootstrap" ? "원문·상세 확보 → 묶음 분석 → 완료 후 평상시 전환" : "신규·변경 원문 확인 → 묶음 분석"} · 페이지당 ${preset.ingestion_page_size}건 · 회차 ${preset.ingestion_max_pages}페이지 / 요청 ${preset.ingestion_max_http_calls}회 · AI ${preset.ingestion_max_model_calls}회, 하루 ${preset.ingestion_daily_model_calls}회 · ${number(preset.ingestion_max_tokens)}토큰 · ${preset.ingestion_max_seconds}초. Luna low로 분석하고 검증 실패 공고만 Sol medium으로 재처리합니다. API 일일 한도는 저장된 값을 유지합니다.`;
+  }
+  async function saveCollectionProfile() {
+    if (!state.user || state.saving || operationSubmitting || operationActive) return;
+    if (Object.keys(changes()).length) { message("operation-message", "저장하지 않은 서버 설정을 먼저 저장하거나 취소하세요.", "warn"); return; }
+    if (!state.settings) await loadSettings();
+    const preset = state.runProfiles?.[$("collection-profile").value];
+    if (!state.settings || !preset) return;
+    if (Object.keys(preset).some((name) => state.settings.env_overrides?.includes(name))) { message("operation-message", "환경변수로 고정된 수집 설정이 있어 프리셋을 저장할 수 없습니다. 서버 설정에서 고정 항목을 확인하세요.", "error"); return; }
+    $("save-collection-profile").disabled = true; setSaving(true);
+    try {
+      const data = await api("/settings", { method: "PATCH", body: { revision: state.settings.revision, changes: preset } });
+      if (!state.user) return; state.settings = data; renderSettings(); renderRunReadiness();
+      message("operation-message", "자동 수집 프리셋을 저장했습니다. 다음 회차부터 적용됩니다. 등록된 작업이 없으면 자동 수집 등록을 눌러 시작하세요.");
+    } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
+    finally { setSaving(false); updateOperationButtons(); }
   }
   const processTargets = { backend: "백엔드", frontend: "프론트", all: "백엔드와 프론트" };
   function updateProcessButtons() {
@@ -455,6 +515,8 @@
   for (const button of document.querySelectorAll("[data-process-target]")) button.addEventListener("click", () => startProcessControl(button.dataset.processTarget, button.dataset.processAction));
   $("refresh-processes").addEventListener("click", loadProcesses);
   $("run-mode").addEventListener("change", () => applyRunPreset($("run-mode").value));
+  $("collection-profile").addEventListener("change", renderCollectionProfile);
+  $("save-collection-profile").addEventListener("click", saveCollectionProfile);
   $("run-form").addEventListener("input", refreshRunSummary);
   $("run-form").addEventListener("submit", (event) => { event.preventDefault(); startOperation("tick"); });
   for (const button of document.querySelectorAll("[data-operation]")) button.addEventListener("click", () => startOperation(button.dataset.operation));

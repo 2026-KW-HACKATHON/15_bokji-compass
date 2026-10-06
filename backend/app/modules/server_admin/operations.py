@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import BACKEND_ROOT, Settings
+from app.modules.ingestion.profiles import PROFILES, apply_profile
 from app.modules.ingestion.public import run_tick
 from app.modules.ingestion.repository import IngestionRepository
 from app.modules.pipeline.public import processing_signature
@@ -27,6 +28,9 @@ PRESETS = {
     "analysis": {"page_size": 5, "max_pages": 1, "max_jobs": 2, "max_seconds": 300,
                  "max_http_calls": 4, "max_model_calls": 2, "max_tokens": 40000},
 }
+RUN_FIELDS = tuple(PRESETS["raw"])
+PRESETS.update({name: {key: values["ingestion_" + key] for key in RUN_FIELDS}
+                for name, values in PROFILES.items()})
 
 
 class OperationError(RuntimeError):
@@ -36,7 +40,7 @@ class OperationError(RuntimeError):
 class RunInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     action: Literal["check", "tick", "seed", "schedule-enable", "schedule-remove"]
-    mode: Literal["raw", "analysis", "custom"] = "raw"
+    mode: Literal["raw", "analysis", "custom", "bootstrap", "steady"] = "raw"
     page_size: int = Field(default=5, ge=1, le=100)
     max_pages: int = Field(default=1, ge=0, le=30)
     max_jobs: int = Field(default=0, ge=0, le=100)
@@ -82,11 +86,15 @@ def prepare_settings(state, data: RunInput) -> Settings:
         return settings
     if not settings.ingestion_enabled:
         raise OperationError("collection_disabled")
+    if data.mode in PROFILES:
+        settings = apply_profile(settings, data.mode)
     defaults = PRESETS.get(data.mode, {
         key: getattr(settings, "ingestion_" + key) for key in PRESETS["raw"]})
     overrides = {"ingestion_" + key: getattr(data, key) if key in data.model_fields_set
                  else defaults[key] for key in PRESETS["raw"]}
     overrides["ingestion_max_seconds"] = min(600, overrides["ingestion_max_seconds"])
+    if data.mode in {"raw", "analysis"}:
+        overrides["ingestion_profile"] = "custom"
     if data.mode == "raw":
         # A raw-only run never processes queued jobs or performs model-based discovery.
         overrides.update(ingestion_max_jobs=0, ingestion_max_model_calls=0,
@@ -125,7 +133,7 @@ def scheduler(action: Literal["Status", "Install", "Remove"]) -> dict:
     }
 
 
-def execute(state, data: RunInput, settings: Settings) -> dict:
+def execute(state, data: RunInput, settings: Settings, progress=None) -> dict:
     if data.action.startswith("schedule-"):
         result = scheduler("Install" if data.action == "schedule-enable" else "Remove")
         return {"status": "completed", "schedule": result}
@@ -142,9 +150,8 @@ def execute(state, data: RunInput, settings: Settings) -> dict:
     if not store.acquire_worker(token, time.time(), settings.ingestion_max_seconds + 60):
         return {"status": "busy", "reason": "another_worker"}
     try:
-        return {"status": "completed", **store.seed_existing(
-            policies, signature, time.time(), limit=data.limit, worker_token=token,
-            adopt_legacy=False)}
+        return {"status": "completed", **store.seed_all_existing(
+            policies, signature, limit=data.limit, worker_token=token, progress=progress)}
     finally:
         store.release_worker(token)
 
@@ -153,13 +160,27 @@ def safe_result(result: dict) -> dict:
     # No provider responses, source documents, CLI stderr or exception text in this endpoint.
     fields = {"status", "reason", "pages", "jobs_completed", "new", "changed", "unchanged",
               "http_calls", "model_calls", "tokens", "elapsed_seconds", "indexed", "reused",
-              "scanned", "complete", "gov24_key_configured", "bokjiro_key_configured",
+              "scanned", "batches", "complete", "batch_calls", "profile", "phase",
+              "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens",
+              "failed_jobs",
+              "gov24_key_configured", "bokjiro_key_configured",
               "codex_login_verified"}
     output = {key: value for key, value in result.items() if key in fields
               and (isinstance(value, (int, float, bool)) or value is None
-                   or key in {"status", "reason"} and isinstance(value, str)
+                   or key in {"status", "reason", "profile", "phase"} and isinstance(value, str)
                    and len(value) <= 80)}
-    output["error_count"] = len(result.get("errors", []))
+    # Older ticks also put normal quota deferrals in errors; classify them on read.
+    deferred = list(result.get("deferrals", []))
+    errors = []
+    for error in result.get("errors", []):
+        (deferred if error.get("code", "").startswith(
+            ("daily_calls_", "provider_blocked_")) else errors).append(error)
+    output["error_count"] = len(errors)
+    output["deferred_count"] = sum("job_id" in item for item in deferred)
+    allowed = {prefix + provider for prefix in ("daily_calls_", "provider_blocked_")
+               for provider in ("bokjiro", "gov24", "notice")}
+    output["limit_reasons"] = sorted({item.get("code") for item in deferred
+                                      if item.get("code") in allowed})
     if "schedule" in result:
         output["schedule"] = result["schedule"]
     return output
@@ -181,7 +202,8 @@ class Operations:
 
     def snapshot(self) -> dict:
         with self.lock:
-            return {"operation": deepcopy(self.latest), "presets": deepcopy(PRESETS)}
+            return {"operation": deepcopy(self.latest), "presets": deepcopy(PRESETS),
+                    "profiles": deepcopy(PROFILES)}
 
     def start(self, state, data: RunInput) -> dict:
         with state.server_config_lock:
@@ -207,8 +229,12 @@ class Operations:
         return {"operation": snapshot}
 
     def _work(self, state, data, settings):
+        def progress(result):
+            with self.lock:
+                self.latest["result"] = safe_result(result)
         try:
-            result = safe_result(execute(state, data, settings))
+            result = safe_result(execute(state, data, settings, progress=progress)
+                                 if data.action == "seed" else execute(state, data, settings))
             failed = result.get("status") == "failed"
         except Exception:
             # Operational failures may include secrets in their original exception messages.

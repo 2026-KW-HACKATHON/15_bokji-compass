@@ -255,7 +255,7 @@ export function toFinancialProfile(draft) {
       displacement_cc: parseInteger(vehicle.displacement_cc, '배기량', {
         max: 20000,
       }),
-      age_years: parseInteger(vehicle.age_years, '차령', { max: 100 }),
+      age_years: parseInteger(vehicle.age_years, '차량 사용 연수', { max: 100 }),
       seats: parseInteger(vehicle.seats, '승차 정원', { min: 1, max: 100 }),
     })),
     additional_review: draft.additional_review === true,

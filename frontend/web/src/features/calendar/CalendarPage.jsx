@@ -77,6 +77,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
     setType('all');
   }
   function row(policy, undated = false) {
+    const summary = policy.summary.trim() || policy.benefit?.trim() || '지원 내용 확인 필요';
     const labels = undated
       ? [policy.scheduleStatus === 'ongoing' ? '상시 접수' : '일정 확인 필요']
       : [
@@ -104,9 +105,12 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
               {policy.title}
             </button>
           </h3>
-          <p>
+          <p
+            className={undated ? 'calendar-policy-summary' : undefined}
+            title={undated ? summary : undefined}
+          >
             {undated
-              ? policy.applicationPeriod
+              ? summary
               : `신청 시작 ${policy.applicationStart || '확인 필요'} · 마감 ${policy.applicationEnd || '확인 필요'}`}
           </p>
           <small>{policy.organization}</small>

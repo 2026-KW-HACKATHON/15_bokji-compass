@@ -71,8 +71,7 @@ def test_seed_releases_lease_and_never_adopts_legacy_results(state, monkeypatch)
             calls.append(("lease", token))
             return True
 
-        def seed_existing(self, policies, signature, now, **kwargs):
-            assert kwargs["adopt_legacy"] is False
+        def seed_all_existing(self, policies, signature, **kwargs):
             assert kwargs["limit"] == 7
             assert kwargs["worker_token"] == calls[0][1]
             raise RuntimeError("offline failure")
@@ -94,10 +93,35 @@ def test_console_custom_defaults_cannot_exceed_ten_minutes(state):
     assert settings.ingestion_max_seconds == 600
 
 
+def test_legacy_quota_events_are_deferrals_and_real_failures_stay_errors():
+    report = {"errors": [{"job_id": str(i), "code": "daily_calls_bokjiro"} for i in range(41)]
+        + [{"source": "scan:bokjiro:list", "code": "daily_calls_bokjiro"} for _ in range(7)]}
+    output = operations.safe_result(report)
+    assert output["error_count"] == 0 and output["deferred_count"] == 41
+    assert output["limit_reasons"] == ["daily_calls_bokjiro"]
+    report["errors"].append({"source": "scan:gov24:serviceDetail", "code": "http_503"})
+    report["deferrals"] = [{"job_id": "notice", "code": "daily_calls_notice"}]
+    output = operations.safe_result(report)
+    assert output["error_count"] == 1 and output["deferred_count"] == 42
+    assert output["limit_reasons"] == ["daily_calls_bokjiro", "daily_calls_notice"]
+    assert "errors" not in output and "deferrals" not in output
+
+
+@pytest.mark.parametrize("name, calls", [("bootstrap", 12), ("steady", 4)])
+def test_collection_profiles_preserve_provider_allowances(state, name, calls):
+    original = state.settings.ingestion_daily_bokjiro_calls
+    settings = operations.prepare_settings(state, operations.RunInput(action="tick", mode=name))
+    assert settings.ingestion_profile == name and settings.ingestion_max_model_calls == calls
+    assert settings.ingestion_daily_bokjiro_calls == original
+    assert settings.ingestion_ai_batch_size == 4 and settings.ingestion_max_seconds == 540
+    assert settings.codex_reasoning_effort == "low"
+    assert settings.codex_fallback_reasoning_effort == "medium"
+
+
 def test_close_waits_for_inflight_work_before_disposing_shared_engine(state, monkeypatch):
     entered, release = Event(), Event()
 
-    def work(*_args):
+    def work(*_args, **_kwargs):
         entered.set()
         assert release.wait(2)
         return {"status": "completed"}

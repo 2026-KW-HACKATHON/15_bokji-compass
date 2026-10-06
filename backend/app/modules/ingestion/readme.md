@@ -1,5 +1,11 @@
 # ingestion
 
+2026-10-06: `INGESTION_PROFILE=bootstrap|steady|custom`과 관리자 자동 수집 프리셋 추가.
+bootstrap은 원문·상세 우선 확보 후 묶음 AI 처리, 완료 다음 회차부터 steady 예산 전환.
+steady는 원문 확인 후 분석한다. 공급자별로 여러 페이지를 순환하며 회차 페이지 예산을 사용한다.
+`seed-existing --all` 및 관리 화면 전체 연결은 100건 커밋·lease 갱신을 끝까지 반복한다.
+[프리셋 수치·Codex 모델·토큰 최적화 근거](../../../docs/ingestion-tuning.md).
+
 담당: Codex. 서버에서 제한된 목록 수집·상세 확인·변경 감지·모델 처리와 재개를 관리합니다.
 FastAPI와 분리된 CLI이며 import나 API 서버 시작만으로 외부 요청을 하지 않습니다.
 기존 정책 개정과 공개 계약을 유지합니다. 기본 `POLICY_AUTO_PUBLISH=true`로 검증된 새 수집 결과는 저장 시 자동 공개합니다. false이면 초안으로 유지합니다. 원문·분석 JSON은 보존하며 자격 판정을 자동 활성화하지 않습니다.

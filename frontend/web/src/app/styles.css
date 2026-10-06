@@ -583,24 +583,8 @@ em {
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: #edf1e4;
-  color: #566c3b;
-}
-.policy-icon.blue {
-  background: #eaf1f7;
-  color: #42648a;
-}
-.policy-icon.pink {
-  background: #f8eded;
-  color: #975564;
-}
-.policy-icon.purple {
-  background: #f0edf9;
-  color: #776093;
-}
-.policy-icon.orange {
-  background: #fbf0e3;
-  color: #966234;
+  background: var(--soft);
+  color: var(--green);
 }
 .category-label {
   font-size: 0.8rem;
@@ -644,6 +628,12 @@ em {
   margin: 12px 0 18px;
   line-height: 1.8;
 }
+.policy-card:not(.easy-policy-card) .card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 .benefit {
   display: flex;
   gap: 6px;
@@ -657,7 +647,7 @@ em {
 .card-bottom {
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid #eaf0e8;
+  border-top: 1px solid var(--line);
 }
 .tags {
   display: flex;
@@ -668,12 +658,12 @@ em {
   font-size: 0.76rem;
   padding: 8px 10px;
   border-radius: 7px;
-  background: #f1f5ed;
-  color: #45623b;
+  background: #edf6fc;
+  color: var(--green);
   min-height: 44px;
 }
 .tags button:hover {
-  background: #dfead8;
+  background: var(--soft);
   text-decoration: underline;
 }
 .detail-link {
@@ -865,6 +855,15 @@ select[aria-invalid='true'] {
 .empty-state .button {
   margin-top: 8px;
 }
+.recommendation-empty-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.recommendation-empty .fine-print {
+  margin: 18px 0 0;
+}
 .profile-page {
   max-width: 850px;
 }
@@ -1053,12 +1052,13 @@ input[type='checkbox'] {
   border-radius: 20px;
   width: min(680px, calc(100% - 36px));
   max-height: 88dvh;
-  box-shadow: 0 24px 90px #18332344;
+  box-shadow: 0 24px 90px rgb(0 0 0 / 20%);
   color: inherit;
   background: white;
 }
 .modal::backdrop {
-  background: #15291c80;
+  background: rgb(24 24 24 / 32%);
+  backdrop-filter: blur(4px);
 }
 .modal-inner {
   padding: 30px;
@@ -1144,6 +1144,13 @@ input[type='checkbox'] {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 24px;
+}
+.detail-source {
+  margin-top: 24px;
+}
+.detail-source .button {
+  width: 100%;
+  margin-top: 12px;
 }
 .toast {
   position: fixed;

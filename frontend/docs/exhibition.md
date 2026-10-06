@@ -10,7 +10,7 @@
 
 Cloudflare의 `bokji-compass` 터널에 published application hostname `bokji.commitnaru.com`을 등록하고 현재 웹 서버 `http://127.0.0.1:8080`에 연결했습니다. 다른 PC로 옮기거나 서버 IP가 바뀌어도 같은 도메인과 터널 구성을 유지할 수 있습니다. 도메인은 사용자가 구매했고 Cloudflare 계정 연결·DNS 변경·PC 터널 연결을 완료했습니다. [Cloudflare 설정](https://developers.cloudflare.com/tunnel/get-started/)
 
-운영 주소(APK 다운로드는 파일 등록 후 사용 가능):
+운영 주소(2026-10-06 서명 APK 등록 완료):
 
 | 용도 | 고정 주소 |
 | --- | --- |
@@ -38,4 +38,4 @@ Cloudflare의 `bokji-compass` 터널에 published application hostname `bokji.co
 
 QR 관리 화면은 기본적으로 `https://bokji.commitnaru.com/`과 같은 도메인의 APK 다운로드 주소를 사용합니다. 공유 서버 재시작이나 임시 터널 기록에 따라 주소를 바꾸지 않습니다. 기존 임시 주소로 인쇄한 QR은 새 PNG로 교체합니다. 다른 주소가 필요하면 직접 입력하거나 `EXHIBITION_PUBLIC_URL`로 지정합니다.
 
-현재 상태: QR 관리 도구 구현. 고정 도메인 연결과 외부 웹·API·DB 연결 확인 완료. 비로그인 QR 관리 접근은 401로 차단됩니다. 관리자 로그인 후 QR 확인·전시용 APK 등록·외부 파일 다운로드·휴대폰 설치는 아직 검증하지 않았습니다. iOS 네이티브 배포는 이번 전시 범위에서 제외합니다.
+2026-10-06 현재 상태: 서버 연결 장애 안내를 포함한 서명 APK를 `public/downloads`와 실행 중인 서버의 `dist/downloads`에 등록했습니다. QR 관리 페이지의 APK 다운로드 버튼과 설치 안내를 갱신했으며 공개 HTTPS 전체 다운로드가 서명 APK와 동일한 SHA-256임을 확인했습니다. APK MIME·attachment·no-store 응답 정상, QR 관리 비로그인 접근은 계속 401입니다. QR/다운로드 화면은 테스트 관리자 인증 대역으로 검증했으며 실제 관리자 로그인과 Android 휴대폰 설치·실행은 별도 확인이 필요합니다. 같은 다운로드 주소를 유지하므로 기존 고정 QR을 그대로 사용할 수 있습니다. iOS 네이티브 배포는 이번 전시 범위에서 제외합니다.

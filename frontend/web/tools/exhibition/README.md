@@ -18,10 +18,14 @@
 
 ## APK 파일 연결
 
-현재 개발 APK는 Metro 의존·디버그 서명으로 전시 배포 대상이 아닙니다. 고정 HTTPS API 주소를 사용하는 독립 Android release APK를 만들고 기존 `frontend/mobile/scripts/audit-apk.py` 검사와 실제 휴대폰 설치를 통과한 뒤 다음 순서로 연결합니다.
+2026-10-06: 고정 HTTPS API 주소와 서버 연결 장애 안내를 포함한 서명 release APK를 등록했습니다. 공개 다운로드 주소는 `https://bokji.commitnaru.com/downloads/bokji-compass.apk`이며 독립 JS 번들을 포함합니다. QR 페이지에 **APK 다운로드** 버튼과 휴대폰 설치 순서를 추가했습니다. APK가 없거나 관리자 권한이 만료되면 버튼을 비활성화하고 다운로드 주소를 제거합니다.
+
+등록된 APK는 83,118,477바이트(79.3 MiB), SHA-256 `4a90e98b8cb39e482b68ecd506e4b21b9234d2ee0bbb43d9ec63bac665b9ded7`입니다. APK 정적 검사 21개 PASS, 공개 HTTPS 전체 다운로드 해시 일치와 APK MIME·attachment·no-store를 확인했습니다. 실제 Android 휴대폰 설치·실행은 아직 미검증입니다. QR 관리 화면은 관리자 로그인, QR의 APK 다운로드 대상은 로그인 없이 이용할 수 있습니다.
+
+후속 APK 갱신 절차:
 
 1. 검증한 APK를 `frontend/web/public/downloads/bokji-compass.apk`로 복사합니다. 디렉터리가 없으면 생성합니다. APK는 `.gitignore`로 제외되어 Git에 올라가지 않습니다.
-2. 일반 웹 빌드 `npm run build`를 실행하면 `dist/downloads/bokji-compass.apk`에 복사됩니다. 이 파일까지 정적 서버에 배포합니다. 별도 파일 호스트를 쓰면 직접 다운로드되는 HTTPS `.apk` 주소를 관리 화면에 입력합니다.
+2. 일반 웹 빌드 `npm run build`를 실행하면 `dist/downloads/bokji-compass.apk`에 복사됩니다. 실행 중인 서버의 APK만 교체하려면 동일한 검증 파일을 `dist/downloads/bokji-compass.apk`에도 복사합니다. 이번에는 웹의 다른 변경을 재배포하지 않고 이 파일만 등록했습니다. 별도 파일 호스트를 쓰면 직접 다운로드되는 HTTPS `.apk` 주소를 관리 화면에 입력합니다.
 3. Caddy/Nginx 예제의 다운로드 경로는 APK MIME·attachment·no-store를 적용하고 파일이 없으면 404로 응답합니다. 설정 변경 후 공유 서버는 `share.ps1 reload`, 다른 배포는 해당 운영 절차로 반영합니다.
 4. 관람객의 네트워크에서 다운로드하고 서명·파일 해시·설치를 확인합니다. 로컬 파일 존재 표시는 배포/서명/외부 다운로드 검사 완료를 의미하지 않습니다.
 
@@ -31,7 +35,7 @@
 
 - `server.mjs`: loopback 전용 HTTP 서버, 정해진 HTML/CSS/JS/로고만 제공. 모든 화면·자산·API·QR 요청에서 `bokji_session`을 고정된 로컬 `/v1/admin/session`에 검증합니다. 비로그인 401, 일반 회원 403, 인증 서버 장애 503. Host·Origin·교차 사이트 검사, no-store/CSP/frame 차단, GET만 허용. 사용자 입력 URL로 외부 서버에 접속하지 않습니다.
 - `urls.mjs`: 공개 HTTPS 주소 검증, 루트 메인 URL 및 APK URL 생성. 인증정보·쿼리·fragment·임의 포트·로컬 주소 차단.
-- `page.js`: 자동 상태 갱신, 적용된 주소와 QR 일치, 주소 오류 시 이전 QR 제거, PNG 저장·복사·인쇄.
+- `page.js`: 자동 상태 갱신, 적용된 주소와 QR 일치, APK 다운로드 버튼·등록 상태 연동, 주소 오류/권한 만료 시 링크 제거, PNG 저장·복사·인쇄.
 - `/api/status`: `{detectedUrl, source, recordedAt, apkPresent, apkBytes}`. 내부 프로세스 경로/키/로그를 응답하지 않습니다.
 - `/api/targets?origin=...&apk=...`: 검증된 `{web, android, temporary}`.
 - `/api/qr?origin=...&apk=...&kind=web|android`: 로컬 PNG 생성. `download=1`은 파일 다운로드입니다. 외부 QR 서비스 호출 없음.
@@ -47,6 +51,6 @@ npm test
 npm run build
 ```
 
-단위 검사는 새 QR을 실제 디코더로 판독해 기본 고정 URL을 비교하고 주소 검증·접근 차단·오류 응답을 확인합니다. 미리보기 검사는 임시 인증 서버로 기본 주소·직접 입력·저장·인쇄·모바일 표시를 확인하며 실제 공유 서버 주소를 변경하지 않습니다. 화면/QR/PDF 결과는 저장소의 `tmp/exhibition-preview`에 둡니다.
+단위 검사는 새 QR을 실제 디코더로 판독해 기본 고정 URL을 비교하고 주소 검증·접근 차단·오류 응답을 확인합니다. 미리보기 검사는 임시 인증 서버로 파일 미등록/등록 전환과 APK/PNG 다운로드, 기본 주소·직접 입력·저장·인쇄·모바일 표시를 확인하며 실제 공유 서버 주소를 변경하지 않습니다. 화면/QR/PDF 결과는 저장소의 `tmp/exhibition-preview`에 둡니다. `download-fixture.apk`는 브라우저 검사용 가짜 파일이며 설치하거나 배포하지 않습니다.
 
 고정 주소와 전시 운영 절차: [전시용 Android·웹 배포](../../../docs/exhibition.md).

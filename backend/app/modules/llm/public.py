@@ -9,12 +9,15 @@ import sys
 import time
 from pathlib import Path
 
+from pydantic import Field
+
 from app.contracts.assistance import GuidanceProfile, PolicyAnswer
 from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy, StrictModel
 from app.core.config import Settings
 
 PROMPT_VERSION = "welfare-extract-v3"
 OVERVIEW_PROMPT_VERSION = "welfare-overview-v4"
+BATCH_PROMPT_VERSION = "welfare-batch-v1"
 IS_WINDOWS = sys.platform == "win32"
 MAX_EVENT_BYTES = 2_000_000
 MAX_STDERR_BYTES = 256_000
@@ -263,6 +266,7 @@ class _OutputObserver:
 def _extract_structured[T: StrictModel](
     source: SourcePolicy, settings: Settings, output: Path, model: str,
     prompt_template: str, response_model: type[T], prompt_version: str,
+    *, payload=None, output_schema=None, raw_response=False,
 ) -> tuple[T, dict]:
     """Run once; output must be a new attempt directory. No implicit model fallback."""
     executable = resolve_codex_executable(settings.codex_executable)
@@ -272,7 +276,8 @@ def _extract_structured[T: StrictModel](
     workspace.mkdir()
     (workspace / ".git").mkdir()
     schema = output / "schema.json"
-    schema.write_text(json.dumps(response_model.model_json_schema()), encoding="utf-8")
+    schema.write_text(json.dumps(output_schema or response_model.model_json_schema(),
+                                 ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     result = output / "response.json"
     args = [str(executable), "exec", "--ignore-user-config", "--skip-git-repo-check",
             "--ephemeral", "--sandbox", "read-only", "--json", "--color", "never",
@@ -292,7 +297,9 @@ def _extract_structured[T: StrictModel](
         args.extend(["-c", config])
     args.append("-")
     # Only explicit policy fields go to the model, never Settings or the raw envelope.
-    prompt = prompt_template + "\nSOURCE_JSON:\n" + source.model_dump_json()
+    prompt = prompt_template + "\nSOURCE_JSON:\n" + (
+        source.model_dump_json() if payload is None else
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
     if len(prompt) > settings.parsing_max_input_chars:
         raise CodexRunError("input_too_long")
     start = time.monotonic()
@@ -331,12 +338,73 @@ def _extract_structured[T: StrictModel](
         raise CodexRunError("missing_completed_event")
     metadata = {"model": model, "reasoning_effort": settings.codex_reasoning_effort,
                 "prompt_version": prompt_version, "usage": usage,
+                "input_chars": len(prompt),
                 "elapsed_seconds": round(time.monotonic() - start, 2)}
     try:
-        parsed = response_model.model_validate_json(result.read_text(encoding="utf-8"))
+        raw = result.read_text(encoding="utf-8")
+        parsed = json.loads(raw) if raw_response else response_model.model_validate_json(raw)
+        if raw_response and (not isinstance(parsed, dict) or set(parsed) != {"results"}
+                             or not isinstance(parsed["results"], list)
+                             or len(parsed["results"]) > 8):
+            raise ValueError("Invalid batch envelope")
     except ValueError:
         raise CodexOutputError(metadata) from None
     return parsed, metadata
+
+
+class BatchPolicyResult(StrictModel):
+    policy_key: str
+    overview: PolicyOverview | None
+    extraction: PolicyExtraction | None
+
+
+class BatchResponse(StrictModel):
+    results: list[BatchPolicyResult] = Field(min_length=1, max_length=8)
+
+
+BATCH_PROMPT = PROMPT + "\n" + OVERVIEW_PROMPT + """
+SOURCE_JSON은 공고 항목의 JSON 배열이다. 각 항목은 서로 독립인 공고다.
+results에 입력 policy_key마다 정확히 한 결과를 반환한다. 다른 공고의 근거를 섞지 마라.
+need_overview=false이면 overview=null, true이면 개요를 반환한다.
+need_extraction=false이면 extraction=null, true이면 조건을 반환한다.
+코드가 추출 가능한 조건은 이미 처리했으므로 요청된 작업만 수행한다.
+overview의 title/source_url, extraction의 policy_key는 서버가 원문으로 채운다. 출력하지 마라.
+근거 인용과 필수 조건·예외·수치는 보존하고 설명은 짧게 쓴다. 결과 JSON만 반환한다.
+"""
+
+
+def batch_payload(requests):
+    """Remove transport identity hashes and empty fields; retain every nonempty source field."""
+    return [{"policy_key": source.policy_key, "need_overview": overview,
+             "need_extraction": extraction,
+             "source": {"title": source.title, "organization": source.organization,
+                        "fields": {key: value for key, value in source.fields.items() if value}}}
+            for source, overview, extraction in requests]
+
+
+def batch_input_chars(requests):
+    return len(BATCH_PROMPT + "\nSOURCE_JSON:\n" + json.dumps(
+        batch_payload(requests), ensure_ascii=False, separators=(",", ":")))
+
+
+def extract_policy_batch(requests, settings, output, model):
+    if not 1 <= len(requests) <= 8 or len({s.policy_key for s, *_ in requests}) != len(requests):
+        raise ValueError("Batch requires 1-8 unique policies")
+    if batch_input_chars(requests) > min(settings.ingestion_ai_batch_input_chars,
+                                       settings.parsing_max_input_chars):
+        raise CodexRunError("batch_input_too_long")
+    schema = BatchResponse.model_json_schema()
+    # Deterministic identity/title/URL never need to be generated or billed as output.
+    for name, fields in (("PolicyOverview", ("title", "source_url")),
+                         ("PolicyExtraction", ("policy_key",))):
+        for field in fields:
+            schema["$defs"][name]["properties"].pop(field)
+            schema["$defs"][name]["required"].remove(field)
+    result, metadata = _extract_structured(requests[0][0], settings, output, model,
+        BATCH_PROMPT, BatchResponse, BATCH_PROMPT_VERSION, payload=batch_payload(requests),
+        output_schema=schema, raw_response=True)
+    metadata["batch_size"] = len(requests)
+    return result["results"], metadata
 
 
 def extract_policy(source: SourcePolicy, settings: Settings, output: Path,

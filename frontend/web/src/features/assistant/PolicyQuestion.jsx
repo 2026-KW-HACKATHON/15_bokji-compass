@@ -6,20 +6,27 @@ import { policyQuestionLabels } from './assistantContent.js';
 const ask = createQuestionApi({ baseUrl: appConfig.apiBaseUrl });
 const loadFaqs = createFaqApi({ baseUrl: appConfig.apiBaseUrl });
 
-export default function PolicyQuestion({ revisionId, user, variant, initialFaqId }) {
+export default function PolicyQuestion({
+  revisionId,
+  user,
+  variant,
+  initialFaqId,
+  historyEntry,
+  onRecord,
+}) {
   const id = useId();
   const active = useRef(null);
-  const interacted = useRef(false);
+  const interacted = useRef(Boolean(historyEntry));
   const answerPanel = useRef(null);
   const choicesPanel = useRef(null);
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState(null);
+  const [answer, setAnswer] = useState(historyEntry?.answer || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [faqs, setFaqs] = useState([]);
   const [faqState, setFaqState] = useState('loading');
   const [faqRetry, setFaqRetry] = useState(0);
-  const [selectedQuestion, setSelectedQuestion] = useState('');
+  const [selectedQuestion, setSelectedQuestion] = useState(historyEntry?.question || '');
   useEffect(() => () => active.current?.abort(), []);
   useEffect(() => {
     if (answer) {
@@ -63,6 +70,7 @@ export default function PolicyQuestion({ revisionId, user, variant, initialFaqId
     setError('');
     setSelectedQuestion(item.question);
     setAnswer(item.response);
+    onRecord?.({ question: item.question, answer: item.response });
   }
 
   async function submit(event) {
@@ -70,14 +78,19 @@ export default function PolicyQuestion({ revisionId, user, variant, initialFaqId
     if (active.current || !question.trim()) return;
     interacted.current = true;
     const controller = new AbortController();
+    const submittedQuestion = question.trim();
     active.current = controller;
     setBusy(true);
     setError('');
     setAnswer(null);
-    setSelectedQuestion(question.trim());
+    setSelectedQuestion(submittedQuestion);
     try {
-      const result = await ask(revisionId, question, { signal: controller.signal });
-      if (!controller.signal.aborted) setAnswer(result);
+      const result = await ask(revisionId, submittedQuestion, { signal: controller.signal });
+      if (!controller.signal.aborted) {
+        setAnswer(result);
+        setQuestion('');
+        onRecord?.({ question: submittedQuestion, answer: result });
+      }
     } catch (err) {
       if (!controller.signal.aborted) setError(err.message);
     } finally {

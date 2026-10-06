@@ -1,6 +1,15 @@
 import { test, expect } from '@playwright/test';
 
 const password = 'ExamplePassword42!';
+async function openBasics(page, recommendation = false) {
+  await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
+  const edit = page.getByRole('button', { name: /^기본 정보 (추가|수정)$/ });
+  if (await edit.count()) await edit.click();
+  if (recommendation && (await page.getByRole('form', { name: '회원 정보 수정' }).count())) {
+    const options = page.locator('.profile-recommendation-options');
+    if ((await options.getAttribute('open')) === null) await options.locator('summary').click();
+  }
+}
 const next = (page) => page.getByRole('button', { name: '다음', exact: true }).click();
 async function startSignup(page) {
   await page.goto('/#signup');
@@ -110,6 +119,7 @@ async function loginNextAccount(page) {
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page.getByText('다음회원님', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openBasics(page, true);
 }
 
 for (const nextUser of [
@@ -122,12 +132,14 @@ for (const nextUser of [
     await mockAccountSwitch(page, nextUser);
     await page.goto('/#profile');
     await expect(page.getByText('첫회원님', { exact: true })).toBeVisible();
+    await openBasics(page, true);
     const recommendation = page.getByRole('region', { name: '지역과 연령' });
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue('서울');
     await expect(recommendation.getByLabel('연령대 (선택)')).toHaveValue('65세 이상');
     expect(await page.evaluate(() => localStorage.getItem('bokji.profile.v2'))).toBeNull();
     await page.getByRole('button', { name: '로그아웃', exact: true }).click();
     await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue('전국');
     await expect(recommendation.getByLabel('연령대 (선택)')).toHaveValue('선택하지 않음');
     await loginNextAccount(page);
@@ -146,16 +158,19 @@ for (const remember of [false, true]) {
     await mockAccountSwitch(page, { age: 25, region: '부산' });
     await page.goto('/#profile');
     await expect(page.getByText('첫회원님', { exact: true })).toBeVisible();
+    await openBasics(page, true);
     const recommendation = page.getByRole('region', { name: '지역과 연령' });
     await recommendation.getByLabel('거주 지역').selectOption('제주');
     await recommendation.getByLabel('연령대 (선택)').selectOption('35~49세');
     await page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' }).setChecked(remember);
-    await page.getByRole('button', { name: '내 정보로 추천받기' }).click();
+    await page.getByRole('button', { name: '정보 저장', exact: true }).click();
+    await openBasics(page, true);
     const saved = await page.evaluate(() => localStorage.getItem('bokji.profile.v2'));
     if (remember) expect(JSON.parse(saved)).toMatchObject({ region: '제주', ageBand: '35~49세' });
     else expect(saved).toBeNull();
     await page.getByRole('button', { name: '로그아웃', exact: true }).click();
     await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue(remember ? '제주' : '전국');
     await loginNextAccount(page);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue(remember ? '제주' : '부산');
@@ -164,6 +179,7 @@ for (const remember of [false, true]) {
     );
     await page.reload();
     await expect(page.getByText('다음회원님', { exact: true })).toBeVisible();
+    await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue(remember ? '제주' : '부산');
     await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked({
       checked: remember,
@@ -220,6 +236,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page.getByText('홍길동님', { exact: true })).toBeVisible();
   await page.goto('/#profile');
+  await openBasics(page);
   const member = page.getByRole('form', { name: '회원 정보 수정' });
   await expect(member.getByLabel('아이디', { exact: true })).toHaveValue(username);
   await expect(member.getByLabel('아이디', { exact: true })).toHaveAttribute('readonly', '');
@@ -228,9 +245,11 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await member.getByLabel('성별', { exact: true }).selectOption('female');
   await member.getByLabel('회원 거주 지역').selectOption('부산');
   await member.getByRole('button', { name: '회원 정보 저장' }).click();
-  await expect(member.getByRole('status')).toContainText('저장했어요');
+  await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
   await expect(page.getByText('김복지님', { exact: true })).toBeVisible();
   await page.reload();
+  await expect(page.getByText('김복지님', { exact: true })).toBeVisible();
+  await openBasics(page);
   await expect(member.getByLabel('이름', { exact: true })).toHaveValue('김복지');
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('67');
   await expect(member.getByLabel('회원 거주 지역')).toHaveValue('부산');
@@ -393,12 +412,14 @@ for (const name of ['카카오별명', '']) {
     await page.reload();
     await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openBasics(page, true);
+    await openBasics(page);
     const member = page.getByRole('form', { name: '회원 정보 수정' });
     await expect(member.getByLabel('이름', { exact: true })).toHaveValue(name);
     await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('');
     await expect(member.getByLabel('회원 거주 지역')).toHaveValue('');
     await member.getByRole('button', { name: '회원 정보 저장' }).click();
-    await expect(member.getByRole('status')).toContainText('저장했어요');
+    await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
     expect(state.profileBodies).toEqual([
       { name: name || null, age: null, gender: 'undisclosed', region: null },
     ]);
@@ -429,14 +450,18 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   expect(state.signupBodies).toEqual([{}]);
   expect(state.profileBodies).toEqual([{ age: 35, region: '부산' }]);
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openBasics(page, true);
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
   await expect(
     page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),
   ).toHaveValue('부산');
+  await openBasics(page);
   const member = page.getByRole('form', { name: '회원 정보 수정' });
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
   await expect(member.getByLabel('이름', { exact: true })).toHaveValue('카카오별명');
   await page.reload();
+  await expect(page.getByText('카카오별명님', { exact: true })).toBeVisible();
+  await openBasics(page, true);
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
   await expect(member.getByLabel('회원 거주 지역')).toHaveValue('부산');
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
@@ -445,6 +470,7 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   ).toHaveValue('부산');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openBasics(page, true);
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('선택하지 않음');
   await expect(
     page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),

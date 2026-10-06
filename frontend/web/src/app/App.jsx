@@ -6,21 +6,32 @@ import AdminPage from '../features/auth/AdminPage.jsx';
 import MemberProfileForm from '../features/auth/MemberProfileForm.jsx';
 import { authRequest } from '../features/auth/authApi.js';
 import CalculatorPage from '../features/finance/CalculatorPage.jsx';
+import DetailedCalculatorPage from '../features/finance/DetailedCalculatorPage.jsx';
+import useFinancePrefill from '../features/finance/useFinancePrefill.js';
+import {
+  applyQuickDefaults,
+  quickDefaultsFromFinance,
+  financialIncomeSignature,
+  financialDraftDefaults,
+  knownHouseholdSize,
+} from '../features/finance/financePrefill.js';
 import CalendarPage from '../features/calendar/CalendarPage.jsx';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
 import { parsePolicy } from '../features/policies/policyModel.js';
-import ProfileForm from '../features/profile/ProfileForm.jsx';
+import ProfilePage from '../features/profile/ProfilePage.jsx';
 import {
   defaultProfile,
   isProfile,
   memberRecommendationProfile,
+  normalizeProfile,
 } from '../features/profile/profileModel.js';
 import { readStoredValue, writeStoredValue, removeStoredValue } from '../shared/storage.js';
 import { appConfig } from '../shared/config.js';
 import Icon from '../shared/ui/Icon.jsx';
 import { policyRepository, recommendationRepository } from './services.js';
+import { recommendationFailure } from '../features/assistant/recommendationFeedback.js';
 import SourceFooter from './SourceFooter.jsx';
 
 const navigation = [
@@ -36,6 +47,7 @@ const savedKey = 'bokji.saved.v2.' + appConfig.dataMode;
 const easyKey = 'bokji.easy.v1';
 const emptyResult = { items: [], summary: '' };
 const emptyRecommendation = { value: null, source: null, owner: null };
+const emptyQuickDraft = () => ({ householdSize: '1', monthlyIncome: '', largeHousehold: false });
 function recommendationForAccount(previous, current) {
   const owner = current?.id || null;
   // Browser storage is an explicit shared-device choice. All other member
@@ -49,7 +61,13 @@ function recommendationForAccount(previous, current) {
 }
 function readRoute() {
   const [name, query = ''] = window.location.hash.slice(1).split('?');
-  const page = [...navigation.map((item) => item.id), 'login', 'signup', 'admin'].includes(name)
+  const page = [
+    ...navigation.map((item) => item.id),
+    'calculator-details',
+    'login',
+    'signup',
+    'admin',
+  ].includes(name)
     ? name
     : 'home';
   const params = new URLSearchParams(query);
@@ -69,23 +87,148 @@ function validSaved(value) {
 export default function App() {
   const [route, setRoute] = useState(readRoute);
   const [user, setUser] = useState(null);
+  const financeOwner = useRef(null);
+  financeOwner.current = user?.id ?? null;
+  const financeEditRevision = useRef(0);
+  const financeMutationRevision = useRef(0);
+  const [financeReset, setFinanceReset] = useState({ version: 0, message: '' });
+  const [financeWriting, setFinanceWriting] = useState(null);
+  const financeWritingRef = useRef(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [financial, setFinancial] = useState({ owner: null, profile: null });
+  const [quickDraft, setQuickDraft] = useState(emptyQuickDraft);
+  const quickEdited = useRef(new Set());
   const calculatorSession = useRef({ owner: null, value: null });
   const rememberCalculator = useCallback(
     (value) => {
+      const previous = calculatorSession.current.value;
+      if (previous?.draft && JSON.stringify(previous.draft) !== JSON.stringify(value.draft))
+        financeEditRevision.current += 1;
       calculatorSession.current = { owner: user?.id || null, value };
+      setFinanceReset((previous) => (previous.message ? { ...previous, message: '' } : previous));
+      if (value.dirty && previous?.draft) {
+        const defaults = quickDefaultsFromFinance(value.draft);
+        if (
+          value.draft.household_size !== previous.draft.household_size &&
+          defaults.householdSize
+        ) {
+          quickEdited.current.add('householdSize');
+          setQuickDraft((draft) => ({
+            ...draft,
+            householdSize: defaults.householdSize,
+            largeHousehold: Number(defaults.householdSize) >= 7,
+          }));
+        }
+        if (financialIncomeSignature(value.draft) !== financialIncomeSignature(previous.draft)) {
+          quickEdited.current.add('monthlyIncome');
+          setQuickDraft((draft) => ({ ...draft, monthlyIncome: defaults.monthlyIncome ?? '' }));
+        }
+      }
     },
     [user?.id],
   );
   const [useFinancial, setUseFinancial] = useState(false);
   const financialProfile = financial.owner === (user?.id || null) ? financial.profile : null;
+  const financePrefill = useFinancePrefill(
+    user,
+    ['calculator', 'calculator-details'].includes(route.page) ||
+      (route.page === 'profile' && !route.setup),
+  );
+  useEffect(() => {
+    const value = financialProfile ?? financePrefill.record?.profile;
+    if (value)
+      setQuickDraft((draft) =>
+        applyQuickDefaults(draft, quickDefaultsFromFinance(value), quickEdited.current),
+      );
+  }, [financialProfile, financePrefill.record]);
+  const beginFinanceMutation = (kind) => {
+    const owner = user?.id ?? null;
+    if (financeWritingRef.current?.owner === owner) return null;
+    const inputRevision = financeEditRevision.current;
+    const mutationRevision = ++financeMutationRevision.current;
+    financeWritingRef.current = { owner, mutationRevision };
+    setFinanceWriting(financeWritingRef.current);
+    return (record) => {
+      if (financeWritingRef.current?.mutationRevision === mutationRevision)
+        financeWritingRef.current = null;
+      setFinanceWriting((previous) =>
+        previous?.mutationRevision === mutationRevision ? null : previous,
+      );
+      if (financeOwner.current !== owner || mutationRevision !== financeMutationRevision.current)
+        return;
+      if (record === undefined) {
+        financePrefill.retry();
+        return;
+      }
+      if (kind === 'delete') financePrefill.clear();
+      else financePrefill.update(record);
+      if (inputRevision !== financeEditRevision.current) return;
+      setFinancial({ owner, profile: kind === 'delete' ? null : record.profile });
+      setUseFinancial(false);
+      if (kind === 'delete') {
+        calculatorSession.current = { owner, value: null };
+        quickEdited.current.clear();
+        setQuickDraft(emptyQuickDraft());
+        setFinanceReset((previous) => ({
+          version: previous.version + 1,
+          message: '계정에 저장한 소득·재산 정보를 삭제했습니다.',
+        }));
+      } else if (calculatorSession.current.value) {
+        calculatorSession.current.value = { ...calculatorSession.current.value, dirty: false };
+      }
+    };
+  };
+  const changeQuickDraft = (next) => {
+    if (
+      next.householdSize !== quickDraft.householdSize ||
+      next.monthlyIncome !== quickDraft.monthlyIncome
+    )
+      financeEditRevision.current += 1;
+    if (next.householdSize !== quickDraft.householdSize) {
+      quickEdited.current.add('householdSize');
+      const session = calculatorSession.current.value;
+      const count = knownHouseholdSize(next.householdSize);
+      if (session?.draft && count !== null) {
+        const memberCache = [...(session.memberCache ?? [])];
+        session.draft.members.forEach((member, index) => {
+          memberCache[index] = member;
+        });
+        const draft = financialDraftDefaults({
+          saved: session.draft,
+          quick: next,
+          useQuickHousehold: true,
+        });
+        draft.members = Array.from(
+          { length: count },
+          (_, index) => session.draft.members[index] ?? memberCache[index] ?? draft.members[index],
+        );
+        calculatorSession.current = {
+          ...calculatorSession.current,
+          value: {
+            ...session,
+            draft,
+            memberCache,
+            calculation: null,
+            edited: true,
+            dirty: true,
+            mode: ['result', 'review'].includes(session.mode) ? 'edit' : session.mode,
+          },
+        };
+        setFinancial({ owner: user?.id || null, profile: null });
+        setUseFinancial(false);
+      }
+    }
+    if (next.monthlyIncome !== quickDraft.monthlyIncome) quickEdited.current.add('monthlyIncome');
+    setQuickDraft(next);
+  };
   const [easy, setEasy] = useState(() =>
     readStoredValue(easyKey, false, (value) => typeof value === 'boolean'),
   );
   const [recommendation, setRecommendation] = useState(() => {
     const value = readStoredValue(profileKey, null, isProfile);
-    return value ? { value, source: 'browser', owner: null } : emptyRecommendation;
+    return value
+      ? { value: normalizeProfile(value), source: 'browser', owner: null }
+      : emptyRecommendation;
   });
   const remembered = recommendation.source === 'browser';
   const profile =
@@ -103,7 +246,7 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(emptyResult);
   const [state, setState] = useState('idle');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [retry, setRetry] = useState(0);
   const main = useRef(null);
   const authRevision = useRef(0);
@@ -118,7 +261,12 @@ export default function App() {
           setRecommendation((previous) => recommendationForAccount(previous, current));
           setFinancial({ owner: current?.id || null, profile: null });
           if (calculatorSession.current.owner !== (current?.id || null)) {
-            calculatorSession.current = { owner: current?.id || null, value: null };
+            const previous = calculatorSession.current;
+            calculatorSession.current = {
+              owner: current?.id || null,
+              value: previous.owner === null && previous.value?.edited ? previous.value : null,
+            };
+            if (!quickEdited.current.size) setQuickDraft(emptyQuickDraft());
           }
         }
       })
@@ -129,6 +277,10 @@ export default function App() {
   }, []);
   const onLogin = (current, destination = 'home') => {
     authRevision.current += 1;
+    if (user && user.id !== current.id) {
+      setQuickDraft(emptyQuickDraft());
+      quickEdited.current.clear();
+    }
     calculatorSession.current = {
       owner: current.id,
       value: calculatorSession.current.owner === null ? calculatorSession.current.value : null,
@@ -153,6 +305,8 @@ export default function App() {
       );
       setFinancial({ owner: null, profile: null });
       calculatorSession.current = { owner: null, value: null };
+      setQuickDraft(emptyQuickDraft());
+      quickEdited.current.clear();
       setUseFinancial(false);
       window.location.hash = 'home';
     } catch (err) {
@@ -184,6 +338,7 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController();
     setResult(emptyResult);
+    setError(null);
     if (!profile) {
       setState('idle');
       return () => controller.abort();
@@ -202,11 +357,7 @@ export default function App() {
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
-          setError(
-            err.status === 404
-              ? '추천 서비스를 준비하고 있어요. 연결이 끝나면 추천 공고를 확인할 수 있어요.'
-              : err.message,
-          );
+          setError(recommendationFailure(err));
           setState('error');
         }
       });
@@ -221,7 +372,7 @@ export default function App() {
     if (!writeStoredValue(easyKey, !easy))
       setNotice('화면 설정을 이 브라우저에 기억하지 못했어요.');
   };
-  const saveProfile = (value, remember, source = 'session') => {
+  const saveProfile = (value, remember, source = 'session', redirect = true) => {
     if (!isProfile(value)) return;
     const stored = remember ? writeStoredValue(profileKey, value) : removeStoredValue(profileKey);
     setRecommendation({
@@ -229,20 +380,21 @@ export default function App() {
       source: remember && stored ? 'browser' : source,
       owner: user?.id || null,
     });
-    navigate('home');
+    if (redirect) navigate('home');
     if (!stored)
       requestAnimationFrame(() =>
         setNotice(
           '브라우저 저장 설정을 변경하지 못했어요. 브라우저의 사이트 데이터를 확인해 주세요.',
         ),
       );
+    return stored;
   };
   const clearProfile = () => {
     const removed = removeStoredValue(profileKey);
     setRecommendation(emptyRecommendation);
     setNotice(
       removed
-        ? '입력한 내 정보를 지웠어요.'
+        ? '맞춤 추천 설정을 지웠어요.'
         : '화면의 정보를 지웠지만 브라우저 저장 정보는 지우지 못했어요. 사이트 데이터를 직접 삭제해 주세요.',
     );
   };
@@ -267,7 +419,13 @@ export default function App() {
   const shared = { easy, saved, onSave: toggleSaved, onOpen: setSelected, onTag };
   const pageLabel =
     navigation.find((item) => item.id === route.page)?.label ||
-    (route.page === 'admin' ? '관리자 관리' : route.page === 'login' ? '로그인' : '회원가입');
+    (route.page === 'calculator-details'
+      ? '소득·재산 상세 계산'
+      : route.page === 'admin'
+        ? '관리자 관리'
+        : route.page === 'login'
+          ? '로그인'
+          : '회원가입');
   const visibleSaved = easy ? saved.slice(savedIndex, savedIndex + 3) : saved;
   return (
     <div className={'app-shell' + (easy ? ' easy-mode' : '')}>
@@ -295,7 +453,12 @@ export default function App() {
             <a
               key={item.id}
               href={'#' + item.id}
-              aria-current={route.page === item.id ? 'page' : undefined}
+              aria-current={
+                route.page === item.id ||
+                (item.id === 'calculator' && route.page === 'calculator-details')
+                  ? 'page'
+                  : undefined
+              }
             >
               <Icon name={item.icon} size={22} />
               {item.label}
@@ -368,6 +531,7 @@ export default function App() {
               error={error}
               onRetry={() => setRetry((value) => value + 1)}
               onProfile={() => navigate('profile')}
+              onLogin={() => navigate('login')}
               onExplore={() => navigate('explore')}
               onCalendar={() => navigate('calendar')}
               mode={appConfig.dataMode}
@@ -383,7 +547,39 @@ export default function App() {
               onClearTag={() => navigate('explore')}
             />
           )}
-          {route.page === 'profile' && (
+          {route.page === 'profile' && !route.setup && (
+            <ProfilePage
+              key={user?.id || 'guest'}
+              user={user}
+              profile={profile}
+              remembered={remembered}
+              easy={easy}
+              onSave={(value, remember) => saveProfile(value, remember, 'session', false)}
+              onMemberSaved={(current) => {
+                setUser((previous) => (previous?.id === current.id ? current : previous));
+                const previousBasics = memberRecommendationProfile(user);
+                const currentBasics = memberRecommendationProfile(current);
+                const value = { ...(profile || defaultProfile) };
+                if (!profile || value.region === previousBasics.region)
+                  value.region = currentBasics.region;
+                if (!profile || value.ageBand === previousBasics.ageBand)
+                  value.ageBand = currentBasics.ageBand;
+                saveProfile(value, remembered, recommendation.source || 'member', false);
+              }}
+              onClear={clearProfile}
+              financialProfile={financialProfile}
+              savedFinance={financePrefill}
+              financialSession={
+                calculatorSession.current.owner === (user?.id || null)
+                  ? calculatorSession.current.value
+                  : null
+              }
+              onFinancialLoaded={(value) =>
+                setFinancial({ owner: user?.id || null, profile: value })
+              }
+            />
+          )}
+          {route.page === 'profile' && route.setup && (
             <section className="profile-page">
               <div className="page-heading">
                 {!easy && (
@@ -401,7 +597,7 @@ export default function App() {
                 </p>
                 {!route.setup && (
                   <a className="text-button calculator-entry" href="#calculator">
-                    <Icon name="calculator" /> 소득·재산 계산하고 저장하기
+                    <Icon name="calculator" /> 중위소득 빠르게 확인하기
                   </a>
                 )}
               </div>
@@ -430,54 +626,64 @@ export default function App() {
                   <a href="#home">나중에 하기</a>
                 </p>
               )}
-              {!route.setup && (
-                <>
-                  {user && <h2 className="recommendation-settings-title">맞춤 추천 설정</h2>}
-                  <ProfileForm
-                    key={JSON.stringify(profile)}
-                    profile={profile || defaultProfile}
-                    onSave={saveProfile}
-                    easy={easy}
-                    remembered={remembered}
-                    mode={appConfig.dataMode}
-                  />
-                  {profile && (
-                    <button className="text-button clear-profile" onClick={clearProfile}>
-                      내 정보 지우기
-                    </button>
-                  )}
-                </>
-              )}
             </section>
           )}
           {route.page === 'calculator' && (
             <CalculatorPage
-              key={user?.id || 'guest'}
-              easy={easy}
-              user={user}
-              profile={financialProfile}
-              session={
-                calculatorSession.current.owner === (user?.id || null)
-                  ? calculatorSession.current.value
-                  : null
-              }
-              onSessionChange={rememberCalculator}
-              onProfileChange={(value) => {
-                setFinancial({ owner: user?.id || null, profile: value });
-                setUseFinancial(false);
-              }}
-              onRecommend={() => {
-                setUseFinancial(true);
-                if (!profile)
-                  setRecommendation({
-                    value: { ...defaultProfile },
-                    source: 'session',
-                    owner: user?.id || null,
-                  });
-                routeNotice.current = '';
-                navigate('home');
-              }}
+              draft={quickDraft}
+              onChange={changeQuickDraft}
+              prefill={financePrefill}
+              hasSavedProfile={Boolean(financialProfile || financePrefill.record?.profile)}
             />
+          )}
+          {route.page === 'calculator-details' && (
+            <>
+              {user &&
+              ['idle', 'loading'].includes(financePrefill.status) &&
+              !calculatorSession.current.value ? (
+                <section className="calculator-page">
+                  <p className="finance-intro" role="status">
+                    회원의 소득·재산 정보를 불러오고 있어요…
+                  </p>
+                </section>
+              ) : (
+                <DetailedCalculatorPage
+                  key={`${user?.id || 'guest'}-${financeReset.version}`}
+                  initialMessage={financeReset.message}
+                  accountWriting={Boolean(financeWriting && financeWriting.owner === user?.id)}
+                  easy={easy}
+                  user={user}
+                  profile={financialProfile ?? financePrefill.record?.profile}
+                  recommendation={profile}
+                  quickDraft={quickDraft}
+                  useQuickHousehold={quickEdited.current.has('householdSize')}
+                  prefill={financePrefill}
+                  session={
+                    calculatorSession.current.owner === (user?.id || null)
+                      ? calculatorSession.current.value
+                      : null
+                  }
+                  onSessionChange={rememberCalculator}
+                  onProfileChange={(value) => {
+                    setFinancial({ owner: user?.id || null, profile: value });
+                    setUseFinancial(false);
+                  }}
+                  onAccountMutation={beginFinanceMutation}
+                  onSavedRecord={financePrefill.update}
+                  onRecommend={() => {
+                    setUseFinancial(true);
+                    if (!profile)
+                      setRecommendation({
+                        value: { ...defaultProfile },
+                        source: 'session',
+                        owner: user?.id || null,
+                      });
+                    routeNotice.current = '';
+                    navigate('home');
+                  }}
+                />
+              )}
+            </>
           )}
           {route.page === 'saved' && (
             <section>
@@ -539,7 +745,12 @@ export default function App() {
             key={item.id}
             href={'#' + item.id}
             aria-label={item.label}
-            aria-current={route.page === item.id ? 'page' : undefined}
+            aria-current={
+              route.page === item.id ||
+              (item.id === 'calculator' && route.page === 'calculator-details')
+                ? 'page'
+                : undefined
+            }
           >
             <Icon name={item.icon} size={23} />
             <span>{item.mobileLabel || item.label}</span>

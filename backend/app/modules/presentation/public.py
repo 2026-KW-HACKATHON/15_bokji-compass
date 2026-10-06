@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from app.modules.presentation.policy import format_notice_text, payment_schedule
+from app.modules.presentation.policy import format_notice_text, payment_schedule, policy_description
 
-__all__ = ["format_notice_text", "format_public_services", "payment_schedule"]
+__all__ = ["format_notice_text", "format_public_services", "payment_schedule", "policy_description"]
 
 
 def format_public_services(services: list[dict[str, Any]]) -> str:

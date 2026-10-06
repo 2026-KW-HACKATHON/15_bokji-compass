@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from app.modules.normalization.raw import load_raw_policies
-from app.modules.presentation.public import format_notice_text, payment_schedule
+from app.modules.presentation.public import format_notice_text, payment_schedule, policy_description
 from app.modules.storage.catalog import card
 from app.modules.storage.public import validate_draft
 
@@ -53,6 +53,43 @@ def test_recovered_kwangwoon_sources_are_normalized_pipeline_inputs():
     records = load_raw_policies(SEEDS / "kwangwoon_notices.json")
     assert len(records) == len({item.policy_key for item in records}) == 190
     assert all(item.organization == "광운대학교" and item.fields.get("text") for item in records)
+
+
+@pytest.mark.parametrize("purpose", [
+    "월세 자금 대출을 보증해 주거비 부담을 덜어주는 제도입니다.", "", "   ", None,
+])
+def test_card_uses_purpose_for_description_and_preserves_detailed_benefits(purpose):
+    benefit = "보증 한도: 최대 1,152만원 이내. 대출금액의 80% 보증."
+    record = {
+        "policy_key": "rent-guarantee", "revision_id": "revision",
+        "source_json": {
+            "title": "주택금융공사 월세자금보증", "organization": "한국주택금융공사",
+            "source_url": "https://example.com/rent",
+            "fields": {"purpose_summary": purpose, "benefits": "원천 지원 내용"},
+        },
+        "draft_json": {"overview": {"benefits": {"status": "specified", "text": benefit}}},
+        "category": "주거", "created_at": datetime(2026, 10, 6),
+    }
+    before = deepcopy(record)
+    result = card(record)
+    expected = (purpose or "").strip() or "월세 자금 대출에 필요한 보증을 지원하는 제도입니다."
+    assert result["summary"] == expected
+    assert result["benefit"] == benefit
+    assert record == before
+
+
+@pytest.mark.parametrize("title", [
+    "주택금융공사 월세자금보증", "친환경 에너지절감장비 보급",
+    "유아학비 (누리과정) 지원", "장애인자립자금대여",
+])
+def test_legacy_services_have_brief_descriptions_without_repeating_limits(title):
+    result = policy_description(title, None, "최대 1,152만원, 대출금액의 80% 지원")
+    assert 10 < len(result) < 65
+    assert "1,152" not in result and "80%" not in result
+
+
+def test_unknown_service_falls_back_to_available_benefits():
+    assert policy_description("새 지원사업", None, "훈련비를 지원합니다.") == "훈련비 지원."
 
 
 @pytest.mark.parametrize("identity,payment", [

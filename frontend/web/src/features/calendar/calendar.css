@@ -224,6 +224,11 @@
   flex: 1;
   min-width: 0;
 }
+.calendar-policy-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .calendar-row-labels {
   display: flex;
   align-items: center;

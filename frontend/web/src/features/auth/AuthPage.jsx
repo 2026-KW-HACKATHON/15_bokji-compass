@@ -6,18 +6,27 @@ import SignupWizard from './SignupWizard.jsx';
 import KakaoSignup from './KakaoSignup.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
 import AuthLayout from './AuthLayout.jsx';
+import { loginDestination } from './loginDestination.js';
 
 export default function AuthPage({ type, onLogin, easy }) {
-  const outcome = new URLSearchParams(window.location.hash.split('?')[1]).get('kakao');
+  const params = new URLSearchParams(window.location.hash.split('?')[1]);
+  const outcome = params.get('kakao');
+  const destination = loginDestination(params.get('return'));
   if (type === 'signup' && outcome === 'complete') return <KakaoSignup onLogin={onLogin} />;
   return type === 'signup' ? (
     <SignupWizard key={outcome || 'regular'} outcome={outcome} easy={easy} />
   ) : (
-    <LoginForm key={outcome || 'regular'} onLogin={onLogin} outcome={outcome} easy={easy} />
+    <LoginForm
+      key={`${outcome || 'regular'}:${destination}`}
+      onLogin={onLogin}
+      destination={destination}
+      outcome={outcome}
+      easy={easy}
+    />
   );
 }
 
-function LoginForm({ onLogin, outcome, easy }) {
+function LoginForm({ onLogin, destination, outcome, easy }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,7 +77,7 @@ function LoginForm({ onLogin, outcome, easy }) {
         { username, password },
         { signal: controller.signal },
       );
-      if (!controller.signal.aborted) onLogin(result.user);
+      if (!controller.signal.aborted) onLogin(result.user, destination);
     } catch (err) {
       if (!controller.signal.aborted) setError(err.message);
     } finally {

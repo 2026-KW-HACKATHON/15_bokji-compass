@@ -206,7 +206,10 @@ def test_gov24_quota_or_account_fault_does_not_starve_bokjiro(
     assert calls["bokjiro"] == 1
     assert calls["gov24"] == (0 if fault == "daily_quota" else 1)
     assert extra_store.get_state("scan:bokjiro:list")["scan_complete"] is True
-    assert "scan:gov24:serviceDetail" in {error["source"] for error in report["errors"]}
+    entries = report["deferrals"] if fault == "daily_quota" else report["errors"]
+    assert "scan:gov24:serviceDetail" in {error["source"] for error in entries}
+    if fault == "daily_quota":
+        assert report["errors"] == [] and len(report["deferrals"]) == 1
     assert report["http_calls"] == (1 if fault == "daily_quota" else 2)
     if fault == "provider_api_fault":
         assert extra_store.get_state("blocked:gov24")["reason"] == "gov24_api_quota"
@@ -234,6 +237,29 @@ def test_bokjiro_detail_daily_quota_does_not_stop_gov24_scan(extra_store, tmp_pa
             m.jobs.c.kind == "detail")).mappings().one()
     assert detail["status"] == "pending" and detail["attempts"] == 0
     assert detail["error_code"] == "daily_calls_bokjiro"
+    assert report["errors"] == [] and len(report["deferrals"]) == 1
+
+
+def test_exhausted_provider_is_skipped_for_remaining_jobs_and_scan_rounds(extra_store, tmp_path):
+    with extra_store.engine.begin() as connection:
+        for index in range(5):
+            extra_store.observe_listing(connection, "bokjiro", {"servId": f"detail-{index}",
+                "servNm": "복지 후보"}, time.time(), 86400)
+    calls = []
+    def gov24(**kwargs):
+        calls.append((kwargs["endpoint"], kwargs["page"]))
+        return CollectionPage([], kwargs["page"], kwargs["per_page"], 0, b"offline-empty")
+    conf = settings(data_go_kr_api_key="fake", bokjiro_api_key="fake",
+        ingestion_profile="bootstrap", ingestion_daily_bokjiro_calls=0,
+        ingestion_max_jobs=10, ingestion_max_pages=10, ingestion_page_size=1)
+    report = worker.run_tick(conf, extra_store, NoPolicyWrites(), adapters={
+        "gov24": gov24, "bokjiro": forbidden, "bokjiro_detail": forbidden}, raw_root=tmp_path)
+    assert len(calls) == 3 and report["pages"] == 3
+    assert report["errors"] == [] and len(report["deferrals"]) == 1
+    with extra_store.engine.connect() as connection:
+        jobs = connection.execute(select(m.jobs)).mappings().all()
+    assert len(jobs) == 5 and all(j["status"] == "pending" and j["attempts"] == 0 for j in jobs)
+    assert sum(j["error_code"] == "daily_calls_bokjiro" for j in jobs) == 1
 
 
 def test_provider_page_size_mismatch_is_reported_without_saving_rows(extra_store, tmp_path):

@@ -80,6 +80,30 @@ class IngestionRepository:
         if row["lease_token"] != token or row["lease_until"] <= now:
             raise LeaseLost("Worker lease expired")
 
+    def renew_worker(self, token, now, seconds):
+        with self.engine.begin() as c:
+            self.assert_worker(c, token, now)
+            c.execute(update(m.state).where(m.state.c.state_key == "worker").values(
+                lease_until=now + seconds))
+
+    def seed_all_existing(self, policies, signature, *, limit=100, worker_token,
+                          progress=None, adopt_legacy=False):
+        """Commit small batches, renew ownership, and resume until the cursor is exhausted."""
+        total = {"indexed": 0, "reused": 0, "scanned": 0, "batches": 0, "complete": False}
+        while not total["complete"]:
+            self.renew_worker(worker_token, time.time(), 660)
+            result = self.seed_existing(policies, signature, time.time(), limit=limit,
+                worker_token=worker_token, adopt_legacy=adopt_legacy)
+            for name in ("indexed", "reused", "scanned"):
+                total[name] += result[name]
+            total["batches"] += 1
+            total["complete"] = result["complete"]
+            if not total["complete"] and not result["scanned"]:
+                raise RuntimeError("Existing index made no progress")
+            if progress:
+                progress(dict(total))
+        return total
+
     def release_worker(self, token):
         with self.engine.begin() as c:
             c.execute(update(m.state).where(m.state.c.state_key == "worker",
@@ -104,10 +128,24 @@ class IngestionRepository:
                 m.usage.c.day == day).values(calls=m.usage.c.calls + 1))
             return True
 
-    def pending_count(self):
+    def pending_count(self, kinds=None):
         with self.engine.connect() as c:
-            return c.scalar(select(func.count()).select_from(m.jobs).where(
-                m.jobs.c.status.in_(("pending", "running"))))
+            query = select(func.count()).select_from(m.jobs).where(
+                m.jobs.c.status.in_(("pending", "running")))
+            if kinds:
+                query = query.where(m.jobs.c.kind.in_(kinds))
+            return c.scalar(query)
+
+    def requeue_version(self, job, signature, now):
+        """A configuration upgrade gets a fresh work identity without losing the original source."""
+        source = SourcePolicy.model_validate(job["payload"]["source"])
+        with self.engine.begin() as c:
+            self._owned(c, job, now)
+            self._enqueue(c, "parse", source.policy_key, {**job["payload"], "signature": signature},
+                [content_hash(source), signature], now, priority=job["priority"])
+            c.execute(update(m.jobs).where(m.jobs.c.job_id == job["job_id"]).values(
+                status="done", lease_token=None, lease_until=0,
+                error_code="processing_version_changed", updated_at=now))
 
     def _enqueue(self, c, kind, key, payload, identity, now, *, priority=20):
         work_key = digest([kind, key, identity])
