@@ -67,4 +67,3 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 반환 items의 matching에 조건별 비교/근거/확인사항을 보존하고 홈에는 서버 reason을 표시합니다.
 로그인 계정이 바뀌면 기존 요청을 취소하고 다시 조회합니다. LLM 추천 이유 학습은 후속입니다.
 [실제 서버 계약·저장 구조](../../../../../backend/docs/member-policy-matching.md).
-

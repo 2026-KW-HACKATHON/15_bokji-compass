@@ -213,7 +213,7 @@ test('home banner automatically advances to calendar and supports pause, manual 
   await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
 });
 
-test('reduced motion disables autoplay and easy calendar banner fits 320 pixels', async ({
+test('reduced motion disables autoplay and easy home removes rotating banners at 320 pixels', async ({
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -224,8 +224,18 @@ test('reduced motion disables autoplay and easy calendar banner fits 320 pixels'
   await page.clock.fastForward(16000);
   await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(banner).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '맞춤 공고 찾기', exact: true })).toBeVisible();
+  await page.clock.fastForward(16000);
+  await expect(banner).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('home-easy-320.png'), fullPage: true });
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(banner).toBeVisible();
   await banner.getByRole('button', { name: '공고 캘린더 안내 배너 보기' }).click();
   await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('home-banner-easy-320.png'), fullPage: true });
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(banner).toHaveCount(0);
+  await page.getByRole('button', { name: '맞춤 공고 찾기', exact: true }).click();
+  await expect(page).toHaveURL(/#profile$/);
 });

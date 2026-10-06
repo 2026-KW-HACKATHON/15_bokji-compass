@@ -308,7 +308,10 @@ test('auth pages offer username login, phone-free signup and Kakao availability'
   await expect(page.getByRole('textbox', { name: '아이디' })).toBeVisible();
   await expect(page.getByLabel('비밀번호', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
-  await page.getByRole('main').getByRole('link', { name: '회원가입', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: '계정 메뉴', exact: true })
+    .getByRole('link', { name: '회원가입', exact: true })
+    .click();
   await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
   await expect(
     page.getByRole('button', { name: '카카오톡으로 로그인/회원가입하기' }),

@@ -4,7 +4,14 @@ import re
 from datetime import date
 
 DATE = r"(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*[.일])?"
-TIME = r"(?:\s*\([월화수목금토일](?:요일)?\))?(?:\s*\d{1,2}:\d{2})?"
+DATE_WITH_OPTIONAL_YEAR = (
+    r"(20\d{2})?\s*[-./년]?\s*(\d{1,2})\s*[-./월]\s*"
+    r"(\d{1,2})(?:\s*[.일])?"
+)
+TIME = (
+    r"(?:\s*\([월화수목금토일](?:요일)?\))?"
+    r"(?:\s*(?:\d{1,2}:\d{2}|\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?))?"
+)
 PREFIX = r"(?:(?:신청|접수)\s*(?:기간|기한)(?:은|는|이|가)?\s*[:：]?\s*)?"
 
 
@@ -16,10 +23,16 @@ def application_period(fields):
     lines = {
         line.strip()
         for line in text.splitlines()
-        if re.match(r"^\s*(?:신청|접수)\s*(?:기간|기한|마감|시작일)\s*[:：]", line)
+        if re.match(
+            r"^\s*(?:\d+\s*[.)、]\s*)?(?:신청|접수)\s*"
+            r"(?:기간|기한|마감|시작일)\s*[:：]",
+            line,
+        )
     }
     # Multiple distinct periods cannot be resolved without reviewing the source.
-    return lines.pop() if len(lines) == 1 else ""
+    if len(lines) != 1:
+        return ""
+    return re.sub(r"^\d+\s*[.)、]\s*", "", lines.pop())
 
 
 def application_schedule(value):
@@ -31,18 +44,34 @@ def application_schedule(value):
         r"(?:상시\s*(?:신청|접수)?|연중|수시\s*(?:신청|접수)?)(?:\s*\([^\n]*\))?", value
     ):
         return {**result, "scheduleStatus": "ongoing"}
-    period = re.fullmatch(PREFIX + DATE + TIME + r"\s*[~～–—]\s*" + DATE + TIME, value)
-    korean_period = re.fullmatch(
-        PREFIX + DATE + TIME + r"\s*부터\s*" + DATE + TIME + r"\s*까지", value
+    period = re.fullmatch(
+        PREFIX + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*[~～–—]\s*"
+        + DATE_WITH_OPTIONAL_YEAR + TIME,
+        value,
     )
-    ending = re.fullmatch(r"(?:신청기한|신청마감|마감일|접수마감)\s*[:：]?\s*" + DATE + TIME, value)
+    korean_period = re.fullmatch(
+        PREFIX + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*부터\s*"
+        + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*까지",
+        value,
+    )
+    ending = re.fullmatch(r"(?:신청기한|신청마감|마감일|접수마감)\s*[:：]?\s*"
+        + DATE + TIME, value)
     until = re.fullmatch(DATE + TIME + r"\s*까지", value)
-    starting = re.fullmatch(r"(?:신청|접수)\s*시작일\s*[:：]?\s*" + DATE + TIME, value)
+    starting = re.fullmatch(r"(?:신청|접수)\s*시작일\s*[:：]?\s*"
+                            + DATE + TIME, value)
     try:
-        if period or korean_period:
-            match = period or korean_period
-            start = date(*map(int, match.groups()[:3]))
-            end = date(*map(int, match.groups()[3:]))
+        match = period if period is not None else korean_period
+        if match is not None:
+            start_year, start_month, start_day, end_year, end_month, end_day = match.groups()
+            if not start_year and not end_year:
+                return result
+            start_year = start_year or end_year
+            start = date(int(start_year), int(start_month), int(start_day))
+            end = date(
+                int(end_year or start_year),
+                int(end_month),
+                int(end_day),
+            )
             if start > end:
                 return result
             return {
@@ -50,8 +79,10 @@ def application_schedule(value):
                 "applicationEnd": end.isoformat(),
                 "scheduleStatus": "dated",
             }
-        if ending or until or starting:
-            parsed = date(*map(int, (ending or until or starting).groups())).isoformat()
+        match = ending or until or starting
+        if match is not None:
+            year, month, day = match.groups()
+            parsed = date(int(year), int(month), int(day)).isoformat()
             return {
                 **result,
                 "applicationStart": parsed if starting else None,

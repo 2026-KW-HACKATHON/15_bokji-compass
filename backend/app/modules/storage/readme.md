@@ -70,3 +70,15 @@ MySQL의 순차 대입을 고려해 기존 원문과 새 원문을 바이트 기
 `010_legacy_policy_capacity.sql`은 기존 행을 보존하면서 제목·기관을 1000자로, 원문 JSON·URL·
 조건 근거를 LONGTEXT로 확장합니다. 008의 적용 기록이나 SQL 바이트는 변경하지 않습니다.
 기존 `storage.policy`는 001 테이블용 원문 어댑터로 유지합니다.
+
+## 신청일 파싱 (2026-10-06 통합)
+
+`application_dates.application_schedule(period)`는 `{applicationStart,applicationEnd,scheduleStatus}`를,
+`application_date_columns(fields, extracted_period=None)`는 `(date | None, date | None)`를 반환합니다.
+번호가 붙은 신청기간 줄, `9시`/`18시 30분`/`09:00`과 요일을 인식합니다.
+한 기간에 연도가 명시된 날짜가 있으면 반대쪽의 생략된 연도에만 그 연도를 적용합니다.
+예: `2026. 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00` → 2026-09-28~2026-10-07.
+연도가 양쪽 모두 없거나 날짜가 잘못됐거나 기간이 역전되면 unknown/NULL을 유지합니다.
+현재 연도나 지급 시기로 신청일을 추정하지 않습니다. 읽기 전용이며 DB·외부 API에 접근하지 않습니다.
+
+검증: `python -m pytest tests/test_policy_calendar.py app/modules/storage/tests/test_application_dates.py`.

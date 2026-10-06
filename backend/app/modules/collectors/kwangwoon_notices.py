@@ -165,8 +165,10 @@ class _KwangwoonNoticeParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
-        if tag == "div" and (self._board_view_depth or "board-view-box" in
-                             (attributes.get("class") or "").split()):
+        is_board_view = tag == "div" and "board-view-box" in (
+            attributes.get("class") or ""
+        ).split()
+        if is_board_view or (tag == "div" and self._board_view_depth):
             self._board_view_depth += 1
         if tag in self._ignored_tags:
             self._ignored_depth += 1

@@ -11,3 +11,9 @@
 `tests/test_policy_database.py`는 별도 `bokji_compass_test`의 DB명과 데이터 경로를 확인한 뒤
 마이그레이션·트랜잭션·동일 원문 승인 유지·변경 원문 승인 초기화·긴 원문과 조건 근거의
 손실 없는 저장을 검사합니다. `BOKJI_TEST_MYSQL=1`에서만 실행하며 테스트가 만든 ID만 정리합니다.
+
+`test_catalog_published.py`는 격리 SQLite로 공개된 광운대 개정의 목록·상세·캘린더와
+명시된 광역 지역 필터를 검사합니다. `test_kwangwoon_seed.py`는 두 개 요약 JSON의
+검증 계약과 SQL INSERT 행 수를 확인합니다. 실제 seed SQL은 실행하지 않습니다.
+신청일 검사는 한글 시간·번호 줄·같은 기간의 생략된 연도를 인식하되, 연도가 없는
+공고의 신청일을 현재 연도로 추정하지 않는지 확인합니다.
