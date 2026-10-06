@@ -14,6 +14,10 @@
 
 ## 실행
 
+Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론트 빌드 후 고정 도메인 서버를 실행합니다.
+창을 닫아도 실행을 유지합니다. 종료는 루트에서 `start-server-prod.bat stop`, 상태 확인은
+`start-server-prod.bat status`를 실행합니다. 로컬 API만 실행할 때는 `start-server-dev.bat`를 사용합니다.
+
 저장소 루트에서:
 
 ```powershell

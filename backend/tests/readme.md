@@ -2,6 +2,10 @@
 
 현재 상태: 오프라인 테스트 구현. 담당자: 미정.
 
+`test_stop_dev.py`는 Windows 프로세스 조회·종료를 대역으로 바꿔 개발 API 트리 종료,
+운영/타 프로젝트 보존, 코드 속 경로 오인 방지, PID 재사용·권한 오류·종료 실패 시 시작 중단을 검사합니다.
+실제 서버나 터널을 실행·종료하지 않습니다.
+
 설치 후 저장소 루트에서 `powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/test.ps1`을 실행합니다. pytest 실패, Ruff 오류, 의존성 충돌은 비정상 종료로 보고합니다.
 
 `test_bootstrap.py`는 설정·health/readiness·인증/금융 OpenAPI·CORS·비밀정보 보호·풀 종료를, `test_mysql_helper.py`는 다른 데이터 디렉터리·기존 데이터·다른 DB 설정 보호를 검사합니다. 외부 MySQL·AI를 호출하지 않습니다. 실제 연결 검증은 `/health/ready`로 별도 수행하고 기록합니다.
@@ -23,11 +27,29 @@
 - pytest importlib 모드로 서로 다른 모듈의 동명 test_policy.py 수집 충돌을 방지한다.
 - test_policy_database.py: 기본 계약 검증 + BOKJI_TEST_MYSQL=1에서 실제 격리 MySQL 테스트.
   source/개정/조건 roundtrip, 중복/개정/롤백/동시성/NULL/부분 실패/재개 검증.
+  지역 약칭·정식/이전 명칭, 대상 동의어·기타 조건, 검색어와의 AND 조합,
+  필터 후 건수·페이지·캘린더·공개 상태·미확정 값·지역 혼동도 검증한다.
   테스트 생성 ID는 종료 시 정리한다. 서비스 DB에는 합성 공고를 넣지 않는다.
+- test_notice_presentation.py: 공고체 변환의 한도·부정 보존, 지급/신청 기간 분리,
+  봉규 seed 190건 정규화·2건 개요 인용/원문 불변성·SQL INSERT 행 수를 검증한다.
+  실제 LLM·네트워크·DB나 seed SQL 실행은 수행하지 않는다.
 - test_assistant.py: DB 조회·프로필 문맥 분리·공개 경계·잘못된 인용 거부 검증.
 - 실제 모델 검증은 일반 pytest 밖에서 명시적으로 수행한다. [실증](../docs/worklog.md).
 
 ## 백엔드 서버 관리자
+
+`test_server_runtime.py`는 고정 인수·숨김 프로세스 실행·영속 결과·프로세스 간 중복 접수·
+수집과의 동시 실행 차단·실행 실패 복구를 검증합니다. `test_process_control.py`는 임시
+프로젝트와 PowerShell 프로세스 명령 대역으로 PID 재사용, 다른 프로젝트 보존, 개발/운영
+종료와 고정 재시작 경로를 확인합니다. 실제 운영 프로세스를 종료하지 않습니다.
+`test_server_admin.py`의 제어 API 검사는 최고 관리자 권한·동일 출처·허용 입력·UUID 조회를
+확인하며 실제 실행 명령은 대역으로 바꿉니다.
+
+`test_server_operations.py`와 `test_server_admin.py`의 실행 검사는 실제 worker 연결,
+원문 모드의 모델·작업·검색 차단, 분석 프리셋·저장 설정 반영, 중복 접수 차단,
+DB 재시작 대기·수집 비활성, 관리자·출처 검사, 비밀값 비노출, 종료 시 worker 대기를 검증합니다.
+Windows 작업 호출은 subprocess 대역으로 인수 배열과 등록 제약만 확인합니다.
+공공 API·모델·실제 스케줄 등록을 실행하지 않습니다.
 
 `test_server_admin.py`는 임시 SQLite 계정과 임시 환경 설정 파일만 사용합니다.
 최고 관리자 로그인, 전용 쿠키 격리, 권한 회수·만료, 동일 출처 요청 보호,

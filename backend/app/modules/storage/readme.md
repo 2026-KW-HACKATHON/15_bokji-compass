@@ -1,5 +1,11 @@
 # 공고 저장소
 
+2026-10-06 공고 표시: `catalog.card(record)`는 검증된 개요의 지원 내용을 우선하여 공고체로
+표시합니다. 원문·개요·인용 근거는 그대로이며 화면 응답만 문체를 정리합니다.
+선택 필드 `paymentSchedule: str | null`은 명시된 지급 시기를 별도로 반환합니다.
+신청 기간·캘린더 날짜와 구분하며 원문에 없는 날짜는 추정하지 않습니다.
+[표시 함수·검증](../presentation/readme.md), [선택 복원한 seed](../../../database/seeds/readme.md).
+
 2026-10-02 자동 승인 기본값: `PolicyRepository(engine, auto_publish=True)`는 검증된 새 needs_review 개정을 저장할 때 공개 상태와 감사 이력을 함께 커밋합니다. 파싱 원문/분석 JSON의 draft 표시는 보존하고 DB 공개 상태만 published로 전환합니다. `POLICY_AUTO_PUBLISH=true`가 기본이며 false는 수동 공개 방식입니다. 동일 결과 재사용으로 관리자가 비공개한 개정을 재공개하지 않습니다. 공고별 잠금으로 수동 변경·자동 저장을 직렬화하며 최신 개정만 자동 공개합니다.
 
 `auto_publish_pending(repository) -> {published,skipped,enabled}`는 기존 공고별 최신 draft를 재검증해 공개하는 명시적 보완 작업입니다. reviewed/rejected와 이전 개정은 건너뜁니다. `python -m app.modules.storage auto-publish`로 실행하며 LLM·재수집 없이 원문을 유지합니다. 자동 승인 실패 시 새 개정 저장·항목 완료·감사 이력을 모두 롤백합니다. matching_enabled는 false를 유지합니다.
@@ -34,6 +40,27 @@ LLM 호출 없음. 검증 오류는 ValueError, DB 오류는 SQLAlchemyError 계
 CLI: python -m app.modules.storage init|import-drafts|list|get (--help 참고).
 MySQL 통합 테스트: BOKJI_TEST_MYSQL=1 python -m pytest tests/test_policy_database.py.
 Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생성 데이터는 종료 시 정리한다.
+
+## 공고 검색 필터 (2026-10-06)
+
+`catalog.list_policies(repository, limit=20, offset=0, sort="recent", q="", category="", region="", audience="", tag="")`
+는 `{items,total,nextCursor}`를 반환합니다. `catalog.list_calendar(repository, month=..., q="", category="", region="", audience="")`
+도 같은 `filtered_catalog` SQL 조건을 사용합니다. 검색어·분야·지역·대상은 AND로 적용하고
+필터링 후 건수·정렬·페이지를 계산합니다. LLM·외부 HTTP 호출이나 DB 변경은 없습니다.
+
+- 지역 약칭은 정식 명칭과 이전 명칭을 함께 검색합니다. 예: 충북/충청북도,
+  전북/전북특별자치도/전라북도. 짧은 이름은 단어 경계를 확인하며 광주 선택에
+  경기도 광주시를 포함하지 않습니다. 강서구처럼 중복된 구 이름만으로 시도를 추정하지 않습니다.
+- 지역은 명시된 `region_conditions`와 `unrestricted`만 사용합니다. 미확인 지역을
+  전국으로 간주하지 않으며 전국 선택은 지역 필터를 생략합니다.
+- 대상은 확인된 `age_conditions`와 근거가 있는 `other_conditions`에서 찾습니다.
+  어르신은 노인·고령·시니어, 가족은 가구·부모·자녀·아동·영유아·신혼·한부모·양육·출산을 포함합니다.
+  불명확한 나이 개요는 검색 근거로 사용하지 않습니다. 숫자 나이만으로 청년·어르신을 추정하지 않으며,
+  전체 선택은 대상 필터를 생략합니다. 탐색용 문구 분류이며 신청 자격 판정이 아닙니다.
+
+검증: `BOKJI_TEST_MYSQL=1 python -m pytest tests/test_policy_database.py`.
+지역 17개·이전 명칭, 대상 표현, 조합 검색·건수·페이지·캘린더·공개 상태·지역 혼동을
+격리된 MySQL에서 확인하고 테스트 생성 ID만 정리합니다.
 
 run_processing(run_id)는 재개 시 원래 모델/추론 설정을 조회합니다. 규칙 버전이 바뀌면 새 실행이 필요합니다.
 신규 `save_result`는 개정형 테이블과 001 호환 `policies`/`policy_requirements`를 같은

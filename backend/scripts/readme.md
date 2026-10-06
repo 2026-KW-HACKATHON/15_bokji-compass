@@ -6,10 +6,27 @@ macOS 팀원은 [Mac 사용법](../docs/macos-development.md) 참고. 운영 서
 
 현재 상태: 구현. 담당자: 미정. 작업 폴더와 무관하게 backend 경로를 계산하며 외부 명령 실패는 비정상 종료로 처리합니다.
 
+Windows에서는 저장소 루트의 [`start-server-dev.bat`](../../start-server-dev.bat)를 더블클릭하면
+기존 `start.ps1`로 API 서버를 실행합니다. 실행 주소는 `backend/.env`의 설정을 사용하며
+`Ctrl+C`로 종료합니다. 종료·오류 후에는 창을 유지하여 메시지를 확인할 수 있습니다.
+MySQL과 수집 worker는 별도로 실행하며, 자동 수집은 아래 스케줄 안내를 따릅니다.
+
+[`start-server-prod.bat`](../../start-server-prod.bat)는 프론트를 빌드한 뒤 `share.ps1 start -TunnelMode fixed`로
+8001 API·8080 웹·QR 게이트웨이·고정 도메인 터널을 실행합니다. 주소는 `https://bokji.commitnaru.com`입니다.
+빌드·터널 설정·포트·Caddy 설정 검사 후, 이 프로젝트의 `backend/server.py`로 실행한 개발 API를
+프로세스 경로와 시작 시각으로 확인하여 하위 프로세스와 함께 종료합니다. 종료에 실패하면 운영 시작을 중단합니다.
+따로 실행한 Vite 프론트와 MySQL은 유지합니다. 개발 API 종료 후 운영 기동이 실패하면 개발 API를 자동 재실행하지 않습니다.
+창을 닫아도 서버는 계속 실행됩니다. 루트에서 `start-server-prod.bat stop`으로 종료하고
+`start-server-prod.bat status`로 상태를 확인합니다. 이미 실행 중이면 먼저 종료한 뒤 다시 실행합니다.
+Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰을 준비해야 하며 MySQL은 별도로 실행합니다.
+두 실행 파일 모두 `backend/.env`와 해당 DB 설정을 공유합니다. 운영용 BAT는 별도의 DB나 수집 스케줄을 만들지 않습니다.
+
 | 진입점 | 입력 | 결과·부작용 |
 | --- | --- | --- |
 | `setup.ps1` | 선택 PythonExecutable, RuntimeOnly | 로컬 환경·의존성 설치, 없는 `.env`만 생성 |
 | `start.ps1` | 선택 Reload | API 포그라운드 실행, Ctrl+C로 종료 |
+| `stop-dev.ps1` | 없음 | 이 프로젝트의 server.py 개발 API만 확인 후 프로세스 트리 종료 |
+| `process-control.ps1` | Action=Status/Stop/Restart, Target=backend/frontend/all, ServerProcessId, JobId | 관리자 콘솔 전용 고정 프로세스 제어. 변경은 접수된 작업·잠금과 일치해야 실행 |
 | `share.ps1` | start / stop / status | 별도 시연 API·정적 웹·Cloudflare HTTPS 터널 실행/종료/상태. [준비·범위](../../frontend/web/deploy/readme.md) |
 | `setup-mysql.ps1` | 선택 MySqlExecutable, Port | 독립 개발 DB 초기화·시작, 로컬 DB 설정 기록 |
 | `mysql.ps1` | start / stop / status | 프로젝트 DB 실행·종료·상태 확인 |
@@ -28,7 +45,19 @@ macOS 팀원은 [Mac 사용법](../docs/macos-development.md) 참고. 운영 서
 
 호출 예시와 오류 대응은 [개발환경 문서](../docs/development.md)를 따릅니다. 수정 시 `tests/test_mysql_helper.py`와 실제 독립 DB의 시작·종료·재실행을 확인합니다.
 
+## 관리자 콘솔의 프로세스 제어
+
+관리 콘솔의 프로세스 제어는 현재 API의 실행 방식을 확인합니다. 개발 모드는 정확한 절대
+스크립트 인수, 운영 모드는 공유 실행 기록의 PID·실행파일·시작 시각으로 소유권을 검사합니다.
+API는 트리를 종료하지 않고 확인한 API 프로세스만 종료해 별도 관리 도우미를 보존합니다.
+운영 웹·QR은 해당 실행 기록만 제어하며 MySQL·터널은 유지합니다. 새 프로세스는 숨김으로
+실행하고 준비 응답을 확인한 뒤 영속 작업 결과를 기록합니다. 실패 코드는 안전한 목록만
+저장하며 실행 stdout/stderr는 로컬 `backend/data/server-control/`에 남깁니다.
+
 ## 노트북 공고 수집 스케줄
+
+백엔드 **수집 실행** 화면에서도 등록 상태 확인과 명시적 등록·해제를 할 수 있습니다.
+스크립트의 `-Json`은 콘솔 API용 UTF-8 JSON 결과를 제공하며 기존 CLI 표 출력은 유지합니다.
 
 운영 절차·계정 예산·DB 초기화·기존 공고 인덱싱·체크포인트 재개는
 [서버 수집 안내](../docs/server-ingestion.md)를 따릅니다.

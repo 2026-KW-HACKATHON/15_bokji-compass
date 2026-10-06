@@ -1,5 +1,59 @@
 # 프론트엔드 작업 기록
 
+## 2026-10-06 — 공고체와 별도 지급 시기
+
+- 검증된 개요의 공고체 요약과 선택 `paymentSchedule`을 목록·상세의 일반/쉬운 화면에 표시.
+  지급 시기를 신청 기간과 구분하고 기존 응답에 값이 없으면 기존 표시 유지.
+- 웹 단위 **43 passed**, 공고 데스크톱/모바일 E2E **22 passed**, 격리 프로덕션 빌드 통과.
+  공고 응답은 브라우저 대역이며 실제 복원 표본의 문체·원문 불변성은 백엔드에서 검사.
+- 운영 배포는 수행하지 않음. [봉규·seed 확인](../../backend/docs/notice-summary-integration.md).
+
+## 2026-10-06 — 해커톤 Android 독립 APK 준비
+
+- 사용자 배포 대상은 Android이며 첫 출시용 새 배포 키 생성을 선택했다.
+- `release:android`에 설정·타입·린트·회귀·Prebuild·Gradle release·zipalign·서명·APK 검사 연결.
+  JS를 포함하고 ARM/x86_64를 지원하며 Metro 없이 실행하는 APK를 생성한다.
+- `release:key`는 기존 키를 덮어쓰지 않고 새 RSA 배포 키와 Windows DPAPI로 보호한
+  로컬 비밀번호를 생성한다. keystore/자격 증명은 Git 제외를 확인했다.
+- 릴리스 검사에서 실제 Expo 설정과 HTTPS 주소, 설치된 공유 계산 core의 최신 여부를 검사.
+  EAS preview APK/production AAB와 빌드 후 설정 검증 훅을 추가했다.
+- SDK의 알림·FCM 필수 권한과 SEND 권한으로 보호한 FCM 수신기를 검사기가 정상 허용하도록
+  수정했다. 실제 합쳐진 Manifest에서 사용하지 않는 배지·설치 유입 권한 17개를 발견해 제거했다.
+- ESLint 캐시 파일 쓰기 권한 오류가 배포 검증을 막지 않도록 `npm run lint`는 전체 무캐시 검사.
+- 실제 native release에서 Ninja의 260자 파일 경로 제한 오류를 재현했다. Windows에서는
+  짧은 `tmp/cxx` staging 경로와 CMake 객체 경로 해싱을 적용하도록 config plugin을 수정했다.
+  기존 생성 프로젝트도 `--clean` 없이 최신 plugin 블록으로 갱신한다.
+- PowerShell 7에서 Windows PowerShell을 호출할 때 잘못된 보안 모듈이 로드되지 않도록
+  해당 셸의 내장 모듈을 명시적으로 사용한다. 생성된 자격 증명은 데스크톱 계정에 맞게
+  DPAPI 재보호했고 비밀번호를 출력하지 않았으며 임시 암호화 전달 파일은 제거했다.
+- 모바일 80개와 타입·린트, APK 권한/수신기 검사 4개 통과. 변경 전 서버 회귀는
+  631 passed/21 skipped이며 MySQL 선택 검사는 실행하지 않았다.
+- 실제 공개 HTTPS API의 health/ready/공고 조회 200 확인. ready의 database는 reachable.
+- npm audit는 high 19개로 node-forge(기존 로컬 패치)와 braces(공식 수정 없음)의 전파 결과.
+  [배포 명령·서명 보관·남은 의존성 제한](android-release.md).
+- 실제 3개 ABI native release Gradle 빌드 성공. APK 리소스 최적화가 XML 파일명을 줄이는
+  동작도 재현해 검사기가 리소스 테이블에서 실제 파일명을 읽도록 수정했다.
+  XML 누락·추가 변형 파일의 검사 우회는 계속 차단하며 APK 검사 회귀 6개를 통과했다.
+- 새 배포 키로 서명한 APK의 21개 정적 검사 모두 PASS. 디버그/개발 컴포넌트 없음,
+  JS 번들 포함, 정확한 서명 지문, HTTPS/백업 정책과 알림 권한 확인.
+  실제 휴대폰 설치·화면 동작·원격 푸시는 이번 검증에 포함하지 않았다.
+- 공유 파일은 `output/android-release/bokji-compass.apk` (약 83.1 MB),
+  SHA-256 `afee39881bc00e2fbe63fe9a5b4d7d290a934088c1f66dc54b1c72295d041aa5`.
+  `release:android -- -SignOnly`의 실제 서명·검사·파일 복사 경로도 성공했다.
+
+
+## 2026-10-06 — 공고 지역·대상 검색 회귀 검증
+
+- 검색어·지역·대상을 한 API 요청으로 보내고 전체/전국 기본 조건만 생략하는 계약 검사 추가.
+- 두 번째 공고 페이지에서 검색어·지역·대상을 적용하면 cursor가 초기화되고 결과 건수가
+  갱신되며 조건 지우기로 전체 목록이 복원되는 데스크톱·모바일 흐름 추가.
+- 지역명 약칭/정식 명칭과 대상 동의어·가구 조건은 서버 SQL에서 처리.
+  관련 설명은 [저장소 README](../../backend/app/modules/storage/readme.md).
+- 웹 단위 **42 passed**, 새 흐름과 기존 모드 전환 E2E **4 passed**, 프로덕션 빌드와
+  변경 JS Prettier 검사 통과. 브라우저의 공고 응답은 테스트 대역이며 서버 필터는
+  별도 격리 MySQL/API/캘린더 **87 passed**로 확인. 산출물은
+  추적 제외된 `tmp/policy-filter-validation/`에 보관. 배포·운영 서비스 재시작은 수행하지 않음.
+
 ## 2026-10-06 — 최신 main 통합과 추가 취약점 수정
 
 - main `076a0bf`의 카카오 간편 가입·선택 정보 설정과 금융 UI를 기존 로컬 기능에 통합.
@@ -393,3 +447,10 @@
 - React 출력, 외부 링크, 카카오 이동 주소, QR 관리자 게이트웨이 세션·Origin·정적 경로 허용 목록, 모바일 토큰·알림·계정 전환 검토.
 - 웹 단위 39개·전체 데스크톱/모바일 E2E 100개·격리 프로덕션 빌드 통과. 모바일 단위 32개·TypeScript·ESLint·캐시 초기화 Android/iOS Hermes export 통과.
 - npm audit 웹 0건. 모바일은 node-forge의 아직 공식 패치 없는 RSA 검증 취약점 1건이 Expo CLI 의존성 high 4개로 전파됨. 일반 export에서는 forge/인증서 검증 호출이 없음을 추적했고, 실제 CLI 코드서명 경로와 완화·미검증 범위는 [모바일 보안 검토](mobile-security-review.md)에 기록. 강제 Expo 다운그레이드나 임의 암호화 패치는 적용하지 않음.
+
+## 2026-10-06 — Android 서버 연결 장애 안내
+
+- 앱 시작·복귀·활성 상태의 30초 건강 상태 확인, 공통 API 연결 상태 관찰과 모든 화면의 장애 안내·다시 연결 버튼 추가. 쉬운 화면에서도 표시하고 복구 시 숨김.
+- 연결 거부·시간 초과·5xx와 서버 응답 이상을 안내. 401·422 등 로그인/입력 오류와 사용자 취소를 장애로 오인하지 않으며 저장·로그인을 자동 재전송하지 않음. 중복 확인 합치기·이전 응답 무시·백그라운드 취소 처리.
+- 모바일 87개·타입·린트 통과. 320/390px 브라우저 API 대역으로 시작 장애·탭 이동·쉬운 화면·재시도·503·활성 상태 자동 확인 검증. 화면 증거는 `tmp/mobile-connection/`에 저장.
+- 기존 배포 키로 APK 재빌드·서명, 정적 검사 21개 PASS. 공유 APK SHA-256 `4a90e98b8cb39e482b68ecd506e4b21b9234d2ee0bbb43d9ec63bac665b9ded7`. 운영 서버는 중단하지 않았고 실제 Android 기기 설치·통신 장애 동작은 미검증.

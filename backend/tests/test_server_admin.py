@@ -2,10 +2,12 @@
 
 import json
 import time
+from threading import Event
 
 import pytest
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import create_engine, delete, func, select, update
 
 from app.core.config import Settings
@@ -29,6 +31,9 @@ PROTECTED = [
     "/v1/server-admin/collection/status",
     "/v1/server-admin/collection/changes",
     "/v1/server-admin/collection/candidates",
+    "/v1/server-admin/operations",
+    "/v1/server-admin/schedule",
+    "/v1/server-admin/processes",
 ]
 
 
@@ -487,3 +492,231 @@ def test_collection_pause_flag_persists_and_applies_without_running_collection(c
     assert client.app.state.settings.ingestion_enabled is False
     assert client.get(SETTINGS).json()["values"]["ingestion_enabled"] is False
     assert dotenv_values(config_file)["INGESTION_ENABLED"] == "false"
+
+
+OPERATIONS = "/v1/server-admin/operations"
+
+
+def fake_collection(console, monkeypatch, execute):
+    from app.modules.server_admin import operations
+
+    client, _, _, config = console
+    assert login(client).status_code == 200
+    client.app.state.settings = client.app.state.settings.model_copy(update={
+        "db_enabled": True, "db_password": SecretStr("OfflineDbPassword42")})
+    client.app.state.database_engine = object()
+    config.write_text(config.read_text(encoding="utf-8").replace(
+        "DB_ENABLED=false", "DB_ENABLED=true") + "DB_PASSWORD=OfflineDbPassword42\n",
+        encoding="utf-8")
+    monkeypatch.setattr(operations, "execute", execute)
+    return client
+
+
+def finished_operation(client):
+    # Join only the deterministic offline worker, never a live provider or model call.
+    client.app.state.server_operations.worker.join(timeout=2)
+    response = client.get(OPERATIONS)
+    assert response.status_code == 200
+    return response.json()["operation"]
+
+
+def test_operations_reads_never_start_work(console, monkeypatch):
+    from app.modules.server_admin import operations
+
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+
+    def forbidden(*_args):
+        pytest.fail("Read-only request must not start collection")
+
+    monkeypatch.setattr(operations, "execute", forbidden)
+    response = client.get(OPERATIONS)
+    assert response.json()["operation"] is None
+    assert response.json()["presets"]["raw"]["max_model_calls"] == 0
+
+
+@pytest.mark.parametrize("headers", [{"Origin": "https://foreign.invalid"},
+                                    {"X-Auth-Request": ""}])
+def test_operations_require_admin_and_same_origin(console, headers):
+    client, _, _, _ = console
+    assert client.post(OPERATIONS, json={"action": "check"}).status_code == 401
+    assert login(client).status_code == 200
+    assert client.post(OPERATIONS, json={"action": "check"}, headers=headers).status_code == 403
+    assert client.app.state.server_operations.snapshot()["operation"] is None
+
+
+@pytest.mark.parametrize("data", [
+    {"action": "arbitrary-command", "command": "private-command"},
+    {"action": "tick", "max_seconds": 601},
+    {"action": "tick", "max_http_calls": -1},
+    {"action": "tick", "max_model_calls": "4"},
+    {"action": "seed", "limit": 101},
+])
+def test_operations_reject_unbounded_or_arbitrary_commands(console, data):
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+    response = client.post(OPERATIONS, json=data)
+    assert response.status_code == 422
+    assert "private-command" not in response.text
+    assert client.app.state.server_operations.snapshot()["operation"] is None
+
+
+def test_raw_operation_cannot_spend_model_calls_or_process_jobs(console, monkeypatch):
+    captured = []
+    client = fake_collection(console, monkeypatch, lambda _s, _d, settings: (
+        captured.append(settings) or {"status": "completed", "http_calls": 1,
+                                      "model_calls": 0}))
+    response = client.post(OPERATIONS, json={"action": "tick", "mode": "raw",
+        "max_model_calls": 50, "max_jobs": 20, "max_tokens": 100000})
+    assert response.status_code == 202
+    assert finished_operation(client)["result"]["model_calls"] == 0
+    assert captured[0].ingestion_max_jobs == 0
+    assert captured[0].ingestion_max_model_calls == 0
+    assert captured[0].ingestion_max_tokens == 0
+    assert captured[0].ingestion_discovery_enabled is False
+
+
+def test_analysis_preset_and_custom_overrides_use_saved_settings(console, monkeypatch):
+    captured = []
+    client = fake_collection(console, monkeypatch, lambda _s, _d, settings: (
+        captured.append(settings) or {"status": "budget_reached", "model_calls": 2}))
+    assert client.post(OPERATIONS, json={"action": "tick", "mode": "analysis"}).status_code == 202
+    assert finished_operation(client)["result"]["status"] == "budget_reached"
+    assert captured[0].ingestion_max_jobs == 2
+    assert captured[0].ingestion_max_model_calls == 2
+    assert captured[0].ingestion_discovery_enabled is False
+    assert client.post(OPERATIONS, json={"action": "tick", "mode": "custom",
+        "max_jobs": 3}).status_code == 202
+    finished_operation(client)
+    assert captured[1].ingestion_page_size == 50
+    assert captured[1].ingestion_max_jobs == 3
+    assert captured[1].ingestion_max_model_calls == 4
+
+
+def test_operations_block_disabled_collection_and_pending_db_restart(console, monkeypatch):
+    client = fake_collection(console, monkeypatch, lambda *_args: pytest.fail("Must not execute"))
+    assert patch(client, {"ingestion_enabled": False}).status_code == 200
+    assert client.post(OPERATIONS, json={"action": "tick"}).status_code == 503
+    assert patch(client, {"db_host": "pending.invalid"}).status_code == 200
+    response = client.post(OPERATIONS, json={"action": "check"})
+    assert response.status_code == 409
+    assert "재시작" in response.text
+
+
+def test_operation_is_background_and_rejects_duplicate_launches(console, monkeypatch):
+    entered, release = Event(), Event()
+
+    def blocked(*_args):
+        entered.set()
+        assert release.wait(3)
+        return {"status": "busy", "reason": "another_worker"}
+
+    client = fake_collection(console, monkeypatch, blocked)
+    try:
+        assert client.post(OPERATIONS, json={"action": "tick"}).status_code == 202
+        assert entered.wait(2)
+        assert client.get(OPERATIONS).json()["operation"]["status"] == "running"
+        assert client.post(OPERATIONS, json={"action": "check"}).status_code == 409
+    finally:
+        release.set()
+    assert finished_operation(client)["result"]["reason"] == "another_worker"
+
+
+def test_failed_operation_never_exposes_original_exception(console, monkeypatch):
+    def failed(*_args):
+        raise RuntimeError("private-password@private-host")
+
+    client = fake_collection(console, monkeypatch, failed)
+    assert client.post(OPERATIONS, json={"action": "tick"}).status_code == 202
+    operation = finished_operation(client)
+    assert operation["status"] == "failed"
+    assert operation["result"]["reason"] == "operation_failed"
+    assert "private" not in json.dumps(operation)
+
+
+def test_worker_summary_filters_documents_and_provider_errors(console, monkeypatch):
+    client = fake_collection(console, monkeypatch, lambda *_args: {
+        "status": "completed", "http_calls": 2, "raw": PORTAL_SECRET,
+        "errors": [{"message": PORTAL_SECRET}]})
+    assert client.post(OPERATIONS, json={"action": "tick"}).status_code == 202
+    operation = finished_operation(client)
+    assert operation["result"]["error_count"] == 1
+    assert PORTAL_SECRET not in json.dumps(operation)
+
+
+def test_scheduler_status_is_read_only_and_safe(console, monkeypatch):
+    from app.api import server_admin
+
+    calls = []
+    monkeypatch.setattr(server_admin, "scheduler", lambda action: (
+        calls.append(action) or {"supported": True, "state": "NotInstalled"}))
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+    assert client.get("/v1/server-admin/schedule").json()["state"] == "NotInstalled"
+    assert calls == ["Status"]
+
+
+@pytest.mark.parametrize("headers", [{}, {"Origin": "https://foreign.invalid"}])
+def test_process_control_requires_fresh_admin_and_same_origin(console, monkeypatch, headers):
+    from app.modules.server_admin import runtime
+
+    client, engine, admin_id, _ = console
+    calls = []
+    monkeypatch.setattr(runtime, "start", lambda *args: calls.append(args))
+    path = "/v1/server-admin/processes"
+    body = {"target": "backend", "action": "restart"}
+    assert client.post(path, json=body).status_code == 401
+    assert login(client).status_code == 200
+    if headers:
+        assert client.post(path, json=body, headers=headers).status_code == 403
+    else:
+        with engine.begin() as connection:
+            connection.execute(delete(admin_grants).where(admin_grants.c.account_id == admin_id))
+        assert client.post(path, json=body).status_code == 403
+    assert calls == []
+
+
+@pytest.mark.parametrize("body", [
+    {"target": "all", "action": "exec"},
+    {"target": "mysql", "action": "stop"},
+    {"target": "backend", "action": "restart", "pid": 123},
+    {"target": "frontend", "action": "stop", "command": "private-command"},
+])
+def test_process_control_has_no_arbitrary_pid_path_or_command(console, monkeypatch, body):
+    from app.modules.server_admin import runtime
+
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+    monkeypatch.setattr(runtime, "start", lambda *args: pytest.fail("must not launch"))
+    response = client.post("/v1/server-admin/processes", json=body)
+    assert response.status_code == 422
+    assert "private-command" not in response.text
+
+
+def test_process_status_reads_and_command_acceptance_are_separate(console, monkeypatch):
+    from app.modules.server_admin import runtime
+
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+    calls = []
+    monkeypatch.setattr(runtime, "status", lambda: {"mode": "development", "supported": True})
+    monkeypatch.setattr(runtime, "start", lambda state, data: (
+        calls.append((data.target, data.action)) or {"operation": {"status": "accepted"}}))
+    assert client.get("/v1/server-admin/processes").status_code == 200
+    assert calls == []
+    response = client.post("/v1/server-admin/processes", json={
+        "target": "frontend", "action": "restart"})
+    assert response.status_code == 202
+    assert calls == [("frontend", "restart")]
+
+
+def test_process_job_id_is_uuid_and_errors_are_safe(console, monkeypatch):
+    from app.modules.server_admin import runtime
+
+    client, _, _, _ = console
+    assert login(client).status_code == 200
+    assert client.get("/v1/server-admin/processes/private-invalid-job").status_code == 422
+    monkeypatch.setattr(runtime, "read_job", lambda *_: (
+        {"status": "completed", "action": "restart", "target": "backend"}))
+    response = client.get("/v1/server-admin/processes/00000000-0000-0000-0000-000000000000")
+    assert response.json()["operation"]["status"] == "completed"

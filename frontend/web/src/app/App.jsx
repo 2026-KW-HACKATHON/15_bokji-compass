@@ -21,6 +21,7 @@ import { readStoredValue, writeStoredValue, removeStoredValue } from '../shared/
 import { appConfig } from '../shared/config.js';
 import Icon from '../shared/ui/Icon.jsx';
 import { policyRepository, recommendationRepository } from './services.js';
+import SourceFooter from './SourceFooter.jsx';
 
 const navigation = [
   { id: 'home', label: '내 비서', icon: 'house' },
@@ -210,7 +211,7 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [profile, retry, useFinancial, financialProfile]);
+  }, [profile, retry, useFinancial, financialProfile, user?.id]);
   const navigate = (page, tag = '') => {
     window.location.hash = page + (tag ? '?tag=' + encodeURIComponent(tag) : '');
   };
@@ -529,13 +530,7 @@ export default function App() {
           {['login', 'signup'].includes(route.page) && (
             <AuthPage key={route.page} type={route.page} onLogin={onLogin} easy={easy} />
           )}
-          <footer className="page-footer">
-            <span className="footer-brand">
-              <img src="/brand-logo.png" alt="" />
-              복지나침반
-            </span>
-            {!easy && <span>추천을 참고하고, 신청 조건은 공식 공고에서 확인하세요.</span>}
-          </footer>
+          <SourceFooter easy={easy} showSources={route.page === 'home'} />
         </main>
       </div>
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">

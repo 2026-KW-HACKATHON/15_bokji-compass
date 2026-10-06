@@ -39,28 +39,23 @@ export default function AssistantHome({
   const items = easy ? result.items.slice(index, index + 3) : result.items;
   return (
     <>
-      <HomeBanner easy={easy} onCalendar={onCalendar}>
-        {easy ? (
-          <section className={'comfortable-home' + (profile ? ' has-profile' : '')}>
-            <div className="comfortable-home-copy">
-              <span className="home-kicker">나를 위한 복지나침반</span>
-              <h1>{profile ? '나에게 맞는 복지 공고' : '내 상황에 맞는 복지를 찾아보세요'}</h1>
-              <p>
-                {profile
-                  ? '입력한 정보를 바탕으로 추천한 공고입니다. 지원 내용과 신청 조건을 함께 비교해 보세요.'
-                  : '거주 지역과 관심 분야를 선택하면 관련 공고와 추천 이유를 한곳에서 확인할 수 있습니다.'}
-              </p>
-              <div className="home-primary-action">
-                <button className={profile ? 'text-button' : 'button primary'} onClick={onProfile}>
-                  {profile ? '추천에 쓰는 내 정보 수정' : '맞춤 공고 찾기'}
-                  {!profile && <Icon name="arrow" size={20} />}
-                </button>
-                {!profile && <span>회원가입 없이 이용할 수 있습니다.</span>}
-              </div>
-            </div>
-            {!profile && <img className="comfortable-home-logo" src="/brand-logo.png" alt="" />}
-          </section>
-        ) : (
+      {easy ? (
+        <div className="page-heading">
+          <h1>{profile ? '나에게 맞는 복지 공고' : '내 상황에 맞는 복지를 찾아보세요'}</h1>
+          <p>
+            {profile
+              ? '추천 공고의 지원 내용과 신청 조건을 확인하세요.'
+              : '사는 지역과 관심 분야를 알려주세요.'}
+          </p>
+          <div className="home-primary-action">
+            <button className={profile ? 'text-button' : 'button primary'} onClick={onProfile}>
+              {profile ? '추천에 쓰는 내 정보 수정' : '맞춤 공고 찾기'}
+              {!profile && <Icon name="arrow" size={20} />}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <HomeBanner easy={false} onCalendar={onCalendar}>
           <section className={'assistant-hero' + (compact ? ' assistant-hero-compact' : '')}>
             <div className="hero-copy">
               {!easy && (
@@ -126,8 +121,8 @@ export default function AssistantHome({
               </div>
             )}
           </section>
-        )}
-      </HomeBanner>
+        </HomeBanner>
+      )}
       {!easy && (
         <div className="journey-strip">
           <span>

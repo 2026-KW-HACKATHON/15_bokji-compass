@@ -33,6 +33,12 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
               <dt>신청 기간</dt>
               <dd>{policy.applicationPeriod || '공식 공고에서 확인'}</dd>
             </div>
+            {policy.paymentSchedule && (
+              <div>
+                <dt>지급 시기</dt>
+                <dd>{policy.paymentSchedule}</dd>
+              </div>
+            )}
           </dl>
         </div>
         <div className="easy-card-action">
@@ -90,6 +96,7 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
           {policy.benefit}
         </p>
       )}
+      {policy.paymentSchedule && <p className="card-meta">지급 시기: {policy.paymentSchedule}</p>}
       <div className="card-bottom">
         <div className="tags" aria-label="이 공고의 태그">
           {policy.tags.map((tag) => (

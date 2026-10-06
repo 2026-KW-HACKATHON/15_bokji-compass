@@ -48,12 +48,23 @@ POST /v1/assistant/questions에 쿠키와 X-Auth-Request를 전송합니다. 질
 createRecommendationRepository({mode,request,path?}).recommend(profile,{signal?}) → Promise<{items:[{policy,reason}],summary,source}>.
 api 모드는 POST /v1/recommendations로 whitelist 프로필과 limit:3 전송, 30초 제한. 중복·설명 누락·잘못된 공고는 오류입니다. demo 런타임 경로는 제거했으며 직접 요청하면 설정 오류를 반환합니다.
 AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved,onSave,onOpen,onTag,mode}) → React 홈. 로딩/빈/오류와 추천 이유를 표시합니다. 쉬운 화면은 중복 안내를 합치고 최초 추천을 위한 ‘맞춤 공고 찾기’ 하나를 주 행동으로 강조합니다. 추천 후에는 한 열에 공고 3개를 표시하며 정보 수정·재추천을 보조 행동으로 제공합니다.
-실제 LLM/수집/공고 공급은 서버 책임이며 추천 서버 API 연결은 후속 작업입니다. 공고 조회·회원 질문은 서버에 연결했습니다. Node 계약 테스트와 브라우저 추천 흐름의 현재 확인 범위는 [쉬운 화면 문서](../../../../docs/senior-mode.md)에 기록합니다.
+공고 조건 비교 추천·공고 조회·회원 질문은 서버에 연결했습니다. 추천의 LLM 설명 튜닝은
+후속 작업입니다. Node 계약 테스트와 브라우저 추천 흐름의 현재 확인 범위는
+[쉬운 화면 문서](../../../../docs/senior-mode.md)에 기록합니다.
 
-메인 로고는 사용자 제공 public/brand-logo.png를 사용합니다. 쉬운 화면은 정보 위계와 주 행동을 우선하며 장식 로고는 좁은 화면에서 생략합니다. 대상·지원 내용·신청 기간과 미확인 정보 안내는 공고를 판단하는 데 필요하므로 유지합니다.
+메인 로고는 사용자 제공 public/brand-logo.png를 사용합니다. 쉬운 화면은 홈 배너·장식 로고·자동 전환·배너 조작부를 렌더링하지 않고, 일반 페이지 제목과 짧은 안내·맞춤 공고 찾기(또는 내 정보 수정) 버튼을 표시합니다. 대상·지원 내용·신청 기간과 미확인 정보 안내는 공고를 판단하는 데 필요하므로 유지합니다.
 
-`HomeBanner({children,easy,onCalendar})`는 기존 추천 안내를 첫 배너로 유지하고 공고 캘린더
+`HomeBanner({children,easy,onCalendar})`는 일반 화면에서만 사용하며 기존 추천 안내를 첫 배너로 유지하고 공고 캘린더
 홍보를 두 번째 배너로 제공합니다. 8초 간격 자동 전환, 이전/다음·배너 선택·일시정지를
 지원합니다. 마우스를 올리거나 탭이 숨겨지면 자동 전환이 잠시 멈추고, 키보드로 배너에
 진입하거나 직접 넘기면 멈춘 상태를 유지합니다. 동작 줄이기 설정은 자동 전환을 기본 중지합니다.
 캘린더 보기 버튼은 `onCalendar`로 이동합니다. 배너의 달력 그림은 장식이며 실제 공고 일정이 아닙니다.
+# 2026-10-06 공고 조건 비교 추천 연결
+
+추천 API는 현재 서버에 구현되어 있습니다. `.recommend(profile,{signal?,financialProfile?})`는
+쿠키와 X-Auth-Request:1을 보내며 회원 지역·나이·성별은 서버 DB값을 사용합니다. 비회원은
+요청값을 사용합니다. 금융 원입력은 기존처럼 별도로 사용을 선택했을 때에만 전달합니다.
+반환 items의 matching에 조건별 비교/근거/확인사항을 보존하고 홈에는 서버 reason을 표시합니다.
+로그인 계정이 바뀌면 기존 요청을 취소하고 다시 조회합니다. LLM 추천 이유 학습은 후속입니다.
+[실제 서버 계약·저장 구조](../../../../../backend/docs/member-policy-matching.md).
+

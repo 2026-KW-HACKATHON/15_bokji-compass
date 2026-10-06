@@ -36,6 +36,18 @@ def test_parse_kwangwoon_notice_extracts_title_date_and_body() -> None:
     assert "이 내용은 저장하지 않습니다." not in text
 
 
+def test_parse_kwangwoon_board_excludes_navigation_but_keeps_nested_body_and_date():
+    html = """<nav>[메뉴] 관련 없는 메뉴</nav>
+    <div class="extra board-view-box"><h2>[등록/장학] 장학생 선발 안내</h2>
+    <div>작성일 2026.10.06</div><div><p>장학금 지급 : 12월 초 지급 예정</p></div>
+    <script>숨겨진 코드</script></div><footer>다른 공고와 사이트 안내</footer>"""
+    title, text, published_at = parse_kwangwoon_notice(html)
+    assert title == "[등록/장학] 장학생 선발 안내"
+    assert published_at == "2026-10-06"
+    assert "장학금 지급 : 12월 초 지급 예정" in text
+    assert all(value not in text for value in ("메뉴", "사이트 안내", "숨겨진 코드"))
+
+
 def test_collect_kwangwoon_notice_stores_parsed_document(tmp_path: Path) -> None:
     response = type(
         "Response",

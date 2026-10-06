@@ -4,10 +4,48 @@ from datetime import date
 
 from sqlalchemy import and_, func, or_, select
 
+from app.modules.presentation.public import format_notice_text, payment_schedule
 from app.modules.storage.application_dates import (
     application_schedule,
     resolved_application_period,
 )
+
+# UI labels differ from the names used in published overview text. Do not expand
+# these to bare district names: e.g. both Seoul and Busan have a Gangseo-gu.
+REGION_NAMES = {
+    "서울": ("서울특별시", "서울시"),
+    "경기": ("경기도",),
+    "인천": ("인천광역시", "인천시"),
+    "부산": ("부산광역시", "부산시"),
+    "대구": ("대구광역시", "대구시"),
+    "광주": ("광주광역시",),
+    "대전": ("대전광역시", "대전시"),
+    "울산": ("울산광역시", "울산시"),
+    "세종": ("세종특별자치시", "세종시"),
+    "강원": ("강원특별자치도", "강원도"),
+    "충북": ("충청북도",),
+    "충남": ("충청남도",),
+    "전북": ("전북특별자치도", "전라북도"),
+    "전남": ("전라남도",),
+    "경북": ("경상북도",),
+    "경남": ("경상남도",),
+    "제주": ("제주특별자치도", "제주도", "제주시", "서귀포시"),
+}
+AUDIENCE_TERMS = {
+    "청년": ("청년",),
+    "가족": ("가족", "가구", "부모", "자녀", "아동", "영유아", "신혼", "한부모", "양육", "출산"),
+    "어르신": ("어르신", "노인", "고령", "시니어"),
+}
+
+
+def region_matches(text, region):
+    # Short province labels must be standalone; '광주' must not match 경기 광주시.
+    if region in REGION_NAMES:
+        return or_(
+            text.regexp_match(r"(^|[^가-힣])" + region + r"([^가-힣]|$)"),
+            *(text.contains(name, autoescape=True) for name in REGION_NAMES[region]),
+        )
+    return text.contains(region, autoescape=True)
 
 
 def published_catalog(repository):
@@ -62,11 +100,14 @@ def card(record):
         "revisionId": record["revision_id"],
         "title": source["title"],
         "organization": source["organization"],
-        "summary": fields.get("purpose_summary") or section(
-            "benefits", fields.get("benefits") or "지원 내용 확인 필요"),
-        "benefit": section("benefits", fields.get("benefits") or "지원 내용 확인 필요"),
-        "region": section("region_conditions", "지역 확인 필요"),
-        "audience": section("age_conditions", "지원 대상 확인 필요"),
+        "summary": format_notice_text(section(
+            "benefits", fields.get("purpose_summary") or fields.get("benefits")
+            or "지원 내용 확인 필요")),
+        "benefit": format_notice_text(section("benefits", fields.get("benefits")
+                                               or "지원 내용 확인 필요")),
+        "region": format_notice_text(section("region_conditions", "지역 확인 필요")),
+        "audience": format_notice_text(section("age_conditions", "지원 대상 확인 필요")),
+        "paymentSchedule": payment_schedule(fields),
         "applicationPeriod": period or "공식 공고에서 확인",
         **application_schedule(period),
         "date": record["created_at"].date().isoformat(),
@@ -97,17 +138,25 @@ def filtered_catalog(repository, *, q="", category="", region="", audience="", t
             or_(
                 and_(
                     region_status == "specified",
-                    json_text(catalog.c.draft_json, "$.overview.region_conditions.text").contains(
-                        region, autoescape=True
+                    region_matches(
+                        json_text(catalog.c.draft_json, "$.overview.region_conditions.text"), region
                     ),
                 ),
                 region_status == "unrestricted",
             )
         )
     if audience and audience != "전체":
+        age_status = json_text(catalog.c.draft_json, "$.overview.age_conditions.status")
+        age_text = json_text(catalog.c.draft_json, "$.overview.age_conditions.text")
+        # Household/parenting conditions belong to other_conditions, not age_conditions.
+        other_text = json_text(catalog.c.draft_json, "$.overview.other_conditions[*].text")
+        terms = AUDIENCE_TERMS.get(audience, (audience,))
         query = query.where(
-            json_text(catalog.c.draft_json, "$.overview.age_conditions.text").contains(
-                audience, autoescape=True
+            or_(
+                and_(age_status.in_(("specified", "unrestricted")), or_(
+                    *(age_text.contains(term, autoescape=True) for term in terms)
+                )),
+                or_(*(other_text.contains(term, autoescape=True) for term in terms)),
             )
         )
     return catalog, query

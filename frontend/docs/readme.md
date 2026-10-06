@@ -4,6 +4,7 @@
 
 - [웹 실행·검증](../web/readme.md)
 - [모바일 앱 실행·검증](../mobile/readme.md)
+- [Android 릴리스 APK 빌드·서명·EAS 설정](android-release.md)
 - [node-forge 서명 검증 취약점 수정·설치 검사](node-forge-security-fix.md)
 - [Android·iOS 이식 기록](mobile-migration.md)
 - [구조와 Android/iOS 확장](architecture.md)

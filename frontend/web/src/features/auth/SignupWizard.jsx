@@ -5,6 +5,7 @@ import { authRequest } from './authApi.js';
 import { genders, memberFieldError } from './authFields.js';
 import PasswordInput from './PasswordInput.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
+import AuthLayout from './AuthLayout.jsx';
 
 const initialFields = {
   username: '',
@@ -40,7 +41,7 @@ const titles = {
 const regularGroups = ['아이디', '비밀번호', '기본 정보', '가입 확인'];
 const regionOptions = regions.filter((region) => region !== '전국');
 
-export default function SignupWizard({ outcome }) {
+export default function SignupWizard({ outcome, easy }) {
   const [step, setStep] = useState('method');
   const [fields, setFields] = useState(initialFields);
   const [checkedUsername, setCheckedUsername] = useState('');
@@ -204,17 +205,17 @@ export default function SignupWizard({ outcome }) {
   }
   const buttonText = step === 'review' ? '회원가입' : '다음';
   const submitDisabled = Boolean(busy) || kakaoBusy || (step === 'username' && !usernameChecked);
+  const kakaoMethod = step === 'method' && (
+    <KakaoLogin
+      busy={Boolean(busy) || kakaoBusy}
+      onBusy={setKakaoBusy}
+      onError={showError}
+      label="카카오톡으로 로그인/회원가입하기"
+    />
+  );
   return (
-    <section className="auth-page signup-page">
-      <a className="back-link" href="#home">
-        ← 홈으로 돌아가기
-      </a>
-      <div className="auth-card auth-card-signup">
-        <span className="round-icon">
-          <Icon name="user" size={28} />
-        </span>
-        <h1>회원가입</h1>
-        <p>한 단계씩 입력하면 가입이 완료돼요.</p>
+    <AuthLayout type="signup" title="회원가입" description="한 단계씩 입력하면 가입이 완료돼요.">
+      <div className="signup-page">
         {complete ? (
           <div ref={completeRef} tabIndex={-1}>
             <p role="status" className="notice-box">
@@ -255,14 +256,7 @@ export default function SignupWizard({ outcome }) {
                 {busy === 'username' ? '아이디를 확인하는 중입니다…' : '가입하는 중입니다…'}
               </p>
             )}
-            {step === 'method' && (
-              <KakaoLogin
-                busy={Boolean(busy) || kakaoBusy}
-                onBusy={setKakaoBusy}
-                onError={showError}
-                label="카카오톡으로 로그인/회원가입하기"
-              />
-            )}
+            {!easy && kakaoMethod}
             <fieldset className="auth-fields" disabled={Boolean(busy) || kakaoBusy}>
               {step === 'method' && (
                 <div className="signup-methods">
@@ -412,6 +406,7 @@ export default function SignupWizard({ outcome }) {
                 </div>
               )}
             </fieldset>
+            {easy && kakaoMethod}
           </form>
         )}
         {!complete && (
@@ -420,6 +415,6 @@ export default function SignupWizard({ outcome }) {
           </p>
         )}
       </div>
-    </section>
+    </AuthLayout>
   );
 }

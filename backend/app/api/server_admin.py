@@ -1,7 +1,9 @@
 """Backend-served console with a separate cookie and fresh superadmin checks."""
 
+import subprocess
 from typing import Annotated
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
@@ -14,6 +16,8 @@ from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import admin_role
 from app.modules.auth.service import SESSION_SECONDS
 from app.modules.server_admin import public as console
+from app.modules.server_admin import runtime
+from app.modules.server_admin.operations import OperationError, RunInput, scheduler
 from app.modules.server_admin.settings import (
     SettingsConflict,
     SettingsInputError,
@@ -174,3 +178,75 @@ def collection_view(kind: str, request: Request, user: Admin,
         return console.read_collection(request.app.state, kind, limit=limit)
     except (SQLAlchemyError, ValueError, RuntimeError):
         raise HTTPException(503, "공고 MySQL 연결과 수집 스키마 초기화를 확인해 주세요.") from None
+
+
+@router.get("/operations")
+def operations_view(request: Request, user: Admin):
+    return request.app.state.server_operations.snapshot()
+
+
+@router.post("/operations", status_code=202)
+def operation_start(data: RunInput, request: Request, user: Admin):
+    try:
+        return request.app.state.server_operations.start(request.app.state, data)
+    except OperationError as error:
+        messages = {
+            "operation_busy": "이미 실행 중인 작업이 있습니다. 완료 후 다시 실행해 주세요.",
+            "restart_required": "DB 설정이 변경되었습니다. 서버를 재시작한 뒤 실행해 주세요.",
+            "collection_disabled": "서버 설정에서 MySQL과 새 공고 수집 회차 허용을 켜 주세요.",
+            "database_disabled": "공고 수집에는 MySQL 설정과 서버 재시작이 필요합니다.",
+            "windows_required": "자동 수집 등록은 Windows 서버에서 사용할 수 있습니다.",
+            "schedule_configuration_mismatch": (
+                "자동 수집은 기본 .env 파일 설정을 사용합니다. "
+                "별도 설정 파일과 프로세스 환경변수를 확인해 주세요."),
+            "schedule_time_limit": "자동 수집의 회차 제한 시간을 600초 이하로 설정해 주세요.",
+        }
+        status = 409 if error.args[0] in {"operation_busy", "restart_required"} else 503
+        raise HTTPException(
+            status, messages.get(error.args[0], "작업을 시작하지 못했습니다.")) from None
+    except (ValueError, OSError, RuntimeError):
+        raise HTTPException(422, "실행 범위와 저장된 서버 설정을 확인해 주세요.") from None
+
+
+@router.get("/schedule")
+def schedule_view(request: Request, user: Admin):
+    try:
+        return scheduler("Status")
+    except (OperationError, OSError, subprocess.SubprocessError):
+        raise HTTPException(503, "Windows 자동 수집 작업 상태를 확인하지 못했습니다.") from None
+
+
+@router.get("/processes")
+def processes_view(request: Request, user: Admin):
+    try:
+        runtime.refresh_pending(request.app.state)
+        return runtime.status()
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        raise HTTPException(503, "프로젝트 프로세스 상태를 확인하지 못했습니다.") from None
+
+
+@router.post("/processes", status_code=202)
+def processes_control(data: runtime.ControlInput, request: Request, user: Admin):
+    try:
+        return runtime.start(request.app.state, data)
+    except runtime.RuntimeErrorCode as error:
+        messages = {
+            "collection_busy": "수집 작업이 실행 중입니다. 완료 후 백엔드를 제어해 주세요.",
+            "control_busy": "종료 또는 재시작 작업이 이미 진행 중입니다.",
+            "windows_required": "프로세스 제어는 Windows 서버에서 사용할 수 있습니다.",
+            "unmanaged_runtime": "개발 또는 운영 실행 BAT로 서버를 시작한 뒤 사용해 주세요.",
+        }
+        code = error.args[0]
+        raise HTTPException(409 if code in {"collection_busy", "control_busy"} else 503,
+                            messages.get(code, "프로세스 제어를 시작하지 못했습니다.")) from None
+    except (OSError, subprocess.SubprocessError):
+        raise HTTPException(503, "프로세스 제어를 시작하지 못했습니다.") from None
+
+
+@router.get("/processes/{job_id}")
+def process_job(job_id: UUID, request: Request, user: Admin):
+    try:
+        runtime.refresh_pending(request.app.state)
+        return {"operation": runtime.read_job(str(job_id))}
+    except runtime.RuntimeErrorCode:
+        raise HTTPException(404, "프로세스 제어 기록을 찾을 수 없습니다.") from None

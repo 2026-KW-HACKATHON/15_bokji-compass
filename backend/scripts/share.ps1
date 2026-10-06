@@ -177,6 +177,7 @@ $dist = (Join-Path $repoRoot 'frontend\web\dist').Replace('\', '/')
 try {
     & $caddy validate --config $config --adapter caddyfile
     if ($LASTEXITCODE -ne 0) { throw 'Caddy configuration is invalid' }
+    & (Join-Path $PSScriptRoot 'stop-dev.ps1')
     Start-OwnedProcess 'backend' $python ('"' + (Join-Path $PSScriptRoot 'share-server.py') + '"')
     Wait-Local 'http://127.0.0.1:8001/health'
     Start-QR

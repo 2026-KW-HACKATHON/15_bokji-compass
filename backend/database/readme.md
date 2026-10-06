@@ -1,5 +1,9 @@
 # MySQL 공고 저장 스키마
 
+2026-10-06 봉규 브랜치의 공고 seed SQL·JSON을 [seeds](seeds/readme.md)에 선택 복원했습니다.
+광운대 원문 190건과 공개 요약 표본 2건이며 자동 생성 스크립트가 아닌 고정 SQL 결과물입니다.
+서비스 DB에 적재하지 않았고 서버 시작 시 자동 실행하지 않습니다.
+
 공고 저장 스키마는 `backend`에서 `python -m app.modules.storage init`으로 초기화한다.
 DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중에는 DDL을 실행하지 않는다.
 실행·이관·재개 방법은 [저장소 운영 안내](../docs/policy-storage.md)를 참고한다.

@@ -12,6 +12,7 @@
 # Local credentials and private keys.
 secrets/
 credentials/
+credentials.json
 *.key
 *.pem
 *.p12

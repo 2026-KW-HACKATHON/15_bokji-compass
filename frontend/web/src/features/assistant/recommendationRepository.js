@@ -17,6 +17,7 @@ export function createRecommendationRepository({ mode, request, path = '/v1/reco
         },
         signal,
         timeoutMs: 30000,
+        authenticated: true,
       });
       if (
         !result ||
@@ -29,6 +30,7 @@ export function createRecommendationRepository({ mode, request, path = '/v1/reco
       const items = result.items.map((item) => ({
         policy: parsePolicy(item.policy),
         reason: item.reason,
+        matching: item.matching || null,
       }));
       if (new Set(items.map((item) => item.policy.id)).size !== items.length)
         throw new ApiError('추천 공고가 중복되었어요.', 'invalid_response');

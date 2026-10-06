@@ -8,6 +8,7 @@ import React, {
 import { createClient, resolveApiUrl } from "./client";
 import { createApi } from "./api";
 import { createSession } from "./session";
+import { createServerConnection } from "./serverConnection";
 import { sessionStorage } from "../platform/sessionStorage";
 import { AppState } from "react-native";
 
@@ -18,13 +19,15 @@ try {
 } catch (error) {
   configError = (error as Error).message;
 }
-const api = createApi(createClient({ baseUrl }));
+const connection = createServerConnection(createClient({ baseUrl }));
+const api = createApi(connection.request);
 const session = createSession({ api, storage: sessionStorage, baseUrl });
 const Runtime = createContext({
   api,
   session,
   baseUrl,
   configError,
+  connection,
   easy: false,
   setEasy: (_value: boolean) => {},
 });
@@ -42,13 +45,33 @@ export function RuntimeProvider({ children }: React.PropsWithChildren) {
     return () => listener.remove();
   }, []);
   useEffect(() => {
+    if (configError) return;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const check = () => { void connection.check().catch(() => {}); };
+    const update = (active: boolean) => {
+      clearInterval(timer);
+      timer = undefined;
+      if (active) {
+        check();
+        timer = setInterval(check, 30000);
+      } else connection.cancelCheck();
+    };
+    update(AppState.currentState !== "background" && AppState.currentState !== "inactive");
+    const listener = AppState.addEventListener("change", (next) => update(next === "active"));
+    return () => {
+      clearInterval(timer);
+      listener.remove();
+      connection.cancelCheck();
+    };
+  }, []);
+  useEffect(() => {
     if (auth.status !== "signedIn" || !auth.token) return;
     const timer = setTimeout(() => void session.invalidate(auth.token), Math.max(0, auth.expiresAt - Date.now()));
     return () => clearTimeout(timer);
   }, [auth.status, auth.token, auth.expiresAt]);
   return (
     <Runtime.Provider
-      value={{ api, session, baseUrl, configError, easy, setEasy }}
+      value={{ api, session, baseUrl, configError, connection, easy, setEasy }}
     >
       {children}
     </Runtime.Provider>
@@ -56,6 +79,9 @@ export function RuntimeProvider({ children }: React.PropsWithChildren) {
 }
 export function useRuntime() {
   return useContext(Runtime);
+}
+export function useServerConnection() {
+  return useSyncExternalStore(connection.subscribe, connection.getSnapshot, connection.getSnapshot);
 }
 export function useSession() {
   return useSyncExternalStore(

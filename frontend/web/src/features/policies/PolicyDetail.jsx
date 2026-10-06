@@ -38,7 +38,7 @@ export default function PolicyDetail({
       </div>
       <p className="modal-description">{policy.summary}</p>
       <div className="detail-highlight">
-        <h3>{easy ? '지원 내용' : '어떤 도움을 받을 수 있나요?'}</h3>
+        <h3>지원 내용</h3>
         <p>{policy.benefit}</p>
       </div>
       {easy && (
@@ -51,11 +51,23 @@ export default function PolicyDetail({
             <dt>신청 기간</dt>
             <dd>{policy.applicationPeriod || '공식 공고에서 확인'}</dd>
           </div>
+          {policy.paymentSchedule && (
+            <div>
+              <dt>지급 시기</dt>
+              <dd>{policy.paymentSchedule}</dd>
+            </div>
+          )}
         </dl>
       )}
       <details className="detail-more" open={easy ? undefined : true}>
         <summary>{easy ? '담당 기관 확인' : '기관과 신청 정보 보기'}</summary>
         <dl className="policy-detail">
+          {!easy && policy.paymentSchedule && (
+            <div>
+              <dt>지급 시기</dt>
+              <dd>{policy.paymentSchedule}</dd>
+            </div>
+          )}
           <div>
             <dt>담당 기관</dt>
             <dd>{policy.organization}</dd>

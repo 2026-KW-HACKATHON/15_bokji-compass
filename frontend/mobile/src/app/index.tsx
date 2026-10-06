@@ -13,14 +13,14 @@ import { HomeBanner } from "../features/home/HomeBanner";
 import { useRuntime } from "../services/runtime";
 
 export default function Home() {
-  const { api, configError, easy } = useRuntime();
+  const { connection, configError, easy } = useRuntime();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   async function check() {
     setBusy(true);
     setMessage("");
     try {
-      await api.health();
+      await connection.check();
       setMessage("서버에 연결됐습니다.");
     } catch (error) {
       setMessage((error as Error).message);

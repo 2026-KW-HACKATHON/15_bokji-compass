@@ -4,7 +4,10 @@
   const $ = (id) => document.getElementById(id);
   const state = { user: null, view: "overview", collectionTab: "status", settings: null, overview: null, generation: 0, saving: false };
   const controls = new Map();
-  const viewLabels = { overview: "서버 개요", collection: "데이터 수집", settings: "서버 설정" };
+  const viewLabels = { overview: "서버 개요", processes: "서버·프론트 제어", operations: "수집 실행", collection: "데이터 수집", settings: "서버 설정" };
+  let controlTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
+  let operationTimer = null, operationLoading = false, operationSubmitting = false, operationActive = false;
+  const runFields = ["page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls", "max_model_calls", "max_tokens"];
   const providerLabels = { bokjiro: "복지로", gov24: "정부24", notice: "외부 공고 원문", model: "Codex 모델" };
   const statusLabels = { completed: "완료", budget_reached: "처리 한도 도달", busy: "작업 중", failed: "실패", paused: "대기", pending: "대기", running: "처리 중", done: "완료", dead: "재확인 필요", needs_review: "검토 대기", queued: "수집 대기", disabled: "비활성", reachable: "연결 확인", unavailable: "확인 필요" };
   const groupLabels = {
@@ -86,6 +89,7 @@
   }
   function errorMessage(error) {
     if (error.code === "session_changed") return "";
+    if (error.code && !["connection_failed"].includes(error.code) && error.status >= 400 && error.status !== 401 && error.status !== 403) return error.code;
     if (error.status === 401) return "아이디 또는 비밀번호를 확인하세요.";
     if (error.status === 403) return "최고관리자 계정으로 로그인하세요.";
     if (error.status === 409) return "다른 곳에서 설정이 변경되었습니다. 최신 설정을 불러온 뒤 다시 수정하세요.";
@@ -121,6 +125,14 @@
     finally { window.clearTimeout(timer); }
   }
   function showLogin(text = "") {
+    window.clearTimeout(controlTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
+    message("process-message", ""); $("process-job-result").replaceChildren();
+    window.clearTimeout(operationTimer); operationTimer = null; operationActive = false; operationSubmitting = false;
+    state.runInitialized = false; state.runPresets = null;
+    $("operation-result").replaceChildren(); message("operation-message", "");
+    $("run-readiness").replaceChildren(); $("schedule-status").textContent = "자동 수집 상태를 불러오는 중";
+    $("schedule-detail").textContent = "Windows 작업 스케줄러로 10분마다 실행합니다.";
+    $("schedule-enable").hidden = true; $("schedule-remove").hidden = true;
     state.generation += 1; state.user = null; state.settings = null; state.overview = null; state.saving = false; controls.clear();
     $("console-screen").hidden = true; $("login-screen").hidden = false;
     $("password").value = ""; $("password").type = "password";
@@ -269,7 +281,167 @@
     catch (error) { if (state.user) { message("settings-message", errorMessage(error), "error"); if (error.status === 409) { const reload = element("button", "button button-secondary", "최신 설정 불러오기"); reload.type = "button"; reload.addEventListener("click", loadSettings); $("settings-message").append(reload); } } }
     finally { setSaving(false); }
   }
-  function selectView(view, load = true) { state.view = view; for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "collection") loadCollection(); if (view === "settings" && !state.settings) loadSettings(); } }
+  const operationNames = { check: "DB 준비 확인", tick: "공고 수집", seed: "기존 공고 연결", "schedule-enable": "자동 수집 등록", "schedule-remove": "자동 수집 해제" };
+  const operationReasons = { collection_disabled: "새 수집 회차가 꺼져 있습니다.", another_worker: "다른 수집 작업이 실행 중입니다. 완료 후 다시 실행하세요.", operation_failed: "작업을 완료하지 못했습니다. DB 연결, 모델 로그인 또는 Windows 작업 권한을 확인하세요.", http_calls: "HTTP 호출 한도에 도달했습니다.", model_calls: "모델 호출 한도에 도달했습니다.", tokens: "토큰 한도에 도달했습니다.", deadline: "이번 회차의 제한 시간이 지났습니다.", memory: "사용 가능한 메모리가 부족합니다.", disk: "저장 공간이 부족합니다." };
+  function updateOperationButtons() {
+    for (const button of document.querySelectorAll("[data-operation], #run-submit")) button.disabled = operationActive || operationSubmitting;
+  }
+  function renderOperation(operation) {
+    const container = $("operation-result"); container.replaceChildren(); operationActive = operation?.status === "running";
+    updateOperationButtons();
+    if (!operation) { empty(container, "첫 수집을 시작해 보세요", "DB 준비를 확인하고 원문 수집부터 실행하세요. 실행 결과는 이곳에 표시됩니다."); return; }
+    const result = operation.result || {}, running = operationActive;
+    const header = element("div", "operation-result-heading"); header.append(element("strong", "", operationNames[operation.action] || "수집 작업"), badge(running ? "실행 중" : statusLabels[result.status] || ({ database_ready: "DB 준비 완료" }[result.status]) || "작업 종료", operation.status === "failed" || result.error_count ? "warn" : "")); container.append(header);
+    container.append(element("p", "operation-caption", `${date(operation.started_at)} 시작${operation.finished_at ? ` · ${date(operation.finished_at)} 종료` : " · 완료될 때까지 자동으로 상태를 확인합니다."}`));
+    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode("서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); return; }
+    const metrics = element("div", "operation-result-grid");
+    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["http_calls", "HTTP 호출"], ["model_calls", "모델 호출"], ["tokens", "보고된 토큰"], ["error_count", "발생 오류"], ["indexed", "연결 공고"]]) {
+      if (result[key] != null && (key !== "error_count" || result[key])) { const item = element("div"); item.append(element("span", "", label), element("strong", "", number(result[key]))); metrics.append(item); }
+    }
+    if (metrics.childNodes.length) container.append(metrics);
+    if (result.reason) container.append(element("p", "operation-caption", operationReasons[result.reason] || "이번 회차가 제한 또는 준비 상태에 따라 종료되었습니다. 수집 현황에서 세부 상태를 확인하세요."));
+    if (result.status === "database_ready") container.append(element("p", "operation-caption", `MySQL과 수집 테이블 연결을 확인했습니다. 복지로 키 ${result.bokjiro_key_configured ? "등록" : "미등록"} · 정부24 키 ${result.gov24_key_configured ? "등록" : "미등록"}. 실제 API 응답과 Codex 로그인은 수집 실행에서 확인합니다.`));
+    if (result.complete === false) container.append(element("p", "operation-caption", "아직 연결할 공고가 남아 있습니다. 기존 공고 연결을 다시 실행하면 이어서 처리합니다."));
+    if (operation.action === "tick" && !result.model_calls) container.append(element("p", "operation-caption", "원문 수집과 AI 분석은 단계별로 진행됩니다. 대기 작업은 다음 분석 회차에서 이어서 처리합니다."));
+    if (result.schedule) renderSchedule(result.schedule);
+  }
+  function refreshRunSummary() {
+    const mode = $("run-mode").value, calls = Number($("run-max_model_calls").value) || 0;
+    $("run-summary").textContent = mode === "raw" ? "공공 API 목록만 수집합니다. AI 분석과 외부 검색은 실행하지 않습니다." : mode === "analysis" ? `대기 중인 상세·분석 작업을 최대 ${$("run-max_jobs").value}개 처리합니다. 모델은 최대 ${calls}회 호출하며 다음 회차에서 이어갈 수 있습니다.` : `직접 입력한 한도로 수집합니다. 모델 최대 ${calls}회 · 외부 검색은 저장된 서버 설정을 따릅니다.`;
+    for (const key of ["max_jobs", "max_model_calls", "max_tokens"]) $("run-" + key).disabled = mode === "raw";
+  }
+  function applyRunPreset(mode) {
+    const preset = state.runPresets?.[mode];
+    if (preset) for (const key of runFields) $("run-" + key).value = preset[key];
+    if (mode === "custom" && state.settings) for (const key of runFields) $("run-" + key).value = Math.min(key === "max_seconds" ? 600 : Infinity, state.settings.values["ingestion_" + key] ?? $("run-" + key).value);
+    refreshRunSummary();
+  }
+  function renderRunReadiness() {
+    const settings = state.settings, values = settings?.values || {};
+    const container = $("run-readiness"); container.replaceChildren();
+    container.append(badge(values.db_enabled ? "MySQL 사용" : "MySQL 설정 필요", values.db_enabled ? "" : "warn"), badge(values.ingestion_enabled ? "수집 허용" : "수집 꺼짐", values.ingestion_enabled ? "" : "warn"), badge(values.policy_auto_publish ? "검증 통과 후 자동 공개" : "검토용 초안 저장", "muted"));
+    $("run-publication-note").textContent = values.policy_auto_publish ? "현재 설정: 검증을 통과한 새 공고가 자동 공개됩니다." : "현재 설정: 분석 결과를 초안으로 저장합니다.";
+    if (settings?.restart_fields?.length) container.append(badge("DB 변경 · 재시작 필요", "warn"));
+  }
+  async function loadOperations() {
+    if (!state.user || operationLoading) return;
+    operationLoading = true; window.clearTimeout(operationTimer); $("refresh-operations").disabled = true;
+    try {
+      const data = await api("/operations"); if (!state.user) return;
+      const previous = operationActive; state.runPresets = data.presets;
+      renderOperation(data.operation); renderRunReadiness(); refreshed();
+      if (!state.runInitialized) { applyRunPreset($("run-mode").value); state.runInitialized = true; }
+      if (previous && !operationActive && state.view === "operations") loadSchedule();
+    } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
+    finally { operationLoading = false; $("refresh-operations").disabled = false; if (state.user && state.view === "operations") operationTimer = window.setTimeout(loadOperations, operationActive ? 2000 : 10000); }
+  }
+  function renderSchedule(data) {
+    const labels = { NotInstalled: "자동 수집이 등록되지 않았습니다", Ready: "자동 수집 대기 중", Running: "자동 수집 실행 중", Disabled: "자동 수집 비활성", unsupported: "Windows 서버에서 사용할 수 있습니다" };
+    $("schedule-status").textContent = labels[data.state] || "자동 수집 상태를 확인하세요";
+    $("schedule-detail").textContent = data.enabled ? "10분마다 실행 · 로그인 유지 · AC 전원 · MySQL 실행 필요" : data.state === "NotInstalled" ? "등록하면 현재 저장된 서버 설정으로 10분마다 처리합니다." : "상태를 확인한 뒤 자동 수집을 등록하거나 해제하세요.";
+    $("schedule-enable").hidden = data.supported === false || data.state !== "NotInstalled";
+    $("schedule-remove").hidden = data.supported === false || data.state === "NotInstalled";
+  }
+  async function loadSchedule() {
+    if (!state.user) return; $("refresh-schedule").disabled = true;
+    try { const data = await api("/schedule"); if (state.user) renderSchedule(data); }
+    catch (error) { if (state.user) { $("schedule-status").textContent = "자동 수집 상태를 확인하지 못했습니다"; $("schedule-detail").textContent = errorMessage(error); $("schedule-enable").hidden = true; $("schedule-remove").hidden = true; } }
+    finally { $("refresh-schedule").disabled = false; }
+  }
+  async function startOperation(action) {
+    if (!state.user || operationSubmitting || operationActive) return;
+    if (Object.keys(changes()).length) { message("operation-message", "서버 설정에 저장하지 않은 변경이 있습니다. 설정을 저장하거나 취소한 뒤 실행하세요.", "warn"); return; }
+    const body = { action };
+    if (action === "tick") {
+      if (!$("run-form").reportValidity()) return;
+      body.mode = $("run-mode").value;
+      for (const key of runFields) body[key] = Number($("run-" + key).value);
+      if (body.mode === "raw") body.max_jobs = body.max_model_calls = body.max_tokens = 0;
+    }
+    operationSubmitting = true; updateOperationButtons(); message("operation-message", "");
+    try { const data = await api("/operations", { method: "POST", body }); if (!state.user) return; renderOperation(data.operation); message("operation-message", `${operationNames[action]}을 시작했습니다.`); loadOperations(); }
+    catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); loadOperations(); } }
+    finally { operationSubmitting = false; updateOperationButtons(); }
+  }
+  const processTargets = { backend: "백엔드", frontend: "프론트", all: "백엔드와 프론트" };
+  function updateProcessButtons() {
+    for (const button of document.querySelectorAll("[data-process-target]")) {
+      const target = button.dataset.processTarget;
+      const allowed = processState?.supported && processState.mode !== "unmanaged" && processState.mode !== "unsupported";
+      button.disabled = controlBusy || controlDisconnected || !allowed || target === "frontend" && button.dataset.processAction === "stop" && !processState?.frontend?.running;
+    }
+  }
+  function renderProcessJob(job) {
+    const container = $("process-job-result"); container.replaceChildren(); if (!job) return;
+    const labels = { accepted: "접수 완료", running: "처리 중", completed: "완료", failed: "실패" };
+    container.append(element("strong", "", `${processTargets[job.target] || "서비스"} ${job.action === "restart" ? "재시작" : "종료"} · ${labels[job.status] || "상태 확인"}`), element("p", "operation-caption", `${date(job.started_at)} 요청${job.finished_at ? ` · ${date(job.finished_at)} 종료` : ""}`));
+    if (job.status === "failed") {
+      const errors = { process_identity_changed: "실행 프로세스가 바뀌어 작업을 중단했습니다. 상태를 새로 확인하세요.", startup_failed: "다시 실행한 서비스가 준비되지 않았습니다. 서버 실행 로그와 포트 사용 여부를 확인하세요.", runtime_missing: "실행 파일 또는 프론트 의존성이 없습니다. 서버 환경을 확인하세요.", configuration_invalid: "운영 프론트 설정을 확인해 주세요.", unmanaged_runtime: "프로젝트 실행 BAT로 서버를 시작한 뒤 사용하세요." };
+      container.append(element("p", "operation-caption", errors[job.error_code] || "작업을 완료하지 못했습니다. 서버의 프로세스 제어 로그와 실행 권한을 확인하세요."));
+    }
+  }
+  async function loadProcesses() {
+    if (!state.user) return; $("refresh-processes").disabled = true;
+    try {
+      const data = await api("/processes"); if (!state.user) return;
+      processState = data; controlDisconnected = false;
+      $("process-mode").textContent = { development: "개발 서버 · Vite 프론트", shared: "운영 서버 · 웹·QR 프론트", unmanaged: "프로젝트 실행기로 시작해 주세요", unsupported: "Windows 서버에서 사용 가능합니다" }[data.mode] || "실행 환경 확인 필요";
+      $("process-backend-status").textContent = data.backend?.running ? "실행 중" : "상태 확인 필요";
+      $("process-frontend-status").textContent = data.frontend?.running ? "실행 중" : "중지됨";
+      renderProcessJob(data.operation); updateProcessButtons(); refreshed();
+      if (!controlBusy && ["accepted", "running"].includes(data.operation?.status)) {
+        controlBusy = true; updateProcessButtons(); window.clearTimeout(controlTimer);
+        pollProcessJob(data.operation, Date.now(), state.generation);
+      }
+    } catch (error) { if (state.user) message("process-message", errorMessage(error), "error"); }
+    finally { $("refresh-processes").disabled = false; }
+  }
+  async function pollProcessJob(job, started, generation) {
+    if (!state.user || state.generation !== generation) return;
+    const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 3000);
+    let retry = false;
+    try {
+      const response = await fetch(`/v1/server-admin/processes/${encodeURIComponent(job.id)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+      if (state.generation !== generation) return;
+      if (response.status === 401 || response.status === 403) { showLogin("서버가 다시 연결되었습니다. 관리자 계정으로 로그인하세요."); return; }
+      if (!response.ok) throw new Error("unavailable");
+      const data = await response.json(); if (state.generation !== generation) return; renderProcessJob(data.operation);
+      retry = ["accepted", "running"].includes(data.operation.status);
+      if (!retry) {
+        controlBusy = false; controlDisconnected = false; updateProcessButtons();
+        message("process-message", data.operation.status === "completed" ? `${processTargets[job.target]} ${job.action === "restart" ? "재시작" : "종료"} 작업이 완료되었습니다.` : "작업을 완료하지 못했습니다. 아래 결과를 확인하세요.", data.operation.status === "failed" ? "error" : "");
+        loadProcesses();
+      }
+    } catch {
+      if (state.generation !== generation) return;
+      controlDisconnected = true; updateProcessButtons();
+      if (job.action === "stop" && job.target !== "frontend") {
+        controlBusy = false;
+        message("process-message", "백엔드 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
+      } else {
+        retry = true; message("process-message", "서비스를 다시 실행하는 중입니다. 백엔드 연결 복구를 기다리고 있습니다.");
+      }
+    } finally {
+      window.clearTimeout(timer);
+      if (retry && state.user && state.generation === generation) {
+        if (Date.now() - started > 120000) { controlBusy = false; message("process-message", "연결 복구가 지연되고 있습니다. 실행 로그를 확인한 뒤 상태 확인을 눌러 주세요.", "warn"); }
+        else controlTimer = window.setTimeout(() => pollProcessJob(job, started, generation), 1500);
+      }
+    }
+  }
+  async function startProcessControl(target, action) {
+    if (!state.user || controlBusy) return;
+    if (Object.keys(changes()).length) { message("process-message", "서버 설정을 먼저 저장하거나 변경을 취소해 주세요.", "warn"); return; }
+    const effect = target === "frontend" ? "웹 서비스 연결이 잠시 끊길 수 있습니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
+    if (!window.confirm(`${processTargets[target]}를 ${action === "restart" ? "재시작" : "종료"}할까요?\n\n${effect}`)) return;
+    controlBusy = true; updateProcessButtons(); message("process-message", "명령을 전달하는 중입니다.");
+    try {
+      const data = await api("/processes", { method: "POST", body: { target, action } }); if (!state.user) return;
+      renderProcessJob(data.operation); message("process-message", `${processTargets[target]} ${action === "restart" ? "재시작" : "종료"} 요청을 전달했습니다.`);
+      pollProcessJob(data.operation, Date.now(), state.generation);
+    } catch (error) { controlBusy = false; updateProcessButtons(); if (state.user) message("process-message", errorMessage(error), "error"); }
+  }
+  function selectView(view, load = true) { state.view = view; window.clearTimeout(operationTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "settings" && !state.settings) loadSettings(); } }
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault(); if (!$("login-form").reportValidity()) return; const button = $("login-submit"); button.disabled = true; button.querySelector("span").textContent = "로그인 중"; message("login-message", "");
@@ -280,6 +452,15 @@
   $("toggle-password").addEventListener("click", () => { const visible = $("password").type === "password"; $("password").type = visible ? "text" : "password"; $("toggle-password").setAttribute("aria-pressed", String(visible)); $("toggle-password").setAttribute("aria-label", visible ? "비밀번호 숨기기" : "비밀번호 표시"); });
   $("logout-button").addEventListener("click", async () => { $("logout-button").disabled = true; try { await api("/logout", { method: "POST", body: {} }); showLogin(); $("username").focus(); } catch (error) { if (state.user) message("global-message", errorMessage(error), "error"); } finally { $("logout-button").disabled = false; } });
   for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => selectView(button.dataset.view));
+  for (const button of document.querySelectorAll("[data-process-target]")) button.addEventListener("click", () => startProcessControl(button.dataset.processTarget, button.dataset.processAction));
+  $("refresh-processes").addEventListener("click", loadProcesses);
+  $("run-mode").addEventListener("change", () => applyRunPreset($("run-mode").value));
+  $("run-form").addEventListener("input", refreshRunSummary);
+  $("run-form").addEventListener("submit", (event) => { event.preventDefault(); startOperation("tick"); });
+  for (const button of document.querySelectorAll("[data-operation]")) button.addEventListener("click", () => startOperation(button.dataset.operation));
+  $("refresh-operations").addEventListener("click", loadOperations);
+  $("refresh-schedule").addEventListener("click", loadSchedule);
+  $("open-run-settings").addEventListener("click", () => selectView("settings"));
   for (const button of document.querySelectorAll("[data-collection]")) button.addEventListener("click", () => { state.collectionTab = button.dataset.collection; for (const item of document.querySelectorAll("[data-collection]")) { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-selected", String(active)); } $("collection-content").setAttribute("aria-labelledby", button.id); loadCollection(); });
   document.querySelector(".tab-bar").addEventListener("keydown", (event) => { const tabs = [...document.querySelectorAll("[data-collection]")]; const current = tabs.indexOf(document.activeElement); if (current < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; tabs[next].focus(); tabs[next].click(); });
   $("refresh-overview").addEventListener("click", loadOverview); $("refresh-collection").addEventListener("click", loadCollection); $("settings-form").addEventListener("submit", saveSettings); $("reset-settings").addEventListener("click", () => { renderSettings(); message("settings-message", ""); });

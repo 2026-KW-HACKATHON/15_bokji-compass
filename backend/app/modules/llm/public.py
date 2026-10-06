@@ -100,6 +100,12 @@ condition_type이나 상태값을 만들지 마라. 반환 JSON은 아래 MySQL 
 condition_type ENUM('age','birth_region','residence_region','gender','other'),
 information_state ENUM('specified','unrestricted','unknown','not_stated'), evidence_text TEXT.
 혜택은 지원 내용·금액·주기를 원문에 있는 범위에서 요약하고 자격 확정으로 표현하지 마라.
+혜택과 조건의 text는 공고체의 짧은 명사형 문구로 정리한다. '~이다', '~예정이다',
+'~한다' 같은 보고서 말투 대신 '장학생 선발', '장학금 지급 예정', '지원 대상: 재학생'
+형태를 쓴다. 금액·비율·기간·상한·제외 조건과 '예정', '이후', '가능' 같은 불확실성은
+생략하거나 확정 표현으로 바꾸지 않는다. 여러 지원 내용은 짧은 항목으로 나눠 쓴다.
+지급 시기는 신청 기간과 구분해 '지급 시기: 12월 초(예정)'처럼 원문 범위 안에서만 적는다.
+표현을 다듬더라도 evidence.quote와 policy_requirements.evidence_text는 원문 그대로 유지한다.
 category_reason은 주된 지원 내용을 근거로 간단히 쓴다. category_evidence와 각 evidence의
 source_field은 입력의 title, organization 또는 fields 안의 필드명이어야 하며 quote는
 해당 원문 필드에 실제로 있는 연속된 부분 문자열이어야 한다.

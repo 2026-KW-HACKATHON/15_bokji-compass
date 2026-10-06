@@ -1,5 +1,6 @@
 """ASGI entrypoint: app.main:app. Imports do not connect to MySQL."""
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,11 +23,13 @@ from app.api.kakao_auth import router as kakao_auth_router
 from app.api.mobile_auth import router as mobile_auth_router
 from app.api.notifications import router as notifications_router
 from app.api.policies import router as policies_router
+from app.api.recommendations import router as recommendations_router
 from app.api.server_admin import pages as server_admin_pages
 from app.api.server_admin import router as server_admin_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_database_engine
 from app.modules.auth.privacy import PrivacyError
+from app.modules.server_admin.operations import Operations
 from app.modules.server_admin.public import configuration_path
 
 
@@ -40,6 +43,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
         try:
             yield
         finally:
+            await asyncio.to_thread(application.state.server_operations.close)
             if application.state.auth_engine is not None:
                 application.state.auth_engine.dispose()
             if engine is not None:
@@ -49,6 +53,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.settings = configuration
     application.state.server_config_path = config_path or configuration_path()
     application.state.server_config_lock = RLock()
+    application.state.server_operations = Operations()
     application.state.server_started_at = time.time()
     application.state.auth_service = None
     application.state.auth_engine = None
@@ -81,7 +86,9 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(SQLAlchemyError)
     async def safe_database_error(request, exc):
-        if request.url.path.startswith(("/v1/policies", "/v1/assistant/", "/v1/admin/policies")):
+        if request.url.path.startswith(
+            ("/v1/policies", "/v1/assistant/", "/v1/admin/policies", "/v1/recommendations")
+        ):
             return JSONResponse(
                 status_code=503,
                 content={
@@ -101,6 +108,12 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
+        if request.url.path.startswith("/v1/recommendations"):
+            return JSONResponse(
+                status_code=422,
+                content={"detail": "추천 정보와 금융정보 사용 선택을 확인해 주세요."},
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/server-admin/"):
             return JSONResponse(
                 status_code=422,
@@ -161,6 +174,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
                 "/v1/mobile/notifications/",
                 "/v1/assistant/",
                 "/v1/policies",
+                "/v1/recommendations",
                 "/v1/admin/",
                 "/v1/server-admin/",
             )
@@ -191,6 +205,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.include_router(finance_router)
     application.include_router(policies_router)
     application.include_router(assistant_router)
+    application.include_router(recommendations_router)
     return application
 
 

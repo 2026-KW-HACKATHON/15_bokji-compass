@@ -13,24 +13,31 @@ param(
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$')]
     [string]$TaskName = 'BokjiCompass-Ingestion',
     [string]$PythonExecutable = '',
-    [switch]$EnableLiveCollection
+    [switch]$EnableLiveCollection,
+    [switch]$Json
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Json) { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) }
+function Write-TaskResult {
+    param($Value)
+    if ($Json) { ConvertTo-Json -InputObject $Value -Compress -Depth 4 }
+    else { Write-Output $Value }
+}
 $backendPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $taskDescription = "BokjiCompass managed ingestion task; workspace=$backendPath"
 $task = Get-ScheduledTask -TaskName $TaskName -TaskPath '\' -ErrorAction SilentlyContinue
 
 if ($Action -eq 'Status') {
     if ($null -eq $task) {
-        Write-Output ([pscustomobject]@{ TaskName = $TaskName; State = 'NotInstalled' })
+        Write-TaskResult ([pscustomobject]@{ TaskName = $TaskName; State = 'NotInstalled' })
         exit 0
     }
     if ($task.Description -ne $taskDescription) {
         throw 'The task name belongs to a different workspace. Choose another TaskName.'
     }
     $info = Get-ScheduledTaskInfo -TaskName $TaskName -TaskPath '\'
-    Write-Output ([pscustomobject]@{
+    Write-TaskResult ([pscustomobject]@{
         TaskName = $TaskName
         State = $task.State
         LiveCollectionEnabled = [bool]$task.Settings.Enabled
@@ -45,14 +52,14 @@ if ($Action -eq 'Status') {
 
 if ($Action -eq 'Remove') {
     if ($null -eq $task) {
-        Write-Output 'Task is not installed.'
+        Write-TaskResult ([pscustomobject]@{ State = 'NotInstalled'; LiveCollectionEnabled = $false })
         exit 0
     }
     if ($task.Description -ne $taskDescription) {
         throw 'The task name belongs to a different workspace; no task was removed.'
     }
     Unregister-ScheduledTask -TaskName $TaskName -TaskPath '\' -Confirm:$false
-    Write-Output 'Project ingestion task removed. No collected data was removed.'
+    Write-TaskResult ([pscustomobject]@{ State = 'NotInstalled'; LiveCollectionEnabled = $false })
     exit 0
 }
 
@@ -86,7 +93,7 @@ $settings.Enabled = [bool]$EnableLiveCollection
 $definition = New-ScheduledTask -Action $taskAction -Trigger $trigger -Principal $principal `
     -Settings $settings -Description $taskDescription
 Register-ScheduledTask -TaskName $TaskName -TaskPath '\' -InputObject $definition | Out-Null
-Write-Output ([pscustomobject]@{
+Write-TaskResult ([pscustomobject]@{
     TaskName = $TaskName
     LiveCollectionEnabled = [bool]$EnableLiveCollection
     ExecutionUser = $executionUser

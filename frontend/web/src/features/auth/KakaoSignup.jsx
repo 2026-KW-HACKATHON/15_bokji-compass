@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Icon from '../../shared/ui/Icon.jsx';
+import AuthLayout from './AuthLayout.jsx';
 import { authRequest } from './authApi.js';
 
 export default function KakaoSignup({ onLogin }) {
@@ -54,46 +54,43 @@ export default function KakaoSignup({ onLogin }) {
   }
 
   return (
-    <section className="auth-page">
-      <div className="auth-card">
-        <span className="round-icon">
-          <Icon name="user" size={28} />
-        </span>
-        <h1>카카오로 가입하기</h1>
-        <p>이름이나 나이 등을 입력하지 않아도 가입할 수 있어요.</p>
-        {error && (
-          <p role="alert" ref={errorRef} tabIndex={-1} className="auth-error">
-            {error}
-          </p>
-        )}
-        {identity && !expired && (
-          <p className="notice-box">
-            {identity.name
-              ? `${identity.name}님의 카카오 인증이 완료됐어요.`
-              : '카카오 인증이 완료됐어요.'}
-          </p>
-        )}
-        {!identity && !error && <p role="status">카카오 인증을 확인하고 있어요…</p>}
-        <p className="auth-field-hint">맞춤 안내를 위한 나이와 지역은 가입 후 선택할 수 있어요.</p>
-        <div className="auth-fields">
-          <button
-            type="button"
-            className="button primary full"
-            disabled={Boolean(busy) || !identity || expired}
-            onClick={() => run('complete')}
-          >
-            {busy === 'complete' ? '가입하는 중…' : '가입하고 시작하기'}
-          </button>
-          <button
-            type="button"
-            className="text-button"
-            disabled={Boolean(busy)}
-            onClick={() => run('cancel')}
-          >
-            {busy === 'cancel' ? '돌아가는 중…' : '가입 방법 다시 선택'}
-          </button>
-        </div>
+    <AuthLayout
+      type="signup"
+      title="카카오로 가입하기"
+      description="이름이나 나이 등을 입력하지 않아도 가입할 수 있어요."
+    >
+      {error && (
+        <p role="alert" ref={errorRef} tabIndex={-1} className="auth-error">
+          {error}
+        </p>
+      )}
+      {identity && !expired && (
+        <p className="notice-box">
+          {identity.name
+            ? `${identity.name}님의 카카오 인증이 완료됐어요.`
+            : '카카오 인증이 완료됐어요.'}
+        </p>
+      )}
+      {!identity && !error && <p role="status">카카오 인증을 확인하고 있어요…</p>}
+      <p className="auth-field-hint">맞춤 안내를 위한 나이와 지역은 가입 후 선택할 수 있어요.</p>
+      <div className="auth-fields">
+        <button
+          type="button"
+          className="button primary full"
+          disabled={Boolean(busy) || !identity || expired}
+          onClick={() => run('complete')}
+        >
+          {busy === 'complete' ? '가입하는 중…' : '가입하고 시작하기'}
+        </button>
+        <button
+          type="button"
+          className="text-button"
+          disabled={Boolean(busy)}
+          onClick={() => run('cancel')}
+        >
+          {busy === 'cancel' ? '돌아가는 중…' : '가입 방법 다시 선택'}
+        </button>
       </div>
-    </section>
+    </AuthLayout>
   );
 }

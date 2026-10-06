@@ -1,5 +1,11 @@
 ## 행정안전부 공공데이터포털 API
 
+2026-10-06 광운대 수집 보완: `kwangwoon_notices.parse_kwangwoon_notice(html)`은
+`board-view-box`가 있으면 그 영역의 제목·게시일·본문만 `(title,text,published_at)`으로 반환합니다.
+이 영역이 없는 이전 HTML은 기존 전체 텍스트 방식으로 처리합니다. 메뉴·사이트 푸터와
+숨겨진 스크립트는 공고 본문에 섞지 않습니다. 요약은 수집 후 표준 파이프라인의 개요 단계에서 생성합니다.
+검증: `python -m pytest app/modules/collectors/tests/test_kwangwoon_notices.py`.
+
 공공데이터포털에서 발급한 인증키를 `backend/.env`의 `DATA_GO_KR_API_KEY`에 입력합니다. 파일은 Git에서 제외됩니다. 수집기는 공통 설정 로더로 `.env`를 읽으며 프로세스 환경변수가 우선합니다. 함수의 `api_key` 인수로 명시한 값이 가장 우선합니다.
 
 설치 후 저장소 루트의 PowerShell에서 아래 명령을 실행하면 실제 Gov24 API 첫 페이지를 최대 10건 조회합니다. 반환 순서를 유지하며 최신순 정렬은 보장하지 않습니다.

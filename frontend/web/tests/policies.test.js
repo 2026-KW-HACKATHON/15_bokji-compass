@@ -91,6 +91,40 @@ test('API failures are propagated, never replaced with demo policies or recommen
     (err) => err.status === 404,
   );
 });
+test('API sends the search, region and audience together and omits only default filters', async () => {
+  const calls = [];
+  const repository = createPolicyRepository({
+    mode: 'api',
+    request: async (path) => {
+      calls.push(new URL(path, 'https://example.com').searchParams);
+      return { items: [], total: 0, nextCursor: null };
+    },
+  });
+  await repository.list({
+    query: '돌봄 지원',
+    category: '건강·돌봄',
+    region: '충북',
+    audience: '어르신',
+  });
+  assert.deepEqual(Object.fromEntries(calls[0]), {
+    limit: '6',
+    sort: 'recent',
+    q: '돌봄 지원',
+    category: '건강·돌봄',
+    region: '충북',
+    audience: '어르신',
+  });
+  await repository.list({
+    query: '',
+    category: '전체',
+    region: '전국',
+    audience: '전체',
+  });
+  assert.deepEqual(Object.fromEntries(calls[1]), {
+    limit: '6',
+    sort: 'recent',
+  });
+});
 test('policy response validation and safe source links', async () => {
   const policy = (await demo.list()).items[0];
   assert.throws(
@@ -106,6 +140,12 @@ test('policy response validation and safe source links', async () => {
   assert.equal(safeSourceUrl('javascript:alert(1)'), null);
   assert.equal(safeSourceUrl('https://user:secret@example.com'), null);
   assert.equal(safeSourceUrl('https://example.com/notice'), 'https://example.com/notice');
+  assert.equal(parsePolicy(policy).paymentSchedule, null);
+  assert.equal(parsePolicy({ ...policy, paymentSchedule: 123 }).paymentSchedule, null);
+  assert.equal(
+    parsePolicy({ ...policy, paymentSchedule: '2026년 12월 초 지급 예정' }).paymentSchedule,
+    '2026년 12월 초 지급 예정',
+  );
 });
 test('profile schema rejects corruption and only selected fields enter recommendation payload', () => {
   assert.equal(isProfile(null), false);

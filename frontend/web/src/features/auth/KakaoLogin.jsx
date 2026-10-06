@@ -11,10 +11,19 @@ export function kakaoOutcomeError(outcome) {
       : '카카오 로그인에 연결하지 못했어요. 다시 시도해 주세요.';
 }
 
-export default function KakaoLogin({ busy, onBusy, onError, label = '카카오 로그인' }) {
+export default function KakaoLogin({
+  busy,
+  onBusy,
+  onError,
+  onAvailability,
+  label = '카카오 로그인',
+}) {
   const [enabled, setEnabled] = useState(null);
   const [starting, setStarting] = useState(false);
   const pending = useRef(null);
+  useEffect(() => {
+    if (enabled !== null) onAvailability?.(enabled);
+  }, [enabled, onAvailability]);
   useEffect(() => {
     const controller = new AbortController();
     authRequest('kakao/status', undefined, { signal: controller.signal })
@@ -26,9 +35,12 @@ export default function KakaoLogin({ busy, onBusy, onError, label = '카카오 �
       });
     return () => {
       controller.abort();
-      pending.current?.abort();
+      if (pending.current) {
+        pending.current.abort();
+        onBusy(false);
+      }
     };
-  }, []);
+  }, [onBusy]);
 
   async function start() {
     if (busy || pending.current || !enabled) return;

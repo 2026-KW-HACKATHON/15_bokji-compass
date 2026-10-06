@@ -21,8 +21,17 @@
 | GET | `/collection/status` | `limit=1~100`(기본 20) → 저장된 cursor·작업·호출 사용량·실패 기록 |
 | GET | `/collection/changes` | 같은 limit → `{items:[변경 snapshot]}` |
 | GET | `/collection/candidates` | 같은 limit → `{items:[미검증 검색 후보]}` |
+| GET | `/operations` | `{operation,presets}`. 현재 API 프로세스에서 버튼으로 실행한 최근 작업과 원문/분석 시작값 |
+| POST | `/operations` | `action=check/tick/seed/schedule-enable/schedule-remove`와 제한된 실행 입력 → 202 `{operation}`. 백그라운드 실행 |
+| GET | `/schedule` | Windows 작업의 등록·활성 상태·실행 결과 코드 조회. 등록/해제하지 않음 |
+| GET | `/processes` | 관리 가능한 개발/운영 모드, 백엔드·프론트 상태, 최근 제어 결과 조회 |
+| POST | `/processes` | `{target:backend/frontend/all,action:stop/restart}` → 202 `{operation}`. 고정 관리 스크립트를 별도 숨김 프로세스로 실행 |
+| GET | `/processes/{job_id}` | UUID 작업 ID → 재시작 후에도 남는 `{operation}`. 없으면 404 |
 
 POST/PATCH는 같은 출처, JSON과 `X-Auth-Request: 1`이 필요하며 요청 본문은 64KB까지입니다.
+프로세스 제어는 PID·명령·실행파일·경로 입력을 받지 않습니다. 동시 제어 또는 콘솔 수집 중
+백엔드 제어는 409이며 Windows 외 환경·관리되지 않는 실행 방식은 503으로 거절합니다.
+백엔드 종료 후 결과 조회는 다음 기동 시 가능합니다. MySQL·터널·예약 수집은 종료하지 않습니다.
 페이지·API는 no-store·CSP·프레임 삽입 금지를 적용합니다. 비로그인/만료 401, 권한 부족/다른
 출처/요청 헤더 누락 403, 존재하지 않는 조회 종류 404, 설정 파일 버전 충돌 409, 본문 상한
 413, 입력/허용 목록/환경변수 관리 필드 오류 422, DB·설정 파일 장애 503이며 비밀 입력을
@@ -31,8 +40,18 @@ POST/PATCH는 같은 출처, JSON과 `X-Auth-Request: 1`이 필요하며 요청 
 설정 허용 범위는 수집 허용·처리량·회차/일일 예산·재시도·자원·주기·검색, 모델·추론·timeout·
 입력 길이, API 키, 자동 공개 방식, DB 연결입니다. 비밀 입력칸을 비우면 화면은 변경을 보내지
 않아 기존 값을 유지합니다. 명시적 삭제는 빈 문자열이며 null은 거절합니다. 환경변수 우선
-항목은 읽기 전용이고, 설정 파일 경로·HTTP 서버 포트·인증·CORS·실행파일·SQL·프로세스 제어는
+항목은 읽기 전용이고, 설정 파일 경로·HTTP 서버 포트·인증·CORS·실행파일·SQL·임의 명령은
 허용하지 않습니다.
+
+2026-10-06 **수집 실행** 메뉴: `tick`의 `mode=raw/analysis/custom`과 `page_size=1~100`,
+`max_pages=0~30`, `max_jobs=0~100`, `max_seconds=15~600`, `max_http_calls=0~100`,
+`max_model_calls=0~100`, `max_tokens=0~1000000`을 받습니다. 숫자는 정수만 허용합니다.
+원문 모드는 대기 작업·모델·검색을 강제로 끄고, 분석 모드도 외부 검색은 끕니다.
+`seed`의 `limit=1~100`(기본 100)은 기존 공고 인덱싱이며 이전 결과 무조건 채택은 하지 않습니다.
+같은 API의 중복 실행과 DB 재시작 대기는 409입니다. 실제 worker의 DB lease와 일일 예산도
+유지합니다. 결과에는 처리 수와 호출 사용량만 표시하고 원문·예외·CLI stderr를 반환하지 않습니다.
+자동 등록은 Windows·기본 .env·프로세스 환경변수 불일치 없음·회차 600초 이하를 요구합니다.
+기존 예약 작업을 덮어쓰지 않으며 해제해도 진행 중인 회차를 강제 종료하지 않습니다.
 
 파일 SHA 버전·프로세스 간 잠금·원자적 저장으로 충돌을 제어합니다. DB 설정은 저장하되 현재
 API·인증 엔진에 적용하지 않고 재시작을 기다립니다. 수집/모델/API 키·공개 방식은 새 작업부터
@@ -238,7 +257,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 |---|---|---|
 | 정책 목록·상세·검색 | 서버·웹 연결 구현. 공개 최신 개정만 조회 | 공개 승인 워크플로 후속 |
 | 공고별 개인 질문 | POST /v1/assistant/questions·웹 상세 질문 구현 | 대화 이력·작업 큐 후속 |
-| 개인비서 LLM 추천 | 서버 미구현. 웹 POST /v1/recommendations 호출자 있음 | 사용자 정보 → 서버 LLM → 추천 이유·공고. 인증/비용·보관 정책 확정 |
+| 개인비서 LLM 설명 튜닝 | 조건 비교 추천 API 구현, LLM 설명 튜닝은 후속 | 회원 DB/선택 정보 → 원문 조건 비교 → 이유·확인사항. 신청 자격 확정 없음 |
 | 조건·자격 판정 | 미구현 | 입력 fact, 기준 시점, PASS/FAIL/UNKNOWN 의미와 근거 |
 | 원문 업로드·분석 | CLI만 있음. HTTP 경로 미정 | 입력 제한, 작업 ID·상태, 오류·재시도·결과 접근 권한 |
 | 로그인·프로필·저장 공고 | 로그인/가입·계정별 금융 입력 저장 구현. 추천 프로필·저장 공고는 브라우저 기능 | 회원정보 수정·웹 카카오 가입 구현. 추천 프로필·저장 공고 동기화·탈퇴는 후속 |
@@ -254,7 +273,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 | GET /v1/policies/{policy_key} | /api/v1/policies/{policy_key} | 최신 공개 공고 카드 | 서버 구현 |
 | POST /v1/assistant/questions | /api/v1/assistant/questions | revision_id,question → answer,citations,follow_up_questions | 회원 쿠키/Bearer·웹 질문 구현 |
 | GET /v1/assistant/faqs | /api/v1/assistant/faqs | revision_id → items:[{id,question,response}] | 회원용 선택형 기본 질문 6개·LLM 호출 없음 |
-| POST /v1/recommendations | /api/v1/recommendations | profile,limit:3, 선택적 financialProfile → summary,items:[{policy,reason}] | 호출자 구현·서버 LLM 미구현 |
+| POST /v1/recommendations | /api/v1/recommendations | profile?,limit:3, 선택적 금융정보 → summary,items:[{policy,reason,matching}] | 서버 조건 비교 구현·웹 쿠키/앱 Bearer 지원 |
 
 `financialProfile`은 사용자가 계산기에서 추천에 반영하기를 선택했을 때만 추가하는 금융 원입력입니다. 일반 추천 프로필·브라우저 저장소에 자동 합치지 않으며 계정 금융정보 저장과도 별개입니다. 서버의 `evaluate_policy()`와 승인된 공고 저장소·추천 API를 실제로 연결하는 작업은 아직 남아 있습니다.
 
@@ -340,6 +359,18 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 전체 수신 기본값은 OFF입니다. 로그아웃/세션 만료 기기는 발송 대상에서 제외합니다. MySQL 추가 테이블 초기화는 `python -m app.modules.notifications`. 권한창·설정 UI·기기 등록·수신 필터 payload까지 구현했으며 실제 자동 이벤트와 발송 worker는 아직 없습니다. [서버 계약](backend/app/modules/notifications/readme.md), [모바일 사용·푸시 구성](frontend/mobile/src/features/notifications/readme.md).
 
 
+## 공고 검색 필터 보완 (2026-10-06)
+
+2026-10-06 공고 표시 응답에 선택 `paymentSchedule: string | null`을 추가했습니다.
+명시된 지급 시기를 목록·상세·캘린더 카드에 전달하며 신청 일정 필드는 기존 의미를 유지합니다.
+요약·혜택은 검증된 개요를 우선하여 명사형 공고체로 표시합니다. 원문·인용은 변경하지 않습니다.
+
+`GET /v1/policies`와 `/v1/policies/calendar`는 검색어·분야·지역·대상을 AND로 적용합니다.
+지역은 약칭·정식/이전 명칭을 함께 검색하며 광주광역시와 경기도 광주시를 구분합니다.
+대상은 확인된 나이 개요와 기타 조건을 함께 검색해 가족·양육 조건과 노인·고령·시니어
+표현을 반영합니다. 숫자 나이만으로 대상명을 추정하지 않습니다. 입력·응답 형식은 그대로입니다.
+[호출·필터 범위·검증](backend/app/modules/storage/readme.md).
+
 ## 공고 캘린더 (2026-10-02)
 
 | Method | 백엔드 경로 | 인증 | 입력 |
@@ -351,3 +382,15 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 응답은 `{month,items,total,truncated,undatedItems,undatedTotal}`입니다. `items`는 접수 기간이 월과 겹치거나 해당 월에 시작/마감하는 공고(최대 500개), `total`은 조건에 맞는 전체 건수입니다. 초과 시 `truncated=true`로 표시합니다. 날짜를 확정할 수 없는 공고는 `undatedItems`(최대 25개)와 `undatedTotal`로 따로 제공합니다.
 
 목록·상세·캘린더 공고 카드에 `applicationStart`, `applicationEnd`(YYYY-MM-DD 또는 null), `scheduleStatus`(`dated`/`ongoing`/`unknown`)가 추가됩니다. 원문 신청 기간 또는 한 개의 명시적인 신청/접수 기간 문장에서 연·월·일이 명확한 날짜만 추출합니다. 시작일/마감일만 확인되면 다른 날짜는 null입니다. 상시 신청, 누락, 모호한 기간은 임의 날짜를 만들지 않습니다. 시간 정보는 달력 날짜로 요약하므로 실제 접수 시간은 공식 공고를 확인합니다.
+# 2026-10-06 사용자 DB와 공고 매칭 갱신
+
+`POST /v1/recommendations` 구현: 웹 쿠키/앱 Bearer 회원 DB 프로필 또는 비회원 요청 프로필을
+최신 공개 공고 조건과 비교합니다. `X-Auth-Request:1`, `Cache-Control:no-store`.
+요청 `{profile?,limit?:1..3,financialProfile?,use_saved_financial_profile?:false}`.
+저장 금융정보는 명시적인 선택 때에만 본인 계정으로 조회합니다. 직접 금융정보와 동시 선택은 422.
+응답 `{items:[{policy,reason,matching}],summary,profile_source,financial_source,
+eligibility_decided:false,truncated}`. 로그인 정보 오류 401, DB 준비/조회 오류 503,
+저장 금융정보 없음 409, 형식 오류 422, 회원 요청 제한 429(분당 20회).
+비활성 매칭/부분 조건은 needs_review이며 자격 확정을 하지 않습니다. OpenAPI는 코드에서 생성됩니다.
+[DB 확인·저장·대응표](backend/docs/member-policy-matching.md),
+[공개 함수](backend/app/modules/matching/readme.md).

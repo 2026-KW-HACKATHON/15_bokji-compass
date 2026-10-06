@@ -753,3 +753,146 @@ def test_published_catalog_latest_revision_pagination_and_filters(repository):
         assert detail.status_code == 200 and detail.json()["revisionId"] == newest
         assert client.get("/v1/policies/nonexistent").status_code == 404
         assert "source_json" not in detail.json()
+
+
+def catalog_fixture(repository, *, title, region=None, age=None, other=None,
+                    region_status="specified", age_status="specified", published=True):
+    """Cited synthetic overview; only the isolated test DB receives these rows."""
+    from sqlalchemy import update
+
+    content = "\n".join(filter(None, [region, age, other, "신청자 만 19세 이상",
+                                    "신청기간: 2026-10-01 ~ 2026-10-31"]))
+    record = normalize_record({"document_id": "db-test-" + uuid4().hex,
+                               "title": title, "text": content})
+    value = draft(record.model_copy(update={"fields": {"text": "신청자 만 19세 이상"}}))
+    value["source"] = record.model_dump()
+
+    def section(text, status):
+        if text is None:
+            return {"status": "not_stated", "text": None, "evidence": [],
+                    "unresolved_reason": None}
+        return {"status": status, "text": text,
+                "evidence": [{"source_field": "text", "quote": text}],
+                "unresolved_reason": "검토 필요" if status == "unclear" else None}
+
+    value.update(overview={
+        "title": record.title, "source_url": None, "category": "주거",
+        "category_reason": "테스트 분류",
+        "category_evidence": [{"source_field": "text", "quote": content}],
+        "region_conditions": section(region, region_status),
+        "age_conditions": section(age, age_status),
+        "gender_conditions": section(None, "not_stated"),
+        "benefits": section(None, "not_stated"),
+        "other_conditions": [{"text": other, "evidence": [
+            {"source_field": "text", "quote": other}]}] if other else [],
+        "unresolved": [],
+        "policy_requirements": [{"condition_type": "other",
+                                 "information_state": "specified", "evidence_text": content}],
+    }, overview_status="validated")
+    revision = repository.import_draft(value)["records"][0]["revision_id"]
+    if published:
+        documents = repository.tables["condition_documents"]
+        with repository.engine.begin() as connection:
+            connection.execute(update(documents).where(documents.c.revision_id == revision)
+                               .values(review_status="published"))
+    return record.policy_key
+
+
+@pytest.mark.parametrize("selected,stored", [
+    ("서울", "서울특별시"), ("경기", "경기도"), ("인천", "인천광역시"),
+    ("부산", "부산광역시"), ("대구", "대구광역시"), ("광주", "광주광역시"),
+    ("대전", "대전광역시"), ("울산", "울산광역시"), ("세종", "세종특별자치시"),
+    ("강원", "강원특별자치도"), ("충북", "충청북도"), ("충남", "충청남도"),
+    ("전북", "전북특별자치도"), ("전남", "전라남도"), ("경북", "경상북도"),
+    ("경남", "경상남도"), ("제주", "제주특별자치도"),
+    ("강원", "강원도"), ("전북", "전라북도"),
+])
+def test_catalog_region_labels_match_official_and_legacy_names(repository, selected, stored):
+    from app.modules.storage import catalog
+
+    title = "지역 필터 회귀 " + uuid4().hex
+    key = catalog_fixture(repository, title=title, region=stored + " 거주", age="청년")
+    result = catalog.list_policies(repository, q=title, region=selected, audience="청년")
+    assert result["total"] == 1 and result["items"][0]["id"] == key
+
+
+@pytest.mark.parametrize("selected,age,other", [
+    ("어르신", "노인", None), ("어르신", "고령자", None), ("어르신", "시니어", None),
+    ("어르신", None, "노인 가구"), ("청년", None, "취업 준비 중인 청년"),
+    ("가족", None, "한부모 가구"), ("가족", None, "미성년 자녀 양육"),
+    ("가족", None, "신혼부부"), ("가족", None, "영유아 부모"),
+])
+def test_catalog_audience_uses_age_and_other_conditions(repository, selected, age, other):
+    from app.modules.storage import catalog
+
+    title = "대상 필터 회귀 " + uuid4().hex
+    key = catalog_fixture(repository, title=title, region="충청북도 거주", age=age, other=other)
+    result = catalog.list_policies(repository, q=title, region="충북", audience=selected)
+    assert result["total"] == 1 and result["items"][0]["id"] == key
+    assert catalog.list_policies(repository, q=title, audience="없는 대상")["total"] == 0
+
+
+def test_catalog_combined_filters_count_pages_calendar_and_publication(repository):
+    from fastapi.testclient import TestClient
+
+    from app.api.policies import get_repository
+    from app.main import create_app
+    from app.modules.storage import catalog
+
+    prefix = "조합 필터 회귀 " + uuid4().hex
+    expected = [catalog_fixture(repository, title=prefix + str(index),
+                                region=region, region_status=status, other="한부모 가구")
+                for index, (region, status) in enumerate([
+                    ("충청북도 거주", "specified"), ("충북 거주", "specified"),
+                    ("지역 제한 없음", "unrestricted")])]
+    for kwargs in [
+        {"region": "충청남도 거주", "other": "한부모 가구"},
+        {"region": "충청북도 거주", "age": "청년"},
+        {"region": "충청북도 거주", "other": "한부모 가구", "published": False},
+        {"region": None, "other": "한부모 가구"},
+        {"region": "충청북도 거주", "region_status": "unclear", "other": "한부모 가구"},
+    ]:
+        catalog_fixture(repository, title=prefix, **kwargs)
+    filters = {"q": prefix, "category": "주거", "region": "충북", "audience": "가족"}
+    first = catalog.list_policies(repository, limit=2, sort="name", **filters)
+    second = catalog.list_policies(repository, limit=2, offset=2, sort="name", **filters)
+    assert first["total"] == second["total"] == 3
+    assert first["nextCursor"] == "2" and second["nextCursor"] is None
+    assert [item["id"] for item in first["items"] + second["items"]] == expected
+    assert catalog.list_policies(repository, **{**filters, "q": prefix + " 불일치"})["total"] == 0
+    calendar = catalog.list_calendar(repository, month="2026-10", **filters)
+    assert calendar["total"] == 3 and calendar["undatedTotal"] == 0
+    assert {item["id"] for item in calendar["items"]} == set(expected)
+    app = create_app(Settings(_env_file=None, db_enabled=False))
+    app.dependency_overrides[get_repository] = lambda: repository
+    with TestClient(app) as client:
+        response = client.get("/v1/policies", params={**filters, "limit": 2, "sort": "name"})
+        assert response.status_code == 200 and response.json() == first
+
+
+def test_catalog_does_not_confuse_gwangju_city_or_shared_districts(repository):
+    from app.modules.storage import catalog
+
+    prefix = "지역 혼동 회귀 " + uuid4().hex
+    seoul = catalog_fixture(repository, title=prefix, region="서울특별시 강서구 거주")
+    busan = catalog_fixture(repository, title=prefix, region="부산광역시 강서구 거주")
+    catalog_fixture(repository, title=prefix, region="경기도 광주시 거주")
+    metropolitan = catalog_fixture(repository, title=prefix, region="광주광역시 거주")
+    short = catalog_fixture(repository, title=prefix, region="광주 거주")
+    catalog_fixture(repository, title=prefix, region="강서구 거주")
+    for selected, keys in [("서울", {seoul}), ("부산", {busan}),
+                            ("광주", {metropolitan, short})]:
+        result = catalog.list_policies(repository, q=prefix, region=selected)
+        assert {item["id"] for item in result["items"]} == keys
+
+
+def test_catalog_unclear_audience_and_search_wildcards_are_not_matches(repository):
+    from app.modules.storage import catalog
+
+    prefix = "미확정 필터 회귀 " + uuid4().hex
+    catalog_fixture(repository, title=prefix, region="서울 거주", age="청년",
+                    age_status="unclear")
+    catalog_fixture(repository, title=prefix, region="서울 거주", age=None)
+    assert catalog.list_policies(repository, q=prefix, audience="청년")["total"] == 0
+    assert catalog.list_policies(repository, q=prefix, region="%")["total"] == 0
+    assert catalog.list_policies(repository, q=prefix, audience="_")["total"] == 0

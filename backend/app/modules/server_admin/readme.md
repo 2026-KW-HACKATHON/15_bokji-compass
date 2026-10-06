@@ -10,6 +10,17 @@
 `public.py`는 앱 상태를 받으며 HTTP 인증은 `app/api/server_admin.py`에서 먼저 수행합니다.
 `state`에는 `settings`, `server_config_path`, `server_config_lock`, `database_engine`,
 `server_started_at`이 있어야 합니다.
+`operations.py`의 `Operations`는 앱별 백그라운드 작업을 관리하며 앱 상태의
+`server_operations`에 보관합니다. 서버 종료 시 진행 중인 수동 작업을 기다립니다.
+
+`runtime.py`의 `ControlInput`은 `target=backend/frontend/all`, `action=stop/restart`만 받습니다.
+`status()`는 고정 PowerShell 스크립트로 프로젝트 소유 프로세스를 조회합니다.
+`start(state, data)`는 수집 상태와 파일 잠금을 확인해 `{operation}`을 접수하고 별도 숨김
+프로세스로 명령을 처리합니다. `read_job(UUID)`는 허용된 작업 메타데이터만 반환합니다.
+`latest_job()`는 최근 저장 결과를 조회하며 임의 파일·PID·명령을 받지 않습니다.
+`refresh_pending(state)`는 완료된 백엔드 제어의 수집 시작 제한을 해제합니다.
+수집 시작과 제어 접수는 같은 `server_config_lock` 아래 검사하므로 서로의 실행을 가로채지 않습니다.
+작업과 제어 잠금은 `backend/data/server-control/`에 보관하며 API 재시작으로 지워지지 않습니다.
 
 | 호출 | 반환·효과 |
 | --- | --- |
@@ -43,7 +54,9 @@ DB 필드는 `RESTART_FIELDS`로 분리해 저장만 하고 현재 API·인증 �
 수집/모델/API 키는 이후 작업부터 적용하고 진행 중인 worker를 종료하지 않습니다.
 `ingestion_enabled=false`는 다음 수집 회차를 막습니다. 자동 공개 설정은 앞으로 저장할 개정에
 적용하며 기존 공개 상태를 일괄 변경하지 않습니다. 환경변수로 지정한 필드는 읽기 전용입니다.
-HTTP 서버 주소·포트·인증·CORS·실행파일·설정 파일 경로·SQL·프로세스 제어는 허용하지 않습니다.
+HTTP 서버 주소·포트·인증·CORS·실행파일·설정 파일 경로·SQL 입력은 허용하지 않습니다.
+작업 API는 `check/tick/seed/schedule-enable/schedule-remove`만 허용하고 임의 명령이나
+실행 파일을 받지 않습니다. `tick`은 기존 제한 worker와 DB lease를 사용합니다.
 
 파일의 기존 항목·주석을 보존하고 수정한 중복 키만 정리합니다. 타입·범위·전체 Settings
 계약을 검증한 뒤 파일 SHA 버전을 비교합니다. Windows/POSIX 파일 잠금, 같은 디렉터리의
@@ -55,6 +68,13 @@ HTTP 서버 주소·포트·인증·CORS·실행파일·설정 파일 경로·SQ
 페이지 `GET /`, 정적 `GET /server-admin-assets/console.css`·`console.js`를 제공합니다.
 `/v1/server-admin` 아래 login/logout/session/overview/settings와 collection 조회가 있습니다.
 설정/상태는 최고 관리자 전용이며 POST/PATCH는 같은 출처와 `X-Auth-Request: 1`을 요구합니다.
+`GET /operations`는 앱별 최근 작업과 시작용 프리셋을 조회합니다. `POST /operations`는
+`RunInput`의 정수 범위와 저장 설정을 검증한 뒤 202로 백그라운드 작업을 접수합니다.
+진행 중인 앱 작업·DB 재시작 대기는 409이며 원문 모드는 모델/검색/대기 작업을 강제로 끕니다.
+`GET /schedule`은 기존 Windows 작업의 상태만 조회합니다. 등록/해제는 고정 경로의 기존
+`ingestion-schedule.ps1 -Json`을 인수 배열로 호출하며 셸 명령이나 사용자 경로를 받지 않습니다.
+설정 불일치·600초 초과·기존 작업은 자동 등록을 거절합니다. 원문/CLI stderr/예외 원문은
+작업 결과 API에 반환하지 않습니다. DB 초기화·실패 작업 재시도·후보 등록은 기존 CLI를 사용합니다.
 64KB 본문 상한·안전한 검증 오류·no-store·CSP를 적용합니다. 쿠키는 `bokji_server_admin`,
 HttpOnly·SameSite=Strict·최대 7일이며 production은 Secure입니다.
 

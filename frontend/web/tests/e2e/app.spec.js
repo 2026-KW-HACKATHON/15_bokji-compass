@@ -1,8 +1,46 @@
 import { test, expect } from '@playwright/test';
 import { mockPolicyApi } from '../fixtures/api.js';
+import { demoPolicies } from '../fixtures/policies.js';
 
 test.beforeEach(async ({ page }) => {
   await mockPolicyApi(page);
+});
+test('notice summary and payment schedule stay separate from application dates in both modes', async ({
+  page,
+}) => {
+  const policy = {
+    ...demoPolicies[0],
+    summary: '장학생 선발; 장학금 12월 초 지급 예정.',
+    benefit: '장학금 차등 지급.',
+    applicationPeriod: '2026년 10월 1일 ~ 10월 31일',
+    paymentSchedule: '2026년 12월 초 지급 예정',
+  };
+  await page.route('**/api/v1/policies?**', (route) =>
+    route.fulfill({
+      json: { items: [policy], total: 1, nextCursor: null },
+    }),
+  );
+  await page.goto('/#explore');
+  for (const easy of [false, true]) {
+    if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+    const article = page.getByRole('article');
+    await expect(article.locator('.card-summary')).toHaveText(policy.summary);
+    await expect(article).toContainText(policy.paymentSchedule);
+    await article.getByRole('button', { name: policy.title + ' 자세히 보기', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const application = dialog
+      .locator('.policy-detail > div')
+      .filter({ has: page.locator('dt', { hasText: '신청 기간' }) });
+    const payment = dialog
+      .locator('.policy-detail > div')
+      .filter({ has: page.locator('dt', { hasText: '지급 시기' }) });
+    await expect(application).toBeVisible();
+    await expect(application.locator('dd')).toHaveText(policy.applicationPeriod);
+    await expect(payment).toBeVisible();
+    await expect(payment.locator('dd')).toHaveText(policy.paymentSchedule);
+    await expect(dialog).not.toContainText('예정이다');
+    await page.keyboard.press('Escape');
+  }
 });
 test('tag search, detail, saved persistence and browser history', async ({ page }) => {
   await page.goto('/#explore');
@@ -23,6 +61,49 @@ test('tag search, detail, saved persistence and browser history', async ({ page 
   await page.goto('/#saved');
   await page.reload();
   await expect(page.getByRole('article')).toHaveCount(1);
+});
+test('search with region and audience filters resets pagination and clearing restores all notices', async ({
+  page,
+}) => {
+  await page.goto('/#explore');
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(page.getByRole('article')).toHaveCount(3);
+  await page.getByRole('button', { name: '다음 페이지', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: '공고 페이지' })).toContainText('4–6 / 6개');
+  await page.getByRole('textbox', { name: '공고 검색', exact: true }).fill('지원');
+  await page.getByRole('button', { name: '검색', exact: true }).click();
+  await page.locator('.filter-panel > summary').click();
+  await page.getByRole('combobox', { name: '지역', exact: true }).selectOption('경기');
+  const response = page.waitForResponse((value) => {
+    const url = new URL(value.url());
+    return (
+      url.pathname.endsWith('/v1/policies') &&
+      url.searchParams.get('q') === '지원' &&
+      url.searchParams.get('region') === '경기' &&
+      url.searchParams.get('audience') === '가족'
+    );
+  });
+  await page.getByRole('combobox', { name: '대상', exact: true }).selectOption('가족');
+  const params = new URL((await response).url()).searchParams;
+  expect(params.has('cursor')).toBe(false);
+  await expect(page.getByRole('article')).toHaveCount(2);
+  await expect(page.locator('.results-heading')).toContainText('총 2개');
+  await expect(
+    page.getByRole('heading', {
+      name: '든든한 일상을 위한 생활 지원',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: '청년의 첫 독립, 주거비 지원',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: '검색 조건 지우기', exact: true }).click();
+  await expect(page.getByRole('article')).toHaveCount(3);
+  await expect(page.locator('.results-heading')).toContainText('총 6개');
+  await expect(page.getByRole('textbox', { name: '공고 검색', exact: true })).toHaveValue('');
 });
 test('easy mode keeps the profile in one form and recommendations together, opt-in survives reload', async ({
   page,

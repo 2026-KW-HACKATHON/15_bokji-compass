@@ -13,7 +13,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRuntime } from "../services/runtime";
+import { useRuntime, useServerConnection } from "../services/runtime";
+import { connectionMessage } from "../services/serverConnection";
 import { useAssistant } from "../features/assistant/context";
 
 export const colors = {
@@ -72,10 +73,27 @@ export function Screen({ children }: React.PropsWithChildren) {
             enabled && { paddingBottom: 124 },
           ]}
         >
+          <ServerConnectionNotice />
           {children}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+function ServerConnectionNotice() {
+  const { connection, configError, easy } = useRuntime();
+  const { status, reason, checking } = useServerConnection();
+  if (configError || status !== "unavailable") return null;
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.connectionNotice}>
+      <Text accessibilityRole="header" style={{ color: colors.danger, fontSize: easy ? 21 : 18, fontWeight: "700" }}>
+        서버 연결이 원활하지 않아요
+      </Text>
+      <Copy>{connectionMessage(reason)}</Copy>
+      <Copy muted>공고 조회·로그인·계산·저장은 연결이 복구된 뒤 다시 시도해 주세요.</Copy>
+      <Button secondary label={checking ? "연결 확인 중…" : "다시 연결"} busy={checking}
+        onPress={() => { void connection.check().catch(() => {}); }} />
+    </View>
   );
 }
 function EasyModeBar() {
@@ -349,4 +367,5 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   notice: { backgroundColor: colors.mint, padding: 16, borderRadius: 14 },
+  connectionNotice: { backgroundColor: "#FFF3E8", borderColor: "#E6B896", borderWidth: 1, padding: 16, borderRadius: 14, gap: 10 },
 });
