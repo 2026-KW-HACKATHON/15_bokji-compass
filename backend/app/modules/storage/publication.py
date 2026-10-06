@@ -4,7 +4,7 @@ import hashlib
 from contextlib import contextmanager
 from uuid import uuid4
 
-from sqlalchemy import MetaData, Table, func, insert, select, text, update
+from sqlalchemy import MetaData, Table, bindparam, func, insert, select, text, update
 
 from app.modules.storage.application_dates import resolved_application_period
 from app.modules.storage.catalog import card
@@ -106,6 +106,25 @@ def publication_transaction(repository, policy_key):
             connection.commit()
 
 
+def prune_superseded_revisions(repository, connection, siblings, target):
+    """Overwrite semantics: publishing a revision replaces every older revision of the policy."""
+    age = (target["created_at"], target["revision_id"])
+    stale = [row["revision_id"] for row in siblings
+             if (row["created_at"], row["revision_id"]) < age]
+    if not stale:
+        return
+    arguments = {"keep": target["revision_id"], "stale": tuple(stale)}
+    # Work-queue references move to the surviving revision; the publication events cascade.
+    for table in ("policy_ingestion_items", "collection_records", "collection_jobs"):
+        connection.execute(text(
+            f"UPDATE `{table}` SET revision_id = :keep WHERE revision_id IN :stale"
+        ).bindparams(bindparam("stale", expanding=True)), arguments)
+    for table in ("condition_entries", "policy_revision_details", "condition_documents"):
+        connection.execute(text(
+            f"DELETE FROM `{table}` WHERE revision_id IN :stale"
+        ).bindparams(bindparam("stale", expanding=True)), arguments)
+
+
 def change_publication(repository, connection, events, revision_id, *, policy_key, action,
                        expected_status, actor_id, note, require_latest=False):
     if action not in {"publish", "unpublish"} or not note.strip() or len(note) > 1000:
@@ -144,6 +163,8 @@ def change_publication(repository, connection, events, revision_id, *, policy_ke
         connection.execute(insert(events).values(
             event_id=str(uuid4()), revision_id=row["revision_id"], actor_id=actor_id,
             previous_status=row["review_status"], review_status=status, note=note.strip()))
+    if action == "publish":
+        prune_superseded_revisions(repository, connection, siblings, target)
     return {"revisionId": revision_id, "reviewStatus": final, "matchingEnabled": False}
 
 

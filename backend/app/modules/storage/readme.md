@@ -12,7 +12,7 @@
 - `list_publication_revisions(repository, limit=20, offset=0)` → 초안을 포함한 개정 목록·검증/누락 경고·total/nextCursor. 최고 관리자 API에서만 호출.
 - `review_publication_revision(repository, revision_id)` → 카드 미리보기·수집 필드·최근 변경 이력, 없으면 None.
 - `set_publication_status(repository, revision_id, action, expected_status, actor_id, note)` → 공개 상태. 검증된 needs_review 결과만 공개하며 AND/OR 미확정 항목은 검토 경고로 유지. 개정 원문·분석 JSON은 변경하지 않음.
-- 같은 공고의 개정들을 행 잠금으로 보호. 다른 개정을 공개하면 이전 공개 개정은 reviewed로 전환. 비공개 후 과거 개정이 다시 노출되지 않음. 상태 충돌은 PublicationConflict, 없음은 LookupError.
+- 같은 공고의 개정들을 행 잠금으로 보호. 개정을 공개하면 같은 공고의 더 오래된 개정(조건·상세·공개 이력 포함)은 삭제되어 덮어쓰기됨(대기열 참조는 남는 개정으로 이동). 비공개 후 과거 개정은 복원되지 않음. 상태 충돌은 PublicationConflict, 없음은 LookupError.
 - `006_policy_publication.sql`은 변경자·이전/이후 상태·메모·시각을 저장. 상태와 이력은 같은 트랜잭션. 공개가 matching_enabled를 활성화하지 않음. 요청 중 테이블 자동 생성 없음.
 
 - initialize_policy_schema(engine) → 적용 SQL/지역 행 수. 명시적 초기화 전용.

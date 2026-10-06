@@ -85,12 +85,12 @@ def test_auto_publication_default_new_revision_audit_and_manual_withdrawal(repos
     newer = {**original, "method": "auto-second-revision"}
     second = repository.import_draft(newer)["records"][0]["revision_id"]
     assert catalog.get_policy(repository, key)["revisionId"] == second
-    assert repository.get_revision(first, published_only=False)["review_status"] == "reviewed"
+    assert repository.get_revision(first, published_only=False) is None
     events = events_table(repository)
     with repository.engine.connect() as connection:
         history = connection.execute(select(events).where(
             events.c.revision_id.in_([first, second]))).mappings().all()
-        assert len(history) == 3
+        assert len(history) == 1
         assert all(row["actor_id"] == "system:auto-publish" for row in history)
     set_publication_status(repository, second, action="unpublish", expected_status="published",
                            actor_id="test-admin", note="관리자 비공개")
@@ -139,9 +139,10 @@ def test_concurrent_automatic_saves_publish_one_revision_and_pending_catchup(rep
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(save, range(2)))
-    states = [repository.get_revision(result["revision_id"], published_only=False)["review_status"]
-              for result in results]
-    assert sorted(states) == ["published", "reviewed"]
+    remaining = [repository.get_revision(result["revision_id"], published_only=False)
+                 for result in results]
+    states = [row["review_status"] for row in remaining if row]
+    assert states.count("published") == 1 and set(states) <= {"published", "reviewed"}
 
 
 def test_publication_publish_switch_unpublish_and_atomic_audit(repository):
@@ -169,7 +170,7 @@ def test_publication_publish_switch_unpublish_and_atomic_audit(repository):
     set_publication_status(repository, second, action="publish",
                            expected_status="draft", **arguments)
     assert catalog.get_policy(repository, key)["revisionId"] == second
-    assert repository.get_revision(first, published_only=False)["review_status"] == "reviewed"
+    assert repository.get_revision(first, published_only=False) is None
     with pytest.raises(PublicationConflict):
         set_publication_status(repository, second, action="unpublish",
                                expected_status="draft", **arguments)
@@ -183,13 +184,14 @@ def test_publication_publish_switch_unpublish_and_atomic_audit(repository):
                            expected_status="published", **arguments)
     assert catalog.get_policy(repository, key) is None
     assert repository.get_revision(second) is None
-    assert repository.get_revision(first, published_only=False)["draft_json"] == original
+    assert repository.get_revision(second, published_only=False)["draft_json"]["source"] == (
+        original["source"])
     assert not repository.get_revision(second, published_only=False)["matching_enabled"]
     events = events_table(repository)
     with repository.engine.connect() as connection:
         history = connection.execute(select(events).where(
             events.c.revision_id.in_([first, second]))).mappings().all()
-        assert len(history) == 4
+        assert len(history) == 2
         assert all(row["actor_id"] == "test-admin" for row in history)
 
 
@@ -225,7 +227,7 @@ def test_publication_audit_failure_rolls_back_and_invalid_draft_is_blocked(repos
 
 
 def test_concurrent_publication_keeps_one_visible_revision(repository):
-    from app.modules.storage.publication import set_publication_status
+    from app.modules.storage.publication import PublicationConflict, set_publication_status
 
     original = draft(source())
     revisions = [repository.import_draft({**original, "method": str(index)})[
@@ -236,12 +238,19 @@ def test_concurrent_publication_keeps_one_visible_revision(repository):
                                       expected_status="draft", actor_id="test-admin",
                                       note="동시 검토")
 
+    def attempt(revision):
+        try:
+            return publish(revision)
+        except (LookupError, PublicationConflict):
+            return None
+
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(publish, revisions))
-    assert len(results) == 2
-    states = [repository.get_revision(revision, published_only=False)["review_status"]
-              for revision in revisions]
-    assert sorted(states) == ["published", "reviewed"]
+        results = list(pool.map(attempt, revisions))
+    assert any(results)
+    remaining = [repository.get_revision(revision, published_only=False)
+                 for revision in revisions]
+    states = [row["review_status"] for row in remaining if row]
+    assert states.count("published") == 1 and set(states) <= {"published", "reviewed"}
 
 
 def test_pipeline_requires_database_by_default(tmp_path):

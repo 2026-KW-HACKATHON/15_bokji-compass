@@ -35,7 +35,9 @@ def application_period(fields):
     return re.sub(r"^\d+\s*[.)、]\s*", "", lines.pop())
 
 
-def application_schedule(value):
+def application_schedule(value, today=None):
+    # A date written without a year is read as belonging to the current year.
+    default_year = (today or date.today()).year
     result = {"applicationStart": None, "applicationEnd": None, "scheduleStatus": "unknown"}
     if not isinstance(value, str):
         return result
@@ -45,20 +47,25 @@ def application_schedule(value):
     ):
         return {**result, "scheduleStatus": "ongoing"}
     period = re.fullmatch(
-        PREFIX + DATE + TIME + r"\s*[~～–—]\s*" + DATE_WITH_OPTIONAL_YEAR + TIME,
+        PREFIX + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*[~～–—]\s*"
+        + DATE_WITH_OPTIONAL_YEAR + TIME,
         value,
     )
     korean_period = re.fullmatch(
-        PREFIX + DATE + TIME + r"\s*부터\s*" + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*까지",
+        PREFIX + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*부터\s*"
+        + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*까지",
         value,
     )
-    ending = re.fullmatch(r"(?:신청기한|신청마감|마감일|접수마감)\s*[:：]?\s*" + DATE + TIME, value)
-    until = re.fullmatch(DATE + TIME + r"\s*까지", value)
-    starting = re.fullmatch(r"(?:신청|접수)\s*시작일\s*[:：]?\s*" + DATE + TIME, value)
+    ending = re.fullmatch(r"(?:신청기한|신청마감|마감일|접수마감)\s*[:：]?\s*"
+        + DATE_WITH_OPTIONAL_YEAR + TIME, value)
+    until = re.fullmatch(DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*까지", value)
+    starting = re.fullmatch(r"(?:신청|접수)\s*시작일\s*[:：]?\s*"
+                            + DATE_WITH_OPTIONAL_YEAR + TIME, value)
     try:
         match = period if period is not None else korean_period
         if match is not None:
             start_year, start_month, start_day, end_year, end_month, end_day = match.groups()
+            start_year = start_year or end_year or default_year
             start = date(int(start_year), int(start_month), int(start_day))
             end = date(
                 int(end_year or start_year),
@@ -74,7 +81,8 @@ def application_schedule(value):
             }
         match = ending or until or starting
         if match is not None:
-            parsed = date(*map(int, match.groups())).isoformat()
+            year, month, day = match.groups()
+            parsed = date(int(year or default_year), int(month), int(day)).isoformat()
             return {
                 **result,
                 "applicationStart": parsed if starting else None,
@@ -95,10 +103,10 @@ def resolved_application_period(fields, overview=None):
     return application_period(fields)
 
 
-def application_date_columns(fields, extracted_period=None):
+def application_date_columns(fields, extracted_period=None, today=None):
     """Return only unambiguous application dates for the legacy policy columns."""
     value = resolved_application_period(fields, {"application_period": extracted_period})
-    schedule = application_schedule(value)
+    schedule = application_schedule(value, today)
     start = schedule["applicationStart"]
     end = schedule["applicationEnd"]
     return (

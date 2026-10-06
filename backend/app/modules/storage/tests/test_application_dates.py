@@ -34,3 +34,9 @@ def test_period_with_application_hours_maps_to_calendar_dates():
     assert application_date_columns({
         "application_period": "2026. 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00",
     }) == (date(2026, 9, 28), date(2026, 10, 7))
+
+
+def test_missing_year_is_stored_as_current_year():
+    assert application_date_columns(
+        {"application_period": "10월 1일 ~ 10월 31일"}, today=date(2027, 3, 1),
+    ) == (date(2027, 10, 1), date(2027, 10, 31))

@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import Mock
 
 import pytest
@@ -32,13 +33,31 @@ def test_explicit_dates_only(period, start, end):
 
 
 @pytest.mark.parametrize(
+    "period,start,end",
+    [
+        ("10월 1일 ~ 10월 31일", "2027-10-01", "2027-10-31"),
+        ("2027.8.7. ~ 8.13.", "2027-08-07", "2027-08-13"),
+        ("8.7. ~ 2028.8.13.", "2028-08-07", "2028-08-13"),
+        ("신청기간: 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00", "2027-09-28", "2027-10-07"),
+        ("마감일: 10월 15일", None, "2027-10-15"),
+        ("10.15.까지", None, "2027-10-15"),
+        ("접수 시작일: 10월 15일", "2027-10-15", None),
+    ],
+)
+def test_missing_year_defaults_to_current_year(period, start, end):
+    assert application_schedule(period, today=date(2027, 3, 1)) == {
+        "applicationStart": start,
+        "applicationEnd": end,
+        "scheduleStatus": "dated",
+    }
+
+
+@pytest.mark.parametrize(
     "period",
     [
         None,
         "",
         "2026-10-15",
-        "10월 1일 ~ 10월 31일",
-        "2026.8.7. ~ 8.13.",
         "2026-11-01 ~ 2026-10-01",
         "2026-02-29 ~ 2026-03-01",
         "2026-10-01 ~ 2026-10-31 / 추가 2026-11-03",
