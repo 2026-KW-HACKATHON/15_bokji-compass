@@ -30,16 +30,20 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "android:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-local.ps1",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
+    "postinstall": "node scripts/apply-node-forge-security-patch.mjs",
+    "security:patch": "node scripts/apply-node-forge-security-patch.mjs",
+    "security:check": "node scripts/apply-node-forge-security-patch.mjs --check",
+    "start": "node scripts/apply-node-forge-security-patch.mjs --check && expo start",
+    "android": "node scripts/apply-node-forge-security-patch.mjs --check && expo run:android",
+    "android:local": "node scripts/apply-node-forge-security-patch.mjs --check && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-local.ps1",
+    "ios": "node scripts/apply-node-forge-security-patch.mjs --check && expo run:ios",
+    "web": "node scripts/apply-node-forge-security-patch.mjs --check && expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
-    "test": "node --test tests/*.test.mjs",
-    "export:native": "expo export --platform android --platform ios",
-    "export:web": "expo export --platform web"
+    "lint": "node scripts/apply-node-forge-security-patch.mjs --check && expo lint",
+    "test": "node scripts/apply-node-forge-security-patch.mjs --check && node --test tests/*.test.mjs",
+    "test:security": "node scripts/apply-node-forge-security-patch.mjs --check && node --test tests/node-forge-*.test.mjs",
+    "export:native": "node scripts/apply-node-forge-security-patch.mjs --check && expo export --platform android --platform ios",
+    "export:web": "node scripts/apply-node-forge-security-patch.mjs --check && expo export --platform web"
   },
   "private": true,
   "overrides": {
