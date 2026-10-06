@@ -9,6 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.contracts.conditions import CanonicalPolicy
@@ -37,6 +38,16 @@ def write_json(path: Path, data: dict) -> None:
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+def _safe_validation_summary(error: ValueError) -> str:
+    if isinstance(error, ValidationError):
+        issues = error.errors(include_input=False)
+        return "; ".join(
+            f"{'.'.join(map(str, issue['loc']))}: {issue['msg']}"
+            for issue in issues[:4]
+        ) or "schema_validation_failed"
+    return str(error)[:300] or type(error).__name__
 
 
 def _missing_conditions(source: SourcePolicy) -> PolicyExtraction:
@@ -176,7 +187,10 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         except ValueError as error:
             if budget and hasattr(error, "metadata"):
                 budget.record(error.metadata)
-            base["attempts"].append({"model": model, "status": "validation_failed"})
+            base["attempts"].append({
+                "model": model, "status": "validation_failed",
+                "error": _safe_validation_summary(error),
+            })
             pending_stage()
             continue
         except OSError:
@@ -339,7 +353,8 @@ def _extract_overview(source: SourcePolicy, settings: Settings,
         except ValueError as error:
             if budget and hasattr(error, "metadata"):
                 budget.record(error.metadata)
-            attempts.append({"model": model, "status": "validation_failed"})
+            attempts.append({"model": model, "status": "validation_failed",
+                             "error": _safe_validation_summary(error)})
             if save_attempts:
                 save_attempts(attempts)
             continue

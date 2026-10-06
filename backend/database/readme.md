@@ -18,7 +18,7 @@ DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중�
 | `006_policy_publication.sql` | 관리자 공개·비공개 변경 감사 이력 | `policy_publication_events` |
 | `007_policy_collection.sql` | 서버 수집 작업, 체크포인트, 원문 변경 이력, 호출량 및 외부 공고 후보 | 수집 관련 테이블 |
 | `008_legacy_policy_projection.sql` | 기존 조회 계약과의 호환 테이블 | `policies`, `policy_requirements` |
-| `009_raw_documents.sql` | 사이트별 수집 원문 보관 | `raw_documents` |
+| `009_raw_documents.sql` | 기존 원문 보관용 레거시 스키마 | `raw_documents` |
 
 적용 SQL 파일명과 체크섬은 `policy_schema_versions`에 기록한다. 초기화기는 공식 지역 스냅샷의
 무결성을 확인하고 약 63,000개 지역 행을 설치한다. 재실행 시 적용된 체크섬을 검증하며 기존
@@ -53,10 +53,11 @@ revision 저장과 같은 트랜잭션에서 이 테이블에도 반영된다. `
 `policies.source_text`에는 파이프라인이 추출에 사용한 정규화 입력 JSON을 저장한다. 이는 공급자
 응답의 원본 JSON/XML 전체를 의미하지 않는다. 원본 payload는 별도로 수집·보관한 경우에만 조회할 수 있다.
 
-`raw_documents`는 공지 크롤러가 수집한 제목·본문·원본 URL·수집/게시 시각을 보존한다.
-광운대 원문 seed는 `seeds/kwangwoon_notices.sql`이며, 스키마 초기화 후 한 번 적재한다.
-광운대 상세 공고는 공개 정책 revision에 합성하지 않으며 공개 공고 API가 기존 정책과 함께
-조회한다. 명확한 신청 기간만 캘린더 날짜 칸에 표시하고, 나머지는 일정 미정 목록에 둔다.
+기존에 수집한 원문은 `raw_documents`에 남아 있을 수 있지만, 광운대 공고를 새로 적재하거나
+웹에 노출할 때 이 레거시 테이블을 사용하지 않는다. `seeds/kwangwoon_notices.json`은 표준
+파이프라인의 RawDocument 형식 입력이며, 추출·검증 후 다른 공고와 동일하게
+`condition_documents` 및 `policy_revision_details`에 저장한다. 공개된 revision만 전체 공고와
+공고 캘린더에서 조회된다.
 
 ## 초기화와 안전성
 

@@ -27,7 +27,7 @@
 - get_revision(revision_id, published_only=True) → 원문/전체 결과/검토 상태 또는 None.
 - import_draft(payload), validate_draft(payload) → v1/v2 검증·명시적 v1 변환.
 - backfill_legacy_policies(policy_keys=None) → 저장된 개정을 `policies`/`policy_requirements`에 반영.
-- save_raw_document(document, storage_path), list_raw_documents(storage_path) → 기존 수집 원문 파일 저장/조회.
+- `save_raw_document(document, storage_path)`, `list_raw_documents(storage_path)` → 기존 수집 원문 파일 저장/조회. 공고 웹 카탈로그는 공개된 정책 revision만 조회한다.
 
 LLM 호출 없음. 검증 오류는 ValueError, DB 오류는 SQLAlchemyError 계열이다.
 기본 조회는 공개 공고만 반환하고 로컬 검토에서만 published_only=False를 지정한다.

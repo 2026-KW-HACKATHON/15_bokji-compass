@@ -26,7 +26,7 @@ from app.modules.validation.public import validate_canonical, validate_extractio
 TABLES = (
     "condition_documents", "condition_entries", "policy_revision_details",
     "policy_ingestion_runs", "policy_ingestion_items", "policies",
-    "policy_requirements", "raw_documents",
+    "policy_requirements",
 )
 STORAGE_VERSION = "policy-storage-v1"
 
