@@ -38,6 +38,38 @@ def assessment(profile, index=0):
     return calculate(profile)["assessments"][index]
 
 
+def test_occupation_does_not_implicitly_apply_student_deductions():
+    profile = facts()
+    profile.members[0].age = 40
+    profile.members[0].earned_income = 1_000_000
+    baseline = calculate(profile)
+    profile.members[0].occupation = "student"
+    assert calculate(profile) == baseline
+    assert profile.members[0].deduction == "ordinary"
+    assert facts().members[0].occupation == "unknown"
+
+
+@pytest.mark.parametrize("size", [12, 13, 100])
+def test_large_households_use_actual_count(size):
+    member = facts().members[0].model_dump()
+    profile = facts(household_size=size, members=[member.copy() for _ in range(size)])
+    result = calculate(profile)
+    assert result["median"]["base"] == 9_515_150 + (size - 7) * (9_515_150 - 8_555_952)
+    assert len(profile.members) == size
+    with pytest.raises(ValidationError):
+        facts(household_size=101, members=[member.copy() for _ in range(101)])
+
+
+def test_unified_region_requires_review_without_assuming_regional_allowance():
+    result = calculate(facts(region="jeonnam_gwangju"))
+    assert result["median"]["ratio_percent"] == 0
+    assert result["assets"]["gross_total"] == 0
+    for index in (0, 1):
+        item = result["assessments"][index]
+        assert item["status"] == "needs_review"
+        assert any("전남광주통합특별시" in message for message in item["missing"])
+
+
 def car(**changes):
     return {
         "value": 4_999_999,

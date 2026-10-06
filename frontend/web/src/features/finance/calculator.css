@@ -159,6 +159,12 @@
   font-size: 0.94rem;
   font-weight: 650;
 }
+.finance-field-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
 .finance-screen-title,
 .finance-question h3 {
   scroll-margin-top: 100px;
@@ -324,6 +330,16 @@
   margin: 3px 0 0;
   accent-color: var(--green);
 }
+.finance-optional {
+  display: inline-block;
+  margin-inline-start: 8px;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+.finance-check-field .finance-help {
+  margin-inline-start: 32px;
+}
 .finance-member {
   min-width: 0;
   margin: 24px 0;
@@ -377,6 +393,37 @@
   font-size: 0.82rem;
   color: var(--muted);
   margin-bottom: 16px;
+}
+.finance-result-guide {
+  margin-bottom: 24px;
+  padding: clamp(16px, 2.5vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f3f8fb;
+}
+.finance-result-guide h3 {
+  margin: 0 0 18px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+.finance-result-guide dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 18px 24px;
+  margin: 0;
+}
+.finance-result-guide dt {
+  margin-bottom: 6px;
+  color: #17324d;
+  font-weight: 700;
+}
+.finance-result-guide dd {
+  margin: 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.finance-result-guide .finance-help {
+  margin: 20px 0 0;
 }
 .finance-result-summary {
   display: grid;

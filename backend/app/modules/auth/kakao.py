@@ -107,4 +107,4 @@ def exchange_identity(settings, code):
     nickname = properties.get("nickname") if isinstance(properties, dict) else None
     if not isinstance(nickname, str) or any(ord(c) < 32 for c in nickname):
         nickname = ""
-    return f"{app_id}:{subject}", nickname[:50]
+    return f"{app_id}:{subject}", nickname.strip()[:50]

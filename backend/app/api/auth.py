@@ -10,8 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import with_capabilities
-from app.modules.auth.migration import migrate_private_data, verify_lookup_key
-from app.modules.auth.privacy import PrivacyCipher
+from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import SESSION_SECONDS, AuthService
 
@@ -52,9 +51,6 @@ def get_service(request: Request):
         raise HTTPException(503, "인증 서비스가 비활성화되어 있어요.")
     with state.auth_lock:
         if state.auth_service is None:
-            if settings.app_env != "test" and not settings.db_enabled:
-                raise HTTPException(503, "회원 저장을 위한 MySQL 데이터베이스 설정이 필요해요.")
-            cipher = PrivacyCipher(settings)
             if settings.auth_uses_mysql:
                 engine = state.database_engine
             else:
@@ -68,14 +64,14 @@ def get_service(request: Request):
                 )
                 try:
                     initialize_auth_schema(engine)
-                    migrate_private_data(engine, cipher)
+                    ensure_plaintext_storage(engine)
                 except Exception:
                     engine.dispose()
                     raise
                 state.auth_engine = engine
-            with engine.connect() as connection:
-                verify_lookup_key(connection, cipher)
-            state.auth_service = AuthService(engine, cipher)
+            if settings.auth_uses_mysql:
+                ensure_plaintext_storage(engine)
+            state.auth_service = AuthService(engine)
     return state.auth_service
 
 
@@ -98,14 +94,16 @@ class LoginInput(UsernameInput):
 class ProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=50)
-    age: int = Field(strict=True, ge=0, le=120)
-    gender: Literal["male", "female", "other", "undisclosed"]
-    region: str = Field(max_length=32)
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    age: int | None = Field(default=None, strict=True, ge=0, le=120)
+    gender: Literal["male", "female", "other", "undisclosed"] = "undisclosed"
+    region: str | None = Field(default=None, max_length=32)
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
+        if value is None:
+            return None
         value = value.strip()
         if not value or any(ord(character) < 32 for character in value):
             raise ValueError("이름을 입력해 주세요.")
@@ -114,12 +112,17 @@ class ProfileInput(BaseModel):
     @field_validator("region")
     @classmethod
     def validate_region(cls, value):
-        if value not in REGIONS:
+        if value is not None and value not in REGIONS:
             raise ValueError("거주 지역을 선택해 주세요.")
         return value
 
 
 class SignupInput(LoginInput, ProfileInput):
+    # Password signup retains its existing required fields.
+    name: str = Field(min_length=1, max_length=50)
+    age: int = Field(strict=True, ge=0, le=120)
+    gender: Literal["male", "female", "other", "undisclosed"]
+    region: str = Field(max_length=32)
     confirm_password: SecretStr = Field(min_length=8, max_length=128)
 
     @model_validator(mode="after")

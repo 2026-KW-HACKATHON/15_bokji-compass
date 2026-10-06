@@ -9,5 +9,5 @@ pymysql[rsa]>=1.1,<2
 alembic>=1.14,<2
 tzdata
 
-# Authenticated encryption for member and financial profiles.
+# Read older encrypted backups during explicit member-data restoration.
 cryptography>=50,<51

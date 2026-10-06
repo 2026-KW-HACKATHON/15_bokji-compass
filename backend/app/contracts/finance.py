@@ -13,6 +13,18 @@ class FinanceModel(BaseModel):
 
 class IncomeMember(FinanceModel):
     age: int | None = Field(default=None, strict=True, ge=0, le=120)
+    occupation: Literal[
+        "employee",
+        "self_employed",
+        "freelancer",
+        "student",
+        "homemaker",
+        "military",
+        "unemployed",
+        "retired",
+        "other",
+        "unknown",
+    ] = "unknown"
     earned_income: Money | None = None
     earned_income_basis: Literal["gross", "net", "unknown"] = "unknown"
     business_income: Money | None = None
@@ -59,12 +71,14 @@ class Vehicle(FinanceModel):
 class FinancialProfile(FinanceModel):
     schema_version: Literal[1] = 1
     reference_year: int = Field(default=2026, strict=True, ge=2000, le=2100)
-    household_size: int = Field(default=1, strict=True, ge=1, le=12)
-    region: Literal["seoul", "gyeonggi", "metropolitan", "other", "unknown"] = "unknown"
+    household_size: int = Field(default=1, strict=True, ge=1, le=100)
+    region: Literal["seoul", "gyeonggi", "jeonnam_gwangju", "metropolitan", "other", "unknown"] = (
+        "unknown"
+    )
     household_scope_confirmed: bool = Field(default=False, strict=True)
-    minor_children: int | None = Field(default=None, strict=True, ge=0, le=12)
+    minor_children: int | None = Field(default=None, strict=True, ge=0, le=100)
     recipient_status: Literal["none", "near_poor", "basic", "unknown"] = "unknown"
-    members: list[IncomeMember] = Field(min_length=1, max_length=12)
+    members: list[IncomeMember] = Field(min_length=1, max_length=100)
     assets: Assets = Field(default_factory=Assets)
     debts: Debts = Field(default_factory=Debts)
     vehicle_status: Literal["none", "owned", "unknown"] = "unknown"

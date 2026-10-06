@@ -91,7 +91,17 @@ def normalize_record(row: dict) -> SourcePolicy:
         provider = "notice"
         identity, title = _text(row, "document_id"), _text(row, "title")
         organization = _text(row, "organization")
-        fields, url = {"text": _text(row, "text")}, _text(row, "source_url")
+        fields = {"text": _text(row, "text")}
+        _add_optional_fields(fields, row, {
+            "application_period": ("application_period",),
+            "application_method": ("application_method",),
+            "application_url": ("application_url",),
+            "contact": ("contact",),
+            "published_date": ("published_date",),
+            "modified_date": ("modified_date",),
+            "links": ("links",),
+        })
+        url = _text(row, "source_url")
     else:
         raise ValueError("Unsupported raw record: require Gov24, Bokjiro or RawDocument")
     if not identity or not title:

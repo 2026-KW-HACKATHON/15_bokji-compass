@@ -255,7 +255,7 @@ def test_pipeline_requires_database_by_default(tmp_path):
 def test_legacy_overview_stays_importable_without_weakening_new_model_contract():
     from pydantic import ValidationError
 
-    from app.contracts.parsing import PolicyOverview
+    from app.contracts.parsing import PeriodPolicyOverview, PolicyOverview
 
     record = source()
     value = draft(record)
@@ -289,6 +289,17 @@ def test_legacy_overview_stays_importable_without_weakening_new_model_contract()
         ],
     }
     validate_draft(value)
+    value["overview"] = {
+        **value["overview"],
+        "application_period": {
+            "status": "not_stated", "text": None, "evidence": [],
+            "unresolved_reason": None,
+        },
+    }
+    assert PeriodPolicyOverview.model_validate(value["overview"])
+    validate_draft(value)
+    with pytest.raises(ValidationError):
+        PolicyOverview.model_validate(value["overview"])
     value["overview"]["policy_requirements"][0]["evidence_text"] = "없는 원문"
     with pytest.raises(ValueError, match="evidence"):
         validate_draft(value)
@@ -373,14 +384,16 @@ def repository(engine):
     # Delete only IDs created by this test. No truncate, schema drop or real-data cleanup.
     tables = repo.tables
     items = tables["policy_ingestion_items"]
+    policies = tables["policies"]
+    requirements = tables["policy_requirements"]
     with engine.begin() as connection:
-        revisions = list(
-            connection.execute(
-                select(items.c.revision_id).where(
-                    items.c.run_id.in_(runs), items.c.revision_id.is_not(None)
-                )
-            ).scalars()
-        )
+        policy_keys = list(connection.execute(select(items.c.policy_key).where(
+            items.c.run_id.in_(runs))).scalars())
+        revisions = list(connection.execute(select(items.c.revision_id).where(
+            items.c.run_id.in_(runs), items.c.revision_id.is_not(None))).scalars())
+        policy_ids = select(policies.c.id).where(policies.c.source_key.in_(policy_keys))
+        connection.execute(delete(requirements).where(requirements.c.policy_id.in_(policy_ids)))
+        connection.execute(delete(policies).where(policies.c.source_key.in_(policy_keys)))
         connection.execute(delete(items).where(items.c.run_id.in_(runs)))
         connection.execute(
             delete(tables["policy_ingestion_runs"]).where(
@@ -404,6 +417,20 @@ def test_roundtrip_deduplication_revisions_and_publication_boundary(repository):
     assert stored["canonical_json"] == original["canonical"]
     assert stored["draft_json"] == original
     assert stored["review_status"] == "draft" and not stored["matching_enabled"]
+    policies = repository.tables["policies"]
+    requirements = repository.tables["policy_requirements"]
+    with repository.engine.connect() as connection:
+        legacy_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+        legacy_requirements = connection.execute(select(requirements).where(
+            requirements.c.policy_id == legacy_policy["id"]
+        )).mappings().all()
+    assert legacy_policy["title"] == original["source"]["title"]
+    assert "신청자 만 19세 이상" in legacy_policy["source_text"]
+    assert len(legacy_requirements) == 1
+    assert legacy_requirements[0]["condition_type"] == "other"
+    assert legacy_requirements[0]["information_state"] == "not_stated"
     changed = deepcopy(original)
     changed["source"]["title"] += " 개정"
     changed["source"]["source_hash"] = "f" * 64
@@ -418,6 +445,93 @@ def test_roundtrip_deduplication_revisions_and_publication_boundary(repository):
         )
         == 2
     )
+    with repository.engine.connect() as connection:
+        updated_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+        updated_requirements = connection.execute(select(requirements).where(
+            requirements.c.policy_id == updated_policy["id"]
+        )).mappings().all()
+    assert updated_policy["id"] == legacy_policy["id"]
+    assert updated_policy["title"].endswith("개정")
+    assert len(updated_requirements) == 1
+    assert repository.backfill_legacy_policies([original["source"]["policy_key"]]) == 1
+    with repository.engine.connect() as connection:
+        backfilled_policy = connection.execute(select(policies).where(
+            policies.c.source_key == original["source"]["policy_key"]
+        )).mappings().one()
+    assert backfilled_policy["title"].endswith("개정")
+
+
+@pytest.mark.parametrize("review_status", ["reviewed", "published"])
+def test_legacy_review_survives_identical_source_and_resets_for_case_change(
+    repository, review_status,
+):
+    from sqlalchemy import update
+
+    original = draft(source().model_copy(update={"title": "Source CASE"}))
+    repository.import_draft(original)
+    policies = repository.tables["policies"]
+    key = original["source"]["policy_key"]
+    with repository.engine.begin() as connection:
+        connection.execute(update(policies).where(policies.c.source_key == key).values(
+            review_status=review_status))
+    repository.import_draft(original)
+    with repository.engine.connect() as connection:
+        assert connection.scalar(select(policies.c.review_status).where(
+            policies.c.source_key == key)) == review_status
+
+    changed = deepcopy(original)
+    changed["source"]["title"] = "Source case"
+    repository.import_draft(changed)
+    with repository.engine.connect() as connection:
+        row = connection.execute(select(policies).where(
+            policies.c.source_key == key)).mappings().one()
+        assert row["review_status"] == "draft"
+        assert row["title"] == "Source case"
+        assert json.loads(row["source_text"]) == changed["source"]
+
+
+def test_legacy_projection_preserves_large_validated_source_and_requirements(repository):
+    record = normalize_record({
+        "document_id": "db-test-" + uuid4().hex,
+        "title": "제" * 260,
+        "organization": "기" * 300,
+        "source_url": "https://example.test/" + "a" * 2100,
+        "text": "신청자 만 19세 이상. " + "가" * 22000,
+    })
+    # Reuse grounded conditions while retaining the full source a model may have extracted.
+    value = draft(record.model_copy(update={"fields": {"text": "신청자 만 19세 이상"}}))
+    value["source"] = record.model_dump()
+    not_stated = {"status": "not_stated", "text": None, "evidence": [],
+                  "unresolved_reason": None}
+    value.update(overview={
+        "title": record.title, "source_url": record.source_url, "category": None,
+        "category_reason": "분류 근거 부족",
+        "category_evidence": [{"source_field": "text", "quote": "신청자 만 19세 이상"}],
+        "region_conditions": not_stated, "gender_conditions": not_stated,
+        "age_conditions": not_stated, "benefits": not_stated,
+        "other_conditions": [], "unresolved": ["분류 검토 필요"],
+        "policy_requirements": [{"condition_type": "other", "information_state": "specified",
+                                 "evidence_text": record.fields["text"]}],
+    }, overview_status="validated")
+    assert len(json.dumps(record.model_dump(), ensure_ascii=False).encode()) > 65535
+    assert len(record.fields["text"].encode()) > 65535
+    assert validate_draft(value)["status"] == "needs_review"
+    revision = repository.import_draft(value)["records"][0]["revision_id"]
+    assert repository.get_revision(revision, published_only=False)["draft_json"] == value
+    policies = repository.tables["policies"]
+    requirements = repository.tables["policy_requirements"]
+    with repository.engine.connect() as connection:
+        row = connection.execute(select(policies).where(
+            policies.c.source_key == record.policy_key)).mappings().one()
+        evidence = connection.scalar(select(requirements.c.evidence_text).where(
+            requirements.c.policy_id == row["id"]))
+    assert row["title"] == record.title
+    assert row["organization"] == record.organization
+    assert row["source_url"] == record.source_url
+    assert json.loads(row["source_text"]) == record.model_dump()
+    assert evidence == record.fields["text"]
 
 
 def test_mid_transaction_failure_rolls_back_entire_revision(repository):

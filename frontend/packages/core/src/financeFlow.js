@@ -2,6 +2,7 @@ import {
   financeRegions,
   recipientTypes,
   deductionTypes,
+  occupationTypes,
   earnedIncomeBases,
   businessIncomeBases,
   vehicleOwnerships,
@@ -13,6 +14,7 @@ import {
   parseInteger,
   parseMoney,
   MAX_MONEY,
+  MAX_HOUSEHOLD_SIZE,
 } from './financeModel.js';
 
 export const financeGroups = ['가구', '소득', '재산', '부채', '차량', '확인'];
@@ -41,7 +43,12 @@ const select = (path, id, label, options, hint, when) => ({
   when,
   type: 'select',
 });
-const check = (path, label) => ({ path, id: `finance-${path}`, label, type: 'check' });
+const check = (path, label) => ({
+  path,
+  id: `finance-${path}`,
+  label,
+  type: 'check',
+});
 const positive = (path) => (draft) => {
   try {
     return parseMoney(fieldValue(draft, path), '금액') > 0;
@@ -49,7 +56,13 @@ const positive = (path) => (draft) => {
     return false;
   }
 };
-const question = (id, group, title, fields, help) => ({ id, group, title, fields, help });
+const question = (id, group, title, fields, help) => ({
+  id,
+  group,
+  title,
+  fields,
+  help,
+});
 
 // These describe the input flow only. Calculation rules remain on the server.
 export function financeQuestions(draft) {
@@ -59,7 +72,15 @@ export function financeQuestions(draft) {
       0,
       '어디에서, 몇 명이 함께 생활하나요?',
       [
-        select('region', 'region', '거주 지역', financeRegions),
+        select(
+          'region',
+          'region',
+          '거주 지역',
+          financeRegions,
+          draft.region === 'jeonnam_gwangju'
+            ? '통합 지역의 재산 공제 기준은 추가 확인이 필요해요. 관련 계산 결과는 ‘확인 필요’로 표시합니다.'
+            : '전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.',
+        ),
         select(
           'household_size',
           'household',
@@ -72,8 +93,19 @@ export function financeQuestions(draft) {
     question('household-details', 0, '가구에 해당하는 정보를 알려주세요', [
       number('minor_children', 'children', '18세 미만 자녀 수', '명', Number(draft.household_size)),
       select('recipient_status', 'recipient', '현재 수급 상태', recipientTypes),
-      check('household_scope_confirmed', '계산할 사업의 가구원 범위를 확인했어요'),
-      check('additional_review', '다른 특례나 공제도 확인해야 해요'),
+      {
+        ...check('household_scope_confirmed', '계산할 사업의 가구원 범위를 확인했어요'),
+        optional: true,
+        hint: '선택하지 않아도 다음 단계로 갈 수 있어요. 확인하지 않은 가구원 범위는 결과에서 확인할 항목으로 안내합니다.',
+      },
+      {
+        ...check(
+          'additional_review',
+          '추가로 적용받을 수 있는 혜택이나 소득·재산 공제를 확인하고 싶어요',
+        ),
+        optional: true,
+        hint: '선택하지 않아도 다음 단계로 갈 수 있어요. 추가 혜택이나 공제가 있는지 더 알아보고 싶을 때 선택하세요.',
+      },
     ]),
     ...draft.members.flatMap((member, i) => {
       const path = (key) => `members.${i}.${key}`;
@@ -82,9 +114,20 @@ export function financeQuestions(draft) {
         question(
           `member-${i}-basic`,
           1,
-          `${prefix} · 나이와 공제 유형`,
+          `${prefix} · 나이·직업군·공제 유형`,
           [
-            number(path('age'), `age-${i}`, '만 나이', '세', 120),
+            {
+              ...number(path('age'), `age-${i}`, '만 나이', '세', 120),
+              placeholder: '계산한 만 나이를 입력하세요',
+              hint: '오늘 기준으로 올해 연도에서 태어난 연도를 빼세요. 올해 생일이 아직 오지 않았다면 1을 더 빼세요. 예: 연도 차이가 66이면 생일이 지났거나 오늘일 때 만 66세, 생일 전이면 만 65세예요.',
+            },
+            select(
+              path('occupation'),
+              `occupation-${i}`,
+              '직업군',
+              occupationTypes,
+              '현재 상태에 가장 가까운 항목을 선택하세요. 선택 사항이며, 입력하지 않아도 다음 단계로 갈 수 있어요.',
+            ),
             select(path('deduction'), `deduction-${i}`, '이 가구원의 공제 유형', deductionTypes),
           ],
           'deduction',
@@ -161,8 +204,14 @@ export function financeQuestions(draft) {
       3,
       '가구에 갚아야 할 부채가 있나요?',
       [
-        amount('debts.bank', 'bank', '금융기관 부채', '인정 가능한 대출의 남은 원금'),
-        amount('debts.public', 'public', '공공기관 부채', '인정 가능한 대출의 남은 원금'),
+        {
+          ...amount('debts.bank', 'bank', '금융기관 부채', '인정 가능한 대출의 남은 원금'),
+          example: '예: 은행·저축은행·보험사 대출',
+        },
+        {
+          ...amount('debts.public', 'public', '공공기관 부채', '인정 가능한 대출의 남은 원금'),
+          example: '예: 한국장학재단 학자금대출',
+        },
         amount('debts.other', 'other-debt', '추가 확인이 필요한 부채'),
       ],
       'debt',
@@ -247,10 +296,19 @@ export function validateQuestion(question, draft) {
   for (const field of visibleFields(question, draft)) {
     const value = fieldValue(draft, field.path);
     try {
-      if (field.type === 'money') {
+      if (field.path === 'household_size') {
+        parseInteger(value, field.label, {
+          min: 1,
+          max: MAX_HOUSEHOLD_SIZE,
+          required: true,
+        });
+      } else if (field.type === 'money') {
         parseMoney(value, field.label);
       } else if (field.type === 'number') {
-        parseInteger(value, field.label, { min: field.min ?? 0, max: field.max ?? MAX_MONEY });
+        parseInteger(value, field.label, {
+          min: field.min ?? 0,
+          max: field.max ?? MAX_MONEY,
+        });
       } else if (
         field.type === 'select' &&
         !field.options.some(([key]) => String(key) === String(value ?? 'unknown'))

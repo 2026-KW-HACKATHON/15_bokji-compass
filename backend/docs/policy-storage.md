@@ -49,8 +49,10 @@ DB 전체 장애 시 결과 체크포인트도 저장하지 못할 수 있으며
 | condition_entries | 조건별 주체·값·단위·근거·필드 인덱스 |
 | policy_revision_details | 제목·기관·분야·전체 처리 결과·설정·중복 방지 해시 |
 | policy_ingestion_runs / policy_ingestion_items | 작업 상태·원문·결과·오류·개정 참조 |
+| policies / policy_requirements | 001 호환 공고 원문·LLM 조건 근거 투영, source_key 기준 중복 방지 |
 
-004/005/006/007 SQL은 명시적 초기화로 적용한다. 파싱/API 요청에서 테이블을 만들지 않는다.
+004/005/006_policy_publication/007_policy_collection/008_legacy_policy_projection SQL은
+명시적 초기화로 적용한다. 파싱/API 요청에서 테이블을 만들지 않는다.
 초기화는 MySQL advisory lock과 체크섬을 사용한다. 기존 001 초안·계정 테이블은 수정하지 않는다.
 적용 기록 없이 같은 이름의 테이블이 있거나 DDL 적용이 중간에 끊긴 경우 자동 삭제/덮어쓰기
 없이 점검을 요구한다. MySQL DDL은 암묵적으로 커밋되므로 부분 적용은 관리자가 확인해야 한다.
@@ -73,8 +75,11 @@ published가 되며 수동 모드에서는 draft다. 공개는 자격 확정이 
 기본 조회는 published_only=True이며 로컬 검토에서만 include-drafts를 사용한다.
 
 기존 welfare-overview-v1 요약에는 policy_requirements가 없을 수 있다. 저장/이관 검증은
-구형 계약으로 기존 인용을 검증하고 그대로 보존한다. 새 LLM 출력은 welfare-overview-v2의
-policy_requirements를 필수로 받으며, 기존 자료에 요건을 추정해서 채우지 않는다.
+구형 계약으로 기존 인용을 검증하고 그대로 보존한다. 저장된 welfare-overview-v2 형식은 policy_requirements만, welfare-overview-v3는 여기에
+application_period까지 가질 수 있어 각각 이전 계약으로 검증한다. 새 LLM 출력은
+welfare-overview-v4의 policy_requirements, 인용된 신청 기간·방법·URL·문의처·게시일·수정일을
+필수로 받으며, 기존 자료에 요건이나 출처 정보를 추정해 채우지 않는다. 명확한 시작·종료 날짜만
+기존 `policies.application_start/application_end`로 투영하고 추출한 원문 정보는 개정 overview에 보존한다.
 
 ## 개인 LLM 첫 연결
 

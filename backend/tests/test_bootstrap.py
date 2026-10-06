@@ -35,6 +35,7 @@ def test_liveness_is_not_database_readiness():
             "/v1/auth/kakao/callback",
             "/v1/auth/kakao/pending",
             "/v1/auth/kakao/complete",
+            "/v1/auth/kakao/cancel",
             "/v1/auth/signup",
             "/v1/auth/login",
             "/v1/auth/logout",

@@ -10,41 +10,33 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from app.core.config import load_settings  # noqa: E402
-from app.core.database import create_database_engine  # noqa: E402
 from app.modules.admin.provision import create_operator  # noqa: E402
-from app.modules.auth.privacy import PrivacyCipher, PrivacyError  # noqa: E402
+from app.modules.auth.__main__ import member_engine  # noqa: E402
+from app.modules.auth.migration import ensure_plaintext_storage  # noqa: E402
+from app.modules.auth.privacy import PrivacyError  # noqa: E402
+from app.modules.auth.schema import initialize_auth_schema  # noqa: E402
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--username", default="bokji_admin")
-    parser.add_argument("--share", action="store_true",
-                        help="Use the shared site's configured member database")
+    parser.add_argument(
+        "--share", action="store_true", help="Use the shared site's configured member database"
+    )
     parser.add_argument("--port", type=int, default=5190)
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("Invalid port")
     settings = load_settings()
-    try:
-        cipher = PrivacyCipher(settings)
-    except PrivacyError:
-        parser.error("Configure member encryption and lookup keys before administrator setup")
-    if settings.auth_uses_mysql:
-        engine = create_database_engine(settings)
-    elif settings.app_env == "test":
-        db_path = settings.auth_sqlite_path
-        if not db_path.is_absolute():
-            db_path = BACKEND / db_path
-        engine = create_engine("sqlite:///" + db_path.as_posix())
-    else:
-        parser.error("Development and production administrator accounts require MySQL")
+    engine = member_engine(settings)
+    initialize_auth_schema(engine)
+    ensure_plaintext_storage(engine)
     token = secrets.token_urlsafe(32)
     setup_path = "/setup/" + token
     deadline = time.monotonic() + 900
@@ -143,8 +135,7 @@ def main():
                 password = data.get("password", [""])[0]
                 if password != data.get("confirm", [""])[0]:
                     raise ValueError("비밀번호 확인이 일치하지 않습니다.")
-                create_operator(engine, args.username, password,
-                                cipher=cipher, role="superadmin")
+                create_operator(engine, args.username, password, role="superadmin")
             except PrivacyError:
                 self.respond(503, "회원 정보 보안 설정과 데이터 이관 상태를 확인해 주세요.")
                 return

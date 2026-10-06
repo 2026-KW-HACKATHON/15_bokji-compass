@@ -1,8 +1,8 @@
-"""Additive auth schema initialization and legacy account upgrades."""
+"""Auth schema initialization and data-preserving account upgrades."""
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import String, inspect
+from sqlalchemy import Integer, String, inspect
 from sqlalchemy.exc import DBAPIError
 
 from app.modules.admin.access import admin_grants  # noqa: F401 -- registers the additive role table
@@ -39,14 +39,20 @@ def initialize_auth_schema(engine):
                 if "name" not in columns:
                     raise
 
-        phone = next(
-            c for c in inspect(connection).get_columns("auth_accounts") if c["name"] == "phone"
-        )
-        if not phone["nullable"]:
+        account_columns = {
+            c["name"]: c for c in inspect(connection).get_columns("auth_accounts")
+        }
+        optional_columns = {"phone": String(16), "age": Integer(), "region": String(32)}
+        required_columns = {
+            name: sql_type for name, sql_type in optional_columns.items()
+            if not account_columns[name]["nullable"]
+        }
+        if required_columns:
             # SQLite rebuilds this table; MySQL uses ALTER. IDs and rows are preserved.
             operations = Operations(MigrationContext.configure(connection))
             with operations.batch_alter_table("auth_accounts") as batch:
-                batch.alter_column("phone", existing_type=String(16), nullable=True)
+                for name, sql_type in required_columns.items():
+                    batch.alter_column(name, existing_type=sql_type, nullable=True)
 
     with engine.begin() as connection:
         for table, additions in {

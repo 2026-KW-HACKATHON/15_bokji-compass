@@ -9,7 +9,7 @@ UNION ALL SELECT 'policies', COUNT(*) FROM policies
 UNION ALL SELECT 'policy_requirements', COUNT(*) FROM policy_requirements;
 
 -- 선택 입력이 없는 사용자도 LEFT JOIN으로 보존합니다.
-SELECT u.id, u.display_name, p.birth_date,
+SELECT u.id, u.display_name, u.gender, p.birth_date,
        b.name AS birth_region, r.name AS residence_region, p.residence_basis
 FROM users u
 LEFT JOIN user_profiles p ON p.user_id = u.id

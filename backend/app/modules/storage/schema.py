@@ -9,8 +9,11 @@ from sqlalchemy import MetaData, Table, insert, inspect, select, text
 from app.core.config import BACKEND_ROOT
 from app.modules.regions.public import default_catalog
 
-MIGRATIONS = ("004_condition_schema.sql", "005_policy_ingestion.sql", "006_policy_publication.sql",
-              "007_policy_collection.sql")
+MIGRATIONS = (
+    "004_condition_schema.sql", "005_policy_ingestion.sql",
+    "006_policy_publication.sql", "007_policy_collection.sql",
+    "008_legacy_policy_projection.sql", "010_legacy_policy_capacity.sql",
+)
 
 
 def _migration_checksums(data: bytes) -> tuple[str, set[str]]:
@@ -48,9 +51,12 @@ def initialize_policy_schema(engine) -> dict:
                         raise RuntimeError("Applied policy migration checksum differs")
                     continue
                 sql = re.sub(r"--[^\n]*", "", data.decode("utf-8-sig"))
-                tables = re.findall(r"CREATE TABLE (\w+)", sql)
+                tables = re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?(\w+)", sql)
+                conditional_tables = set(re.findall(
+                    r"CREATE TABLE IF NOT EXISTS (\w+)", sql))
                 existing = set(inspect(connection).get_table_names())
-                if existing.intersection(tables):
+                conflicts = existing.intersection(tables) - conditional_tables
+                if conflicts:
                     raise RuntimeError(
                         "Untracked or partial policy schema exists; preserve and inspect it "
                         "before migration. No tables were replaced.")
@@ -58,6 +64,8 @@ def initialize_policy_schema(engine) -> dict:
                 for statement in sql.split(";"):
                     if statement.strip():
                         connection.exec_driver_sql(statement)
+                if filename == "008_legacy_policy_projection.sql":
+                    _ensure_policy_source_key(connection)
                 connection.execute(text(
                     "INSERT INTO policy_schema_versions (version, checksum) VALUES (:v, :c)"
                 ), {"v": filename, "c": checksum})
@@ -70,6 +78,27 @@ def initialize_policy_schema(engine) -> dict:
             connection.rollback()
             connection.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": lock})
             connection.commit()
+
+
+def _ensure_policy_source_key(connection) -> None:
+    columns = {column["name"] for column in inspect(connection).get_columns("policies")}
+    if "source_key" not in columns:
+        connection.exec_driver_sql(
+            "ALTER TABLE policies ADD COLUMN source_key "
+            "VARCHAR(255) COLLATE utf8mb4_bin NULL"
+        )
+    indexes = inspect(connection).get_indexes("policies")
+    unique_source_key = any(
+        index["unique"] and index["column_names"] == ["source_key"]
+        for index in indexes
+    )
+    if not unique_source_key:
+        if any(index["name"] == "uq_policies_source_key" for index in indexes):
+            raise RuntimeError("Existing policies source-key index is incompatible")
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX uq_policies_source_key ON policies (source_key)"
+        )
+    connection.commit()
 
 
 def _install_regions(connection) -> int:

@@ -6,22 +6,39 @@ import re
 from copy import deepcopy
 from uuid import uuid4
 
-from sqlalchemy import MetaData, Table, insert, null, select, update
+from sqlalchemy import (
+    LargeBinary,
+    MetaData,
+    Table,
+    case,
+    cast,
+    delete,
+    func,
+    insert,
+    null,
+    select,
+    update,
+)
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.exc import IntegrityError
 
 from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import (
     LegacyPolicyOverview,
+    PeriodPolicyOverview,
     PolicyExtraction,
     PolicyOverview,
     SourcePolicy,
+    StoredPolicyOverview,
 )
 from app.modules.normalization.public import normalize_conditions
+from app.modules.storage.application_dates import application_date_columns
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 TABLES = (
     "condition_documents", "condition_entries", "policy_revision_details",
-    "policy_ingestion_runs", "policy_ingestion_items",
+    "policy_ingestion_runs", "policy_ingestion_items", "policies",
+    "policy_requirements",
 )
 STORAGE_VERSION = "policy-storage-v1"
 
@@ -29,6 +46,21 @@ STORAGE_VERSION = "policy-storage-v1"
 def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                     separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def _legacy_policy_upsert(policies, values):
+    statement = mysql_insert(policies).values(**values)
+    # MySQL evaluates assignments left to right. Compare the old source before replacing it.
+    updates = [("review_status", case(
+        (cast(policies.c.source_text, LargeBinary)
+         != cast(statement.inserted.source_text, LargeBinary), "draft"),
+        else_=policies.c.review_status,
+    ))]
+    updates.extend((key, statement.inserted[key]) for key in (
+        "title", "organization", "source_url", "source_text",
+        "application_start", "application_end", "is_synthetic",
+    ))
+    return statement.on_duplicate_key_update(updates)
 
 
 def validate_draft(payload: dict) -> dict:
@@ -58,8 +90,14 @@ def validate_draft(payload: dict) -> dict:
                 c.condition_id for c in canonical.conditions}:
             raise ValueError("Extraction/canonical condition identities differ")
     if draft.get("overview") is not None:
-        overview_model = (PolicyOverview if "policy_requirements" in draft["overview"]
-                          else LegacyPolicyOverview)
+        if "application_method" in draft["overview"]:
+            overview_model = PolicyOverview
+        elif "application_period" in draft["overview"]:
+            overview_model = PeriodPolicyOverview
+        elif "policy_requirements" in draft["overview"]:
+            overview_model = StoredPolicyOverview
+        else:
+            overview_model = LegacyPolicyOverview
         validate_overview(overview_model.model_validate(draft["overview"]), source)
         if draft.get("overview_status") != "validated":
             raise ValueError("Overview status mismatch")
@@ -122,6 +160,7 @@ class PolicyRepository:
             reused = False
             if draft["status"] == "needs_review":
                 revision_id, reused = self._save_revision(connection, draft, processing)
+                self._save_legacy_policy(connection, draft)
                 if automatic and not reused:
                     change_publication(self, connection, events, revision_id,
                                        policy_key=source["policy_key"], action="publish",
@@ -178,6 +217,83 @@ class PolicyRepository:
                 raise
             return existing, True
         return revision_id, False
+
+    def _save_legacy_policy(self, connection, draft: dict) -> int:
+        source = draft["source"]
+        policies = self.tables["policies"]
+        requirements = self.tables["policy_requirements"]
+        source_key = source["policy_key"]
+        provider, _, identity = source_key.partition(":")
+        source_url = source["source_url"] or f"{provider}://service/{identity}"
+        source_text = json.dumps(source, ensure_ascii=False, sort_keys=True)
+        overview = draft.get("overview") or {}
+        application_start, application_end = application_date_columns(
+            source["fields"], overview.get("application_period"))
+        values = {
+            "source_key": source_key,
+            "title": source["title"],
+            "organization": source["organization"] or "미상",
+            "source_url": source_url,
+            "source_text": source_text,
+            "application_start": application_start,
+            "application_end": application_end,
+            "review_status": "draft",
+            "is_synthetic": False,
+        }
+
+        # Adopt an identical old-adapter row before inserting the stable source key.
+        prior_id = connection.execute(select(policies.c.id).where(
+            policies.c.source_key.is_(None), policies.c.title == values["title"],
+            policies.c.source_url == source_url, policies.c.is_synthetic.is_(False),
+        ).limit(1).with_for_update()).scalar_one_or_none()
+        if prior_id is not None:
+            connection.execute(update(policies).where(policies.c.id == prior_id).values(
+                source_key=source_key))
+
+        connection.execute(_legacy_policy_upsert(policies, values))
+        policy_id = connection.execute(select(policies.c.id).where(
+            policies.c.source_key == source_key).with_for_update()).scalar_one()
+
+        connection.execute(delete(requirements).where(
+            requirements.c.policy_id == policy_id))
+        requirement_rows = overview.get("policy_requirements") or [{
+            "condition_type": "other",
+            "information_state": "not_stated",
+            "evidence_text": "지원 대상 및 선정 기준 원문 미기재",
+        }]
+        connection.execute(insert(requirements), [
+            {**row, "policy_id": policy_id} for row in requirement_rows
+        ])
+        return policy_id
+
+    def backfill_legacy_policies(self, policy_keys: list[str] | None = None) -> int:
+        """Project stored revisions into the original policies/requirements tables."""
+        documents = self.tables["condition_documents"]
+        details = self.tables["policy_revision_details"]
+        ranked = select(
+            documents.c.revision_id,
+            func.row_number().over(
+                partition_by=documents.c.policy_key,
+                order_by=(documents.c.created_at.desc(), documents.c.revision_id.desc()),
+            ).label("position"),
+        )
+        if policy_keys is not None:
+            if not policy_keys:
+                return 0
+            ranked = ranked.where(documents.c.policy_key.in_(policy_keys))
+        latest = ranked.subquery()
+        query = select(details.c.draft_json).join(
+            latest, latest.c.revision_id == details.c.revision_id
+        ).where(latest.c.position == 1)
+        with self.engine.begin() as connection:
+            drafts = connection.execute(query).scalars().all()
+            count = 0
+            for payload in drafts:
+                draft = validate_draft(payload)
+                if draft["status"] == "needs_review":
+                    self._save_legacy_policy(connection, draft)
+                    count += 1
+            return count
 
     def mark_failed(self, run_id: str, policy_key: str, error_code: str,
                     draft: dict | None = None) -> None:

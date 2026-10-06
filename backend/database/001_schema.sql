@@ -16,6 +16,7 @@ CREATE TABLE regions (
 CREATE TABLE users (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   display_name VARCHAR(100) NOT NULL,
+  gender VARCHAR(16) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -35,6 +36,7 @@ CREATE TABLE user_profiles (
 
 CREATE TABLE policies (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  source_key VARCHAR(255) COLLATE utf8mb4_bin NULL,
   title VARCHAR(255) NOT NULL,
   organization VARCHAR(255) NOT NULL,
   source_url VARCHAR(2048) NOT NULL,
@@ -46,7 +48,8 @@ CREATE TABLE policies (
   collected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT chk_policy_dates CHECK (application_start IS NULL OR application_end IS NULL OR application_start <= application_end),
-  INDEX idx_policy_publication (review_status, application_end)
+  INDEX idx_policy_publication (review_status, application_end),
+  UNIQUE KEY uq_policies_source_key (source_key)
 ) ENGINE=InnoDB;
 
 -- 조건 원문 저장용. 자동 판정 가능한 정규화 규칙은 후속 구현합니다.

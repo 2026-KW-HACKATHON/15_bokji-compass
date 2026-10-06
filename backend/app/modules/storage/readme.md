@@ -26,6 +26,7 @@
 - list_revisions(published_only=True, limit=20, offset=0, policy_key=None) → 개정 요약 목록.
 - get_revision(revision_id, published_only=True) → 원문/전체 결과/검토 상태 또는 None.
 - import_draft(payload), validate_draft(payload) → v1/v2 검증·명시적 v1 변환.
+- backfill_legacy_policies(policy_keys=None) → 저장된 개정을 `policies`/`policy_requirements`에 반영.
 - save_raw_document(document, storage_path), list_raw_documents(storage_path) → 기존 수집 원문 파일 저장/조회.
 
 LLM 호출 없음. 검증 오류는 ValueError, DB 오류는 SQLAlchemyError 계열이다.
@@ -35,4 +36,10 @@ MySQL 통합 테스트: BOKJI_TEST_MYSQL=1 python -m pytest tests/test_policy_da
 Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생성 데이터는 종료 시 정리한다.
 
 run_processing(run_id)는 재개 시 원래 모델/추론 설정을 조회합니다. 규칙 버전이 바뀌면 새 실행이 필요합니다.
-legacy storage.policy는 001용 Gov24/Bokjiro 원문 행 어댑터이며 신규 파이프라인에는 사용하지 않습니다.
+신규 `save_result`는 개정형 테이블과 001 호환 `policies`/`policy_requirements`를 같은
+트랜잭션에서 저장합니다. `source_key` unique 키로 재실행 중복을 막고, 승인 상태는
+원문이 바뀔 때만 draft로 되돌립니다. 기존 개정은 `backfill_legacy_policies`로 투영합니다.
+MySQL의 순차 대입을 고려해 기존 원문과 새 원문을 바이트 기준으로 먼저 비교한 뒤 갱신합니다.
+`010_legacy_policy_capacity.sql`은 기존 행을 보존하면서 제목·기관을 1000자로, 원문 JSON·URL·
+조건 근거를 LONGTEXT로 확장합니다. 008의 적용 기록이나 SQL 바이트는 변경하지 않습니다.
+기존 `storage.policy`는 001 테이블용 원문 어댑터로 유지합니다.

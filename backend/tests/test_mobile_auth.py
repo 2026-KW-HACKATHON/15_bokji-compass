@@ -7,7 +7,6 @@ from sqlalchemy import insert, select, update
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.auth.models import accounts, sessions
-from app.modules.auth.privacy import encrypted_account
 from app.modules.auth.service import digest, password_hash
 
 PASSWORD = "ExamplePassword42!"
@@ -30,19 +29,16 @@ def client(tmp_path):
             for index in (1, 2):
                 connection.execute(
                     insert(accounts).values(
-                        **encrypted_account(
-                            app.state.auth_service.cipher,
-                            dict(
-                                id=f"mobile-{index}",
-                                username=f"mobile_{index}",
-                                name="시험 사용자",
-                                password_hash=password_hash(PASSWORD),
-                                age=30,
-                                gender="undisclosed",
-                                region="서울",
-                                phone=f"0100000000{index}",
-                                created_at=1,
-                            ),
+                        **dict(
+                            id=f"mobile-{index}",
+                            username=f"mobile_{index}",
+                            name="시험 사용자",
+                            password_hash=password_hash(PASSWORD),
+                            age=30,
+                            gender="undisclosed",
+                            region="서울",
+                            phone=f"0100000000{index}",
+                            created_at=1,
                         )
                     )
                 )

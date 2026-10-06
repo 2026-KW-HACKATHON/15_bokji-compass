@@ -198,7 +198,10 @@ export default function PolicyQuestion({ revisionId, user, variant, initialFaqId
             )}
           </div>
           <h4>다른 내용이 궁금하신가요?</h4>
-          <p>직접 질문하면 가입한 지역·연령대를 참고해 답변해요. 이름과 전화번호는 적지 마세요.</p>
+          <p>
+            직접 질문하면 내 정보에 저장한 지역·연령대를 참고해요. 정보가 없으면 공고를 기준으로
+            안내해요. 이름과 전화번호는 적지 마세요.
+          </p>
           <form onSubmit={submit}>
             <label htmlFor={`${id}-input`}>궁금한 내용</label>
             <textarea

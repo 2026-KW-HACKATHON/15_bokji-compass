@@ -47,19 +47,23 @@ def list_admin_accounts(request: Request, service: Service):
     with service.engine.connect() as connection:
         rows = (
             connection.execute(
-                select(accounts, admin_grants.c.role,
-                       admin_grants.c.created_at.label("granted_at"))
+                select(accounts, admin_grants.c.role, admin_grants.c.created_at.label("granted_at"))
                 .join(admin_grants, accounts.c.id == admin_grants.c.account_id)
                 .order_by(admin_grants.c.created_at, accounts.c.id)
             )
             .mappings()
             .all()
         )
-    return {"items": [
-        {"username": service.public_account(row)["username"],
-         "role": row["role"], "created_at": row["granted_at"]}
-        for row in rows
-    ]}
+    return {
+        "items": [
+            {
+                "username": service.public_account(row)["username"],
+                "role": row["role"],
+                "created_at": row["granted_at"],
+            }
+            for row in rows
+        ]
+    }
 
 
 @router.post("/accounts", status_code=201)
@@ -70,8 +74,7 @@ def create_admin_account(data: CreateAdminInput, request: Request, service: Serv
         raise HTTPException(400, "비밀번호 확인이 일치하지 않습니다.")
     try:
         # A browser can never select or assign the superadmin role.
-        create_operator(service.engine, data.username, password,
-                        cipher=service.cipher, role="qr_admin")
+        create_operator(service.engine, data.username, password, role="qr_admin")
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
     except IntegrityError:
@@ -88,13 +91,15 @@ class PublicationInput(BaseModel):
 
 @router.get("/policies")
 def publication_list(
-    request: Request, service: Service,
+    request: Request,
+    service: Service,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     cursor: Annotated[str | None, Query(pattern=r"^(0|[1-9][0-9]{0,5})$")] = None,
 ):
     require_superadmin(request, service)
-    result = storage.list_publication_revisions(get_repository(request), limit=limit,
-                                               offset=int(cursor or 0))
+    result = storage.list_publication_revisions(
+        get_repository(request), limit=limit, offset=int(cursor or 0)
+    )
     return {**result, "autoPublish": request.app.state.settings.policy_auto_publish}
 
 
@@ -109,13 +114,21 @@ def publication_review(revision_id: UUID, request: Request, service: Service):
 
 @router.post("/policies/{revision_id}/publication")
 def publication_update(
-    revision_id: UUID, data: PublicationInput, request: Request, service: Service,
+    revision_id: UUID,
+    data: PublicationInput,
+    request: Request,
+    service: Service,
 ):
     user = require_superadmin(request, service)
     try:
         return storage.set_publication_status(
-            get_repository(request), str(revision_id), action=data.action,
-            expected_status=data.expected_status, actor_id=user["id"], note=data.note)
+            get_repository(request),
+            str(revision_id),
+            action=data.action,
+            expected_status=data.expected_status,
+            actor_id=user["id"],
+            note=data.note,
+        )
     except storage.PublicationConflict as exc:
         raise HTTPException(409, str(exc)) from None
     except LookupError:

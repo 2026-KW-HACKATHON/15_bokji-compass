@@ -1,93 +1,114 @@
-"""Explicit, resumable conversion of legacy private data and SQLite imports."""
+"""Restore older encrypted data and import accounts without overwriting live records."""
 
 import hmac
 import json
 
-from sqlalchemy import MetaData, Table, insert, inspect, select, update
+from sqlalchemy import MetaData, Table, delete, insert, inspect, select, update
 
 from app.modules.admin.access import admin_grants
-from app.modules.auth.models import accounts, kakao_flows, kakao_identities, privacy_state, sessions
-from app.modules.auth.privacy import PrivacyError, encrypted_account
+from app.modules.auth.models import (
+    PROFILE_FIELDS,
+    accounts,
+    kakao_flows,
+    kakao_identities,
+    privacy_state,
+    sessions,
+)
+from app.modules.auth.privacy import LegacyCipher, PrivacyError
 from app.modules.finance.storage import financial_profiles
 
 
-def verify_lookup_key(connection, cipher):
-    fingerprint = connection.execute(
-        select(privacy_state.c.lookup_fingerprint).where(privacy_state.c.id == 1)
-    ).scalar_one_or_none()
-    if fingerprint is None or not hmac.compare_digest(fingerprint, cipher.lookup_fingerprint()):
-        raise PrivacyError("Privacy migration or original lookup key is required")
+def ensure_plaintext_storage(engine):
+    """Do not silently treat unmigrated encrypted accounts as new members."""
+    with engine.connect() as connection:
+        for column in (accounts.c.profile_ciphertext, kakao_flows.c.nickname_ciphertext):
+            if connection.execute(
+                select(column).where(column.is_not(None), column != "").limit(1)
+            ).first():
+                raise PrivacyError("Run python -m app.modules.auth init with the original keys")
+        if (
+            inspect(connection).has_table(financial_profiles.name)
+            and connection.execute(
+                select(financial_profiles.c.account_id)
+                .where(financial_profiles.c.profile_json.like("enc:%"))
+                .limit(1)
+            ).first()
+        ):
+            raise PrivacyError("Run python -m app.modules.auth init with the original keys")
 
 
-def migrate_private_data(engine, cipher):
-    """Encrypt legacy rows and rotate ciphertext; a data failure rolls back all DML."""
+def restore_plaintext_data(engine, settings):
+    """One-time decryption; missing/wrong keys roll back the entire conversion."""
     count = 0
+    cipher = None
+
+    def legacy_cipher():
+        nonlocal cipher
+        if cipher is None:
+            cipher = LegacyCipher(settings)
+        return cipher
+
     with engine.begin() as connection:
-        fingerprint = connection.execute(
-            select(privacy_state.c.lookup_fingerprint).where(privacy_state.c.id == 1)
-        ).scalar_one_or_none()
-        if fingerprint is None:
-            connection.execute(
-                insert(privacy_state).values(id=1, lookup_fingerprint=cipher.lookup_fingerprint())
-            )
-        else:
-            verify_lookup_key(connection, cipher)
         for row in connection.execute(select(accounts)).mappings().all():
-            values = dict(row)
-            if row["profile_ciphertext"]:
-                private = cipher.decrypt_json(row["profile_ciphertext"], "account:" + row["id"])
-                if not hmac.compare_digest(
-                    row["username_lookup"] or "", cipher.lookup(private["username"])
-                ):
-                    raise PrivacyError("Original lookup key is required")
-                if row["profile_ciphertext"].startswith(cipher.active_prefix):
-                    continue
-                values["profile_ciphertext"] = cipher.encrypt_json(private, "account:" + row["id"])
-            else:
-                values = encrypted_account(cipher, values)
+            if not row["profile_ciphertext"]:
+                continue
+            value = legacy_cipher()
+            private = value.decrypt_json(row["profile_ciphertext"], "account:" + row["id"])
+            if not all(key in private for key in PROFILE_FIELDS):
+                raise PrivacyError("Incomplete encrypted profile")
+            if not hmac.compare_digest(
+                row["username_lookup"] or "", value.lookup(private["username"])
+            ):
+                raise PrivacyError("Original lookup key is required")
+            values = {key: private[key] for key in PROFILE_FIELDS}
+            values.update(username_lookup=None, profile_ciphertext=None)
             connection.execute(update(accounts).where(accounts.c.id == row["id"]).values(**values))
             count += 1
         for row in connection.execute(select(kakao_flows)).mappings().all():
-            context = "kakao-flow:" + row["token_hash"]
-            if row["nickname_ciphertext"]:
-                nickname = cipher.decrypt(row["nickname_ciphertext"], context)
-                if row["nickname_ciphertext"].startswith(cipher.active_prefix):
-                    continue
-            else:
-                nickname = row["nickname"] or ""
+            if not row["nickname_ciphertext"]:
+                continue
+            nickname = legacy_cipher().decrypt(
+                row["nickname_ciphertext"], "kakao-flow:" + row["token_hash"]
+            )
             connection.execute(
                 update(kakao_flows)
                 .where(kakao_flows.c.token_hash == row["token_hash"])
-                .values(nickname=None, nickname_ciphertext=cipher.encrypt(nickname, context))
+                .values(nickname=nickname, nickname_ciphertext=None)
             )
         if inspect(connection).has_table(financial_profiles.name):
             for row in connection.execute(select(financial_profiles)).mappings().all():
-                context = "finance:" + row["account_id"]
                 value = row["profile_json"]
-                if value.startswith("enc:"):
-                    plain = cipher.decrypt(value, context)
-                    if value.startswith(cipher.active_prefix):
-                        continue
-                else:
-                    # Validate JSON before changing a legacy record; do not drop unknown fields.
-                    plain = value
-                    if not isinstance(json.loads(plain), dict):
-                        raise PrivacyError("Invalid legacy financial profile")
+                if not value.startswith("enc:"):
+                    continue
+                plain = legacy_cipher().decrypt(value, "finance:" + row["account_id"])
+                if not isinstance(json.loads(plain), dict):
+                    raise PrivacyError("Invalid legacy financial profile")
                 connection.execute(
                     update(financial_profiles)
                     .where(financial_profiles.c.account_id == row["account_id"])
-                    .values(profile_json=cipher.encrypt(plain, context))
+                    .values(profile_json=plain)
                 )
+        connection.execute(delete(privacy_state))
     return count
 
 
-def import_sqlite_accounts(source, target, cipher):
+def import_sqlite_accounts(source, target, settings=None):
     """Copy accounts, roles, provider links, sessions and finance without overwriting targets."""
     count = 0
     source_account_ids = set()
     imported_account_ids = set()
+    cipher = None
+    ensure_plaintext_storage(target)
+
+    def legacy_cipher():
+        nonlocal cipher
+        if cipher is None:
+            if settings is None:
+                raise PrivacyError("Original keys are required for an encrypted source")
+            cipher = LegacyCipher(settings)
+        return cipher
+
     with source.connect() as old, target.begin() as new:
-        verify_lookup_key(new, cipher)
         source_tables = set(inspect(old).get_table_names())
         if accounts.name not in source_tables:
             raise PrivacyError("No source auth accounts table")
@@ -96,16 +117,20 @@ def import_sqlite_accounts(source, target, cipher):
             source_account_ids.add(row["id"])
             values = dict(row)
             if values.get("profile_ciphertext"):
-                private = cipher.decrypt_json(values["profile_ciphertext"], "account:" + row["id"])
+                value = legacy_cipher()
+                private = value.decrypt_json(values["profile_ciphertext"], "account:" + row["id"])
+                if not all(key in private for key in PROFILE_FIELDS) or not hmac.compare_digest(
+                    values.get("username_lookup") or "", value.lookup(private["username"])
+                ):
+                    raise PrivacyError("Original lookup key is required")
                 values.update(private)
-            values = encrypted_account(
-                cipher, {key: value for key, value in values.items() if key in accounts.c}
-            )
+            values = {key: value for key, value in values.items() if key in accounts.c}
+            values.update(username_lookup=None, profile_ciphertext=None)
             existing = (
                 new.execute(select(accounts).where(accounts.c.id == row["id"])).mappings().first()
             )
             if existing:
-                if existing["username_lookup"] != values["username_lookup"]:
+                if existing["username"] != values["username"]:
                     raise PrivacyError("Source account conflicts with target")
                 if existing["password_hash"] != values["password_hash"]:
                     raise PrivacyError("Source credentials conflict with target")
@@ -153,7 +178,9 @@ def import_sqlite_accounts(source, target, cipher):
                     context = "finance:" + values["account_id"]
                     value = values["profile_json"]
                     if value.startswith("enc:"):
-                        value = cipher.decrypt(value, context)
-                    values["profile_json"] = cipher.encrypt(value, context)
+                        value = legacy_cipher().decrypt(value, context)
+                    if not isinstance(json.loads(value), dict):
+                        raise PrivacyError("Invalid source financial profile")
+                    values["profile_json"] = value
                 new.execute(insert(table).values(**values))
     return count

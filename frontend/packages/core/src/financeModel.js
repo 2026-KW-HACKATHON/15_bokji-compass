@@ -1,8 +1,10 @@
 export const MAX_MONEY = 1_000_000_000_000;
+export const MAX_HOUSEHOLD_SIZE = 100;
 export const financeRegions = [
   ['unknown', '모름'],
   ['seoul', '서울'],
   ['gyeonggi', '경기'],
+  ['jeonnam_gwangju', '전남광주통합특별시'],
   ['metropolitan', '광역시·세종·창원'],
   ['other', '그 밖의 지역'],
 ];
@@ -14,6 +16,18 @@ export const deductionTypes = [
   ['north_korean_defector', '북한이탈주민'],
   ['rehabilitation', '직업재활사업 참여'],
   ['other', '그 밖의 특례'],
+];
+export const occupationTypes = [
+  ['unknown', '선택 안 함'],
+  ['employee', '직장인'],
+  ['self_employed', '자영업자'],
+  ['freelancer', '프리랜서'],
+  ['student', '학생'],
+  ['homemaker', '주부'],
+  ['military', '군인'],
+  ['unemployed', '무직·구직 중'],
+  ['retired', '은퇴자'],
+  ['other', '기타'],
 ];
 export const recipientTypes = [
   ['unknown', '모름'],
@@ -69,6 +83,7 @@ export const vehicleSubsidies = [
 ];
 export const emptyMember = () => ({
   age: null,
+  occupation: 'unknown',
   earned_income: null,
   business_income: null,
   earned_income_basis: 'unknown',
@@ -98,7 +113,12 @@ export const emptyFinancialProfile = () => ({
   minor_children: null,
   recipient_status: 'unknown',
   members: [emptyMember()],
-  assets: { housing: null, rental_deposit: null, general: null, financial: null },
+  assets: {
+    housing: null,
+    rental_deposit: null,
+    general: null,
+    financial: null,
+  },
   debts: { bank: null, public: null, other: null },
   vehicle_status: 'unknown',
   vehicles: [],
@@ -151,7 +171,7 @@ export function toFinancialProfile(draft) {
   if (!draft || typeof draft !== 'object') throw new Error('입력 정보를 확인해 주세요.');
   const household_size = parseInteger(draft.household_size, '가구원 수', {
     min: 1,
-    max: 12,
+    max: MAX_HOUSEHOLD_SIZE,
     required: true,
   });
   if (!Array.isArray(draft.members) || draft.members.length !== household_size)
@@ -186,7 +206,10 @@ export function toFinancialProfile(draft) {
     minor_children,
     recipient_status: choice(draft.recipient_status, recipientTypes, '수급 상태'),
     members: draft.members.map((member, index) => ({
-      age: parseInteger(member.age, '가구원 ' + (index + 1) + ' 나이', { max: 120 }),
+      age: parseInteger(member.age, '가구원 ' + (index + 1) + ' 나이', {
+        max: 120,
+      }),
+      occupation: choice(member.occupation ?? 'unknown', occupationTypes, '직업군'),
       ...moneyGroup(member, [
         ['earned_income', '근로소득'],
         ['business_income', '사업소득'],
@@ -229,7 +252,9 @@ export function toFinancialProfile(draft) {
       ),
       value_basis: choice(vehicle.value_basis ?? 'unknown', vehicleValueBases, '차량 금액 기준'),
       eco_subsidy: choice(vehicle.eco_subsidy ?? 'unknown', vehicleSubsidies, '저공해차 보조금'),
-      displacement_cc: parseInteger(vehicle.displacement_cc, '배기량', { max: 20000 }),
+      displacement_cc: parseInteger(vehicle.displacement_cc, '배기량', {
+        max: 20000,
+      }),
       age_years: parseInteger(vehicle.age_years, '차령', { max: 100 }),
       seats: parseInteger(vehicle.seats, '승차 정원', { min: 1, max: 100 }),
     })),

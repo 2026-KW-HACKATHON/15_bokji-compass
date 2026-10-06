@@ -246,7 +246,11 @@ def deduct_in_order(balances, amount):
 def recognized_assets(profile, *, financial_rate=D("0.0626")):
     missing, breakdown = [], []
     if profile.region not in REGIONAL_ALLOWANCES:
-        missing.append("기본재산 공제에 사용할 거주 지역을 선택해 주세요.")
+        missing.append(
+            "전남광주통합특별시에 적용할 기본재산 공제 기준을 담당 기관에 확인해 주세요."
+            if profile.region == "jeonnam_gwangju"
+            else "기본재산 공제에 사용할 거주 지역을 선택해 주세요."
+        )
     if any(value is None for value in profile.assets.model_dump().values()):
         missing.append("재산 금액을 입력해 주세요. 없는 재산은 0원이에요.")
     if any(value is None for value in profile.debts.model_dump().values()):

@@ -14,7 +14,7 @@ from app.contracts.parsing import PolicyExtraction, PolicyOverview, SourcePolicy
 from app.core.config import Settings
 
 PROMPT_VERSION = "welfare-extract-v3"
-OVERVIEW_PROMPT_VERSION = "welfare-overview-v2"
+OVERVIEW_PROMPT_VERSION = "welfare-overview-v4"
 IS_WINDOWS = sys.platform == "win32"
 MAX_EVENT_BYTES = 2_000_000
 MAX_STDERR_BYTES = 256_000
@@ -80,11 +80,14 @@ region_conditions는 신청자/가구의 주소·거주·주민등록 지역 자
 other_conditions는 소득·가구·자산·신청 자격 등 나머지 조건을 항목별 text/evidence로 반환한다.
 다른 조건에 성별·나이·지역 자격을 중복 복사하지 않는다. 한 문장에 지역과 다른 자격이
 함께 있으면 지역 표현은 region_conditions에만 두고, 나머지 대상·시설 요건만 분리한다.
-추가로 policy_requirements 배열을 반환한다. 각 항목은 condition_type, information_state,
-evidence_text만 가진다. condition_type은 age, birth_region, residence_region, other 중 하나다.
-나이·연령 조건은 age, 출생·출신 지역 조건은 birth_region, 신청자/가구의 주소·거주 조건은
-residence_region으로 분류한다. 성별은 DB 스키마에 전용 타입이 없으므로 other로 분류하고
-evidence_text에 성별 원문을 보존한다. 그 밖의 자격은 other로 분류한다.
+추가로 MySQL policy_requirements 테이블에 저장할 policy_requirements 배열을 반환한다.
+각 항목은 테이블 컬럼에 맞춰 condition_type, information_state, evidence_text 키만 가진다.
+id와 policy_id는 DB가 관리하므로 출력하지 않는다. condition_type은
+age, birth_region, residence_region, gender, other 중 하나이며, information_state는
+specified, unrestricted, unknown, not_stated 중 하나다. 나이·연령 조건은 age,
+출생·출신 지역 조건은 birth_region, 신청자/가구의 주소·거주 조건은 residence_region,
+공고의 성별 자격 조건은 gender, 그 밖의 자격은 other로 분류한다. 성별 자격을 other로
+분류하지 마라. users.gender는 사용자 프로필 값이며 공고 조건 출력에는 사용하지 않는다.
 information_state는 specified, unrestricted, unknown, not_stated 중 하나다. 명시 조건은 specified,
 명시적으로 제한 없음은 unrestricted, 모호·상충은 unknown으로 분류한다. 조건이 원문에 없을 때만
 not_stated를 쓴다. 원문에 조건이 하나도 없으면 다음 한 행을 반환한다:
@@ -93,11 +96,35 @@ not_stated를 쓴다. 원문에 조건이 하나도 없으면 다음 한 행을 
 나머지 evidence_text는 입력 원문의 연속된 부분 문자열을 그대로 인용한다. 모호·상충 행도
 판단 근거가 되는 원문 인용을 그대로 보존한다. policy_requirements는 SQL의
 policy_requirements 테이블 행에 대응한다. 서로 독립인 조건은 각각 행으로 나누고, 새로운
-condition_type이나 상태값을 만들지 마라.
+condition_type이나 상태값을 만들지 마라. 반환 JSON은 아래 MySQL 컬럼 계약과 일치해야 한다:
+condition_type ENUM('age','birth_region','residence_region','gender','other'),
+information_state ENUM('specified','unrestricted','unknown','not_stated'), evidence_text TEXT.
 혜택은 지원 내용·금액·주기를 원문에 있는 범위에서 요약하고 자격 확정으로 표현하지 마라.
 category_reason은 주된 지원 내용을 근거로 간단히 쓴다. category_evidence와 각 evidence의
 source_field은 입력의 title, organization 또는 fields 안의 필드명이어야 하며 quote는
 해당 원문 필드에 실제로 있는 연속된 부분 문자열이어야 한다.
+application_period 객체도 반드시 반환한다. 신청·접수 시작일/마감일 또는 기간의 원문을
+별도 정보 설명이나 발표일과 혼동하지 말고 추출한다. status는 specified, not_stated,
+unclear 중 하나다. specified이면 text는 공고 원문의 신청 기간 표현을 그대로 복사하고,
+evidence에는 해당 text를 포함하는 원문 인용을 source_field과 quote로 제공한다.
+날짜를 정규화하거나 원문에 없는 연도·월·일을 보충하지 않는다. 복수의 서로 다른 기간,
+상충하는 일정, 신청 기간인지 불명확한 날짜는 unclear로 두고 unresolved_reason을 적는다.
+원문에 신청 기간이 없으면 not_stated, text=null, evidence=[],
+unresolved_reason=null로 반환한다. 공고 게시일·발표일·사업 수행기간·행사일은 신청 기간이 아니다.
+application_method, application_url, contact, published_date, modified_date 객체도 각각 반드시
+반환하며 형식은 application_period와 동일하다: status, text, evidence, unresolved_reason.
+신청 방법은 실제 신청/접수 절차, 접수처, 온라인/방문/우편 등 원문의 안내만 추출한다.
+신청 URL은 신청 접수에 직접 연결된 URL만 반환한다. 입력 fields.links에 있는 링크는
+링크 표시 문구와 URL을 대조하고, 신청 링크임이 분명한 경우 URL 전체를 text와 evidence에
+그대로 포함한다. 공고 상세 URL이나 첨부 서식 URL을 신청 URL로 오인하지 않는다.
+문의처는 원문에 명시된 기관/담당 부서/전화/이메일 등 문의 정보를 추출한다.
+published_date와 modified_date는 공고의 게시일과 수정일만 각각 추출한다. 본문에 표시된
+명확한 게시/등록/작성일 또는 수정/변경일, 그리고 fields에 있는 해당 의미의 구조화 메타데이터를
+근거로 사용한다. 사업 기간, 접수 기간, 행사일, 크롤링 시각을 게시/수정일로 추정하지 않는다.
+날짜 문자열은 정규화하지 말고 원문 그대로 인용한다. 각 specified 객체의 text는 원문 인용에
+그대로 포함되어야 하며 evidence는 실제 source_field과 연속된 quote를 제공한다.
+확인할 수 없으면 not_stated, 서로 다르거나 의미가 모호하면 unclear로 두고 이유를 적는다.
+근거가 없으면 각 객체를 not_stated, text=null, evidence=[], unresolved_reason=null로 반환한다.
 원문에 없는 사실이나 신청 자격 확정은 덧붙이지 않는다. 간결한 JSON만 반환하라.
 """
 

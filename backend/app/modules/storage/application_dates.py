@@ -5,7 +5,7 @@ from datetime import date
 
 DATE = r"(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*[.일])?"
 TIME = r"(?:\s*\([월화수목금토일](?:요일)?\))?(?:\s*\d{1,2}:\d{2})?"
-PREFIX = r"(?:(?:신청|접수)\s*기간\s*[:：]?\s*)?"
+PREFIX = r"(?:(?:신청|접수)\s*(?:기간|기한)(?:은|는|이|가)?\s*[:：]?\s*)?"
 
 
 def application_period(fields):
@@ -32,13 +32,17 @@ def application_schedule(value):
     ):
         return {**result, "scheduleStatus": "ongoing"}
     period = re.fullmatch(PREFIX + DATE + TIME + r"\s*[~～–—]\s*" + DATE + TIME, value)
+    korean_period = re.fullmatch(
+        PREFIX + DATE + TIME + r"\s*부터\s*" + DATE + TIME + r"\s*까지", value
+    )
     ending = re.fullmatch(r"(?:신청기한|신청마감|마감일|접수마감)\s*[:：]?\s*" + DATE + TIME, value)
     until = re.fullmatch(DATE + TIME + r"\s*까지", value)
     starting = re.fullmatch(r"(?:신청|접수)\s*시작일\s*[:：]?\s*" + DATE + TIME, value)
     try:
-        if period:
-            start = date(*map(int, period.groups()[:3]))
-            end = date(*map(int, period.groups()[3:]))
+        if period or korean_period:
+            match = period or korean_period
+            start = date(*map(int, match.groups()[:3]))
+            end = date(*map(int, match.groups()[3:]))
             if start > end:
                 return result
             return {
@@ -57,3 +61,24 @@ def application_schedule(value):
     except ValueError:
         pass
     return result
+
+
+def resolved_application_period(fields, overview=None):
+    """Prefer a cited model extraction, then use conservative source-text parsing."""
+    extracted = (overview or {}).get("application_period")
+    if (isinstance(extracted, dict) and extracted.get("status") == "specified"
+            and isinstance(extracted.get("text"), str)):
+        return extracted["text"]
+    return application_period(fields)
+
+
+def application_date_columns(fields, extracted_period=None):
+    """Return only unambiguous application dates for the legacy policy columns."""
+    value = resolved_application_period(fields, {"application_period": extracted_period})
+    schedule = application_schedule(value)
+    start = schedule["applicationStart"]
+    end = schedule["applicationEnd"]
+    return (
+        date.fromisoformat(start) if start else None,
+        date.fromisoformat(end) if end else None,
+    )
