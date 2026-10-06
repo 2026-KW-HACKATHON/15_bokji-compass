@@ -59,6 +59,19 @@ revision 저장과 같은 트랜잭션에서 이 테이블에도 반영된다. `
 `condition_documents` 및 `policy_revision_details`에 저장한다. 공개된 revision만 전체 공고와
 공고 캘린더에서 조회된다.
 
+현재 개발 DB에 공개된 광운대 표본 2건의 추출 결과는 JSON과 직접 실행 가능한 SQL로 보관한다.
+SQL seed는 공고·조건·공개 이력·기존 조회 투영을 포함하며, 초기화 후 비어 있는 정책 DB에
+한 번만 적재한다. MySQL 접속 대상이 올바른지 확인한 뒤 backend 디렉터리에서 실행한다.
+
+```sh
+mysql --default-character-set=utf8mb4 -h 127.0.0.1 -P 3306 -u <계정> -p <DB명> \
+  < database/seeds/kwangwoon_published_policies.sql
+```
+
+이 파일은 저장된 공개 revision ID를 그대로 사용하고 모델을 호출하지 않는다. 이미 공고 키,
+revision ID, 정책 ID가 존재하는 DB나 기존 광운대 데이터를 적재한 DB에서는 중복 및 키 충돌이
+발생하므로 실행하지 않는다. JSON draft 파일은 CLI `import-drafts`가 필요한 경우 별도로 쓴다.
+
 ## 초기화와 안전성
 
 `python -m app.modules.storage init`은 004, 005, `006_policy_publication`,
