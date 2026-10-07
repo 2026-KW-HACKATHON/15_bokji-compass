@@ -413,7 +413,7 @@ export default function FinanceScreen() {
               {!easy ? ` · ${result.rules_version}` : ""}
             </Copy>
             <Copy>
-              월 소득 합계: {formatMoney(result.median.monthly_income)}
+              입력한 월 소득 합계: {formatMoney(result.median.monthly_income)}
             </Copy>
             <Copy>
               기준 중위소득 대비:{" "}
@@ -421,13 +421,26 @@ export default function FinanceScreen() {
                 ? "확인 필요"
                 : `${result.median.ratio_percent}%`}
             </Copy>
+            {result.median.monthly_income === null ? (
+              <Copy muted>
+                소득 합계와 비율은 가구원별 금액이 모두 확인될 때 표시합니다. 모르는 소득은 0원으로
+                계산하지 않으므로 전체 합계가 확인 필요로 표시될 수 있어요.
+              </Copy>
+            ) : null}
+            {result.median.monthly_income !== null &&
+            result.median.ratio_percent === null ? (
+              <Copy muted>
+                입력한 금액의 합계는 표시했지만, 해당 연도의 기준 중위소득이 등록되지 않아 비율을
+                계산하지 않았어요.
+              </Copy>
+            ) : null}
             <Copy>
               차량 포함 재산: {formatMoney(result.assets.gross_total)}
             </Copy>
             <Copy muted>
               {easy
                 ? "참고용 계산입니다. 신청 자격은 공식 공고에서 확인하세요."
-                : "월 소득의 단순 비율은 사업별 소득인정액과 다릅니다. 실제 신청 자격은 공식 공고와 담당 기관에서 확인해 주세요."}
+                : "중위소득 비율은 입력 금액을 이용한 단순 참고값으로, 실제 세전 소득이나 사업별 소득인정액과 다를 수 있습니다. 신청 자격은 공식 공고와 담당 기관에서 확인해 주세요."}
             </Copy>
           </Card>
           {result.assessments.map((item) => (

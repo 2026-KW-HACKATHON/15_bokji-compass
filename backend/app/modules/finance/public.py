@@ -65,15 +65,19 @@ def income_basis_missing(member, index):
     return missing
 
 
-def monthly_income(profile, *, include_private=True):
+def entered_monthly_income(profile, *, include_private=True):
     values = []
     for index, member in enumerate(profile.members, 1):
-        if income_basis_missing(member, index):
-            return None
         values.extend([member.earned_income, member.business_income, member.other_income])
         if include_private:
             values.append(member.private_transfer_income)
     return known_sum(values)
+
+
+def monthly_income(profile, *, include_private=True):
+    if any(income_basis_missing(member, index) for index, member in enumerate(profile.members, 1)):
+        return None
+    return entered_monthly_income(profile, include_private=include_private)
 
 
 def asset_summary(profile):
@@ -303,7 +307,14 @@ def basic_assessment(profile):
         "rule_id": "basic-livelihood-2026",
         "label": "생계급여 기본 산식 · 2026",
         "status": "needs_review" if missing else "estimated",
-        "checks": [check("소득인정액 (월)", value, limit, ready=not missing)],
+        "checks": [
+            check(
+                "소득인정액 (월)",
+                value,
+                limit,
+                ready=not any("원 미만 차이" in reason for reason in missing),
+            )
+        ],
         "missing": list(dict.fromkeys(missing)),
         "notes": [
             "소득인정액을 기준 중위소득 32%와 비교한 참고 계산이에요. 수급 자격 확정이 아니에요.",
@@ -397,24 +408,30 @@ def rental_assessment(profile, summary):
         if profile.reference_year == 2026 and profile.household_size <= 7
         else None
     )
-    ready = not missing
+    comparison_income = entered_monthly_income(profile, include_private=False)
     return {
         "rule_id": "national-rental-2026",
         "label": "국민임대 일반 소득·자산 · 2026",
         "status": "needs_review" if missing else "estimated",
         "checks": [
-            check("도시근로자 기준과 비교할 월소득", income, limit, ready=ready),
+            check(
+                "도시근로자 기준과 비교할 월소득",
+                comparison_income,
+                limit,
+                ready=income is not None,
+            ),
             check(
                 "총자산 (차량 포함·부채 차감)",
                 summary["net_total"],
                 RENTAL_ASSET_LIMIT,
-                ready=ready,
+                ready=summary["net_total"] is not None and profile.debts.other == 0,
             ),
             check(
                 "비영업용 승용차 중 가장 높은 가액",
                 vehicle_limit_value,
                 RENTAL_VEHICLE_LIMIT,
-                ready=ready,
+                ready=profile.vehicle_status == "none"
+                or (profile.vehicle_status == "owned" and not vehicle_missing),
             ),
         ],
         "missing": list(dict.fromkeys(missing)),
@@ -449,10 +466,10 @@ def calculate(profile: FinancialProfile) -> dict:
     if not isinstance(profile, FinancialProfile):
         profile = FinancialProfile.model_validate(profile)
     base = median_base(profile.household_size) if profile.reference_year == 2026 else None
-    income = monthly_income(profile)
+    entered_income = entered_monthly_income(profile)
     ratio = (
-        float((D(income) * 100 / base).quantize(D("0.01"), rounding=ROUND_HALF_UP))
-        if base and income is not None
+        float((D(entered_income) * 100 / base).quantize(D("0.01"), rounding=ROUND_HALF_UP))
+        if base and entered_income is not None
         else None
     )
     summary = asset_summary(profile)
@@ -473,7 +490,7 @@ def calculate(profile: FinancialProfile) -> dict:
         "rules_version": RULES_VERSION,
         "median": {
             "base": base,
-            "monthly_income": income,
+            "monthly_income": entered_income,
             "ratio_percent": ratio,
             "thresholds": [
                 {"percent": percent, "amount": won(D(base) * percent / 100)}

@@ -208,6 +208,24 @@ test('loading a large household shows the actual count in review and editing', a
   await expect(page.getByLabel('실제 가구원 수 직접 입력', { exact: true })).toHaveValue('100');
 });
 
+test('income marked as present requires an amount before continuing', async ({ page }) => {
+  await start(page);
+  await advanceTo(page, '월급이 있나요');
+  await moneyState(page, '근로소득 (월·세전 기준)', 'yes');
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('금액을 입력하거나 없음·모름을 선택');
+  await expect(page.locator('.finance-screen-title')).toContainText('월급이 있나요');
+  await page.getByLabel('근로소득 (월·세전 기준)', { exact: true }).fill('200');
+  await next(page);
+  await expect(page.locator('.finance-screen-title')).toContainText('사업소득이 있나요');
+  await page.getByLabel('근로소득 (월·세전 기준)', { exact: true }).fill('200');
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('양수 소득의 입력 기준을 선택해 주세요');
+  await page.getByLabel('입력한 근로소득의 기준', { exact: true }).selectOption('gross');
+  await next(page);
+  await expect(page.locator('.finance-screen-title')).toContainText('사업소득이 있나요');
+});
+
 test('entry stays in six stages with multiple household members and vehicles', async ({ page }) => {
   await start(page);
   const title = page.locator('.finance-screen-title');
@@ -392,7 +410,11 @@ test('positive income basis survives backward navigation and display mode change
   });
   await expect(
     page.locator('.finance-result-summary').getByText('확인 필요', { exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(1);
+  await expect(page.locator('.finance-result-summary')).toContainText('7,000,000원');
+  await expect(page.locator('.finance-result')).toContainText(
+    '중위소득 비율과 사업별 비교는 계산하지 않았어요',
+  );
 });
 
 test('money input preserves decimal editing and rejects amounts smaller than one won', async ({

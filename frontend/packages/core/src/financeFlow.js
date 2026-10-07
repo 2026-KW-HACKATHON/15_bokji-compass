@@ -33,13 +33,14 @@ const number = (path, id, label, unit, max, min = 0) => ({
   max,
   min,
 });
-const select = (path, id, label, options, hint, when) => ({
+const select = (path, id, label, options, hint, when, required = false) => ({
   path,
   id: `finance-${id}`,
   label,
   options,
   hint,
   when,
+  required,
   type: 'select',
 });
 const check = (path, label) => ({
@@ -162,6 +163,7 @@ export function financeQuestions(draft) {
               earnedIncomeBases,
               '실수령액은 세전 금액으로 자동 환산하지 않으며 추가 확인이 필요해요.',
               positive(path('earned_income')),
+              true,
             ),
           ],
           'income',
@@ -184,6 +186,7 @@ export function financeQuestions(draft) {
               businessIncomeBases,
               '매출액에서 경비를 임의로 빼지 않아요. 매출액만 알면 추가 확인이 필요해요.',
               positive(path('business_income')),
+              true,
             ),
           ],
           'period',
@@ -315,7 +318,7 @@ export function validateQuestion(question, draft) {
           required: true,
         });
       } else if (field.type === 'money') {
-        parseMoney(value, field.label);
+        parseMoney(value, field.label, { required: value?.unit === 'manwon' });
       } else if (field.type === 'number') {
         parseInteger(value, field.label, {
           min: field.min ?? 0,
@@ -326,6 +329,8 @@ export function validateQuestion(question, draft) {
         !field.options.some(([key]) => String(key) === String(value ?? 'unknown'))
       ) {
         throw new Error(`${field.label}을(를) 선택해 주세요.`);
+      } else if (field.type === 'select' && field.required && value === 'unknown') {
+        throw new Error('양수 소득의 입력 기준을 선택해 주세요.');
       }
     } catch (error) {
       return { message: error.message, field: field.id, question: question.id };
