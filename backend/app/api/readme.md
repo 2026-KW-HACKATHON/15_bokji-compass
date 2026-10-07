@@ -1,5 +1,16 @@
 # HTTP API 경계
 
+2026-10-07 생활 상담: `/v1/assistant/dialogue`는 계정별 임시 대화에서 부족한 정보를
+한 항목씩 질문하고 공개 공고를 비교합니다. `/dialogue/profile`은 확인·동의한 본인
+정보만 기존 지속 안내 프로필에 병합합니다. 외부 AI 호출 없이 작동하며 전체 질문
+이력을 저장하지 않습니다. [입력·저장·만료·한계](../../docs/assistant-dialogue.md).
+
+2026-10-07 지속 안내: `/v1/monitoring`은 웹 쿠키/모바일 Bearer로 본인의 생활 프로필,
+자동 탐색 분야·지원 후보·진행 상태·앱 안 알림을 관리합니다. 저장 동의는 필수이며
+전체 추적은 기본 꺼짐입니다. POST에는 `X-Auth-Request: 1`이 필요합니다.
+운영 스키마 초기화와 정기 worker는 [모듈 계약](../modules/monitoring/readme.md),
+동작·한계는 [구현 문서](../../docs/proactive-guidance.md)를 참고하세요.
+
 2026-10-07 서버 관리자 공고 편집: GET `/v1/server-admin/policies`,
 GET/PATCH `/v1/server-admin/policies/{policy_key}`. 최고 관리자·같은 출처·전용 쿠키를 요구합니다.
 PATCH는 1MiB 본문, 엄격한 입력 검증·version 충돌 409를 적용합니다.
@@ -37,6 +48,9 @@ status/changes/candidates GET이 구현되어 있습니다. POST/PATCH는 같은
 조회합니다. 제어·수집 충돌은 409, 관리되지 않는 실행 환경·기동 장애는 503으로 안내합니다.
 
 `policies.router`는 MySQL의 공개된 최신 공고 목록·상세·검색을 제공합니다.
+목록·캘린더는 `search_scope=all|organization|content`(기본 `all`)로 게시기관과
+제목·본문 검색을 구분합니다. 잘못된 범위는 422이며 대학 약칭·정식 명칭을 함께
+검색합니다. [검색 필드·호출 예시](../../docs/policy-search.md).
 GET `/v1/policies`의 `sort`는 `popular|recent|name`이며 기본값은 `popular`입니다.
 필터를 적용한 전체 공고를 공급자 누적 조회수 내림차순으로 정렬한 뒤 페이지를 반환합니다.
 목록·상세·캘린더 공고는 `popularity: {views,source,basis,asOf} | null`을 포함합니다.

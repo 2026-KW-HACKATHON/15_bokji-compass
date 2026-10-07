@@ -53,10 +53,37 @@ Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생�
 
 ## 공고 검색 필터 (2026-10-06)
 
-`catalog.list_policies(repository, limit=20, offset=0, sort="popular", q="", category="", region="", audience="", tag="")`
-는 `{items,total,nextCursor}`를 반환합니다. `catalog.list_calendar(repository, month=..., q="", category="", region="", audience="")`
-도 같은 `filtered_catalog` SQL 조건을 사용합니다. 검색어·분야·지역·대상은 AND로 적용하고
-필터링 후 건수·정렬·페이지를 계산합니다. LLM·외부 HTTP 호출이나 DB 변경은 없습니다.
+`catalog.list_policies(repository, limit=20, offset=0, sort=None, q="", search_scope="all", search_mode="smart", search_relation=None, category="", region="", audience="", tag="")`
+는 `{items,total,nextCursor}`를 반환합니다. `catalog.list_calendar(repository, month=..., q="", search_scope="all", search_mode="smart", search_relation=None, category="", region="", audience="")`
+도 같은 `filtered_catalog` SQL 분야·지역·대상 조건을 사용합니다. 기본 자연어 검색은 전체 공개
+후보의 원문 관계·지원 목적을 확인한 다음 건수·관련성·페이지를 계산합니다.
+빈 검색과 명시적 단어 검색은 SQL 조회를 유지합니다. LLM·외부 HTTP 호출이나 DB 변경은 없습니다.
+
+2026-10-07 자연어 검색: `search_mode="smart"`, `search_scope="all"` 기본은
+`광운대에서 올린 장학 공고`와 `광운대생 받을 돈`을 서로 다른 요청으로 해석합니다.
+게시 기관·학교 대상·본교/우리대학/학교 문맥·전국 대학생 대상·단순 언급을 구분하고
+지원 목적의 관련 표현과 근로/상환 제외 요청을 처리합니다. `search`는 해석·정정·해석별 건수를,
+카드 `searchMatch`는 관계·이유·원문 인용을 반환합니다. 원문·검증된 개요 인용만 사용하며
+신청 자격이나 회원 프로필을 추정하지 않습니다. 정렬 생략 시 자연어 검색은 `relevance`,
+빈 검색·단어 검색은 `popular`입니다. 명시한 `popular/recent/name`은 유지합니다.
+새 스키마·외부 모델·검색어 영속 저장은 없습니다.
+`search_relation="publisher"/"related"`는 원래 문장 해석을 유지하며 해석별 관계 결과만 좁힙니다.
+해석 선택 건수는 목록의 전체 검색 결과, 캘린더의 선택 월 날짜가 있는 공고에 맞춥니다.
+미확인 날짜 공고는 별도 `undatedTotal`로 셉니다. 단어 검색에서는 관계 인자를 적용하지 않습니다.
+
+명시적 단어 검색: `search_mode="literal"`의 `search_scope="all"`은 게시 기관 또는 공고 내용을 검색하고,
+`organization`은 `source_json.organization`의 게시 기관만, `content`는 제목·원문 주요 항목과
+관리자 수정 내용만 검색합니다. 공고 내용은 `text/purpose_summary/eligibility/selection/benefits`와
+`draft_json.editorial`의 `summary/benefits/region/age/gender/other` 값입니다.
+기관 메타데이터·문의처·URL·첨부 목록·JSON 항목 이름은 내용 검색 근거로 사용하지 않습니다.
+원문 본문 안의 기관 이름이나 게시 문구는 일반 단어로 남습니다. 의미·신청 자격을 추정하지 않습니다.
+검색어별 AND와 범위 내 OR, 영문 대소문자·공백 정리, `%/_` 문자 이스케이프를 적용합니다.
+`광운대`와 `광운대학교`를 함께 찾고, 두 음절 이상 이름의 `X대학교` 검색은 `X대`도 찾습니다.
+일반적인 `임대/세대/확대`와 `대학교` 자체에서 학교 이름을 추측하지 않습니다.
+`search.search_terms(q)`는 단어별 별칭 튜플 목록을,
+`search.search_predicates(catalog,q,scope="all")`는 SQL AND 조건 목록을 반환합니다.
+범위가 잘못되면 Python 조회는 `ValueError`, HTTP 조회는 422를 반환합니다.
+[검색 계약·예시·검증](../../../docs/policy-search.md).
 
 2026-10-07: 전체 공고의 기본 정렬은 `popular`입니다. Gov24의 `조회수`와 복지로의
 `inqNum`을 현재 수집 목록에서 읽어 유효한 누적 조회수 내림차순으로 정렬한 뒤 페이지를

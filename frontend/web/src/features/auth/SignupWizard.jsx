@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
-import { regions } from '../policies/policyModel.js';
 import { authRequest } from './authApi.js';
 import { emailError, genders, memberFieldError, normalizeEmail } from './authFields.js';
+import MemberAddressFields from './MemberAddressFields.jsx';
+import { memberAddressError } from './postcode.js';
 import PasswordInput from './PasswordInput.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
 import AuthLayout from './AuthLayout.jsx';
@@ -17,6 +18,9 @@ const initialFields = {
   age: '',
   gender: '',
   region: '',
+  postal_code: '',
+  address: '',
+  address_detail: '',
 };
 const stages = [
   'method',
@@ -39,11 +43,10 @@ const titles = {
   name: '이름을 알려주세요',
   age: '만 나이를 알려주세요',
   gender: '성별을 선택해 주세요',
-  region: '거주 지역을 선택해 주세요',
+  region: '거주 주소를 입력해 주세요',
   review: '가입 정보를 확인해 주세요',
 };
 const regularGroups = ['아이디', '비밀번호', '이메일 인증', '기본 정보', '가입 확인'];
-const regionOptions = regions.filter((region) => region !== '전국');
 
 export default function SignupWizard({ outcome, easy }) {
   const [step, setStep] = useState('consent');
@@ -137,6 +140,7 @@ export default function SignupWizard({ outcome, easy }) {
     };
   }
   function validate(name) {
+    if (name === 'region') return memberAddressError(fields);
     if (['name', 'age', 'gender', 'region'].includes(name) && fields[name] === '') return '';
     if (name === 'email')
       return emailError(fields.email) || (!emailVerified ? '이메일 인증을 완료해 주세요.' : '');
@@ -153,8 +157,6 @@ export default function SignupWizard({ outcome, easy }) {
     if (name === 'confirm_password' && fields.password !== fields.confirm_password)
       return '비밀번호가 일치하지 않습니다. 다시 입력해 주세요.';
     if (['name', 'age', 'gender'].includes(name)) return memberFieldError(name, fields[name]);
-    if (name === 'region' && !regionOptions.includes(fields.region))
-      return '거주 지역을 선택해 주세요.';
     return '';
   }
   async function run(action, callback) {
@@ -256,6 +258,9 @@ export default function SignupWizard({ outcome, easy }) {
           age: consent.profile && fields.age !== '' ? Number(fields.age) : null,
           gender: consent.profile ? fields.gender || 'undisclosed' : 'undisclosed',
           region: consent.profile ? fields.region || null : null,
+          postal_code: consent.profile ? fields.postal_code.trim() || null : null,
+          address: consent.profile ? fields.address.trim() || null : null,
+          address_detail: consent.profile ? fields.address_detail.trim() || null : null,
           consent,
         });
         setFields(initialFields);
@@ -525,17 +530,18 @@ export default function SignupWizard({ outcome, easy }) {
                 </>
               )}
               {step === 'region' && (
-                <>
-                  <label className="field-label" htmlFor="signup-region">
-                    거주 지역
-                  </label>
-                  <select {...inputProps('region')}>
-                    <option value="">선택해 주세요</option>
-                    {regionOptions.map((region) => (
-                      <option key={region}>{region}</option>
-                    ))}
-                  </select>
-                </>
+                <MemberAddressFields
+                  value={fields}
+                  onChange={(addressFields) => {
+                    setFields((current) => ({ ...current, ...addressFields }));
+                    setError('');
+                    setInvalidField('');
+                    setMessage('');
+                  }}
+                  idPrefix="signup"
+                  label="거주 주소 (선택)"
+                  disabled={Boolean(busy) || kakaoBusy}
+                />
               )}
               {step === 'review' && (
                 <>
@@ -552,7 +558,18 @@ export default function SignupWizard({ outcome, easy }) {
                               genders.find(([value]) => value === fields.gender)?.[1] ||
                                 '응답하지 않음',
                             ],
-                            ['거주 지역', fields.region || '선택하지 않음'],
+                            [
+                              '거주 주소',
+                              fields.address
+                                ? [
+                                    fields.postal_code && `(${fields.postal_code})`,
+                                    fields.address,
+                                    fields.address_detail,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')
+                                : '입력하지 않음',
+                            ],
                           ]
                         : []),
                     ].map(([label, value]) => (
@@ -588,6 +605,9 @@ export default function SignupWizard({ outcome, easy }) {
                         setFields((current) => ({
                           ...current,
                           [step]: step === 'gender' ? 'undisclosed' : '',
+                          ...(step === 'region'
+                            ? { postal_code: '', address: '', address_detail: '' }
+                            : {}),
                         }));
                         moveStep(activeStages[activeStages.indexOf(step) + 1]);
                       }}

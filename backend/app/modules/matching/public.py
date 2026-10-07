@@ -32,6 +32,7 @@ LABELS = {
     "age": "나이", "gender": "성별", "residence_region": "거주 지역",
     "registered_residence_region": "주민등록 지역", "actual_residence_region": "실거주 지역",
     "household_size": "심사 가구원 수", "employment_status": "취업 상태",
+    "home_ownership": "주택 소유 여부", "employment_preparation_status": "취업 준비 여부",
     "application_period": "신청 기간",
     "disability_registered": "장애 등록 여부", "monthly_income": "월 소득",
     "recognized_income_median_ratio": "소득인정액 기준", "total_assets": "재산",
@@ -71,6 +72,8 @@ class MatchingFacts:
     region: str | None = None
     employment: str | None = None
     financial: FinancialProfile | None = None
+    home_ownership: bool | None = None
+    employment_preparation: bool | None = None
 
 
 def build_facts(member: dict | None, profile: RecommendationProfile | None,
@@ -173,6 +176,14 @@ def compare_condition(condition: CanonicalCondition, facts: MatchingFacts,
     if field == "employment_status":
         return (facts.employment == condition.value.code if facts.employment else None), (
             "이번 요청에서 선택한 직업 정보와 비교했어요.")
+    if field == "home_ownership":
+        return (facts.home_ownership == condition.value.boolean
+                if facts.home_ownership is not None else None), (
+                    "직접 입력한 주택 소유 정보와 비교했어요.")
+    if field == "employment_preparation_status":
+        return (facts.employment_preparation == condition.value.boolean
+                if facts.employment_preparation is not None else None), (
+                    "직접 입력한 취업 준비 정보와 비교했어요.")
     return None, "이 조건에 대응하는 사용자 정보 또는 검토된 산정 기준이 필요해요."
 
 

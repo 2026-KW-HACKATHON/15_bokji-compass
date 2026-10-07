@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { authRequest } from './authApi.js';
 
-export const PRIVACY_NOTICE_VERSION = '2026-10-07.2';
+export const PRIVACY_NOTICE_VERSION = '2026-10-07.3';
 
 export function PrivacyNoticeContent({ notice }) {
   return (
@@ -56,15 +56,15 @@ export function PrivacyNoticeContent({ notice }) {
           <div>
             <dt>수집 항목</dt>
             <dd>
-              표시 이름 또는 카카오 닉네임, 만 나이, 성별, 거주 지역. 원하는 항목만 입력할 수
-              있습니다.
+              표시 이름 또는 카카오 닉네임, 만 나이, 성별, 거주 지역, 우편번호, 기본 주소와 상세
+              주소. 원하는 항목만 입력할 수 있습니다.
             </dd>
           </div>
           <div>
             <dt>이용 목적</dt>
             <dd>
-              화면에 이름 표시, 나이·성별·지역 조건에 맞는 복지 공고 안내. 회원정보 수정 화면에서
-              변경하거나 비울 수 있습니다.
+              화면에 이름 표시, 거주 주소 관리, 나이·성별·주소에서 확인한 지역 조건에 맞는 복지 공고
+              안내. 회원정보 수정 화면에서 변경하거나 비울 수 있습니다.
             </dd>
           </div>
           <div>
@@ -83,7 +83,8 @@ export function PrivacyNoticeContent({ notice }) {
         <h3>외부 AI 질문·답변 · 선택</h3>
         <p>
           AI에 직접 질문하는 경우 질문 내용, 회원의 지역·연령대, 선택한 공고 내용을 외부 AI 서비스에
-          보내 답변을 만듭니다. 이름·이메일·성별·저장한 금융정보는 자동 첨부하지 않습니다.
+          보내 답변을 만듭니다. 이름·이메일·성별·우편번호·기본 주소·상세 주소·저장한 금융정보는 자동
+          첨부하지 않습니다.
         </p>
         <p>공개된 복지 공고의 AI 정리에는 회원가입 정보나 회원의 질문을 포함하지 않습니다.</p>
         <p>

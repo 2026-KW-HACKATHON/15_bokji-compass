@@ -67,17 +67,19 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 
 | 위치 | 역할·입력·반환 |
 |---|---|
-| `src/app/_layout.tsx` | 공통 상태와 홈·공고·계산기·내 계정 탭 조립 |
-| `src/features/home/HomeBanner.tsx` | 복지·중위소득·계정 이미지 배너, 스와이프/이전/다음, 기능 진입 |
+| `src/app/_layout.tsx` | 공통 상태와 홈·공고·계산기·상담·내 계정 탭 조립 |
+| `src/features/home/HomeScreen.tsx` | 검색, 분야별 바로가기, 중위소득 확인, 실제 인기 공고 |
 | `src/components/ui.tsx` | 모든 화면에서 스크롤 밖에 고정한 쉬운 화면 스위치와 공통 UI |
+| `src/components/theme.ts`, `Icon.tsx` | 공통 색상·글자 크기·탭 높이와 Lucide 아이콘. 일반/쉬운 모드의 시각 구분 |
 | `src/app/policies/` | 목록·검색·분야/지역·정렬·페이지 이동, 별도 상세 경로·공식 링크 |
 | `src/features/policies/model.js` | `policyPath({query?,category?,region?,sort?,cursor?,limit?})` → 공고 조회 경로 문자열(기본 `sort="popular"`, `limit=6`). 공고/페이지 검증·분야 목록·HTTP(S) 링크 검사. [함수 계약](src/features/policies/readme.md) |
 | `src/services/client.js` | `resolveApiUrl(value,development)` → 검증된 절대 주소. `createClient({baseUrl,fetchImpl?,timeoutMs?})` → HTTP 요청 함수. 외부 HTTP 호출, 15초 제한, 취소·상태 오류 |
 | `src/services/api.js` | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile/listPolicies/getPolicy. 금융·공고 응답 검증, 공고는 비회원 요청 |
 | `src/services/session.js` | `createSession({api,storage,baseUrl,now?})` → subscribe/getSnapshot/restore/login/logout/invalidate. 저장소·서버 호출을 주입하고 세션 상태 관리 |
 | `src/platform/sessionStorage.ts` | read/write/clear: 기기 SecureStore의 토큰·서버 주소·만료·로그아웃 대기 상태만 저장. 웹 어댑터는 메모리 전용 |
-| `src/features/finance/FinanceScreen.tsx` | 공통 질문을 네이티브 입력으로 표시. 원자료 전송·계산·명시적 저장·불러오기·삭제 |
-| `src/features/finance/draft.js` | `updateDraft(draft,path,value)` → 원본을 바꾸지 않은 입력 초안. 가구/차량 목록 정합성 유지. I/O 없음 |
+| `src/features/finance/FinanceScreen.tsx` | 빠른 중위소득 확인, 5개 입력 단계·최종 확인, 계산 결과·동의 저장·불러오기·삭제 |
+| `src/features/finance/state.js` | 메모리 전용 금융 상태, 계정별 초기화, 자동 불러오기와 늦은 응답 보호 |
+| `src/features/finance/draft.js` | `updateDraft(draft,path,value,cache?)` → 원본을 바꾸지 않은 입력 초안. 가구/차량 목록 정합성과 축소 후 복원. I/O 없음 |
 | `app.config.ts`, `eas.json` | Expo 설정과 개발/내부 테스트/운영 빌드 프로필 |
 
 ## 인증과 개인정보
@@ -86,12 +88,12 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 - 모바일 토큰은 서버에서 별도 해시 영역으로 저장해 웹 쿠키와 상호 사용할 수 없습니다. 7일 만료, 자동 갱신 없음, 만료 시 재로그인. 로그아웃은 서버 세션 폐기 후 로컬 토큰 제거.
 - 로그아웃 실패는 성공으로 표시하지 않습니다. 보안 저장소에 로그아웃 대기를 기록하고, 다음 시작에서 세션 복원 대신 폐기를 재시도합니다. 저장소 자체가 잠겼으면 다시 시도 안내를 표시합니다.
 - 복원 중 네트워크 오류는 금융정보를 노출하지 않고 재시도를 제공합니다. 오래된 요청의 401은 다른 토큰의 세션을 지우지 않습니다.
-- 금융 원자료·계산 결과·비밀번호·사용자 객체는 영구 기기 저장소에 쓰지 않습니다. 금융 저장은 별도 동의와 버튼이 필요합니다. 서버 조회도 버튼을 누를 때만 실행합니다.
-- 로그인/로그아웃/계정 상태 전환 시 계산기 메모리와 요청을 초기화합니다. 현재 첫 버전은 비회원 입력도 로그인 시 초기화되므로 먼저 로그인한 뒤 입력/저장을 진행하세요.
+- 금융 원자료·계산 결과·비밀번호·사용자 객체는 영구 기기 저장소에 쓰지 않습니다. 금융 저장은 별도 동의와 버튼이 필요합니다. 계산기를 열면 로그인 계정의 저장 정보를 자동 조회하며 작성 중인 값은 덮어쓰지 않습니다.
+- 비회원 입력은 로그인 후에도 유지합니다. 다른 계정으로 전환하거나 로그아웃하면 금융 메모리를 초기화하고 이전 요청을 취소합니다. 지연 응답으로 다른 계정의 정보가 복원되지 않습니다.
 - 가구원 축소·차량 입력 제거, 계정 정보 삭제는 확인 후 실행합니다. 화면 입력 삭제와 서버 저장 삭제를 구분합니다. 빈칸은 미확인, 0은 실제 0원입니다.
 - 쉬운 화면은 실행 중 설정이며 시스템 글꼴 확대도 허용합니다. 현재 기기 간 설정/공고 동기화는 없습니다.
 
-쉬운 화면은 모바일용으로 문장과 화면 밀도를 줄입니다. 상단 모드 바를 한 줄로 표시하고, 제목 24/본문 19·행간 28과 여백 16을 사용합니다. 홈은 공고·계산을 먼저 보여주며, 공고 목록은 제목·신청 기간 중심입니다. 긴 상세 글은 3줄 미리보기 뒤 전체보기로 읽을 수 있고, 도움말·요약·계산 내역은 펼쳐볼 수 있습니다. 저장 동의, 삭제 확인, 계산 결과의 주의·미확인 항목은 숨기지 않습니다. 기본 모드에서는 기존 전체 설명을 표시합니다.
+쉬운 화면은 제목 26/본문 20sp, 큰 버튼과 선명한 테두리를 사용합니다. 브랜드와 모드·메뉴 조작을 두 줄로 나누고 분야 바로가기는 2열로 표시합니다. 공고 제목을 자르지 않으며 지원 내용·대상·신청 기간을 구분합니다. 긴 도움말·요약·계산 내역은 펼쳐 읽고, 저장 동의·삭제 확인·결과의 주의·미확인 항목은 항상 접근할 수 있습니다.
 
 `node tests/easy-layout-preview.mjs`로 320·390·430px 화면의 주요 버튼, 펼침 상태, 전체 내용 접근, 가로 넘침을 확인합니다. 이 테스트는 브라우저 안에서만 공고 응답을 대체하며 실제 서비스 데이터는 변경하지 않습니다.
 
@@ -190,15 +192,24 @@ APK 검사는 디버그 여부, 서명, 노출 컴포넌트, 권한, XML 정책�
 
 근거: [Expo 설정](https://docs.expo.dev/versions/v57.0.0/config/app/), [URL 디코더 패치](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr), [uuid 패치](https://github.com/advisories/GHSA-w5hq-g745-h8pq), [Gson 변경 기록](https://github.com/google/gson/blob/main/CHANGELOG.md), [Apache Commons IO 보안 공지](https://commons.apache.org/proper/commons-io/security.html), [OSV 조회 API](https://google.github.io/osv.dev/post-v1-querybatch/).
 
-### 홈 이미지 배너
+### 새 홈과 계산기
 
-`src/features/home/HomeBanner.tsx`의 3개 배너는 앱 기능 안내입니다. 이미지는 `assets/home/`에서 로컬 번들로 로드하며 외부 이미지 서비스에 요청하지 않습니다. 생성 방식과 프롬프트는 해당 폴더의 README.md에 있습니다.
+0.2.0의 홈은 검색·6개 분야 바로가기·중위소득 확인·실제 인기 공고로 구성됩니다. 기존 `HomeBanner.tsx`와 이미지 자산은 보관하지만 홈에는 사용하지 않습니다.
 
-좌우 스와이프 또는 48dp 이상의 이전/다음 버튼으로 페이지를 넘기고, 배너를 누르면 공고·계산기·계정으로 이동합니다. 자동 재생은 하지 않습니다. 쉬운 화면에서는 설명을 줄이고 가로형 배너를 사용합니다. `node tests/easy-layout-preview.mjs`로 모바일 크기별 배치와 배너 동작을 확인할 수 있습니다.
+계산기는 빠른 확인과 상세 계산을 같은 화면에서 전환합니다. 웹의 `medianIncome`, `financePrefill`, `countChoices`를 공통 core로 공유합니다. 7명 이상은 정확한 인원을 추가 선택하며 12명 이상은 직접 입력합니다. 상세 계산은 가구·소득·재산·차량·부채의 5단계와 입력 확인으로 나뉩니다. 선택값·만원 단위·0과 모름의 구분, 저장 전 동의는 유지합니다.
+
+### 일반 화면과 쉬운 화면 디자인
+
+2026-10-07: [토스의 글자 계층](https://tossmini-docs.toss.im/tds-react-native/foundation/typography/)과 [목록 구성](https://tossmini-docs.toss.im/tds-react-native/components/list-row/)을 참고해 파란 강조색·밝은 배경·명확한 정보 구분을 적용했습니다. 토스의 전용 폰트·브랜드 자산은 사용하지 않습니다.
+
+- 일반 화면: 중립 회색 배경, 흰색 카드, 단계별 글자 크기, 일관된 Lucide 선 아이콘, 중요도에 따른 버튼 색상. 홈 서비스를 한 영역으로 묶고 검색 입력을 카드로 정리합니다.
+- 쉬운 화면: 본문 20sp, 주 버튼 최소 60dp, 입력칸 최소 62dp, 8~10dp 모서리와 선명한 테두리. 메뉴를 글자로 설명하고 선택 항목에는 체크를 표시합니다. OS 글자 크기 조정을 유지합니다.
+- 공고는 분야·지역·제목·지원 내용·대상·기간·기관 순으로 구분하며 실제 데이터만 표시합니다. 상세는 지원 내용·대상·기간·공식 공고를 중심으로 재배치합니다. 탭 높이는 화면 모드·안전 영역·OS 글자 배율을 반영합니다.
+- `react-native-svg`가 추가되어 기존 개발 앱도 네이티브 재빌드가 필요합니다. 설치된 독립 APK에는 새 APK 빌드·설치 전까지 반영되지 않습니다.
 
 ### 챗봇과 전체 메뉴
 
-오른쪽 아래 상담원 아이콘과 오른쪽 위 ≡ 메뉴를 제공합니다. X로 끌 때 확인과 재진입 위치를 안내하며 메뉴에서 다시 켤 수 있습니다. 공고 상세에서도 해당 공고에 바로 질문할 수 있습니다. 웹과 동일한 FAQ·직접 질문 API에 모바일 Bearer로 연결합니다. [동작·보안·검증 범위](src/features/assistant/README.md)를 확인하세요.
+하단의 ‘상담’ 탭과 오른쪽 위 전체 메뉴를 제공합니다. 쉬운 화면의 메뉴 버튼에는 ‘메뉴’ 글자를 표시합니다. 챗봇을 끌 때 확인과 재진입 위치를 안내하며 상담 탭에서 다시 켤 수 있습니다. 공고 상세에서도 해당 공고에 바로 질문할 수 있습니다. 웹과 동일한 FAQ·직접 질문 API에 모바일 Bearer로 연결합니다. [동작·보안·검증 범위](src/features/assistant/README.md)를 확인하세요.
 
 ### 서버 연결 안내
 

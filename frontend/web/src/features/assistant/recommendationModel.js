@@ -25,10 +25,10 @@ export function parseRecommendationContext(result) {
 export function recommendationGuidance(result) {
   if (result.guidance) return result.guidance;
   if (result.mode === 'popular')
-    return '맞춤 추천에 필요한 정보가 충분하지 않아, 공식 제공처의 누적 조회수가 높은 일반 공고를 보여드렸어요. 내 정보를 추가하면 더 정확하게 추천받을 수 있어요.';
+    return '맞춤 추천에 필요한 정보가 부족해 공식 제공처의 누적 조회수가 높은 공고를 먼저 보여드려요. 내 정보를 추가하면 신청 조건을 더 자세히 비교할 수 있어요.';
   if (result.mode === 'general')
-    return '맞춤 추천에 필요한 정보가 충분하지 않아, 신청 대상 제한이 없다고 안내된 일반 공고를 보여드렸어요. 내 정보를 추가하면 더 정확하게 추천받을 수 있어요.';
+    return '맞춤 추천에 필요한 정보가 부족해 신청 대상에 제한이 없다고 안내된 공고를 먼저 보여드려요. 내 정보를 추가하면 신청 조건을 더 자세히 비교할 수 있어요.';
   if (result.mode === 'profile_required')
-    return '현재 정보만으로 안전하게 추천할 공고를 찾지 못했어요. 거주 지역과 연령대 등 내 정보를 더 입력해 주세요.';
+    return '입력한 정보만으로는 추천할 공고를 찾지 못했어요. 거주 지역과 연령대 등 내 정보를 추가하면 신청 조건을 더 자세히 비교할 수 있어요.';
   return '';
 }

@@ -8,6 +8,7 @@ import {
   Field,
   Notice,
   Screen,
+  PageHeading,
 } from "../components/ui";
 import { useRuntime, useSession } from "../services/runtime";
 import { NotificationSettings } from "../features/notifications/NotificationSettings";
@@ -24,7 +25,11 @@ export default function Account() {
   }
   return (
     <Screen>
-      <Copy title>내 계정</Copy>
+      <PageHeading
+        title="내 계정"
+        eyebrow="나의 복지나침반"
+        description={easy ? undefined : "저장한 정보와 알림을 관리해요."}
+      />
       {configError ? (
         <Notice>{configError}</Notice>
       ) : state.status === "signedIn" ? (
@@ -95,8 +100,8 @@ export default function Account() {
       <NotificationSettings />
       <Details label="저장 정보 안내">
         <Copy muted>
-          금융정보는 자동으로 불러오지 않습니다. 계산기에서 직접 불러오기를
-          선택해 주세요.
+          로그인하면 계산기에서 저장한 금융정보를 자동으로 불러와요. 작성 중인
+          입력은 유지하고, 수정한 정보는 동의 후 저장 버튼을 눌러야 반영됩니다.
         </Copy>
       </Details>
     </Screen>

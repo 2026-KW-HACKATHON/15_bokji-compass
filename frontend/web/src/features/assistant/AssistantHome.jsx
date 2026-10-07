@@ -1,8 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyCard from '../policies/PolicyCard.jsx';
-import HomeBanner from './HomeBanner.jsx';
+import PolicyIndicators from '../policies/PolicyIndicators.jsx';
+import { regions } from '../policies/policyModel.js';
 import { recommendationGuidance } from './recommendationModel.js';
+
+const topics = ['주거', '일자리', '생활·금융', '교육', '건강·돌봄'];
+const discovery = [
+  {
+    category: '주거',
+    icon: 'house',
+    title: '더 편안한 보금자리를 위해',
+    description: '주거비부터 주택 지원까지, 주거 관련 공고를 살펴보세요.',
+  },
+  {
+    category: '일자리',
+    icon: 'briefcase',
+    title: '새로운 시작을 준비한다면',
+    description: '취업과 직업 교육 등 내일을 위한 지원을 찾아보세요.',
+  },
+  {
+    category: '생활·금융',
+    icon: 'wallet',
+    title: '일상에 필요한 도움을 가까이',
+    description: '생활비와 금융 지원 등 다양한 생활 공고를 확인하세요.',
+  },
+];
 
 export default function AssistantHome({
   profile,
@@ -13,190 +36,146 @@ export default function AssistantHome({
   onProfile,
   onLogin,
   onExplore,
+  onSearch,
+  onGuide,
   onCalendar,
   easy,
   saved,
   onSave,
   onOpen,
   onTag,
-  mode,
+  monitoringPanel,
 }) {
+  const [query, setQuery] = useState('');
+  const [region, setRegion] = useState('전국');
   const [index, setIndex] = useState(0);
   const cards = useRef(null);
-  const focusNextCard = useRef(false);
+  const focusNext = useRef(false);
   useEffect(() => {
     setIndex(0);
-    focusNextCard.current = false;
+    focusNext.current = false;
   }, [result, easy]);
   useEffect(() => {
-    if (focusNextCard.current) {
+    if (focusNext.current) {
       cards.current?.querySelector('.card-title')?.focus();
-      focusNextCard.current = false;
+      focusNext.current = false;
     }
   }, [index]);
-  const turnPage = (next) => {
-    focusNextCard.current = true;
-    setIndex(next);
-  };
   const personalized =
     state === 'ready' && result.mode === 'personalized' && result.profileSufficient;
   const items = easy ? result.items.slice(index, index + 3) : result.items;
   const guidance = recommendationGuidance(result);
-  const sectionTitle =
-    result.mode === 'popular'
-      ? '많이 살펴본 일반 공고'
-      : result.mode === 'general'
-        ? '먼저 살펴볼 일반 공고'
-        : result.mode === 'profile_required'
-          ? '맞춤 추천을 위한 정보'
-          : '추천 공고';
+  const turnPage = (next) => {
+    focusNext.current = true;
+    setIndex(next);
+  };
+  const retryAction =
+    error?.action === 'login' ? onLogin : error?.action === 'profile' ? onProfile : onRetry;
+
   return (
-    <>
-      {easy ? (
-        <div className="page-heading">
-          <h1>{personalized ? '나에게 맞는 복지 공고' : '먼저 살펴볼 복지 공고'}</h1>
-          <p>
-            {personalized
-              ? '추천 공고의 지원 내용과 신청 조건을 확인하세요.'
-              : '맞춤 추천을 위해 거주 지역과 연령대 등 내 정보를 알려주세요.'}
-          </p>
-          <div className="home-primary-action">
-            <button className={personalized ? 'text-button' : 'button primary'} onClick={onProfile}>
-              {personalized
-                ? '추천에 쓰는 내 정보 수정'
-                : profile
-                  ? '추천 정보 더 입력하기'
-                  : '맞춤 공고 찾기'}
-              {!personalized && <Icon name="arrow" size={20} />}
+    <div className="search-home">
+      <section className="search-hero" aria-labelledby="home-title">
+        <span className="home-eyebrow">나를 위한 복지 길잡이</span>
+        <h1 id="home-title">어떤 도움이 필요하세요?</h1>
+        <p>지역과 관심 분야로 필요한 복지 공고를 찾아보세요.</p>
+        <form
+          className="home-search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSearch({ query, region });
+          }}
+        >
+          <label className="home-region">
+            <span className="sr-only">공고를 찾을 지역</span>
+            <select value={region} onChange={(event) => setRegion(event.target.value)}>
+              {regions.map((value) => (
+                <option key={value} value={value}>
+                  {value === '전국' ? '전체 지역' : value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="home-search-input">
+            <Icon name="search" size={22} />
+            <span className="sr-only">찾고 싶은 복지</span>
+            <input
+              type="search"
+              maxLength={200}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={
+                easy ? '예: 주거, 취업, 돌봄' : '찾고 싶은 복지나 지원 내용을 입력하세요'
+              }
+            />
+          </label>
+          <button className="home-search-submit" type="submit" aria-label="복지 공고 검색">
+            <Icon name="search" size={27} />
+            <span>검색</span>
+          </button>
+        </form>
+        <div className="home-topics" aria-label="관심 분야로 공고 찾기">
+          {topics.map((category) => (
+            <button key={category} onClick={() => onSearch({ category, region })}>
+              {category}
             </button>
-          </div>
+          ))}
         </div>
-      ) : (
-        <HomeBanner easy={false} onCalendar={onCalendar}>
-          <section className="assistant-hero">
-            <div className="hero-copy">
-              <span className="eyebrow">
-                <Icon name="sparkles" size={18} />
-                나만의 AI 복지 비서
-              </span>
-              <h1>
-                {personalized ? '내 정보에 맞는 복지 공고를' : '관심 있는 복지 공고를'}
-                <br />
-                <em>{personalized ? '추천해 드려요.' : '먼저 살펴보세요.'}</em>
-              </h1>
-              <p>
-                {personalized ? (
-                  <>
-                    확인된 내 정보로 공고의 조건을 비교했어요.
-                    <br className="desktop-break" />
-                    추천 이유와 신청 조건을 함께 확인하세요.
-                  </>
-                ) : (
-                  <>
-                    맞춤 추천을 위해 거주 지역과 연령대 등
-                    <br className="desktop-break" />내 정보를 알려주세요.
-                  </>
-                )}
-              </p>
-              <button className="button primary" onClick={onProfile}>
-                {personalized
-                  ? '내 정보 수정하기'
-                  : profile
-                    ? '추천 정보 더 입력하기'
-                    : '내 정보 입력하기'}
-                <Icon name="arrow" />
-              </button>
-            </div>
-            <div className="assistant-intro">
-              <span className="assistant-avatar">
-                <img
-                  className="hero-brand-image"
-                  src="/brand-logo.png"
-                  alt="사람과 하트를 감싸는 복지나침반 로고"
-                />
-              </span>
-              <p className="assistant-greeting">나만의 AI 복지 비서</p>
-              <p>
-                {personalized ? '입력한 정보를 바탕으로' : '내 정보를 알려주시면'}
-                <br />
-                <strong>
-                  {personalized ? '공고를 추천해 드려요.' : '맞춤 공고를 찾아드려요.'}
-                </strong>
-              </p>
-              <span className="assistant-caption">
-                <Icon name="shield" size={15} />
-                신청 조건도 함께 확인하세요
-              </span>
-            </div>
-          </section>
-        </HomeBanner>
-      )}
-      {!easy && (
-        <div className="journey-strip">
-          <span>
-            <b>1</b>내 정보 입력
-          </span>
-          <Icon name="right" size={17} />
-          <span>
-            <b>2</b>공고의 조건 비교
-          </span>
-          <Icon name="right" size={17} />
-          <span>
-            <b>3</b>추천 이유와 신청 조건 확인
-          </span>
-        </div>
-      )}
-      <section className="assistant-results" aria-label="추천 공고">
+        <button className="home-personal-link" onClick={onProfile}>
+          {personalized ? '맞춤 추천에 사용하는 내 정보 수정' : '내 정보로 맞춤 공고 찾기'}{' '}
+          <Icon name="arrow" size={18} />
+        </button>
+      </section>
+
+      <section className="home-results" aria-label="추천 공고">
         <div className="section-heading">
           <div>
-            {!easy && (
-              <span className="eyebrow">
-                {personalized ? '확인된 내 정보에 맞춰' : '정보가 적어도 살펴볼 수 있어요'}
-              </span>
+            <h2 id="recommendations-heading">
+              {items.length
+                ? personalized
+                  ? '내 정보에 맞춘 추천 공고'
+                  : '먼저 살펴볼 복지 공고'
+                : '필요한 지원을 찾아보세요'}
+            </h2>
+            {items.length > 0 && (
+              <p className="home-section-description">지원 내용과 신청 조건을 함께 확인하세요.</p>
             )}
-            <h2 id="recommendations-heading">{sectionTitle}</h2>
           </div>
-          {state === 'ready' && (
+          {items.length > 0 ? (
             <button className="text-button" onClick={onRetry}>
-              다시 추천받기
+              다시 추천받기 <Icon name="arrow" size={16} />
             </button>
+          ) : (
+            <span className="home-section-description">
+              관심 있는 분야부터 가볍게 시작해 보세요.
+            </span>
           )}
         </div>
-        {profile && (
-          <div className="profile-summary">
-            <Icon name="user" size={18} />
-            <span>
-              {[
-                profile.region,
-                profile.ageBand === '선택하지 않음' ? null : profile.ageBand,
-                ...profile.interests,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
+        {profile && personalized && (
+          <div className="home-profile-summary">
+            <Icon name="user" size={17} />
+            {[
+              profile.region,
+              profile.ageBand === '선택하지 않음' ? null : profile.ageBand,
+              ...profile.interests,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </div>
         )}
-        {state === 'loading' ? (
-          <div className="empty-state" role="status">
-            <Icon name="sparkles" size={30} />
-            <h3>추천 공고를 불러오고 있어요</h3>
-            <p>조금만 기다려 주세요.</p>
-          </div>
-        ) : state === 'error' ? (
-          <div className="empty-state" role="alert">
-            <Icon name="info" size={30} />
-            <h3>{error.title}</h3>
-            <p>{error.message}</p>
-            <button
-              className="button primary"
-              onClick={
-                error.action === 'login'
-                  ? onLogin
-                  : error.action === 'profile'
-                    ? onProfile
-                    : onRetry
-              }
-            >
+        {state === 'loading' && (
+          <p className="home-feedback" role="status">
+            공고를 불러오고 있어요. 잠시만 기다려 주세요.
+          </p>
+        )}
+        {state === 'error' && (
+          <div className="home-feedback is-error" role="alert">
+            <Icon name="info" />
+            <div>
+              <strong>{error.title}</strong>
+              <p>{error.message}</p>
+            </div>
+            <button className="text-button" onClick={retryAction}>
               {error.action === 'login'
                 ? '로그인하기'
                 : error.action === 'profile'
@@ -204,116 +183,179 @@ export default function AssistantHome({
                   : '다시 시도하기'}
             </button>
           </div>
-        ) : state === 'ready' ? (
+        )}
+        {state === 'ready' && items.length > 0 && (
           <>
-            {items.length ? (
-              <>
-                <p className="recommendation-summary" role="status">
-                  {result.summary}
-                </p>
-                <div
-                  className={'policy-grid recommendation-grid' + (easy ? ' easy-policy-list' : '')}
-                  ref={cards}
-                >
-                  {items.map((item) => (
-                    <PolicyCard
-                      key={item.policy.id}
-                      policy={item.policy}
-                      reason={item.reason}
-                      saved={saved.some((value) => value.id === item.policy.id)}
-                      onSave={onSave}
-                      onOpen={onOpen}
-                      onTag={onTag}
-                      easy={easy}
-                    />
-                  ))}
-                </div>
-                {easy && result.items.length > 3 && (
-                  <nav className="pagination" aria-label="추천 공고 넘기기">
-                    <button
-                      className="button secondary"
-                      disabled={index === 0}
-                      onClick={() => turnPage(Math.max(0, index - 3))}
-                    >
-                      이전 목록
-                    </button>
-                    <span>
-                      {index + 1}–{Math.min(index + 3, result.items.length)} / {result.items.length}
-                      개
+            {result.summary && (
+              <p className="home-result-summary" role="status">
+                {result.summary}
+              </p>
+            )}
+            <div className={easy ? 'easy-policy-list' : 'home-policy-list'} ref={cards}>
+              {items.map(({ policy, reason }) =>
+                easy ? (
+                  <PolicyCard
+                    key={policy.id}
+                    policy={policy}
+                    reason={reason}
+                    saved={saved.some((value) => value.id === policy.id)}
+                    onSave={onSave}
+                    onOpen={onOpen}
+                    onTag={onTag}
+                    easy
+                  />
+                ) : (
+                  <article className="home-policy-row" key={policy.id}>
+                    <span className="home-row-icon">
+                      <Icon name={policy.icon} size={24} />
                     </span>
+                    <div className="home-row-heading">
+                      <span>
+                        {policy.category} · {policy.region}
+                      </span>
+                      <h3>
+                        <button className="card-title" onClick={() => onOpen(policy)}>
+                          {policy.title}
+                        </button>
+                      </h3>
+                    </div>
+                    <div className="home-row-description">
+                      {reason && <span className="home-reason-label">추천 이유</span>}
+                      <p>{reason || policy.summary}</p>
+                      {policy.applicationPeriod && (
+                        <small>신청 기간 · {policy.applicationPeriod}</small>
+                      )}
+                      <PolicyIndicators policy={policy} />
+                    </div>
                     <button
-                      className="button secondary"
-                      disabled={index + 3 >= result.items.length}
-                      onClick={() => turnPage(index + 3)}
+                      className="home-detail-link"
+                      onClick={() => onOpen(policy)}
+                      aria-label={policy.title + ' 자세히 보기'}
                     >
-                      다음 목록
+                      자세히 보기 <Icon name="arrow" size={18} />
                     </button>
-                  </nav>
-                )}
-              </>
-            ) : (
-              <div className="empty-state recommendation-empty" role="status">
-                <Icon name={result.mode === 'profile_required' ? 'user' : 'search'} size={30} />
-                <h3>
-                  {result.mode === 'profile_required'
-                    ? '맞춤 추천에 필요한 정보를 알려주세요'
-                    : personalized
-                      ? '현재 내 정보에 맞는 추천 공고가 없어요'
-                      : '현재 안내할 일반 공고가 없어요'}
-                </h3>
-                <p>
-                  {result.mode === 'profile_required'
-                    ? '현재 정보로 추천할 공고를 찾지 못했어요. 내 정보를 추가하면 신청 조건을 더 정확히 비교할 수 있어요.'
-                    : '새 공고가 등록되면 다시 확인해 주세요. 전체 공고에서 다른 지원도 찾아볼 수 있어요.'}
-                </p>
-                <div className="recommendation-empty-actions">
-                  <button
-                    className="button secondary"
-                    disabled
-                    aria-describedby="recommendation-email-status"
-                  >
-                    새 공고 메일로 받기 · 준비 중
-                  </button>
-                  <button className="button primary" onClick={onExplore}>
-                    전체 공고 보기
-                  </button>
-                </div>
-                <p id="recommendation-email-status" className="fine-print">
-                  메일 알림은 준비 중이에요. 아직 알림 신청은 할 수 없어요.
-                </p>
-              </div>
+                    <button
+                      className="home-save"
+                      aria-label={
+                        policy.title +
+                        (saved.some((value) => value.id === policy.id) ? ' 저장 취소' : ' 저장')
+                      }
+                      aria-pressed={saved.some((value) => value.id === policy.id)}
+                      onClick={() => onSave(policy)}
+                    >
+                      <Icon
+                        name="bookmark"
+                        size={22}
+                        fill={
+                          saved.some((value) => value.id === policy.id) ? 'currentColor' : 'none'
+                        }
+                      />
+                    </button>
+                  </article>
+                ),
+              )}
+            </div>
+            {easy && result.items.length > 3 && (
+              <nav className="pagination" aria-label="추천 공고 넘기기">
+                <button
+                  className="button secondary"
+                  disabled={index === 0}
+                  onClick={() => turnPage(Math.max(0, index - 3))}
+                >
+                  이전 목록
+                </button>
+                <span>
+                  {index + 1}–{Math.min(index + 3, result.items.length)} / {result.items.length}개
+                </span>
+                <button
+                  className="button secondary"
+                  disabled={index + 3 >= result.items.length}
+                  onClick={() => turnPage(index + 3)}
+                >
+                  다음 목록
+                </button>
+              </nav>
             )}
             {guidance && (
-              <div className="recommendation-guidance">
-                <p>
-                  <Icon name="info" size={18} /> <span>{guidance}</span>
-                </p>
-                {!personalized && (
-                  <button className="text-button" onClick={onProfile}>
-                    내 정보 추가하고 맞춤 추천받기 <Icon name="arrow" size={17} />
-                  </button>
-                )}
-              </div>
-            )}
-            {mode === 'api' && items.length > 0 && (
-              <p className="fine-print">
-                추천받은 공고라도 신청 조건을 충족하지 않을 수 있어요. 신청 전에 공식 공고를
-                확인하세요.
+              <p className="home-criteria-note">
+                <Icon name="info" size={17} />
+                {guidance}
               </p>
             )}
           </>
-        ) : null}
+        )}
+        {!items.length && (
+          <div className="home-discovery-list">
+            {discovery.map((item) => (
+              <button
+                key={item.category}
+                className="home-discovery-row"
+                onClick={() => onSearch({ category: item.category, region })}
+              >
+                <span className="home-row-icon">
+                  <Icon name={item.icon} size={24} />
+                </span>
+                <span className="home-row-heading">
+                  <span>{item.category}</span>
+                  <strong>{item.title}</strong>
+                </span>
+                <span className="home-discovery-description">{item.description}</span>
+                <span className="home-row-action">
+                  공고 보기 <Icon name="arrow" size={18} />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {state === 'ready' && !items.length && (
+          <p className="home-criteria-note">
+            <Icon name="info" size={17} />
+            <span>
+              {result.mode === 'profile_required'
+                ? '맞춤 추천을 받으려면 거주 지역과 연령대 등 내 정보를 입력해 주세요.'
+                : '현재 추천 공고가 없어요. 전체 공고에서 다른 지원도 살펴보세요.'}
+              {result.guidance && <> {result.guidance}</>}
+            </span>
+          </p>
+        )}
       </section>
-      <div className="explore-invitation">
-        <div>
-          {!easy && <h2>다른 공고도 찾아보세요</h2>}
-          {!easy && <p>분야와 지역을 선택하거나 검색어를 입력해 보세요.</p>}
-        </div>
-        <button className="button secondary" onClick={onExplore}>
-          전체 공고 보기
-          <Icon name="arrow" size={18} />
+
+      <div className="home-shortcuts">
+        <button onClick={onCalendar}>
+          <span className="home-row-icon">
+            <Icon name="calendar" size={27} />
+          </span>
+          <span>
+            <small>신청 일정을 확인하고 싶다면</small>
+            <strong>
+              공고 캘린더 <Icon name="arrow" size={19} />
+            </strong>
+          </span>
+        </button>
+        <button onClick={onProfile}>
+          <span className="home-row-icon">
+            <Icon name="user" size={27} />
+          </span>
+          <span>
+            <small>나에게 맞는 공고가 궁금하다면</small>
+            <strong>
+              맞춤 공고 찾기 <Icon name="arrow" size={19} />
+            </strong>
+          </span>
         </button>
       </div>
-    </>
+      <div className="home-guide-link">
+        <span>복지나침반이 처음이신가요?</span>
+        <button onClick={onGuide}>
+          이용 방법 알아보기 <Icon name="arrow" size={17} />
+        </button>
+      </div>
+      {monitoringPanel}
+      <div className="home-all-link">
+        <button className="text-button" onClick={onExplore}>
+          전체 공고 보기 <Icon name="arrow" size={17} />
+        </button>
+      </div>
+    </div>
   );
 }

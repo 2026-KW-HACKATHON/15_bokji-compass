@@ -1,10 +1,13 @@
 {
   "name": "@bokji/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "exports": {
     "./finance-model": "./src/financeModel.js",
-    "./finance-flow": "./src/financeFlow.js"
+    "./finance-flow": "./src/financeFlow.js",
+    "./median-income": "./src/medianIncome.js",
+    "./finance-prefill": "./src/financePrefill.js",
+    "./count-choices": "./src/countChoices.js"
   }
 }

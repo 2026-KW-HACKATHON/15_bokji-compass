@@ -6,11 +6,12 @@ import json
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from app.modules.auth.consent import NOTICE_VERSION
 from app.modules.auth.models import auth_consents
 
 CONSENT_REQUIRED = "AI 질문 이용을 위한 개인정보 처리 안내 및 동의가 필요합니다."
 AI_PENDING = "AI 질문의 개인정보 처리 안내를 준비 중입니다. 준비된 공고 안내를 이용해 주세요."
+# The optional member address in .3 does not change the separately disclosed AI data.
+AI_MEMBERSHIP_NOTICE_VERSIONS = frozenset({"2026-10-07.2", "2026-10-07.3"})
 
 
 def get_ai_notice(settings):
@@ -71,7 +72,7 @@ def require_member_ai_consent(service, account_id, settings):
         )
     if (
         consent is None
-        or consent["notice_version"] != NOTICE_VERSION
+        or consent["notice_version"] not in AI_MEMBERSHIP_NOTICE_VERSIONS
         or consent["collection"] is not True
         or consent["ai"] is not True
         or consent["ai_notice_version"] != notice["notice_version"]

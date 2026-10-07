@@ -1,6 +1,12 @@
 // Reviewed service guidance. Policy facts always come from the published policy API.
 export const assistantMenus = [
   {
+    id: 'guidance',
+    icon: 'house',
+    label: '생활 상황으로 상담하고 싶어요',
+    description: '집수리·누수·취업, 부족한 정보는 대화로 확인',
+  },
+  {
     id: 'policy',
     icon: 'help',
     label: '공고 내용이 궁금해요',
@@ -80,7 +86,7 @@ export const assistantGuides = [
     question: '질문하려면 로그인해야 하나요?',
     answer: [
       '이용 방법 안내와 공고 캘린더는 로그인하지 않아도 볼 수 있어요.',
-      '공고의 준비된 질문과 직접 질문은 로그인 후 사용할 수 있어요. 직접 질문할 때는 내 정보에 저장한 지역과 연령대를 참고하고, 정보가 없으면 공고를 기준으로 안내해요. 이름이나 전화번호는 입력하지 마세요.',
+      '자주 묻는 질문의 답변을 보거나 직접 질문하려면 로그인해 주세요. 직접 질문할 때는 내 정보에 저장한 지역과 연령대를 참고하고, 정보가 없으면 공고 내용을 바탕으로 안내해요. 이름이나 전화번호는 입력하지 마세요.',
     ],
     action: { page: 'login', label: '로그인하기' },
   },

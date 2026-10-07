@@ -101,7 +101,7 @@ export default function PolicyQuestion({
 
   return (
     <section className="policy-question" aria-labelledby={`${id}-heading`}>
-      <h3 id={`${id}-heading`}>이 공고에 질문하기</h3>
+      <h3 id={`${id}-heading`}>이 공고에 대해 질문하기</h3>
       {!user ? (
         <p>
           <a href="#login">로그인</a>하면 공고 내용을 물어볼 수 있어요.
@@ -110,7 +110,7 @@ export default function PolicyQuestion({
         <p>전체 공고에서 최신 공고를 다시 열면 질문할 수 있어요.</p>
       ) : (
         <>
-          <p>궁금한 질문을 골라 주세요. 준비된 안내를 바로 보여드려요.</p>
+          <p>궁금한 내용을 선택하면 답변을 바로 확인할 수 있어요.</p>
           {faqState === 'loading' && <p role="status">기본 질문을 준비하고 있어요.</p>}
           {faqState === 'error' && (
             <div className="faq-error">

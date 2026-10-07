@@ -16,10 +16,10 @@ export default function PolicyIndicators({ policy }) {
       )}
       {budget && (
         <div className="policy-budget">
-          <dt>공식 예산 소진률</dt>
+          <dt>공식 예산 소진율</dt>
           <dd>
             {budget.usedPercent.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}%
-            <progress value={budget.usedPercent} max="100" aria-label="공식 예산 소진률" />
+            <progress value={budget.usedPercent} max="100" aria-label="공식 예산 소진율" />
             <small>
               {budget.asOf ? `${formatSignalDate(budget.asOf)} 기준 · ` : '기준일 미제공 · '}
               <a

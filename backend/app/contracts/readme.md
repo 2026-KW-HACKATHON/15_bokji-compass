@@ -16,6 +16,15 @@
 
 ## 공개 계약
 
+`app.contracts.search`는 외부 호출 없이 자연어 검색의 내부 계획을 정의합니다.
+`SearchPlan`은 원문·해석문·기관·지원 목적·제외 조건·남은 단어·대상 표현·보정·불확실성·요약을
+보존하는 불변 dataclass입니다. `Institution(name, aliases, role)`의 role은
+`publisher/affiliation/related/excluded`입니다. 게시기관과 학교 소속이 한 문장에 있어도
+기관별 역할을 유지하며 `Correction(original, replacement)`로 오타 보정을 기록합니다.
+`SearchPlan.interpreted_query`는 화면에 전달할 해석문입니다. 생성과 검색 호출은
+[`search.public.search_records`](../modules/search/public.py)를 사용합니다.
+이 계약은 회원 프로필이나 신청 자격 판정 결과를 포함하지 않습니다.
+
 `app.contracts.public.RawDocument`는 `document_id`, `title`, `text`, `source_url`, `collected_at`, `published_at`을 가집니다. `text`는 수집된 원문이며 이 계약에서 사용자 자격을 판정하지 않습니다.
 
 `RawDocument.to_dict()`는 JSON 저장을 위한 딕셔너리를 반환합니다. `utc_now_iso()`는 UTC ISO 8601 문자열을 반환합니다.

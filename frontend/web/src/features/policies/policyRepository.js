@@ -1,10 +1,13 @@
 import { parsePolicy, parsePolicyPage, parsePopularity } from './policyModel.js';
 import { isCalendarDate } from '../calendar/calendarModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
+import { matchesPolicySearch } from './policySearch.js';
+import { parseSearchMetadata } from './searchMetadata.js';
 export function filterPolicies(
   items,
   {
     query = '',
+    searchScope = 'all',
     tag = '',
     category = '전체',
     region = '전국',
@@ -13,14 +16,10 @@ export function filterPolicies(
     savedIds = null,
   } = {},
 ) {
-  const terms = query.trim().toLocaleLowerCase('ko').split(/\s+/).filter(Boolean);
   return items
     .filter((item) => {
-      const text = [item.title, item.summary, item.category, item.region, ...item.tags]
-        .join(' ')
-        .toLocaleLowerCase('ko');
       return (
-        terms.every((term) => text.includes(term)) &&
+        matchesPolicySearch(item, query, searchScope) &&
         (!tag || item.tags.includes(tag)) &&
         (category === '전체' || item.category === category) &&
         (region === '전국' || item.region === '전국' || item.region === region) &&
@@ -53,12 +52,16 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
       const params = new URLSearchParams({ month });
       for (const [key, value] of Object.entries({
         q: filters.query,
+        search_scope: filters.searchScope,
+        search_mode: filters.searchMode === 'literal' ? 'literal' : null,
+        search_relation: filters.searchRelation,
         category: filters.category,
         region: filters.region,
         audience: filters.audience,
       })) {
         if (
           value &&
+          !(key === 'search_scope' && value === 'all') &&
           !((key === 'category' || key === 'audience') && value === '전체') &&
           !(key === 'region' && value === '전국')
         )
@@ -89,14 +92,20 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
         )
           throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');
       }
-      return { ...result, items, undatedItems };
+      const search = parseSearchMetadata(result.search);
+      return { ...result, search: search || undefined, items, undatedItems };
     },
     async list(filters = {}, { cursor = null, limit = 6, signal } = {}) {
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
-      const params = new URLSearchParams({ limit: String(limit), sort: filters.sort || 'popular' });
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (filters.sort && filters.sort !== 'auto') params.set('sort', filters.sort);
+      else if (!filters.query?.trim()) params.set('sort', 'popular');
       for (const [key, value] of Object.entries({
         q: filters.query,
+        search_scope: filters.searchScope,
+        search_mode: filters.searchMode === 'literal' ? 'literal' : null,
+        search_relation: filters.searchRelation,
         tag: filters.tag,
         category: filters.category,
         region: filters.region,
@@ -105,6 +114,7 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
       })) {
         const unfiltered =
           ((key === 'category' || key === 'audience') && value === '전체') ||
+          (key === 'search_scope' && value === 'all') ||
           (key === 'region' && value === '전국');
         if (value && !unfiltered) params.set(key, value);
       }

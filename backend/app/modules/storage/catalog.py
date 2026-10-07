@@ -1,17 +1,21 @@
-"""Published read model. Filters and pagination run in MySQL, never in the LLM."""
+"""Published read model; structured filters precede complete local smart search."""
 
 from datetime import date
+from typing import Literal
 
 from sqlalchemy import JSON, String, and_, func, inspect, literal, or_, select
 
 from app.modules.ingestion.models import records as collection_records
 from app.modules.ingestion.popularity import listing_popularity, view_count_expression
 from app.modules.presentation.public import format_notice_text, payment_schedule, policy_description
+from app.modules.search.public import search_records
+from app.modules.search.relations import institution_names
 from app.modules.storage.application_dates import (
     application_schedule,
     resolved_application_period,
 )
 from app.modules.storage.categories import effective_category, effective_category_expression
+from app.modules.storage.search import SearchScope, search_predicates
 
 # UI labels differ from the names used in published overview text. Do not expand
 # these to bare district names: e.g. both Seoul and Busan have a Gangseo-gu.
@@ -154,21 +158,14 @@ def card(record, *, full=False):
     }
 
 
-def filtered_catalog(repository, *, q="", category="", region="", audience="", tag="",
+def filtered_catalog(repository, *, q="", search_scope: SearchScope = "all",
+                     category="", region="", audience="", tag="",
                      connection=None):
     catalog = published_catalog(repository)
     if connection is not None:
         catalog = with_popularity(catalog, connection)
     query = select(catalog)
-    search = func.concat(
-        catalog.c.title,
-        " ",
-        json_text(catalog.c.source_json, "$.organization"),
-        " ",
-        json_text(catalog.c.source_json, "$.fields"),
-    )
-    for term in q.split():
-        query = query.where(search.contains(term, autoescape=True))
+    query = query.where(*search_predicates(catalog, q, search_scope))
     for value in (category, tag):
         if value and value != "전체":
             query = query.where(effective_category_expression(catalog) == value)
@@ -207,18 +204,44 @@ def list_policies(
     *,
     limit=20,
     offset=0,
-    sort="popular",
+    sort=None,
     q="",
+    search_scope: SearchScope = "all",
+    search_mode: Literal["smart", "literal"] = "smart",
+    search_relation: Literal["publisher", "related"] | None = None,
     category="",
     region="",
     audience="",
     tag="",
 ):
+    smart = bool(q.strip()) and search_mode == "smart" and search_scope == "all"
+    sort = sort or ("relevance" if smart else "popular")
+    if search_mode not in {"smart", "literal"}:
+        raise ValueError("Invalid policy search mode")
+    if search_relation not in {None, "publisher", "related"}:
+        raise ValueError("Invalid policy search relation")
     with repository.engine.connect() as connection:
         catalog, query = filtered_catalog(
-            repository, q=q, category=category, region=region, audience=audience, tag=tag,
+            repository, q="" if smart else q, search_scope=search_scope,
+            category=category, region=region,
+            audience=audience, tag=tag,
             connection=connection,
         )
+        if smart:
+            # No popular/recent shortlist: every filtered published revision is
+            # interpreted before count, ordering and pagination.
+            vocabulary = search_institution_vocabulary(repository, connection)
+            records = connection.execution_options(yield_per=100).execute(query).mappings()
+            matches, metadata = search_records(records, q, sort=sort, institutions=vocabulary,
+                                              relation=search_relation)
+            total = len(matches)
+            return {
+                "items": [{**card(record), "searchMatch": match}
+                          for record, match in matches[offset:offset + limit]],
+                "total": total,
+                "nextCursor": str(offset + limit) if offset + limit < total else None,
+                "search": metadata,
+            }
         recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
         order = ((catalog.c.title, catalog.c.policy_key) if sort == "name" else recent)
         if sort == "popular":
@@ -229,35 +252,62 @@ def list_policies(
         total = connection.scalar(select(func.count()).select_from(query.subquery()))
         records = connection.execute(query.order_by(*order).limit(limit).offset(offset)).mappings()
         items = [card(row) for row in records]
-    return {
+    result = {
         "items": items,
         "total": total,
         "nextCursor": str(offset + limit) if offset + limit < total else None,
     }
+    if q.strip():
+        result["search"] = literal_search_metadata(q, search_scope)
+    return result
 
 
-def list_calendar(repository, *, month, q="", category="", region="", audience=""):
+def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
+                  search_mode: Literal["smart", "literal"] = "smart",
+                  search_relation: Literal["publisher", "related"] | None = None,
+                  category="", region="", audience=""):
     year, number = map(int, month.split("-"))
     first = date(year, number, 1).isoformat()
     following = date(year + (number == 12), number % 12 + 1, 1).isoformat()
     items, undated = [], []
     total = undated_total = 0
+    smart = bool(q.strip()) and search_mode == "smart" and search_scope == "all"
+    if search_mode not in {"smart", "literal"}:
+        raise ValueError("Invalid policy search mode")
+    if search_relation not in {None, "publisher", "related"}:
+        raise ValueError("Invalid policy search relation")
+    metadata = None
+    facet_counts = {"organization": 0, "content": 0}
     with repository.engine.connect() as connection:
         catalog, query = filtered_catalog(
-            repository, q=q, category=category, region=region, audience=audience,
+            repository, q="" if smart else q, search_scope=search_scope,
+            category=category, region=region,
+            audience=audience,
             connection=connection,
         )
+        vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
         records = (
             connection.execution_options(yield_per=100)
             .execute(query.order_by(catalog.c.title, catalog.c.policy_key))
             .mappings()
         )
-        for record in records:
+        if smart:
+            matches, metadata = search_records(records, q, institutions=vocabulary)
+        else:
+            matches = ((record, None) for record in records)
+        for record, match in matches:
             item = card(record)
+            if match is not None:
+                item["searchMatch"] = match
             start, end = item["applicationStart"], item["applicationEnd"]
+            roles = set(match["relations"]) if match else set()
+            selected = (not smart or search_relation is None or
+                        bool(roles & ({"publisher"} if search_relation == "publisher" else
+                             {"target", "contextual", "student_general", "mention"})))
             if not start and not end:
-                undated_total += 1
-                if len(undated) < 25:
+                if selected:
+                    undated_total += 1
+                if selected and len(undated) < 25:
                     undated.append(item)
                 continue
             overlaps = (
@@ -266,10 +316,16 @@ def list_calendar(repository, *, month, q="", category="", region="", audience="
                 else first <= (start or end) < following
             )
             if overlaps:
+                if "publisher" in roles:
+                    facet_counts["organization"] += 1
+                if roles & {"target", "contextual", "student_general", "mention"}:
+                    facet_counts["content"] += 1
+                if not selected:
+                    continue
                 total += 1
                 if len(items) < 500:
                     items.append(item)
-    return {
+    result = {
         "month": month,
         "items": items,
         "total": total,
@@ -277,6 +333,28 @@ def list_calendar(repository, *, month, q="", category="", region="", audience="
         "undatedItems": undated,
         "undatedTotal": undated_total,
     }
+    if q.strip():
+        if metadata is not None:
+            for alternative in metadata["alternatives"]:
+                alternative["count"] = facet_counts[alternative["scope"]]
+        result["search"] = metadata or literal_search_metadata(q, search_scope)
+    return result
+
+
+def literal_search_metadata(query, scope):
+    return {"mode": "literal", "summary": {
+        "all": "입력한 단어를 게시 기관과 공고 내용에서 찾았어요.",
+        "organization": "입력한 단어를 게시 기관에서 찾았어요.",
+        "content": "입력한 단어를 공고 내용에서 찾았어요.",
+    }[scope], "originalQuery": query, "interpretedQuery": query,
+        "corrections": [], "alternatives": [], "warnings": []}
+
+
+def search_institution_vocabulary(repository, connection):
+    """Filters must not erase the known entity vocabulary used to interpret q."""
+    published = published_catalog(repository)
+    records = connection.execute(select(published.c.source_json, published.c.title)).mappings()
+    return institution_names(records)
 
 
 def get_policy(repository, policy_key):

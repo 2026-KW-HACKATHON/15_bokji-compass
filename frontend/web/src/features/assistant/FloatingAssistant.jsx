@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from '../policies/policyModel.js';
 import PolicyQuestion from './PolicyQuestion.jsx';
+import GuidedConversation from './GuidedConversation.jsx';
 import { assistantGuides, assistantMenus } from './assistantContent.js';
 import './FloatingAssistant.css';
 
@@ -155,7 +156,7 @@ function AssistantDialog({
         <AgentAvatar small />
         <div>
           <h2 id={`${id}-title`}>복지나침반 AI 챗봇</h2>
-          <p>공고 원문을 바탕으로 안내해요</p>
+          <p>생활 상황과 공고를 함께 살펴봐요</p>
         </div>
         <button className="chat-close" aria-label="상담창 닫기" onClick={close} autoFocus>
           <Icon name="x" />
@@ -173,7 +174,13 @@ function AssistantDialog({
         {topic === 'history' && <span>질문 내역</span>}
         {!user && topic !== 'home' && (
           <span>
-            {topic === 'guides' ? '이용 방법' : topic === 'schedule' ? '신청 일정' : '공고 질문'}
+            {topic === 'guidance'
+              ? '생활 상황 상담'
+              : topic === 'guides'
+                ? '이용 방법'
+                : topic === 'schedule'
+                  ? '신청 일정'
+                  : '공고 질문'}
           </span>
         )}
       </div>
@@ -181,15 +188,17 @@ function AssistantDialog({
         <h3 className="chat-view-title" ref={title} tabIndex={-1}>
           {topic === 'home'
             ? '어떤 내용이 궁금하세요?'
-            : topic === 'history'
-              ? '이전에 한 질문'
-              : topic === 'guides'
-                ? guide?.question || '이용 방법을 골라 주세요'
-                : policy
-                  ? '선택한 공고에 질문해 주세요'
-                  : topic === 'schedule'
-                    ? '신청 일정을 확인해 보세요'
-                    : '어떤 공고가 궁금하세요?'}
+            : topic === 'guidance'
+              ? '어떤 도움이 필요하세요?'
+              : topic === 'history'
+                ? '이전에 한 질문'
+                : topic === 'guides'
+                  ? guide?.question || '이용 방법을 골라 주세요'
+                  : policy
+                    ? '선택한 공고에 질문해 주세요'
+                    : topic === 'schedule'
+                      ? '신청 일정을 확인해 보세요'
+                      : '어떤 공고가 궁금하세요?'}
         </h3>
         {topic === 'history' && (
           <>
@@ -246,8 +255,16 @@ function AssistantDialog({
                 </button>
               ))}
             </div>
-            <p className="chat-footnote">공고 질문은 로그인 후 이용할 수 있어요.</p>
+            <p className="chat-footnote">생활 상담과 공고 질문은 로그인 후 이용할 수 있어요.</p>
           </>
+        )}
+        {topic === 'guidance' && (
+          <GuidedConversation
+            key={`${user?.id || 'guest'}:${policy?.revisionId || 'general'}`}
+            user={user}
+            policy={policy}
+            onProfile={() => go('profile')}
+          />
         )}
         {topic === 'guides' &&
           (guide ? (
@@ -329,6 +346,12 @@ function AssistantDialog({
                 onRecord={(entry) => onRecord(policy, entry)}
               />
               <div className="chat-policy-actions">
+                <button
+                  className="button secondary"
+                  onClick={() => onChange({ topic: 'guidance', policy })}
+                >
+                  내 상황을 더해서 확인하기
+                </button>
                 {source && (
                   <a
                     className="button secondary"

@@ -190,57 +190,42 @@ test('calendar error retry and stale month responses do not replace the new mont
   await expect(page.getByRole('status')).toContainText('이달 관련 공고 0개');
 });
 
-test('home banner automatically advances to calendar and supports pause, manual controls and navigation', async ({
+test('home calendar shortcut opens the schedule and browser back returns to home search', async ({
   page,
 }, testInfo) => {
   await page.goto('/#home');
-  const banner = page.getByRole('region', { name: '홈 안내 배너' });
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 멈추기' }).click();
-  await page.mouse.move(0, 0);
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 시작하기' }).click();
-  await page.mouse.move(0, 0);
-  await page.clock.fastForward(8100);
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 멈추기' }).click();
-  await page.screenshot({ path: testInfo.outputPath('home-calendar-banner.png'), fullPage: true });
-  await banner.getByRole('button', { name: '공고 캘린더 보기' }).click();
+  const shortcut = page.getByRole('button', { name: /신청 일정을 확인하고 싶다면.*공고 캘린더/ });
+  await expect(shortcut).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('home-calendar-shortcut.png'),
+    fullPage: true,
+  });
+  await shortcut.click();
   await expect(page).toHaveURL(/#calendar$/);
   await expect(page.getByRole('heading', { name: '공고 캘린더', exact: true })).toBeVisible();
+  await expect(page.getByRole('table', { name: '2026-10 공고 일정' })).toBeVisible();
   await page.goBack();
-  await banner.getByRole('button', { name: '다음 배너' }).click();
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  await banner.getByRole('button', { name: '이전 배너' }).click();
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
+  await expect(page).toHaveURL(/#home$/);
+  await expect(page.getByRole('searchbox', { name: '찾고 싶은 복지' })).toBeVisible();
+  await expect(shortcut).toBeVisible();
 });
 
-test('reduced motion disables autoplay and easy home removes rotating banners at 320 pixels', async ({
+test('the home calendar shortcut remains keyboard accessible in easy mode at 320 pixels', async ({
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#home');
-  const banner = page.getByRole('region', { name: '홈 안내 배너' });
-  await expect(banner.getByRole('button', { name: '배너 자동 전환 시작하기' })).toBeVisible();
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(banner).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '맞춤 공고 찾기', exact: true })).toBeVisible();
-  await page.clock.fastForward(16000);
-  await expect(banner).toHaveCount(0);
+  await expect(page.getByRole('searchbox', { name: '찾고 싶은 복지' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('home-easy-320.png'), fullPage: true });
-  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(banner).toBeVisible();
-  await banner.getByRole('button', { name: '공고 캘린더 안내 배너 보기' }).click();
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(banner).toHaveCount(0);
-  await page.getByRole('button', { name: '맞춤 공고 찾기', exact: true }).click();
-  await expect(page).toHaveURL(/#profile$/);
+  const shortcut = page.getByRole('button', { name: /신청 일정을 확인하고 싶다면.*공고 캘린더/ });
+  await shortcut.focus();
+  await expect(shortcut).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#calendar$/);
+  await expect(page.getByRole('heading', { name: '공고 캘린더', exact: true })).toBeVisible();
+  await expect(page.getByRole('switch', { name: /쉬운 화면/ })).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

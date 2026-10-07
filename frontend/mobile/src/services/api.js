@@ -20,7 +20,11 @@ export function parseUser(value) {
     !(value.name === null || typeof value.name === "string")
   )
     throw new ApiError("계정 정보를 읽을 수 없습니다.", 0, "invalid_response");
-  return { id: value.id, username: value.username, name: value.name };
+  return {
+    id: value.id, username: value.username, name: value.name,
+    ...(Number.isInteger(value.age) && value.age >= 0 && value.age <= 120 ? { age: value.age } : {}),
+    ...(typeof value.region === "string" && value.region.length <= 30 ? { region: value.region } : {}),
+  };
 }
 
 export function createApi(request) {

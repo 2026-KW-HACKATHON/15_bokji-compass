@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('empty recommendations offer honest email availability and browsing in both modes', async ({
+test('empty recommendations explain the result and offer browsing in both modes', async ({
   page,
 }) => {
   await page.route('**/api/v1/recommendations', (route) =>
@@ -35,12 +35,11 @@ test('empty recommendations offer honest email availability and browsing in both
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
     await expect(
-      recommendations.getByRole('heading', { name: '현재 내 정보에 맞는 추천 공고가 없어요' }),
+      recommendations.getByRole('heading', { name: '필요한 지원을 찾아보세요' }),
     ).toBeVisible();
-    await expect(
-      recommendations.getByRole('button', { name: '새 공고 메일로 받기 · 준비 중' }),
-    ).toBeDisabled();
-    await expect(recommendations).toContainText('아직 알림 신청은 할 수 없어요.');
+    await expect(recommendations).toContainText('현재 추천 공고가 없어요.');
+    await expect(recommendations.getByRole('article')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /메일로 받기/ })).toHaveCount(0);
     await expect(recommendations.getByRole('alert')).toHaveCount(0);
     await expect(recommendations.getByRole('button', { name: '다시 시도하기' })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -52,7 +51,7 @@ test('empty recommendations offer honest email availability and browsing in both
       fullPage: true,
     });
   }
-  await recommendations.getByRole('button', { name: '전체 공고 보기', exact: true }).click();
+  await page.getByRole('button', { name: '전체 공고 보기', exact: true }).click();
   await expect(page).toHaveURL(/#explore$/);
   await expect(page.getByRole('article')).toHaveCount(3);
 });
@@ -75,7 +74,7 @@ for (const [status, title] of [
     );
     await page.goto('/');
     await expect(page.getByRole('alert')).toContainText(title);
-    await expect(page.getByText('현재 내 정보에 맞는 추천 공고가 없어요')).toHaveCount(0);
+    await expect(page.getByText(/현재 추천 공고가 없어요/)).toHaveCount(0);
     await expect(page.getByText('새 공고 메일로 받기 · 준비 중')).toHaveCount(0);
     await expect(page.getByRole('alert')).not.toContainText('private');
     await expect(page.getByRole('alert')).not.toContainText('연결이 끝나면');
@@ -88,7 +87,7 @@ for (const [status, title] of [
     }
     recovered = true;
     await page.getByRole('button', { name: '다시 시도하기', exact: true }).click();
-    await expect(page.getByText('현재 내 정보에 맞는 추천 공고가 없어요')).toBeVisible();
+    await expect(page.getByText(/현재 추천 공고가 없어요/)).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 }
@@ -149,14 +148,12 @@ test('a visitor without information gets general notices and an explanation belo
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
     await expect(recommendations).toContainText('상시 신청');
-    await expect(recommendations.locator('.recommendation-guidance')).toContainText(
-      '정보가 부족해 일반 공고',
-    );
+    await expect(recommendations).toContainText('정보가 부족해 일반 공고');
     await expect(
-      recommendations.getByRole('button', { name: '내 정보 추가하고 맞춤 추천받기' }),
+      page.getByRole('button', { name: '내 정보로 맞춤 공고 찾기', exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: '나에게 맞는 복지 공고', exact: true }),
+      page.getByRole('heading', { name: '내 정보에 맞춘 추천 공고', exact: true }),
     ).toHaveCount(0);
     await expect(recommendations.getByRole('progressbar')).toHaveCount(0);
     await page.screenshot({
@@ -167,7 +164,7 @@ test('a visitor without information gets general notices and an explanation belo
       true,
     );
   }
-  await recommendations.getByRole('button', { name: '내 정보 추가하고 맞춤 추천받기' }).click();
+  await page.getByRole('button', { name: '내 정보로 맞춤 공고 찾기', exact: true }).click();
   await expect(page).toHaveURL(/#profile$/);
 });
 
@@ -188,7 +185,7 @@ test('saved sparse information still uses fallback copy and shows only supplied 
       usedPercent: 67.5,
       sourceUrl: 'https://www.gov.kr/notice',
       asOf: '2026-10-07',
-      evidence: '공식 안내의 예산 소진률 67.5%',
+      evidence: '공식 안내의 예산 소진율 67.5%',
     },
     budgetNotice: '예산 소진 시 조기 마감',
   };
@@ -223,9 +220,11 @@ test('saved sparse information still uses fallback copy and shows only supplied 
       fullPage: true,
     });
     await expect(
-      page.getByRole('button', { name: '추천 정보 더 입력하기', exact: true }),
+      page.getByRole('button', { name: '내 정보로 맞춤 공고 찾기', exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: /내 정보에 맞는 복지 공고를/ })).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: '내 정보에 맞춘 추천 공고', exact: true }),
+    ).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -251,21 +250,18 @@ test('profile required without safe candidates asks for more information in both
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
     const recommendations = page.getByRole('region', { name: '추천 공고', exact: true });
-    await expect(
-      recommendations.getByRole('heading', {
-        name: '맞춤 추천에 필요한 정보를 알려주세요',
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(recommendations).toContainText(
+      '맞춤 추천을 받으려면 거주 지역과 연령대 등 내 정보를 입력해 주세요.',
+    );
     await expect(recommendations.getByRole('article')).toHaveCount(0);
     await expect(recommendations.getByRole('alert')).toHaveCount(0);
     await expect(
-      recommendations.getByRole('button', { name: '내 정보 추가하고 맞춤 추천받기' }),
+      page.getByRole('button', { name: '내 정보로 맞춤 공고 찾기', exact: true }),
     ).toBeVisible();
   }
 });
 
-test('a confirmed personalized match enables the banner and easy title after loading', async ({
+test('only a confirmed personalized match enables the personal recommendation title in both modes', async ({
   page,
 }) => {
   await page.route('**/api/v1/recommendations', (route) =>
@@ -281,13 +277,17 @@ test('a confirmed personalized match enables the banner and easy title after loa
   );
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: '내 정보에 맞는 복지 공고를 추천해 드려요.' }),
+    page.getByRole('heading', { name: '내 정보에 맞춘 추천 공고', exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: '내 정보 수정하기', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '내 정보 추가하고 맞춤 추천받기' })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: '맞춤 추천에 사용하는 내 정보 수정', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: '내 정보로 맞춤 공고 찾기', exact: true }),
+  ).toHaveCount(0);
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(
-    page.getByRole('heading', { name: '나에게 맞는 복지 공고', exact: true }),
+    page.getByRole('heading', { name: '내 정보에 맞춘 추천 공고', exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(1);
 });

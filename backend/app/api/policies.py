@@ -29,8 +29,11 @@ def list_policies(
     repository: Repository,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     cursor: Annotated[str | None, Query(pattern=r"^(0|[1-9][0-9]{0,5})$")] = None,
-    sort: Literal["popular", "recent", "name"] = "popular",
+    sort: Literal["relevance", "popular", "recent", "name"] | None = None,
     q: Annotated[str, Query(max_length=200)] = "",
+    search_scope: Literal["all", "organization", "content"] = "all",
+    search_mode: Literal["smart", "literal"] = "smart",
+    search_relation: Literal["publisher", "related"] | None = None,
     category: Filter = "",
     region: Filter = "",
     audience: Filter = "",
@@ -42,6 +45,9 @@ def list_policies(
         offset=int(cursor or 0),
         sort=sort,
         q=q,
+        search_scope=search_scope,
+        search_mode=search_mode,
+        search_relation=search_relation,
         category=category,
         region=region,
         audience=audience,
@@ -54,12 +60,18 @@ def calendar(
     repository: Repository,
     month: Annotated[str, Query(pattern=r"^20[0-9]{2}-(0[1-9]|1[0-2])$")],
     q: Annotated[str, Query(max_length=200)] = "",
+    search_scope: Literal["all", "organization", "content"] = "all",
+    search_mode: Literal["smart", "literal"] = "smart",
+    search_relation: Literal["publisher", "related"] | None = None,
     category: Filter = "",
     region: Filter = "",
     audience: Filter = "",
 ):
     return catalog.list_calendar(
-        repository, month=month, q=q, category=category, region=region, audience=audience
+        repository, month=month, q=q, search_scope=search_scope, search_mode=search_mode,
+        search_relation=search_relation,
+        category=category,
+        region=region, audience=audience
     )
 
 

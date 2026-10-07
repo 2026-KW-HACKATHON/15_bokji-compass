@@ -43,7 +43,7 @@ test('guest question entry requires login', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401, json: {} }));
   await page.goto('/#explore');
   await page.getByRole('button', { name: policy.title, exact: true }).click();
-  const section = page.getByRole('region', { name: '이 공고에 질문하기' });
+  const section = page.getByRole('region', { name: '이 공고에 대해 질문하기' });
   await expect(section.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
   await expect(section.getByRole('textbox')).toHaveCount(0);
 });

@@ -113,6 +113,9 @@ def test_calendar_http_boundary_and_no_auth_or_llm_requirement(monkeypatch):
         assert listing.call_args.kwargs == {
             "month": "2026-10",
             "q": "지원",
+            "search_scope": "all",
+            "search_mode": "smart",
+            "search_relation": None,
             "category": "",
             "region": "서울",
             "audience": "",

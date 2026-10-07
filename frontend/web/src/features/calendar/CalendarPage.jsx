@@ -5,6 +5,12 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { categories, regions } from '../policies/policyModel.js';
 import usePolicyRefresh from '../policies/usePolicyRefresh.js';
 import {
+  SearchScopeControl,
+  SearchInterpretation,
+  PolicySearchMatch,
+  searchScopeLabels,
+} from '../policies/PolicySearchFeedback.jsx';
+import {
   calendarCells,
   calendarEvents,
   policiesOnDay,
@@ -12,7 +18,15 @@ import {
   shiftMonth,
 } from './calendarModel.js';
 
-const initialFilters = { query: '', category: '전체', region: '전국', audience: '전체' };
+const initialFilters = {
+  query: '',
+  searchScope: 'all',
+  searchMode: 'smart',
+  searchRelation: '',
+  category: '전체',
+  region: '전국',
+  audience: '전체',
+};
 const empty = { items: [], total: 0, undatedItems: [], undatedTotal: 0, truncated: false };
 const dateText = (date) => `${Number(date.slice(5, 7))}월 ${Number(date.slice(8))}일`;
 
@@ -116,6 +130,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
               : `신청 시작 ${policy.applicationStart || '확인 필요'} · 마감 ${policy.applicationEnd || '확인 필요'}`}
           </p>
           <small>{policy.organization}</small>
+          {filters.query.trim() && <PolicySearchMatch match={policy.searchMatch} />}
         </div>
         <button
           className="calendar-save"
@@ -144,14 +159,15 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         className="search-controls"
         onSubmit={(event) => {
           event.preventDefault();
-          setFilters((current) => ({ ...current, query }));
+          setFilters((current) => ({ ...current, query, searchMode: 'smart', searchRelation: '' }));
         }}
       >
         <label className="search-field">
           <Icon name="search" />
           <input
             aria-label="캘린더 공고 검색"
-            placeholder="공고명, 기관, 관심 키워드"
+            placeholder="예: 광운대 학생 장학금 찾아줘"
+            maxLength={200}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -160,12 +176,51 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
           검색
         </button>
       </form>
+      <SearchScopeControl
+        value={filters.searchScope}
+        id="calendar-search-help"
+        onChange={(searchScope) =>
+          setFilters((current) => ({
+            ...current,
+            searchScope,
+            searchMode: 'smart',
+            searchRelation: '',
+          }))
+        }
+      />
+      {state === 'ready' && (
+        <SearchInterpretation
+          search={result.search}
+          relation={filters.searchRelation}
+          onRefine={(searchRelation) =>
+            setFilters((current) => ({
+              ...current,
+              searchScope: 'all',
+              searchMode: 'smart',
+              searchRelation: current.searchRelation === searchRelation ? '' : searchRelation,
+            }))
+          }
+          onLiteral={() =>
+            setFilters((current) => ({
+              ...current,
+              searchScope: 'all',
+              searchMode: 'literal',
+              searchRelation: '',
+            }))
+          }
+        />
+      )}
       <details className="filter-panel calendar-filters" open={easy ? undefined : true}>
         <summary>
           <Icon name="filter" />
           <span>캘린더 검색 조건</span>
           <span className="filter-summary-value">
-            {[filters.category, filters.region, filters.audience].join(' · ')}
+            {[
+              filters.category,
+              filters.region,
+              filters.audience,
+              searchScopeLabels[filters.searchScope],
+            ].join(' · ')}
           </span>
         </summary>
         <div className="filter-row">
@@ -336,7 +391,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
               </h2>
               <p className="calendar-day-caption">
                 {type === 'all'
-                  ? '이날 시작·마감하거나 접수 기간에 해당하는 공고예요.'
+                  ? '선택한 날짜에 접수가 시작·마감되거나 신청 기간이 이어지는 공고예요.'
                   : type === 'start'
                     ? '이날 신청이 시작되는 공고예요.'
                     : '이날 신청이 마감되는 공고예요.'}

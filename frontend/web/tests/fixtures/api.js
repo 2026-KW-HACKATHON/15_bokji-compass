@@ -26,6 +26,7 @@ export async function mockPolicyApi(page) {
     const query = new URL(route.request().url()).searchParams;
     const filters = Object.fromEntries(query);
     filters.query = query.get('q') || '';
+    filters.searchScope = query.get('search_scope') || 'all';
     const all = filterPolicies(demoPolicies, filters);
     const offset = Number(query.get('cursor') || 0);
     const limit = Number(query.get('limit') || 6);

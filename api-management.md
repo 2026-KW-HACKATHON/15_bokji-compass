@@ -1,5 +1,73 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 생활 상황 상담 (2026-10-07)
+
+POST `/v1/assistant/dialogue`: 시작 `{question, revision_id?}` 또는 후속
+`{continuation, answer:{slot,value}}`. 부족한 정보·다음 질문·공고 비교·일상 대응을 반환하며
+자격을 확정하지 않습니다. 본인/타인/가정 상황을 구분하고 질문 원문을 장기 저장하지 않습니다.
+POST `/v1/assistant/dialogue/profile`: `{continuation, consent:true, confirmed:true}`로
+서버가 확인한 본인 정보만 병합 저장합니다. 기존 추적 켜기/중지는 유지합니다.
+웹/모바일 회원 인증·POST 가드·no-store 적용, 외부 AI 호출 없음.
+[전체 계약과 운영 한계](backend/docs/assistant-dialogue.md).
+
+## 사용자 상황 기반 지속 안내 (2026-10-07)
+
+웹 쿠키와 모바일 Bearer 인증으로 본인의 생활·주거·재난 피해 정보를 관리합니다.
+POST에는 `X-Auth-Request: 1`이 필요하며 모든 응답은 `Cache-Control: no-store`입니다.
+계정 ID는 세션에서 결정하고 입력으로 받지 않습니다.
+
+| 경로 | 동작·입력 |
+| --- | --- |
+| GET `/v1/monitoring` | 저장 프로필, enabled, version, updated_at, last_checked_at, 자동 탐색 분야, 후보, 최신 알림 100개·전체 미읽음 수 |
+| POST `/v1/monitoring/profile` | `{profile, consent: true, enabled: boolean}`. 계정에 저장하고 켜져 있으면 즉시 공고 비교 |
+| POST `/v1/monitoring/preferences` | `{enabled: boolean}`. 저장한 정보의 추적 켜기·중지 |
+| POST `/v1/monitoring/refresh` | `{}`. 활성 계정의 공개 공고 재확인. 기본 5회/분 제한 |
+| POST `/v1/monitoring/candidates/state` | `{policy_id, need_id, state}`. watching/preparing/applied/dismissed/completed |
+| POST `/v1/monitoring/alerts/read` | `{ids: string[]}`. 본인 알림 최대 100개 읽음 처리, `{updated: true}` |
+| POST `/v1/monitoring/delete` | `{}`. 생활 프로필·추적·진행 기록·앱 안 알림 삭제 |
+
+읽음 처리를 제외한 변경은 현재 snapshot을 반환합니다. 공고 확인 실패 시 저장은 유지하며
+`scan_status: unavailable`을 반환하고 이전 성공 결과를 비우지 않습니다. 첫 저장에는 명시적
+동의가 필요하며 전체 추적은 기본 꺼짐입니다. 운영 초기화와 정기 확인은
+`python -m app.modules.monitoring --init|--once|--watch`를 사용합니다.
+현재는 수집된 공고 비교·앱 안 알림이며, 공식 재난 자동 피드·이메일·휴대폰 푸시는 미연결입니다.
+[실행·함수 계약](backend/app/modules/monitoring/readme.md),
+[구현·검증 범위](backend/docs/proactive-guidance.md).
+
+## 자연어 공고 검색 (2026-10-07)
+
+공개 `GET /v1/policies`와 `/v1/policies/calendar`는 기본 `search_mode=smart`,
+`search_scope=all`에서 문장의 지원 목적·게시기관/대상 관계·제외 의도를 해석합니다.
+`광운대에서 올린 장학금`은 학교가 게시한 공고를, `광운대생 받을 돈`은 학교 대상
+안내와 학교 이름이 없는 전국 대학생 지원도 찾습니다. `알바 말고`, `갚기 싫어`는
+근로·상환 조건을 구분하며, 학교명 오타는 공개 공고에서 확인된 기관명만 보정합니다.
+공개 개정 전체의 기관 어휘를 사용하고, 명시적 분야·지역·대상 필터를 적용한 결과를
+관련도 순으로 정렬한 뒤 전체 건수와 페이지를 계산합니다. 검색어가 없으면 인기순입니다.
+목록 `sort`는 `relevance/popular/recent/name`이며 명시한 정렬을 우선합니다.
+선택 `search_relation=publisher|related`는 자동 해석 결과의 게시기관/관련 대상 선택입니다.
+이 선택은 같은 해석과 원문 근거를 유지하며 건수·페이지·캘린더 표시 전에 적용합니다.
+
+선택 응답 `search`는 mode, summary, originalQuery, interpretedQuery, corrections,
+alternatives, warnings를 제공합니다. 카드의 `searchMatch`는 관계, 찾은 이유와 원문
+인용 근거입니다. 이 관계는 신청 자격 확정이 아닙니다. 학교를 확인할 수 없는
+`우리학교`를 특정 학교로 추정하지 않으며 회원 프로필이나 외부 모델을 사용하지 않습니다.
+`광운대생`처럼 학교 소속을 직접 적었지만 그 학교 공고가 없을 때에도 전국 대학생
+안내를 찾습니다. 이 경우 학교 이름은 입력 그대로 유지하고 공고에서 확인되지 않았다는
+안내를 표시하며 다른 학교 전용 지원을 해당 학교 지원으로 바꾸지 않습니다.
+
+`search_mode=literal` 또는 `search_scope=organization/content`는 기존 키워드 검색을
+유지합니다. `organization`은 게시기관, `content`는 제목·본문·지원 내용과 대상 등
+주요 원문과 관리자 수정 내용입니다. 대학 이름의 약칭·정식 표기를 함께 찾고 공백으로
+나눈 단어는 AND로 적용합니다. 잘못된 mode/scope/sort는 422입니다.
+웹·모바일은 기본 자동 해석을 표시하고 범위는 추가 옵션으로 제공합니다.
+원래 검색어를 유지하며 보정을 되돌리거나 검색 기준을 바꾸면 첫 페이지로 돌아갑니다.
+[서버 검색 계약](backend/docs/policy-search.md), [웹 사용법](frontend/docs/policy-search.md),
+[모바일 사용법](frontend/docs/policy-search-mobile.md).
+
+## 회원 주소 입력 (2026-10-07)
+
+회원 가입·`POST /v1/auth/profile`·회원 응답은 선택 `postal_code`(ASCII 숫자 5자리), `address`(검색한 기본 주소), `address_detail`(상세 주소)를 추가 지원합니다. 주소 문자열은 최대 200자이며 빈 값은 `null`입니다. 기존 `region`은 시·도 축약명으로 유지하고 웹 주소 검색 결과에서 자동 반영합니다. 비회원 추천 입력은 기존 시·도 선택을 유지합니다. SQLite는 초기 호출 때 선택 열을 준비하고 MySQL은 `python -m app.modules.auth init`으로 추가합니다. 개인정보 안내는 `2026-10-07.3`이며 주소가 외부 AI 문맥에 자동 첨부되지 않습니다. [입력 화면·호출 방법](frontend/docs/member-address.md), [회원 API](backend/app/modules/auth/readme.md).
+
 ## 공고 DB 편집 (2026-10-07)
 
 최고 관리자 콘솔 전용 `bokji_server_admin` 인증을 사용합니다.
@@ -316,7 +384,7 @@ Gov24 상세·조건 경로의 기존 조사 이력은 [API 데이터 분석](ba
 
 | Method / Path | 웹 요청 | 입력 / 응답 | 상태 |
 |---|---|---|---|
-| GET /v1/policies | /api/v1/policies | q, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 서버·웹 연결 구현 |
+| GET /v1/policies | /api/v1/policies | q, search_scope, tag, category, region, audience, sort, limit, cursor → items,total,nextCursor | 서버·웹 연결 구현 |
 | GET /v1/policies/{policy_key} | /api/v1/policies/{policy_key} | 최신 공개 공고 카드 | 서버 구현 |
 | POST /v1/assistant/questions | /api/v1/assistant/questions | revision_id,question → answer,citations,follow_up_questions | 회원 쿠키/Bearer·웹 질문 구현 |
 | GET /v1/assistant/faqs | /api/v1/assistant/faqs | revision_id → items:[{id,question,response}] | 회원용 선택형 기본 질문 6개·LLM 호출 없음 |
@@ -408,7 +476,8 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 
 ## 전체공고 인기순·분야 확장 (2026-10-07)
 
-`GET /v1/policies`의 `sort`는 `popular`(기본), `recent`, `name`을 받습니다.
+`GET /v1/policies`의 `sort`는 `relevance`, `popular`, `recent`, `name`을 받습니다.
+생략 시 자연어 검색어가 있으면 관련도순, 빈 검색·단어 검색이면 인기순입니다.
 확인된 정부24 `조회수`·복지로 `inqNum`의 누적 조회수를 내림차순으로 정렬한 뒤
 limit/offset 페이지를 적용합니다. 조회수가 없는 공고는 뒤에, 동률은 최근 등록일·공고 ID
 순서로 표시합니다. 웹 전체공고 기본값과 조건 초기화도 인기순이며 정렬 변경 시 cursor를
@@ -439,7 +508,7 @@ limit/offset 페이지를 적용합니다. 조회수가 없는 공고는 뒤에,
 
 | Method | 백엔드 경로 | 인증 | 입력 |
 | --- | --- | --- | --- |
-| GET | `/v1/policies/calendar` | 비회원 가능 | 필수 `month=YYYY-MM`(2000~2099), 선택 `q`, `category`, `region`, `audience` |
+| GET | `/v1/policies/calendar` | 비회원 가능 | 필수 `month=YYYY-MM`(2000~2099), 선택 `q`, `search_scope`, `category`, `region`, `audience` |
 
 웹에서는 `/api/v1/policies/calendar`로 조회합니다. 공고별 최신 **공개** 개정만 사용하며 필터 의미는 기존 목록 API와 같습니다. 월 형식/필터 길이 오류는 422, DB 미설정·장애는 503입니다. DB 수정·초안 공개·LLM 호출은 수행하지 않습니다.
 

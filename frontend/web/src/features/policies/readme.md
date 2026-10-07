@@ -1,7 +1,23 @@
 # 공고
 
-2026-10-07 전체공고 정렬·분야: `PolicyExplorer`와 repository.list의 기본 정렬은
-`popular`(인기순·조회수)입니다. 최근 등록순(`recent`)과 이름순(`name`)도 선택할 수 있으며,
+2026-10-07 자연어 검색: 필요한 지원을 문장으로 입력하면 기본 `all`(자동으로 찾기)에서
+서버가 입력 의도에 맞는 공고를 찾습니다. 검색 해석·오타 수정안과 결과를 함께 보여주며,
+기관명이 모호하면 게시 기관과 관련 지원의 개수로 선택해서 좁힐 수 있습니다. 필수 선택 단계는 없습니다.
+해석 아래 관계 버튼은 `search_relation=publisher|related`로 자동 해석을 유지합니다. 관련 지원에는
+학교 이름이 직접 없는 출처 문맥의 결과도 남으며 같은 버튼을 다시 누르면 해제합니다.
+`검색 범위 직접 선택`을 열면 게시 기관(`organization`)·공고 내용(`content`)의 기존 문구
+검색으로 직접 지정합니다. 카드는 서버의 검증된 `searchMatch` 이유와 원문 근거를 표시합니다.
+범위 변경은 이미 적용한 검색어로 첫 페이지를 조회하고, 입력 중인 검색어는 검색 버튼/Enter로
+적용합니다. 조건 초기화는 자동 범위·자동 정렬로 복원하며, 쉬운 화면 전환은 조건을 보존합니다.
+캘린더 검색창에도 같은 범위 선택과 초기화·쉬운 화면 보존 동작을 제공합니다.
+목록과 캘린더 repository는 `filters.searchScope`를 서버의 `search_scope`로 전달하고 기본
+`all`은 생략합니다. 오타 수정의 `원래 검색어로 찾기`는 원래 입력을 유지하고 `search_mode=literal`을
+요청합니다. 자동 검색은 로컬 서버에서만 해석하며 계정·금융 정보를 추가하지 않습니다.
+[자연어 검색·공개 메타데이터·검증 기록](../../../../docs/policy-search.md).
+
+2026-10-07 전체공고 정렬·분야: 검색어가 없으면 기본 정렬은 `popular`(인기순·조회수)이며,
+자연어 검색에서는 서버 관련도순을 사용합니다. 사용자가 선택한 `relevance`·`popular`·
+최근 등록순(`recent`)·이름순(`name`)은 검색어를 바꿔도 보존합니다.
 정렬·필터 변경과 조건 초기화는 첫 페이지로 돌아갑니다. 서버는 전체 검색 결과를 정렬한 후
 페이지를 나눕니다. 확인된 정부24/복지로 누적 조회수가 높은 순서이며, 0회는 미제공보다 먼저,
 동률은 최근 등록일·공고 ID 순서입니다. `filterPolicies`도 같은 기준의 새 배열을 반환합니다.
@@ -11,6 +27,9 @@
 
 2026-10-07 관리자 수정 반영: repository.get(id,{signal})는 최신 공개 상세를 조회합니다.
 목록·캘린더·열린 상세는 usePolicyRefresh로 활성 상태 30초 및 포커스/복귀 시 갱신합니다.
+전체 공고는 이미 조회한 같은 조건·페이지의 자동 갱신 중 카드·총 개수·페이지 버튼을 유지하고,
+응답 완료 후 최신 목록을 반영합니다. 자동 갱신 실패 시에도 기존 결과(빈 목록 포함)를 유지합니다.
+첫 조회와 검색 조건·페이지·화면 모드 변경에는 로딩/오류·재시도를 표시합니다.
 상세 비공개/삭제 404는 열린 상세를 닫습니다. 이전 요청 취소와 선택 ID 검사로 응답 경합을 막습니다.
 parsePolicy는 전체 본문·원문 항목·성별·기타 조건·신청 방법/링크·문의처·게시/수정일을 보존합니다.
 PolicyDetail은 원문을 접어 보여주고 신청 링크를 HTTP(S)로 검증합니다. 원문은 React 텍스트로 표시합니다.
@@ -27,9 +46,14 @@ PolicyDetail은 원문을 접어 보여주고 신청 링크를 HTTP(S)로 검증
 담당: 프론트엔드. 서버 API의 공고만 조회·탐색합니다. 더미 공고는 자동 테스트에만 존재합니다.
 
 - createPolicyRepository({mode,request,path?}).list(filters,{cursor?,limit?,signal?}) → Promise<{items,total,nextCursor,source}>. api GET /v1/policies. demo 직접 요청은 설정 오류.
-- filterPolicies(items,{query,tag,category,region,audience,sort,savedIds}) → 새 배열. AND 검색·정확한 태그·전국 포함·정렬. 입력 배열 변경 없음.
+- createPolicyRepository({mode,request,path?}).calendar(month,filters,{signal?}) → Promise<{month,items,undatedItems,total,undatedTotal,truncated}>. api GET /v1/policies/calendar. 목록과 같은 query/searchScope 전달, 날짜 응답 검증.
+- filterPolicies(items,{query,searchScope='all',tag,category,region,audience,sort,savedIds}) → 새 배열. 검색 범위별 AND 검색·정확한 태그·전국 포함·정렬. 입력 배열 변경 없음. 테스트 대역용 순수 함수이며 런타임 서버 검색을 대체하지 않습니다.
+- matchesPolicySearch(policy,query='',searchScope='all') → boolean. 기관과 제목·요약·지원 내용·본문을 구분하여 단어를 모두 찾습니다. 정식 대학명은 `광운대학교`/`광운대` 같은 약칭도 찾고, 알 수 없는 범위는 RangeError. 외부 호출 없음.
 - parsePolicy(item) → 표시 모델. 필수값 오류 시 ApiError. parsePolicyPage(response) → {items,total,nextCursor}.
 - safeSourceUrl(value) → HTTP(S) URL 또는 null.
+- parseSearchMetadata(value) → 검증된 검색 해석·수정안·범위별 개수·주의 문구 또는 null. 잘못된 선택 메타데이터는 공고 목록 자체를 실패시키지 않고 숨깁니다.
+- parseSearchMatch(value) → 검증된 관계·이유·원문 근거 또는 null. 이유만 있고 근거가 없거나 잘못된 형식이면 숨깁니다. React 텍스트로 렌더링합니다.
+- effectivePolicySort(filters) → 명시 정렬 또는 자동 `relevance`/`popular`. repository는 자동 검색에 정렬을 생략하여 서버 기본을 따릅니다.
 - parsePopularity(value) → `{views,source,basis,asOf}` 또는 null. 정부24/복지로의 0 이상 정수 누적 조회수(`provider_cumulative_views`)만 보존합니다. 예측 인기·최근 이용자 수는 생성하지 않습니다.
 - parseBudget(value) → `{usedPercent,sourceUrl,asOf,evidence}` 또는 null. 0~100의 명시된 수치, HTTPS 근거 URL과 비어 있지 않은 근거 문장을 모두 요구합니다. 공고 기간·조회수로 소진률을 추정하지 않습니다.
 - formatSignalDate(value) → 검증된 날짜·시각을 서울 시간대의 YYYY-MM-DD로 표시합니다. UTC 수집 시각을 브라우저 운영체제의 시간대에 따라 다르게 표시하지 않습니다.
@@ -39,12 +63,12 @@ PolicyDetail은 원문을 접어 보여주고 신청 링크를 HTTP(S)로 검증
 - PolicyCard({policy,saved,onSave,onOpen,onTag,easy?,reason?}) → 카드. 콜백은 정책 객체 또는 태그 문자열을 전달.
 - PolicyDetail({policy,saved,onSave,onClose,onTag,mode,easy}) → native dialog. 공식 링크는 검증된 API URL만.
 
-검색어·분야·지역·대상은 같은 목록 API 요청으로 전달하며 조건 변경 시 cursor를 초기화합니다.
+검색어·검색 범위·분야·지역·대상은 같은 목록 API 요청으로 전달하며 조건 변경 시 cursor를 초기화합니다.
 지역 약칭과 정식 명칭, 대상의 나이/가구 조건·동의어는 서버에서 분류합니다.
 브라우저에서 현재 페이지의 공고만 다시 필터링하지 않습니다. 서버 기준은
 [저장소의 검색 필터](../../../../../backend/app/modules/storage/readme.md)를 참고합니다.
 
-쉬운 화면은 한 열에 공고 3개씩 표시하며 기본 화면은 기존 6개 단위를 유지합니다. 모드 전환 시 페이지는 처음으로 돌아가고 검색어·분야·지역·대상·정렬 조건은 보존합니다. 쉬운 검색 조건은 접을 수 있는 한 영역의 기본 선택 상자이며 적용 조건을 요약합니다. 검색 결과가 한 페이지뿐이면 이전·다음 버튼을 표시하지 않습니다.
+쉬운 화면은 한 열에 공고 3개씩 표시하며 기본 화면은 기존 6개 단위를 유지합니다. 모드 전환 시 페이지는 처음으로 돌아가고 검색어·검색 범위·관계 선택·분야·지역·대상·정렬 조건은 보존합니다. 검색 범위는 검색창 아래의 접힌 직접 선택 영역에 있으며, 나머지 쉬운 검색 조건도 접을 수 있는 한 영역의 기본 선택 상자이며 적용 조건을 요약합니다. 검색 결과가 한 페이지뿐이면 이전·다음 버튼을 표시하지 않습니다.
 
 쉬운 공고 카드에는 지원 내용·대상·신청 기간과 ‘자세히 보기’ 동작 하나를 제공합니다. 저장·태그 탐색은 상세창에서 사용하며 미확인 기간은 공식 공고 확인 안내를 표시합니다. 상세창을 닫으면 원래 버튼으로 초점을 돌려줍니다.
 

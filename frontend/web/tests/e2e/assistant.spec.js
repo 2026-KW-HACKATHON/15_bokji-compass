@@ -55,7 +55,6 @@ test('guests can read fixed guidance and navigate without assistant API calls', 
   });
   await page.goto('/');
   await expect(page.locator('.sidebar-note')).toHaveCount(0);
-  await page.getByRole('button', { name: '배너 자동 전환 멈추기' }).click();
   await page.screenshot({ path: testInfo.outputPath('assistant-launcher.png') });
   const panel = await open(page);
   await page.screenshot({ path: testInfo.outputPath('assistant-menu.png') });
@@ -85,7 +84,7 @@ test('member selects FAQs, sends a grounded question and closing clears the repl
     });
   });
   await page.goto('/');
-  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   let panel = await open(page);
   await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
   await expect(panel.getByRole('heading', { name: '현재 진행중인 공고' })).toBeVisible();
@@ -150,7 +149,7 @@ test('question history keeps earlier replies across closing and changing policie
     });
   });
   await page.goto('/');
-  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   let panel = await open(page);
   await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
   await panel.getByRole('button', { name: new RegExp(policy.title) }).click();
@@ -187,7 +186,7 @@ test('question history keeps earlier replies across closing and changing policie
   await expect(panel.getByText('공고 원문 근거', { exact: true })).toBeVisible();
   expect(modelCalls).toBe(3);
   await page.reload();
-  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   panel = await open(page);
   await panel.getByRole('button', { name: '질문 내역', exact: true }).click();
   await expect(panel.getByText(/아직 질문 내역이 없어요/)).toBeVisible();
@@ -199,7 +198,7 @@ test('failed questions keep the draft and do not add a reply to history', async 
     route.fulfill({ status: 503, json: { detail: '잠시 후 다시 시도해 주세요.' } }),
   );
   await page.goto('/');
-  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   const panel = await open(page);
   await panel.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
   await panel.getByRole('button', { name: new RegExp(policy.title) }).click();
@@ -266,7 +265,7 @@ test('schedule entry selects the period FAQ and guests keep the login boundary',
 }) => {
   await mock(page, true);
   await page.goto('/');
-  await expect(page.getByText('시험 회원님', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   const panel = await open(page);
   await panel.getByRole('button', { name: /신청 일정을 보고 싶어요/ }).click();
   await panel.getByRole('button', { name: new RegExp(policy.title) }).click();

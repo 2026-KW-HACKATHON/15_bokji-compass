@@ -1,4 +1,5 @@
 import { ApiError } from '../../shared/api/httpClient.js';
+import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
 export const categories = [
   '전체',
   '생활·금융',
@@ -119,6 +120,7 @@ export function parsePolicy(item) {
     revisionId: typeof item.revisionId === 'string' ? item.revisionId : null,
     title: item.title,
     summary: item.summary,
+    searchMatch: parseSearchMatch(item.searchMatch),
     tags: [...new Set(item.tags)],
     category,
     icon,
@@ -177,5 +179,11 @@ export function parsePolicyPage(result) {
   const items = result.items.map(parsePolicy);
   if (new Set(items.map((item) => item.id)).size !== items.length || result.total < items.length)
     throw new ApiError('공고 목록을 다시 확인해야 해요.', 'invalid_response');
-  return { items, total: result.total, nextCursor: result.nextCursor };
+  const search = parseSearchMetadata(result.search);
+  return {
+    items,
+    total: result.total,
+    nextCursor: result.nextCursor,
+    ...(search ? { search } : {}),
+  };
 }

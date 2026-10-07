@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 import {
+  addressPayload,
+  mockPostcode,
+  postcodeResults,
+  selectPostcode,
+} from '../fixtures/postcode.js';
+import {
   acceptKakaoConsent,
   acceptSignupConsent,
   aiConsentLabel,
@@ -11,6 +17,9 @@ import {
 } from '../fixtures/privacy-consent.js';
 
 const password = 'ExamplePassword42!';
+test.beforeEach(async ({ page }) => {
+  await mockPostcode(page);
+});
 async function openBasics(page, recommendation = false) {
   await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
   const edit = page.getByRole('button', { name: /^기본 정보 (추가|수정)$/ });
@@ -69,7 +78,7 @@ async function fillRemaining(page) {
   await next(page);
   await page.getByLabel('성별', { exact: true }).selectOption('undisclosed');
   await next(page);
-  await page.getByLabel('거주 지역', { exact: true }).selectOption('서울');
+  await selectPostcode(page, '서울');
   await next(page);
 }
 async function mockSignup(page, { signupStatus = 201 } = {}) {
@@ -326,6 +335,9 @@ test('declining optional profile and AI consent still allows ID signup without d
     age: null,
     gender: 'undisclosed',
     region: null,
+    postal_code: null,
+    address: null,
+    address_detail: null,
     consent: expectedConsent(),
   });
 });
@@ -453,7 +465,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await next(page);
   await page.getByLabel('성별', { exact: true }).selectOption('undisclosed');
   await next(page);
-  await page.getByLabel('거주 지역', { exact: true }).selectOption('서울');
+  await selectPostcode(page, '서울');
   await next(page);
   await expect(page.locator('.signup-review')).toContainText(username);
   await expect(page.locator('.signup-review')).not.toContainText(password);
@@ -479,7 +491,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await member.getByLabel('이름', { exact: true }).fill('김복지');
   await member.getByLabel('나이 (만 나이)').fill('67');
   await member.getByLabel('성별', { exact: true }).selectOption('female');
-  await member.getByLabel('회원 거주 지역').selectOption('부산');
+  await selectPostcode(member, '부산');
   await member.getByRole('button', { name: '회원 정보 저장' }).click();
   await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
   await expect(page.getByText('김복지님', { exact: true })).toBeVisible();
@@ -488,7 +500,9 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await openBasics(page);
   await expect(member.getByLabel('이름', { exact: true })).toHaveValue('김복지');
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('67');
-  await expect(member.getByLabel('회원 거주 지역')).toHaveValue('부산');
+  await expect(member.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.부산.roadAddress,
+  );
   await page.screenshot({ path: testInfo.outputPath('member-profile.png'), fullPage: true });
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage }));
   expect(storage).not.toContain(password);
@@ -630,9 +644,11 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
   await next(page);
   await page.getByLabel('성별', { exact: true }).selectOption('undisclosed');
   await next(page);
-  await page.getByLabel('거주 지역', { exact: true }).selectOption('부산');
+  await selectPostcode(page, '부산');
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.getByLabel('거주 지역', { exact: true })).toHaveValue('부산');
+  await expect(page.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.부산.roadAddress,
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await next(page);
   await page.getByRole('button', { name: '회원가입', exact: true }).click();
@@ -645,7 +661,7 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
     name: '김복지',
     age: 67,
     gender: 'undisclosed',
-    region: '부산',
+    ...addressPayload('부산'),
     consent: expectedConsent(true),
   });
 });
@@ -790,7 +806,7 @@ for (const name of ['카카오별명', '']) {
     await expect(page).toHaveURL(/#profile\?setup=1$/);
     const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
     await expect(setup.getByLabel('나이 (만 나이)')).toHaveValue('');
-    await expect(setup.getByLabel('거주 지역')).toHaveValue('');
+    await expect(setup.getByLabel('기본 주소', { exact: true })).toHaveValue('');
     await expect(setup.getByLabel('이름', { exact: true })).toHaveCount(0);
     await expect(setup.getByLabel('성별', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'AI 챗봇 열기' })).toHaveCount(0);
@@ -817,11 +833,19 @@ for (const name of ['카카오별명', '']) {
     const member = page.getByRole('form', { name: '회원 정보 수정' });
     await expect(member.getByLabel('이름', { exact: true })).toHaveValue(name);
     await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('');
-    await expect(member.getByLabel('회원 거주 지역')).toHaveValue('');
+    await expect(member.getByLabel('기본 주소', { exact: true })).toHaveValue('');
     await member.getByRole('button', { name: '회원 정보 저장' }).click();
     await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
     expect(state.profileBodies).toEqual([
-      { name: name || null, age: null, gender: 'undisclosed', region: null },
+      {
+        name: name || null,
+        age: null,
+        gender: 'undisclosed',
+        region: null,
+        postal_code: null,
+        address: null,
+        address_detail: null,
+      },
     ]);
   });
 }
@@ -842,17 +866,19 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   await expect(setup.getByRole('alert')).toBeFocused();
   expect(state.profileBodies).toEqual([]);
   await setup.getByLabel('나이 (만 나이)').fill('35');
-  await setup.getByLabel('거주 지역').selectOption('부산');
+  await selectPostcode(setup, '부산');
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(setup.getByLabel('나이 (만 나이)')).toHaveValue('35');
-  await expect(setup.getByLabel('거주 지역')).toHaveValue('부산');
+  await expect(setup.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.부산.roadAddress,
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await setup.getByRole('button', { name: '저장하고 시작하기' }).click();
   await expect(page).toHaveURL(/#home$/);
   expect(state.signupBodies).toEqual([
     { email: 'kakao@example.com', consent: expectedConsent(true) },
   ]);
-  expect(state.profileBodies).toEqual([{ age: 35, region: '부산' }]);
+  expect(state.profileBodies).toEqual([{ age: 35, ...addressPayload('부산') }]);
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   await openBasics(page, true);
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
@@ -867,7 +893,9 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   await expect(page.getByText('카카오별명님', { exact: true })).toBeVisible();
   await openBasics(page, true);
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
-  await expect(member.getByLabel('회원 거주 지역')).toHaveValue('부산');
+  await expect(member.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.부산.roadAddress,
+  );
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
   await expect(
     page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),

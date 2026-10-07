@@ -10,6 +10,7 @@ import {
 import { router } from "expo-router";
 import { colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
+import { Icon } from "../../components/Icon";
 
 const banners = [
   {
@@ -46,7 +47,9 @@ export function HomeBanner() {
   const { easy } = useRuntime();
   const scroll = useRef<ScrollView>(null);
   const selected = useRef(0);
-  const [width, setWidth] = useState(0);
+  const [frameWidth, setFrameWidth] = useState(0);
+  // Paging must use the inner width, including when easy mode adds a border.
+  const width = Math.max(0, frameWidth - (easy ? 3 : 0));
   const [index, setIndex] = useState(0);
   useEffect(() => {
     scroll.current?.scrollTo({ x: selected.current * width, animated: false });
@@ -60,8 +63,8 @@ export function HomeBanner() {
   }
 
   return (
-    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-      <View style={styles.frame}>
+    <View onLayout={(event) => setFrameWidth(event.nativeEvent.layout.width)}>
+      <View style={[styles.frame, easy && styles.easyFrame]}>
         {width > 0 && (
           <ScrollView
             ref={scroll}
@@ -106,13 +109,6 @@ export function HomeBanner() {
                   easy && styles.easySlide,
                 ]}
               >
-                <Image
-                  source={banner.image}
-                  accessible={false}
-                  aria-hidden
-                  resizeMode="cover"
-                  style={easy ? styles.easyImage : styles.image}
-                />
                 <View style={[styles.copy, easy && styles.easyCopy]}>
                   {!easy && (
                     <Text style={styles.category}>{banner.category}</Text>
@@ -120,24 +116,43 @@ export function HomeBanner() {
                   <Text style={[styles.title, easy && styles.easyTitle]}>
                     {easy ? banner.shortTitle : banner.title}
                   </Text>
-                  <Text style={[styles.action, easy && { fontSize: 17 }]}>
-                    자세히 보기 ↗
-                  </Text>
+                  <View style={[styles.actionRow, easy && styles.easyAction]}>
+                    <Text
+                      style={[
+                        styles.action,
+                        easy && { fontSize: 18, lineHeight: 27 },
+                      ]}
+                    >
+                      자세히 보기
+                    </Text>
+                    <Icon name="arrow" size={18} color={colors.green} />
+                  </View>
                 </View>
+                {!easy && (
+                  <Image
+                    source={banner.image}
+                    accessible={false}
+                    aria-hidden
+                    resizeMode="cover"
+                    style={styles.image}
+                  />
+                )}
               </Pressable>
             ))}
           </ScrollView>
         )}
       </View>
-      <View style={styles.controls}>
-        <View style={styles.dots} accessible={false} aria-hidden>
-          {banners.map((banner, position) => (
-            <View
-              key={banner.route}
-              style={[styles.dot, position === index && styles.activeDot]}
-            />
-          ))}
-        </View>
+      <View style={[styles.controls, easy && { justifyContent: "center" }]}>
+        {!easy && (
+          <View style={styles.dots} accessible={false} aria-hidden>
+            {banners.map((banner, position) => (
+              <View
+                key={banner.route}
+                style={[styles.dot, position === index && styles.activeDot]}
+              />
+            ))}
+          </View>
+        )}
         <View style={styles.paging}>
           <Pressable
             accessibilityRole="button"
@@ -145,11 +160,18 @@ export function HomeBanner() {
             onPress={() => select(index - 1)}
             style={styles.arrow}
           >
-            <Text style={styles.arrowText}>‹</Text>
+            {easy ? (
+              <Text style={styles.easyPaging}>이전</Text>
+            ) : (
+              <Icon name="previous" size={18} />
+            )}
           </Pressable>
           <Text
             accessibilityLabel={`배너 ${index + 1} / ${banners.length}`}
-            style={styles.counter}
+            style={[
+              styles.counter,
+              easy && { fontSize: 17, marginHorizontal: 16 },
+            ]}
           >
             {index + 1} / {banners.length}
           </Text>
@@ -159,7 +181,11 @@ export function HomeBanner() {
             onPress={() => select(index + 1)}
             style={styles.arrow}
           >
-            <Text style={styles.arrowText}>›</Text>
+            {easy ? (
+              <Text style={styles.easyPaging}>다음</Text>
+            ) : (
+              <Icon name="next" size={18} />
+            )}
           </Pressable>
         </View>
       </View>
@@ -169,31 +195,71 @@ export function HomeBanner() {
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 24, overflow: "hidden", backgroundColor: "#E7F0E7" },
-  slide: { flexShrink: 0 },
-  image: { width: "100%", height: 145 },
-  copy: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 16, gap: 6 },
+  easyFrame: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.easyLine,
+  },
+  slide: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 196,
+  },
+  image: {
+    width: "34%",
+    height: 164,
+    borderTopLeftRadius: 60,
+    borderBottomLeftRadius: 60,
+  },
+  copy: {
+    flex: 1,
+    paddingLeft: 22,
+    paddingRight: 8,
+    paddingVertical: 22,
+    gap: 10,
+  },
   category: {
     color: "#486353",
     fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 0.7,
+    letterSpacing: 0,
   },
   title: {
     color: colors.ink,
-    fontSize: 23,
+    fontSize: 22,
     lineHeight: 30,
     fontWeight: "700",
-    letterSpacing: -0.8,
+    letterSpacing: -0.5,
   },
-  action: { color: colors.ink, fontSize: 14, fontWeight: "600", marginTop: 4 },
-  easySlide: {
-    flexDirection: "row-reverse",
+  action: {
+    color: colors.green,
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    minHeight: 142,
+    gap: 6,
+    marginTop: 4,
   },
-  easyImage: { width: "36%", height: "100%", minHeight: 142 },
-  easyCopy: { flex: 1, paddingHorizontal: 16, paddingVertical: 16 },
-  easyTitle: { fontSize: 21, lineHeight: 29, letterSpacing: -0.5 },
+  easyAction: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.green,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+  },
+  easySlide: {
+    minHeight: 152,
+  },
+  easyCopy: { flex: 1, paddingHorizontal: 18, paddingVertical: 16, gap: 6 },
+  easyTitle: { fontSize: 22, lineHeight: 31, letterSpacing: 0 },
   controls: {
     flexDirection: "row",
     alignItems: "center",
@@ -210,6 +276,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  arrowText: { fontSize: 29, color: colors.ink },
+  easyPaging: { fontSize: 18, color: colors.green, fontWeight: "600" },
   counter: { color: colors.muted, fontSize: 13, fontVariant: ["tabular-nums"] },
 });

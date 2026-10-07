@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-export const consentVersion = '2026-10-07.2';
+export const consentVersion = '2026-10-07.3';
 export const requiredConsentLabel = '[필수] 회원가입 개인정보 수집·이용에 동의합니다.';
 export const profileConsentLabel = '[선택] 맞춤 안내용 개인정보 수집·이용에 동의합니다.';
 export const aiConsentLabel = '[선택] 외부 AI 처리 및 개인정보 국외이전에 동의합니다.';

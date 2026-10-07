@@ -1,4 +1,5 @@
 import { ApiError } from "../../services/client.js";
+import { parseSearchMatch, parseSearchMetadata } from "./searchMetadata.js";
 
 export const categories = [
   "전체",
@@ -32,6 +33,12 @@ export const regions = [
   "경남",
   "제주",
 ];
+export const searchScopes = ["all", "organization", "content"];
+export const searchScopeLabels = {
+  all: "자동으로 찾기",
+  organization: "게시 기관",
+  content: "공고 내용",
+};
 export function safeSourceUrl(value) {
   if (typeof value !== "string") return null;
   try {
@@ -73,6 +80,7 @@ export function parsePolicy(item) {
         : null,
     title: item.title,
     summary: item.summary,
+    searchMatch: parseSearchMatch(item.searchMatch),
     tags: [...new Set(item.tags)],
     category: text("category", "기타"),
     region: text("region", "지역 확인 필요"),
@@ -83,7 +91,7 @@ export function parsePolicy(item) {
     sourceUrl: safeSourceUrl(item.sourceUrl),
   };
 }
-/** @returns {{items: ReturnType<typeof parsePolicy>[], total: number, nextCursor: string | null}} */
+/** @returns {{items: ReturnType<typeof parsePolicy>[], total: number, nextCursor: string | null, search?: NonNullable<ReturnType<typeof parseSearchMetadata>>}} */
 export function parsePolicyPage(value) {
   if (
     !value ||
@@ -111,18 +119,32 @@ export function parsePolicyPage(value) {
       0,
       "invalid_response",
     );
-  return { items, total: value.total, nextCursor: value.nextCursor };
+  const search = parseSearchMetadata(value.search);
+  return {
+    items,
+    total: value.total,
+    nextCursor: value.nextCursor,
+    ...(search ? { search } : {}),
+  };
 }
 export function policyPath({
   query = "",
+  searchScope = "all",
+  searchMode = "smart",
+  searchRelation = "",
   category = "전체",
   region = "전국",
-  sort = "popular",
+  sort = "auto",
   cursor = null,
   limit = 6,
 } = {}) {
-  const params = new URLSearchParams({ limit: String(limit), sort });
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (sort && sort !== "auto") params.set("sort", sort);
+  else if (!query.trim()) params.set("sort", "popular");
   if (query.trim()) params.set("q", query.trim());
+  if (searchScope !== "all") params.set("search_scope", searchScope);
+  if (searchMode === "literal") params.set("search_mode", "literal");
+  if (searchRelation) params.set("search_relation", searchRelation);
   if (category !== "전체") params.set("category", category);
   if (region !== "전국") params.set("region", region);
   if (cursor !== null) params.set("cursor", cursor);

@@ -3,14 +3,28 @@ import { categories, regions } from './policyModel.js';
 import PolicyCard from './PolicyCard.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import usePolicyRefresh from './usePolicyRefresh.js';
+import {
+  SearchScopeControl,
+  SearchInterpretation,
+  searchScopeLabels,
+} from './PolicySearchFeedback.jsx';
+import { effectivePolicySort } from './searchMetadata.js';
 const initialFilters = {
   query: '',
+  searchScope: 'all',
+  searchMode: 'smart',
+  searchRelation: '',
   category: '전체',
   region: '전국',
   audience: '전체',
-  sort: 'popular',
+  sort: 'auto',
 };
-const sortLabels = { popular: '인기순 (조회수)', recent: '최근 등록순', name: '이름순' };
+const sortLabels = {
+  relevance: '관련도순',
+  popular: '인기순 (조회수)',
+  recent: '최근 등록순',
+  name: '이름순',
+};
 export default function PolicyExplorer({
   repository,
   tag,
@@ -20,9 +34,17 @@ export default function PolicyExplorer({
   onSave,
   onOpen,
   onTag,
+  initialQuery = '',
+  initialRegion = '전국',
+  initialCategory = '전체',
 }) {
-  const [filters, setFilters] = useState(initialFilters);
-  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState(() => ({
+    ...initialFilters,
+    query: initialQuery,
+    region: regions.includes(initialRegion) ? initialRegion : '전국',
+    category: categories.includes(initialCategory) ? initialCategory : '전체',
+  }));
+  const [query, setQuery] = useState(initialQuery);
   const [pagination, setPagination] = useState({ easy, cursors: [null] });
   // A cursor belongs to its page size. Reset before requesting the new mode's page.
   if (pagination.easy !== easy) setPagination({ easy, cursors: [null] });
@@ -33,6 +55,7 @@ export default function PolicyExplorer({
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const refreshRevision = usePolicyRefresh();
+  const loadedRequest = useRef(null);
   const heading = useRef(null);
   const cursor = cursors.at(-1);
   const pageSize = easy ? 3 : 6;
@@ -41,21 +64,35 @@ export default function PolicyExplorer({
     filters.category === '전체' ? '모든 분야' : filters.category,
     filters.region,
     filters.audience === '전체' ? '모든 대상' : filters.audience,
-    sortLabels[filters.sort],
+    sortLabels[effectivePolicySort(filters)],
+    searchScopeLabels[filters.searchScope],
   ].join(' · ');
   useEffect(() => {
     const controller = new AbortController();
-    setState('loading');
+    const previous = loadedRequest.current;
+    // Refresh the same results silently; new searches and pages still show loading.
+    const backgroundRefresh =
+      previous?.repository === repository &&
+      previous.filters === filters &&
+      previous.tag === tag &&
+      previous.cursor === cursor &&
+      previous.pageSize === pageSize;
+    if (!backgroundRefresh) {
+      loadedRequest.current = null;
+      setState('loading');
+      setError('');
+    }
     repository
       .list({ ...filters, tag }, { cursor, limit: pageSize, signal: controller.signal })
       .then((value) => {
         if (!controller.signal.aborted) {
+          loadedRequest.current = { repository, filters, tag, cursor, pageSize };
           setResult(value);
           setState('ready');
         }
       })
       .catch((err) => {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && !backgroundRefresh) {
           setError(
             err.status === 404
               ? '공고 서비스를 연결하고 있어요. 준비가 끝나면 여기에서 확인할 수 있어요.'
@@ -67,7 +104,31 @@ export default function PolicyExplorer({
     return () => controller.abort();
   }, [repository, filters, tag, cursor, pageSize, retry, refreshRevision]);
   const change = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => ({
+      ...current,
+      [key]: value,
+      ...(['query', 'searchScope'].includes(key)
+        ? { searchMode: 'smart', searchRelation: '' }
+        : {}),
+    }));
+    setCursors([null]);
+  };
+  const refine = (searchRelation) => {
+    setFilters((current) => ({
+      ...current,
+      searchMode: 'smart',
+      searchScope: 'all',
+      searchRelation: current.searchRelation === searchRelation ? '' : searchRelation,
+    }));
+    setCursors([null]);
+  };
+  const searchOriginal = () => {
+    setFilters((current) => ({
+      ...current,
+      searchMode: 'literal',
+      searchScope: 'all',
+      searchRelation: '',
+    }));
     setCursors([null]);
   };
   const reset = () => {
@@ -87,8 +148,8 @@ export default function PolicyExplorer({
         <h1>전체 공고</h1>
         <p>
           {easy
-            ? '검색하거나, 관심 있는 분야를 골라보세요.'
-            : '검색어를 입력하거나 분야와 지역을 선택해 보세요.'}
+            ? '필요한 지원을 편하게 말해 주세요.'
+            : '필요한 지원을 문장으로 입력해 보세요. 말의 뜻에 맞는 공고를 찾아요.'}
         </p>
       </div>
       <form
@@ -104,13 +165,27 @@ export default function PolicyExplorer({
             aria-label="공고 검색"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="예: 주거, 취업, 돌봄"
+            placeholder={easy ? '예: 광운대 장학금 찾아줘' : '예: 광운대에서 올린 장학금 찾아줘'}
+            maxLength={200}
           />
         </label>
         <button className="button primary" type="submit">
           검색
         </button>
       </form>
+      <SearchScopeControl
+        value={filters.searchScope}
+        onChange={(value) => change('searchScope', value)}
+        id="policy-search-help"
+      />
+      {state === 'ready' && (
+        <SearchInterpretation
+          search={result.search}
+          relation={filters.searchRelation}
+          onRefine={refine}
+          onLiteral={searchOriginal}
+        />
+      )}
       {tag && (
         <div className="active-tag" role="status">
           <span>
@@ -181,6 +256,8 @@ export default function PolicyExplorer({
           <label>
             정렬
             <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
+              <option value="auto">자동 (검색할 때 관련도순)</option>
+              <option value="relevance">관련도순</option>
               <option value="popular">인기순 (조회수)</option>
               <option value="recent">최근 등록순</option>
               <option value="name">이름순</option>
@@ -237,6 +314,7 @@ export default function PolicyExplorer({
                 onOpen={onOpen}
                 onTag={onTag}
                 easy={easy}
+                showSearchMatch={Boolean(filters.query.trim())}
               />
             ))}
           </div>

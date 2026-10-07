@@ -1,6 +1,16 @@
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyIndicators from './PolicyIndicators.jsx';
-export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy = false, reason }) {
+import { PolicySearchMatch } from './PolicySearchFeedback.jsx';
+export default function PolicyCard({
+  policy,
+  saved,
+  onSave,
+  onOpen,
+  onTag,
+  easy = false,
+  reason,
+  showSearchMatch = false,
+}) {
   if (easy) {
     return (
       <article className="policy-card easy-policy-card">
@@ -42,6 +52,7 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
             )}
           </dl>
           <PolicyIndicators policy={policy} />
+          {showSearchMatch && <PolicySearchMatch match={policy.searchMatch} />}
         </div>
         <div className="easy-card-action">
           <button
@@ -95,6 +106,7 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
       {policy.paymentSchedule && <p className="card-meta">지급 시기: {policy.paymentSchedule}</p>}
       {reason && <p className="card-meta">신청 기간: {policy.applicationPeriod}</p>}
       <PolicyIndicators policy={policy} />
+      {showSearchMatch && <PolicySearchMatch match={policy.searchMatch} />}
       <div className="card-bottom">
         <div className="tags" aria-label="이 공고의 태그">
           {policy.tags.map((tag) => (

@@ -6,7 +6,7 @@ export const profileCategories = [
     id: 'basic',
     label: '기본 정보',
     icon: 'user',
-    description: '이름·나이·거주 지역',
+    description: '이름·나이·거주 지역과 주소',
     fields: ['region', 'ageBand'],
   },
   {
@@ -51,6 +51,14 @@ export function profileRows(category, user, profile = defaultProfile) {
           : genders.find(([key]) => key === user.gender)?.[1] || null,
       ],
     ];
+    if (user.address) {
+      rows.splice(
+        3,
+        0,
+        ['거주 주소', [user.address, user.address_detail].filter(Boolean).join(' ')],
+        ['우편번호', user.postal_code || null],
+      );
+    }
     const member = memberRecommendationProfile(user);
     if (profile.region !== member.region || profile.ageBand !== member.ageBand) {
       rows.push(

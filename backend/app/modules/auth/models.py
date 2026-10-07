@@ -3,7 +3,9 @@
 from sqlalchemy import Boolean, Column, Index, Integer, MetaData, String, Table, Text
 
 metadata = MetaData()
-PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
+LEGACY_PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
+ADDRESS_FIELDS = ("postal_code", "address", "address_detail")
+PROFILE_FIELDS = (*LEGACY_PROFILE_FIELDS, *ADDRESS_FIELDS)
 accounts = Table(
     "auth_accounts",
     metadata,
@@ -15,6 +17,9 @@ accounts = Table(
     Column("age", Integer, nullable=True),
     Column("gender", String(16), nullable=False),
     Column("region", String(32), nullable=True),
+    Column("postal_code", String(5), nullable=True),
+    Column("address", String(200), nullable=True),
+    Column("address_detail", String(200), nullable=True),
     Column("phone", String(16), nullable=True, unique=True),
     # Nullable for existing members; both new signup APIs require an email.
     Column("email", String(254), nullable=True),

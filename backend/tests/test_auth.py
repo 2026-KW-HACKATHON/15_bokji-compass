@@ -116,6 +116,9 @@ def test_member_profile_update_only_changes_authenticated_account(client):
         "age": 67,
         "gender": "female",
         "region": "부산",
+        "postal_code": None,
+        "address": None,
+        "address_detail": None,
     }
     assert response.headers["cache-control"] == "no-store"
     assert client.get("/v1/auth/me").json()["user"] == user
@@ -363,6 +366,8 @@ def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):
         result = client.post("/v1/auth/login", json={"username": "legacy", "password": PASSWORD})
         assert result.status_code == 200
         assert result.json()["user"]["name"] is None
+        for field in ("postal_code", "address", "address_detail"):
+            assert result.json()["user"][field] is None
         initialize_auth_schema(engine)
         user = client.get("/v1/auth/me").json()["user"]
         assert user["id"] == "legacy-id" and user["age"] == 25

@@ -109,6 +109,18 @@ class ProfileInput(BaseModel):
     age: int | None = Field(default=None, strict=True, ge=0, le=120)
     gender: Literal["male", "female", "other", "undisclosed"] = "undisclosed"
     region: str | None = Field(default=None, max_length=32)
+    postal_code: str | None = Field(default=None, pattern=r"^[0-9]{5}$")
+    address: str | None = Field(default=None, max_length=200)
+    address_detail: str | None = Field(default=None, max_length=200)
+
+    @field_validator("postal_code", "address", "address_detail", mode="before")
+    @classmethod
+    def normalize_address(cls, value):
+        if isinstance(value, str):
+            if any(ord(character) < 32 or ord(character) == 127 for character in value):
+                raise ValueError("주소를 확인해 주세요.")
+            return value.strip() or None
+        return value
 
     @field_validator("name")
     @classmethod
@@ -166,7 +178,7 @@ class SignupInput(LoginInput, ProfileInput, EmailInput):
 class WithdrawalInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    notice_version: Literal["2026-10-07.2"]
+    notice_version: Literal["2026-10-07.3"]
     confirmation: StrictBool
 
     @field_validator("confirmation")
@@ -288,12 +300,14 @@ def logout(request: Request, response: Response, service: Service):
 
 @router.post("/withdraw")
 def withdraw(data: WithdrawalInput, request: Request, response: Response, service: Service):
+    account_id = service.me(request.cookies.get(COOKIE))["id"]
     service.withdraw(
         request.cookies.get(COOKIE),
         signup_email_token=request.cookies.get(EMAIL_COOKIE, ""),
         kakao_flow_binding=request.cookies.get("bokji_kakao_flow", ""),
         kakao_pending_token=request.cookies.get("bokji_kakao_signup", ""),
     )
+    request.app.state.dialogue_store.discard_account(account_id)
     for name in (COOKIE, EMAIL_COOKIE, "bokji_kakao_flow", "bokji_kakao_signup"):
         response.delete_cookie(
             name,

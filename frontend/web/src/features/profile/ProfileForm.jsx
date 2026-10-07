@@ -37,8 +37,8 @@ export default function ProfileForm({
       <div className="form-intro">
         <p>
           {easy
-            ? '추천에 필요한 정보를 선택해 주세요. 선택 항목은 비워둘 수 있으며, 언제든 수정할 수 있습니다.'
-            : '아는 항목만 입력해 주세요. 나중에 바꿀 수 있어요.'}
+            ? '선택 항목은 건너뛰어도 괜찮아요. 나중에 수정할 수 있어요.'
+            : '입력할 수 있는 항목만 선택해 주세요. 입력한 정보는 언제든 수정할 수 있어요.'}
         </p>
       </div>
       {(!section || section === 'basic') && (

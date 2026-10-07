@@ -63,6 +63,9 @@ def client(tmp_path, monkeypatch):
                             age=age,
                             gender="undisclosed",
                             region=region,
+                            postal_code="04524",
+                            address="private-street-address",
+                            address_detail="private-apartment-number",
                             created_at=1,
                         )
                     )

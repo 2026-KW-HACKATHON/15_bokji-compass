@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { Icon } from "../../components/Icon";
+import { PolicyCard } from "../../features/policies/PolicyCard";
 import {
   Button,
   Card,
+  Choice,
   Copy,
   Field,
   Notice,
   Screen,
+  PageHeading,
   colors,
 } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
@@ -15,25 +19,69 @@ import {
   categories,
   regions,
   parsePolicyPage,
+  searchScopes,
+  searchScopeLabels,
 } from "../../features/policies/model";
+import {
+  effectivePolicySort,
+  searchRelationForScope,
+} from "../../features/policies/searchMetadata";
 
 const initialFilters = {
   query: "",
+  searchScope: "all",
+  searchMode: "smart",
+  searchRelation: "",
   category: "전체",
   region: "전국",
-  sort: "popular",
+  sort: "auto",
 };
 const sortLabels: Record<string, string> = {
+  auto: "자동 (검색할 때 관련도순)",
+  relevance: "관련도순",
   popular: "인기순 (조회수)",
   recent: "최근 등록순",
   name: "이름순",
 };
+const choiceLabels: Record<string, string> = {
+  ...sortLabels,
+  ...searchScopeLabels,
+};
 type Page = ReturnType<typeof parsePolicyPage>;
 
-export default function Policies() {
+export default function PoliciesRoute() {
+  const params = useLocalSearchParams<{
+    q?: string;
+    category?: string;
+    searchKey?: string;
+  }>();
+  const query = typeof params.q === "string" ? params.q.slice(0, 200) : "";
+  const category =
+    typeof params.category === "string" && categories.includes(params.category)
+      ? params.category
+      : "전체";
+  return (
+    <Policies
+      key={`${query}:${category}:${params.searchKey || ""}`}
+      initialQuery={query}
+      initialCategory={category}
+    />
+  );
+}
+function Policies({
+  initialQuery,
+  initialCategory,
+}: {
+  initialQuery: string;
+  initialCategory: string;
+}) {
   const { api, easy, configError } = useRuntime();
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState(initialFilters);
+  const [query, setQuery] = useState(initialQuery);
+  const [filters, setFilters] = useState({
+    ...initialFilters,
+    query: initialQuery,
+    category: initialCategory,
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [paging, setPaging] = useState<{
     easy: boolean;
@@ -79,7 +127,32 @@ export default function Policies() {
     return () => controller.abort();
   }, [api, filters, cursor, easy, configError, requestKey]);
   function change(key: keyof typeof initialFilters, value: string) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => ({
+      ...current,
+      [key]: value,
+      ...(["query", "searchScope"].includes(key)
+        ? { searchMode: "smart", searchRelation: "" }
+        : {}),
+    }));
+    setPaging({ easy, cursors: [null] });
+  }
+  function refine(searchRelation: string) {
+    setFilters((current) => ({
+      ...current,
+      searchMode: "smart",
+      searchScope: "all",
+      searchRelation:
+        current.searchRelation === searchRelation ? "" : searchRelation,
+    }));
+    setPaging({ easy, cursors: [null] });
+  }
+  function searchOriginal() {
+    setFilters((current) => ({
+      ...current,
+      searchMode: "literal",
+      searchScope: "all",
+      searchRelation: "",
+    }));
     setPaging({ easy, cursors: [null] });
   }
   function reset() {
@@ -90,34 +163,24 @@ export default function Policies() {
   function choices(
     label: string,
     values: string[],
-    key: "category" | "region" | "sort",
+    key: "category" | "region" | "sort" | "searchScope",
   ) {
     return (
       <View style={{ gap: 8 }}>
         <Copy>{label}</Copy>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {values.map((value) => (
-            <Pressable
+            <Choice
               key={value}
-              accessibilityRole="radio"
-              accessibilityLabel={sortLabels[value] ?? value}
-              accessibilityState={{ checked: filters[key] === value }}
+              label={choiceLabels[value] ?? value}
+              accessibilityLabel={
+                key === "searchScope"
+                  ? `검색 범위 ${choiceLabels[value]}`
+                  : (choiceLabels[value] ?? value)
+              }
+              selected={filters[key] === value}
               onPress={() => change(key, value)}
-              style={{
-                minHeight: 48,
-                justifyContent: "center",
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: colors.green,
-                backgroundColor: filters[key] === value ? colors.mint : "#FFF",
-              }}
-            >
-              <Text style={{ color: colors.ink, fontSize: easy ? 20 : 16 }}>
-                {sortLabels[value] ?? value}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
       </View>
@@ -125,37 +188,76 @@ export default function Policies() {
   }
   return (
     <Screen key={JSON.stringify([filters, cursor, easy])}>
-      <Copy title>{easy ? "복지 공고 찾기" : "복지 공고 찾아보기"}</Copy>
-      {!easy && (
-        <Copy muted>관심 있는 지원을 검색하고 공식 안내를 확인하세요.</Copy>
-      )}
-      <Field
-        label="공고 검색"
-        value={query}
-        onChangeText={setQuery}
-        placeholder="예: 주거, 취업, 돌봄"
-        maxLength={200}
-        returnKeyType="search"
-        onSubmitEditing={() => change("query", query)}
+      <PageHeading
+        title={easy ? "복지 공고 찾기" : "어떤 지원을 찾으세요?"}
+        eyebrow="복지 공고"
+        description={
+          easy ? undefined : "지원 내용부터 신청 조건까지 한눈에 확인해요."
+        }
       />
-      <Button label="검색" onPress={() => change("query", query)} />
-      <Button
-        secondary
-        label={showFilters ? "검색 조건 접기" : "분야·지역 선택"}
-        onPress={() => setShowFilters(!showFilters)}
-      />
-      <Copy muted>
-        {filters.category === "전체" ? "모든 분야" : filters.category} ·{" "}
-        {filters.region}
-        {!easy
-          ? ` · ${sortLabels[filters.sort]}`
-          : ""}
-      </Copy>
+      <Card>
+        <Field
+          label="공고 검색"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="예: 광운대 학생 장학금 찾아줘"
+          maxLength={200}
+          returnKeyType="search"
+          onSubmitEditing={() => change("query", query)}
+        />
+        <Button label="검색" onPress={() => change("query", query)} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showFilters }}
+          onPress={() => setShowFilters(!showFilters)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            minHeight: 48,
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="filter" size={18} color={colors.muted} />
+          <Text
+            style={{
+              fontSize: easy ? 19 : 14,
+              color: colors.muted,
+              fontWeight: "600",
+            }}
+          >
+            {showFilters ? "상세 조건 접기" : "지역·검색 범위·정렬"}
+          </Text>
+        </Pressable>
+      </Card>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+        accessibilityLabel="공고 분야"
+      >
+        {categories.map((category) => (
+          <Choice
+            key={category}
+            label={category}
+            selected={filters.category === category}
+            onPress={() => change("category", category)}
+          />
+        ))}
+      </ScrollView>
       {showFilters && (
         <Card>
+          {choices("검색 범위", searchScopes, "searchScope")}
+          <Copy muted>
+            게시 기관은 공고를 올린 기관, 공고 내용은 제목과 본문에서 찾아요.
+          </Copy>
           {choices("분야", categories, "category")}
           {choices("지역", regions, "region")}
-          {choices("정렬", ["popular", "recent", "name"], "sort")}
+          {choices(
+            "정렬",
+            ["auto", "relevance", "popular", "recent", "name"],
+            "sort",
+          )}
           <Button secondary label="검색 조건 지우기" onPress={reset} />
         </Card>
       )}
@@ -172,7 +274,70 @@ export default function Policies() {
       ) : (
         page && (
           <>
-            <Copy title>공고 목록 · {page.total}개</Copy>
+            {page.search?.originalQuery.trim() && (
+              <Card>
+                <View accessibilityLiveRegion="polite">
+                  <Copy>{page.search.summary}</Copy>
+                </View>
+                {page.search.corrections.length > 0 && (
+                  <>
+                    <Copy muted>
+                      {page.search.corrections
+                        .map(({ from, to }) => `‘${from}’ → ‘${to}’`)
+                        .join(", ")}
+                      로 찾았어요.
+                    </Copy>
+                    <Button
+                      secondary
+                      label="원래 검색어로 찾기"
+                      onPress={searchOriginal}
+                    />
+                  </>
+                )}
+                {page.search.warnings.map((warning) => (
+                  <Copy muted key={warning}>
+                    {warning}
+                  </Copy>
+                ))}
+                {page.search.alternatives.map((item) => (
+                  <Choice
+                    key={item.scope}
+                    label={`${item.label} ${item.count}개`}
+                    selected={
+                      filters.searchRelation ===
+                      searchRelationForScope(item.scope)
+                    }
+                    onPress={() => refine(searchRelationForScope(item.scope))}
+                  />
+                ))}
+              </Card>
+            )}
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontSize: easy ? 23 : 20,
+                  fontWeight: "700",
+                  color: colors.ink,
+                }}
+              >
+                찾은 공고{" "}
+                <Text style={{ color: colors.green }}>
+                  {page.total.toLocaleString()}개
+                </Text>
+              </Text>
+              <Text style={{ color: colors.muted, fontSize: easy ? 17 : 13 }}>
+                {filters.region} ·{" "}
+                {easy ? "" : sortLabels[effectivePolicySort(filters)]}
+              </Text>
+            </View>
             {!page.items.length ? (
               <Card>
                 <Copy>조건에 맞는 공고가 없어요.</Copy>
@@ -185,28 +350,11 @@ export default function Policies() {
               </Card>
             ) : (
               page.items.map((policy) => (
-                <Card key={policy.id}>
-                  <Copy muted>
-                    {policy.category} · {policy.region}
-                  </Copy>
-                  <Copy title numberOfLines={easy ? 2 : undefined}>
-                    {policy.title}
-                  </Copy>
-                  {!easy && <Copy numberOfLines={4}>{policy.summary}</Copy>}
-                  <Copy numberOfLines={easy ? 2 : undefined}>
-                    신청 기간: {policy.applicationPeriod}
-                  </Copy>
-                  {!easy && <Copy muted>{policy.organization}</Copy>}
-                  <Button
-                    label="공고 자세히 보기"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/policies/[id]",
-                        params: { id: policy.id },
-                      })
-                    }
-                  />
-                </Card>
+                <PolicyCard
+                  key={policy.id}
+                  policy={policy}
+                  showReason={!!filters.query.trim()}
+                />
               ))
             )}
             {(cursors.length > 1 || page.nextCursor) && (

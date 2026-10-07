@@ -15,8 +15,17 @@ API에 노출하지 않습니다. matching_enabled=false 공고는 조건 비교
 
 ## 공고 목록: GET /v1/policies
 웹 기본 요청: /api/v1/policies (proxy가 /api 제거).
-쿼리: q(공백 구분 AND 검색), tag(정확한 태그), category, region, audience, sort(popular/recent/name, 기본 popular), limit(1~100, 웹 일반 6/쉬운 화면 3), cursor(숫자 offset 문자열).
+쿼리: q(최대 200자), search_mode(smart/literal, 기본 smart), search_scope(all/organization/content, 기본 all), search_relation(publisher/related, 자동 해석 결과의 선택), tag(정확한 태그), category, region, audience, sort(relevance/popular/recent/name), limit(1~100, 웹 일반 6/쉬운 화면 3), cursor(숫자 offset 문자열).
 전체 필터는 생략. 지역 선택 시 전국 공고도 포함. 검색·태그·필터는 AND로 적용합니다. 인기순은 확인된 정부24/복지로 누적 조회수 내림차순이며 미제공 공고는 뒤에 표시합니다. 동률은 최근 등록일·고정 ID로 처리하고 전체 결과를 정렬한 뒤 페이지를 나눕니다. 서버는 필터·정렬 변경 시 cursor를 재사용하지 않는다고 가정합니다.
+기본 `smart + all`에서는 게시기관·지원 대상 관계, 지원 목적, 제외 조건과 확인된 기관명 오타를 해석합니다. 검색어가 있으면 `sort` 생략 시 관련도순, 검색어가 없으면 인기순이며 명시한 정렬을 우선합니다. `광운대생 받을 돈`은 광운대 대상·학교 신청 안내와 전국 대학생 지원을 함께 찾습니다. `광운대`만 입력하면 게시기관과 직접 관련 공고를 함께 안내합니다. 회원 학교·신청 자격을 추정하지 않습니다.
+
+직접 입력한 학교 소속에 해당하는 공고가 없으면 입력 학교명을 유지하고 전국 대학생 지원 근거를 찾으며 `warnings`로 학교가 공고에서 확인되지 않았음을 안내합니다. 이름을 임의로 확정하거나 다른 학교 전용 지원으로 대체하지 않습니다. 학교가 지정되지 않은 `우리학교`도 임의 학교에 연결하지 않습니다.
+
+선택 페이지 필드 `search`는 `{mode,summary,originalQuery,interpretedQuery,corrections:[{from,to}],alternatives:[{scope,label,count}],warnings?}`입니다. 선택 카드 필드 `searchMatch`는 `{relations,reason,evidence:[{field,quote}]}`이며 관계는 publisher/target/contextual/student_general/mention/benefit/literal입니다. 인용은 원문에 있는 문자열로 최대 250자·3개입니다. 웹·모바일은 입력 원문을 유지하고 해석·대안·근거를 표시합니다. 보정 되돌리기는 원문으로 literal 검색합니다. 잘못된 선택 메타데이터는 버리고 기본 카드·페이지를 유지하며 HTML을 렌더링하지 않습니다.
+
+해석 대안 버튼은 `organization → search_relation=publisher`, `content → search_relation=related`로 좁히고 원래 검색어·smart/all을 유지합니다. 같은 선택을 누르면 해제합니다. 추가 옵션의 literal 검색 범위와 구분하며 학교 문맥·전국 대학생 근거를 단어 검색으로 잃지 않습니다. 새 검색·단어 검색 전환·검색 범위 변경은 관계 선택을 초기화하고 쉬운 화면 전환은 유지합니다. 대안 건수는 관계 선택 전 전체 해석 결과의 건수입니다. 캘린더는 요청한 월과 접수 기간이 겹치는 공고를 세며 일정 미확인 공고는 기존 undatedTotal로 따로 안내합니다.
+
+`literal` 또는 명시한 `organization`/`content` 범위에서는 공백 구분 AND 키워드 검색을 사용합니다. `organization`은 게시기관 이름, `content`는 제목·본문·사업 목적·지원 대상·선정 기준·혜택과 관리자 수정 내용입니다. 대학 약칭·정식 표기를 함께 찾으며 원문 URL·문의처 필드만 일치하는 결과는 포함하지 않습니다. 범위·모드 변경 시 cursor를 초기화하고 쉬운 화면 전환 시 유지합니다. 캘린더 API도 같은 `search_scope`와 `search_mode`, 선택 메타데이터를 받습니다. [검색 계약·검증](../../backend/docs/policy-search.md).
 ```json
 {
   "items": [{

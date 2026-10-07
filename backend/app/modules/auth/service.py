@@ -13,6 +13,7 @@ from app.modules.auth import mail
 from app.modules.auth.account_write import account_write_transaction, require_active_account
 from app.modules.auth.consent import consented_profile, save_signup_consent
 from app.modules.auth.models import (
+    ADDRESS_FIELDS,
     PROFILE_FIELDS,
     accounts,
     auth_consents,
@@ -101,7 +102,7 @@ class AuthService:
                 raise HTTPException(401, "로그인이 필요해요.")
             self.private_account(account)
             values = data.model_dump(
-                include={"name", "age", "gender", "region"}, exclude_unset=True
+                include={"name", "age", "gender", "region", *ADDRESS_FIELDS}, exclude_unset=True
             )
             if not values:
                 return self.public_account(account)
@@ -237,6 +238,7 @@ class AuthService:
     ):
         from app.modules.admin.access import admin_grants
         from app.modules.finance.storage import financial_profiles
+        from app.modules.monitoring.storage import MONITORING_TABLES
         from app.modules.notifications.storage import devices, preferences
 
         if not token:
@@ -264,14 +266,18 @@ class AuthService:
                     )
                 )
             )
-            for table in (financial_profiles, preferences, devices):
+            for table in (financial_profiles, preferences, devices, *MONITORING_TABLES):
                 if inspect(connection).has_table(table.name):
                     connection.execute(delete(table).where(table.c.account_id == account_id))
             for table in (admin_grants, sessions, kakao_identities, auth_consents):
                 connection.execute(delete(table).where(table.c.account_id == account_id))
             rate_limit_keys = [
                 "assistant:" + account_id,
+                "assistant-dialogue:" + account_id,
+                "assistant-dialogue-save:" + account_id,
                 "recommendations:" + account_id,
+                "monitoring:" + account_id,
+                "monitoring-refresh:" + account_id,
                 "login-user:" + account["username"],
             ]
             if (

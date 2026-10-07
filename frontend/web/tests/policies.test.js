@@ -108,7 +108,6 @@ test('API sends the search, region and audience together and omits only default 
   });
   assert.deepEqual(Object.fromEntries(calls[0]), {
     limit: '6',
-    sort: 'popular',
     q: '돌봄 지원',
     category: '건강·돌봄',
     region: '충북',

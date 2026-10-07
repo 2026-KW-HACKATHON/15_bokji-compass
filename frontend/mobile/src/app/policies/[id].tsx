@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Linking } from "react-native";
+import { Linking, Text, View } from "react-native";
+import { colors } from "../../components/theme";
+import { Icon } from "../../components/Icon";
+import {
+  PolicyFact,
+  policyAppearance,
+} from "../../features/policies/PolicyCard";
 import {
   Button,
   Card,
@@ -76,30 +82,68 @@ function DetailContent({ id }: { id: string }) {
         <Notice>공고 내용을 가져오고 있어요.</Notice>
       ) : (
         <>
-          <Copy muted>
-            {policy.category} · {policy.region}
-          </Copy>
-          <ReadableText title text={policy.title} label="공고 제목" />
-          <Button
-            label="이 공고에 챗봇 질문하기"
-            onPress={() => openChat(policy)}
-          />
-          <Details label="공고 요약 보기">
-            <Copy>{policy.summary}</Copy>
-          </Details>
           <Card>
-            <Copy title>지원 내용</Copy>
-            <ReadableText text={policy.benefit} label="지원 내용" />
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Icon
+                name={policyAppearance(policy.category).icon}
+                color={policyAppearance(policy.category).color}
+              />
+              <Text
+                style={{
+                  color: policyAppearance(policy.category).color,
+                  fontSize: easy ? 19 : 14,
+                  fontWeight: "700",
+                }}
+              >
+                {policy.category}
+              </Text>
+              <Text style={{ color: colors.muted, fontSize: easy ? 18 : 14 }}>
+                {policy.region}
+              </Text>
+            </View>
+            <ReadableText title text={policy.title} label="공고 제목" />
+            <Copy muted>{policy.organization}</Copy>
+            <View
+              style={{
+                backgroundColor: colors.mint,
+                padding: 18,
+                borderRadius: easy ? 8 : 16,
+                gap: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.green,
+                  fontSize: easy ? 19 : 14,
+                  fontWeight: "700",
+                }}
+              >
+                이런 지원을 받을 수 있어요
+              </Text>
+              <ReadableText text={policy.benefit} label="지원 내용" />
+            </View>
+            <PolicyFact
+              icon="calendar"
+              label="신청 기간"
+              value={policy.applicationPeriod}
+            />
           </Card>
           <Card>
-            <Copy title>신청 정보</Copy>
-            <ReadableText
-              text={`지원 대상: ${policy.audience}`}
-              label="지원 대상"
-            />
-            <Copy>신청 기간: {policy.applicationPeriod}</Copy>
-            <Details label="담당 기관 보기">
-              <Copy>담당 기관: {policy.organization}</Copy>
+            <Copy title>누가 받을 수 있나요?</Copy>
+            <ReadableText text={policy.audience} label="지원 대상" />
+          </Card>
+          <Card>
+            <Details collapsible label="공고 요약 전체 보기">
+              <Copy>
+                {policy.summary || "공식 공고에서 자세한 내용을 확인해 주세요."}
+              </Copy>
             </Details>
           </Card>
           <Notice>
@@ -122,6 +166,11 @@ function DetailContent({ id }: { id: string }) {
           ) : (
             <Notice>등록된 공식 공고 링크가 없습니다.</Notice>
           )}
+          <Button
+            secondary
+            label="이 공고에 대해 질문하기"
+            onPress={() => openChat(policy)}
+          />
           {linkError ? <Notice>{linkError}</Notice> : null}
         </>
       )}

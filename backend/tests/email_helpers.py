@@ -1,8 +1,10 @@
 """Mailbox capture used only by offline tests, never by the application."""
 
+from app.modules.auth.consent import NOTICE_VERSION
+
 mailbox = {}
 SIGNUP_CONSENT = {
-    "notice_version": "2026-10-07.2",
+    "notice_version": NOTICE_VERSION,
     "collection": True,
     "profile": True,
     "ai": False,

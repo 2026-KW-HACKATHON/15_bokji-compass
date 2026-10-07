@@ -9,5 +9,10 @@
 - `financeQuestions(draft)` → 현재 가구·차량 수에 따른 질문 배열.
 - `visibleFields(question,draft)`, `fieldValue(draft,path)`, `validateQuestion(question,draft)` → 표시 필드·입력값·첫 오류 또는 null.
 - `formatMoney`, `formatNumber`, `officialSourceUrl` → 표시값 또는 검증된 HTTPS 출처 URL/null.
+- `@bokji/core/median-income` → 2026년 공식 기준 중위소득 표, 정확한 가구원 수에 따른 기준 금액·월소득 비율. 웹과 모바일 빠른 계산이 공유.
+- `@bokji/core/finance-prefill` → 저장 정보·회원 기본값에서 금융 초안과 빠른 계산 기본값 생성. 사용자가 수정한 값과 미확인을 보호.
+- `@bokji/core/count-choices` → 가구원·자녀 수의 기본/확장/직접 입력 선택지. 묶음 선택만으로 정확한 인원을 추정하지 않음.
+
+모바일은 `.npmrc`의 `install-links=true`로 이 패키지를 복사해 설치합니다. core 수정 후에는 설치된 복사본을 갱신하고 Metro를 다시 시작해야 합니다.
 
 호출 세부 계약은 [웹 계산기](../../web/src/features/finance/readme.md)와 [금융 API](../../docs/api-integration.md)를 따릅니다. 검증: `frontend/web`의 `npm test`, `npm run build`; `frontend/mobile`의 `npm test`, `npm run typecheck`, `npm run export:native`.
