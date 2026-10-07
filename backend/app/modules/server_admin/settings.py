@@ -36,6 +36,7 @@ MODEL_FIELDS = frozenset({
 })
 INGESTION_FIELDS = frozenset({
     "ingestion_enabled",
+    "ingestion_kwangwoon_enabled",
     "ingestion_profile", "ingestion_ai_batch_size", "ingestion_ai_batch_input_chars",
     "ingestion_page_size", "ingestion_max_pages", "ingestion_max_jobs", "ingestion_max_seconds",
     "ingestion_max_http_calls", "ingestion_max_response_bytes", "ingestion_http_interval_seconds",
@@ -54,6 +55,7 @@ LABELS = {
     "ingestion_ai_batch_input_chars": "AI 묶음 입력 최대 글자 수",
     "codex_fallback_reasoning_effort": "검증 실패 시 모델 추론 수준",
     "ingestion_enabled": "새 공고 수집 회차 허용",
+    "ingestion_kwangwoon_enabled": "광운대학교 등록·장학 공지 자동 수집",
     "db_enabled": "MySQL 사용", "db_host": "MySQL 주소", "db_port": "MySQL 포트",
     "db_name": "데이터베이스 이름", "db_user": "MySQL 사용자", "db_password": "MySQL 비밀번호",
     "db_ssl_ca": "MySQL CA 인증서 경로", "data_go_kr_api_key": "정부24 API 키",

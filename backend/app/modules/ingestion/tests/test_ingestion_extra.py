@@ -61,6 +61,7 @@ def extra_store():
 
 def settings(**changes):
     return Settings(_env_file=None, **{
+        "ingestion_kwangwoon_enabled": False,
         "ingestion_http_interval_seconds": 0,
         "ingestion_min_available_memory_mb": 0,
         "ingestion_min_free_disk_mb": 0,

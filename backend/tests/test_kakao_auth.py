@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.modules.auth import kakao
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities
-from tests.email_helpers import verify_email
+from tests.email_helpers import SIGNUP_CONSENT, verify_email
 
 HEADERS = {"X-Auth-Request": "1"}
 PROFILE = {
@@ -21,6 +21,7 @@ PROFILE = {
     "age": 30,
     "gender": "undisclosed",
     "region": "서울",
+    "consent": SIGNUP_CONSENT.copy(),
 }
 
 
@@ -73,7 +74,10 @@ def test_new_member_repeat_login_session_restart_and_logout(client):
     # The original authorization state is one-use.
     assert callback(client, state).headers["location"].endswith("kakao=expired")
     assert client.post("/v1/auth/kakao/complete", json={**PROFILE, "age": -1}).status_code == 422
-    result = client.post("/v1/auth/kakao/complete", json={"email": "kakao@example.com"})
+    result = client.post(
+        "/v1/auth/kakao/complete",
+        json={"email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+    )
     assert result.status_code == 201, result.text
     user = result.json()["user"]
     assert user["name"] == "카카오별명"
@@ -101,7 +105,10 @@ def test_new_member_repeat_login_session_restart_and_logout(client):
 def test_signup_without_nickname_and_optional_profile_can_be_saved_later(client, monkeypatch):
     monkeypatch.setattr(kakao, "exchange_identity", lambda *_: ("100:12345", ""))
     callback(client, start(client))
-    result = client.post("/v1/auth/kakao/complete", json={"email": "kakao@example.com"})
+    result = client.post(
+        "/v1/auth/kakao/complete",
+        json={"email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+    )
     assert result.status_code == 201
     user = result.json()["user"]
     assert user["name"] is None and user["age"] is None and user["region"] is None
@@ -123,7 +130,10 @@ def test_cancel_clears_pending_proof_without_creating_account_and_cannot_replay(
     assert client.get("/v1/auth/kakao/pending").status_code == 401
     client.cookies.set("bokji_kakao_signup", token)
     assert (
-        client.post("/v1/auth/kakao/complete", json={"email": "kakao@example.com"}).status_code
+        client.post(
+            "/v1/auth/kakao/complete",
+            json={"email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+        ).status_code
         == 401
     )
     with client.app.state.auth_service.engine.connect() as connection:
@@ -132,16 +142,20 @@ def test_cancel_clears_pending_proof_without_creating_account_and_cannot_replay(
     client.cookies.clear()
     callback(client, start(client))
     assert (
-        client.post("/v1/auth/kakao/complete", json={"email": "kakao@example.com"}).status_code
+        client.post(
+            "/v1/auth/kakao/complete",
+            json={"email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+        ).status_code
         == 201
     )
 
 
 def test_partial_profile_update_preserves_nickname_and_declined_gender(client):
     callback(client, start(client))
-    original = client.post("/v1/auth/kakao/complete", json={"email": "kakao@example.com"}).json()[
-        "user"
-    ]
+    original = client.post(
+        "/v1/auth/kakao/complete",
+        json={"email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+    ).json()["user"]
     saved = client.post("/v1/auth/profile", json={"age": 0, "region": "서울"})
     assert saved.status_code == 200
     user = saved.json()["user"]

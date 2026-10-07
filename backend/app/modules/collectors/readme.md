@@ -118,6 +118,13 @@ document = collect_notice_text(
 
 ## 광운대학교 공지
 
+2026-10-07: 자동 수집 worker는 `kwangwoon_pages.fetch_kwangwoon_page`의 등록/장학
+목록과 `fetch_kwangwoon_notice_detail`의 상세를 사용합니다. 목록은 일반 공지 10건과
+별도 고정 공지를 읽고 실제 링크만 등록합니다. 상세의 제목·날짜·본문과 다운로드 JSP
+첨부/이미지 링크를 보존하며 조회수는 변경 감지에서 제외합니다. 각 요청은 worker의
+HTTP·시간·크기 한도를 따릅니다. 아래 기존 DUID 함수는 수동 호출용입니다.
+[설정·반환값·실제 검증·첨부 처리 범위](../../../docs/kwangwoon-auto-collection.md).
+
 `app.modules.collectors.kwangwoon_notices.collect_kwangwoon_notice`는 광운대학교 공지 상세 URL에서 `[분류] 제목`, 작성일, 화면 텍스트를 추출해 `RawDocument`로 저장합니다. URL의 `srCategoryId`는 항상 `4`로 강제됩니다.
 
 통과한 DUID의 원본 HTML이 필요하면 `fetch_kwangwoon_notice_html(duid)`를 사용합니다. 이 함수는 HTML을 정규화하지 않고 그대로 문자열로 반환합니다.

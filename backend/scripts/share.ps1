@@ -2,7 +2,8 @@ param(
     [ValidateSet('start', 'stop', 'status', 'reload')][string]$Action = 'status',
     [ValidateSet('auto', 'quick', 'fixed')][string]$TunnelMode = 'auto',
     [string]$PublicUrl = 'https://bokji.commitnaru.com',
-    [string]$TunnelTokenFile = ''
+    [string]$TunnelTokenFile = '',
+    [switch]$ReloadIfRunning
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
@@ -94,6 +95,50 @@ if ($Action -eq 'stop') {
     exit 0
 }
 $node = (Get-Command node -ErrorAction Stop).Source
+if ($Action -eq 'start') {
+    if (!$TunnelTokenFile) {
+        $TunnelTokenFile = Join-Path $repoRoot 'backend\data\tunnel-demo\tunnel-token.txt'
+    }
+    $TunnelTokenFile = [IO.Path]::GetFullPath($TunnelTokenFile)
+    if ($TunnelMode -eq 'auto') {
+        $TunnelMode = if (Test-Path -LiteralPath $TunnelTokenFile -PathType Leaf) { 'fixed' } else { 'quick' }
+    }
+    if ($TunnelMode -eq 'fixed') {
+        $publicUri = $null
+        if (![Uri]::TryCreate($PublicUrl, [UriKind]::Absolute, [ref]$publicUri) -or
+            $publicUri.Scheme -ne 'https' -or $publicUri.HostNameType -ne [UriHostNameType]::Dns -or
+            $publicUri.IsLoopback -or !$publicUri.IsDefaultPort -or $publicUri.UserInfo -or
+            $publicUri.AbsolutePath -ne '/' -or $publicUri.Query -or $publicUri.Fragment -or
+            $publicUri.Host -notmatch '\.' -or $publicUri.Host -match '\.trycloudflare\.com$') {
+            throw 'PublicUrl must be a fixed public HTTPS origin, without credentials, port or path.'
+        }
+        $PublicUrl = $publicUri.GetLeftPart([UriPartial]::Authority)
+    }
+    if ($ReloadIfRunning) {
+        $tunnel = @($state.processes | Where-Object { $_.name -eq 'tunnel' })
+        if ($tunnel.Count -eq 1 -and (Get-OwnedProcess $tunnel[0])) {
+            $sameTarget = if ($TunnelMode -eq 'fixed') {
+                ([string]$state.url).TrimEnd('/') -eq $PublicUrl
+            } else {
+                $state.url -match '^https://[a-z0-9-]+\.trycloudflare\.com/?$'
+            }
+            if (!$sameTarget) {
+                throw 'The running tunnel uses a different URL or mode. Run start-server-prod.bat status or stop first.'
+            }
+            Write-Output "Reusing the running tunnel and restarting API, QR and web: $($state.url)"
+            $Action = 'reload'
+        }
+    }
+    if ($Action -eq 'start' -and @($state.processes | Where-Object { Get-OwnedProcess $_ }).Count) {
+        throw 'Share processes already exist. Run start-server-prod.bat status or start-server-prod.bat stop first.'
+    }
+}
+# Check reload prerequisites before stopping any running API or web process.
+$requiredFiles = @($python, $node, $caddy, (Join-Path $repoRoot 'frontend\web\dist\index.html'))
+if ($Action -eq 'start') { $requiredFiles += $cloudflared }
+foreach ($file in $requiredFiles) {
+    if (!(Test-Path -LiteralPath $file)) { throw "Missing prerequisite: $file" }
+}
 if ($Action -eq 'reload') {
     $tunnel = @($state.processes | Where-Object { $_.name -eq 'tunnel' })
     if ($tunnel.Count -ne 1 -or !(Get-OwnedProcess $tunnel[0])) { throw 'A running owned tunnel is required for reload' }
@@ -104,6 +149,7 @@ if ($Action -eq 'reload') {
     [IO.File]::WriteAllText($config, $template.Replace('__DIST_ROOT__', $dist), $utf8)
     & $caddy validate --config $config --adapter caddyfile
     if ($LASTEXITCODE -ne 0) { throw 'Caddy configuration is invalid' }
+    & (Join-Path $PSScriptRoot 'stop-dev.ps1')
     foreach ($entry in @($state.processes | Where-Object { $_.name -in @('web', 'qr', 'backend') })) {
         if (Get-OwnedProcess $entry) {
             & taskkill.exe /PID $entry.id /T /F | Out-Null
@@ -120,29 +166,7 @@ if ($Action -eq 'reload') {
     Write-Output "Website and authenticated admin gateway updated; tunnel URL unchanged: $($state.url)"
     exit 0
 }
-if (@($state.processes | Where-Object { Get-OwnedProcess $_ }).Count) {
-    throw 'Share processes already exist. Use status or stop first.'
-}
-foreach ($file in @($python, $node, $caddy, $cloudflared, (Join-Path $repoRoot 'frontend\web\dist\index.html'))) {
-    if (!(Test-Path -LiteralPath $file)) { throw "Missing prerequisite: $file" }
-}
-if (!$TunnelTokenFile) {
-    $TunnelTokenFile = Join-Path $repoRoot 'backend\data\tunnel-demo\tunnel-token.txt'
-}
-$TunnelTokenFile = [IO.Path]::GetFullPath($TunnelTokenFile)
-if ($TunnelMode -eq 'auto') {
-    $TunnelMode = if (Test-Path -LiteralPath $TunnelTokenFile -PathType Leaf) { 'fixed' } else { 'quick' }
-}
 if ($TunnelMode -eq 'fixed') {
-    $publicUri = $null
-    if (![Uri]::TryCreate($PublicUrl, [UriKind]::Absolute, [ref]$publicUri) -or
-        $publicUri.Scheme -ne 'https' -or $publicUri.HostNameType -ne [UriHostNameType]::Dns -or
-        $publicUri.IsLoopback -or !$publicUri.IsDefaultPort -or $publicUri.UserInfo -or
-        $publicUri.AbsolutePath -ne '/' -or $publicUri.Query -or $publicUri.Fragment -or
-        $publicUri.Host -notmatch '\.' -or $publicUri.Host -match '\.trycloudflare\.com$') {
-        throw 'PublicUrl must be a fixed public HTTPS origin, without credentials, port or path.'
-    }
-    $PublicUrl = $publicUri.GetLeftPart([UriPartial]::Authority)
     if (!(Test-Path -LiteralPath $TunnelTokenFile -PathType Leaf)) {
         throw 'Fixed tunnel token file is missing. See backend/docs/fixed-domain.md.'
     }

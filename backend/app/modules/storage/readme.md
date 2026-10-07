@@ -1,5 +1,14 @@
 # 공고 저장소
 
+2026-10-07 관리자 편집: `editor.list_editable_policies`, `read_policy_edit`,
+`save_policy_edit`는 수집 기록과 분석 개정의 통합 검색·전체 편집·저장을 제공합니다.
+새 개정의 processing_json에 변경자·사유·부모 개정을 기록하고 version 확인과 공개 전환을
+같은 공고 잠금/트랜잭션으로 처리합니다. 기존 개정과 수집 원본은 보존합니다.
+수동 개정이 있는 공고는 이후 AI 자동 저장·자동 승인이 공개 개정이나 호환 공고를 덮어쓰지
+않습니다. 명시적 관리자 공개는 가능합니다. 새 스키마 마이그레이션·LLM 호출은 필요 없습니다.
+공개 상세는 본문·원문 항목과 신청 방법·문의처·성별·기타 조건·게시/수정일을 반환합니다.
+목록·캘린더에는 긴 원문을 포함하지 않습니다. 관리자 요약은 표시 문체 변환보다 우선합니다.
+
 2026-10-06 공고 표시: `catalog.card(record)`는 원천 `purpose_summary`를 목록 설명(`summary`)에
 우선 사용하고, 없거나 공백이면 표시 계층의 구형 공고 설명 또는 검증된 개요의 지원 내용으로 대체합니다. 상세 지원 내용(`benefit`)은
 검증된 개요를 우선하여 금액·한도를 보존합니다. 원문·개요·인용 근거는 그대로이며 화면 응답만 문체를 정리합니다.
@@ -44,10 +53,23 @@ Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생�
 
 ## 공고 검색 필터 (2026-10-06)
 
-`catalog.list_policies(repository, limit=20, offset=0, sort="recent", q="", category="", region="", audience="", tag="")`
+`catalog.list_policies(repository, limit=20, offset=0, sort="popular", q="", category="", region="", audience="", tag="")`
 는 `{items,total,nextCursor}`를 반환합니다. `catalog.list_calendar(repository, month=..., q="", category="", region="", audience="")`
 도 같은 `filtered_catalog` SQL 조건을 사용합니다. 검색어·분야·지역·대상은 AND로 적용하고
 필터링 후 건수·정렬·페이지를 계산합니다. LLM·외부 HTTP 호출이나 DB 변경은 없습니다.
+
+2026-10-07: 전체 공고의 기본 정렬은 `popular`입니다. Gov24의 `조회수`와 복지로의
+`inqNum`을 현재 수집 목록에서 읽어 유효한 누적 조회수 내림차순으로 정렬한 뒤 페이지를
+나눕니다. 같은 조회수는 공개 개정 생성일 내림차순·정책 ID 오름차순으로 정렬합니다.
+확인된 0회는 조회수 미확인 공고보다 앞에 표시하며 미확인 공고는 최신순으로 이어집니다.
+`recent`는 최신순, `name`은 제목순을 유지합니다. 수집 테이블 없는 기존 저장소는 최신순으로
+동작하며 요청 중 스키마를 생성하지 않습니다.
+
+목록·상세·캘린더 카드의 `popularity`는 `{views,source,basis,asOf}` 또는 `null`입니다.
+출처 사이트 누적 조회수이며 현재 접속자나 신청자 수가 아닙니다.
+[조회수 검증·관측 시각·정렬 계약](../../../docs/policy-popularity.md).
+카테고리·태그 필터와 카드 표시는 `storage.categories`의 같은 분류 규칙을 사용하며
+기존 생활·금융 공고 중 농림축산·어업 및 사업·창업 분야를 다시 표시합니다.
 
 - 지역 약칭은 정식 명칭과 이전 명칭을 함께 검색합니다. 예: 충북/충청북도,
   전북/전북특별자치도/전라북도. 짧은 이름은 단어 경계를 확인하며 광주 선택에
@@ -62,6 +84,10 @@ Windows 환경변수 지정법은 위 전체 안내를 따른다. 테스트 생�
 검증: `BOKJI_TEST_MYSQL=1 python -m pytest tests/test_policy_database.py`.
 지역 17개·이전 명칭, 대상 표현, 조합 검색·건수·페이지·캘린더·공개 상태·지역 혼동을
 격리된 MySQL에서 확인하고 테스트 생성 ID만 정리합니다.
+
+인기순 검증: `python -m pytest -p no:cacheprovider tests/test_catalog_popularity.py tests/test_policy_popularity.py`.
+격리 SQLite에서 전체 정렬 후 페이지·동점·0/미확인·필터·최신 공개 개정·수집 목록 갱신·
+기존 스키마·HTTP 기본값을 검사하고, MySQL 정렬 SQL 컴파일을 별도로 확인합니다.
 
 run_processing(run_id)는 재개 시 원래 모델/추론 설정을 조회합니다. 규칙 버전이 바뀌면 새 실행이 필요합니다.
 신규 `save_result`는 개정형 테이블과 001 호환 `policies`/`policy_requirements`를 같은

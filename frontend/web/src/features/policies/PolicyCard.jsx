@@ -1,4 +1,5 @@
 import Icon from '../../shared/ui/Icon.jsx';
+import PolicyIndicators from './PolicyIndicators.jsx';
 export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy = false, reason }) {
   if (easy) {
     return (
@@ -40,6 +41,7 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
               </div>
             )}
           </dl>
+          <PolicyIndicators policy={policy} />
         </div>
         <div className="easy-card-action">
           <button
@@ -91,6 +93,8 @@ export default function PolicyCard({ policy, saved, onSave, onOpen, onTag, easy 
         <p className="card-summary">{policy.summary}</p>
       )}
       {policy.paymentSchedule && <p className="card-meta">지급 시기: {policy.paymentSchedule}</p>}
+      {reason && <p className="card-meta">신청 기간: {policy.applicationPeriod}</p>}
+      <PolicyIndicators policy={policy} />
       <div className="card-bottom">
         <div className="tags" aria-label="이 공고의 태그">
           {policy.tags.map((tag) => (

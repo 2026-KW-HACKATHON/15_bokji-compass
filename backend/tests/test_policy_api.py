@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import insert, update
+from sqlalchemy import delete, insert, update
 from sqlalchemy.exc import OperationalError
 
 from app.api import assistant, policies
@@ -13,7 +13,9 @@ from app.contracts.assistance import PolicyAnswer
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.assistant import public
-from app.modules.auth.models import accounts
+from app.modules.auth.ai_privacy import get_ai_notice
+from app.modules.auth.consent import NOTICE_VERSION
+from app.modules.auth.models import accounts, auth_consents
 from app.modules.auth.service import password_hash
 from app.modules.normalization.raw import normalize_record
 
@@ -29,6 +31,12 @@ def client(tmp_path, monkeypatch):
             app_env="test",
             db_enabled=False,
             auth_sqlite_path=tmp_path / "accounts.sqlite3",
+            privacy_ai_enabled=True,
+            privacy_ai_provider="테스트 AI 수탁자",
+            privacy_ai_contact="privacy@example.org",
+            privacy_ai_countries=["테스트 국가"],
+            privacy_ai_retention="테스트 요청 처리 후 삭제",
+            privacy_ai_training="테스트 입력은 학습에 사용하지 않음",
         )
     )
     repo = Mock()
@@ -57,6 +65,17 @@ def client(tmp_path, monkeypatch):
                             region=region,
                             created_at=1,
                         )
+                    )
+                )
+                connection.execute(
+                    insert(auth_consents).values(
+                        account_id=f"private-id-{index}",
+                        notice_version=NOTICE_VERSION,
+                        collection=True,
+                        profile=True,
+                        ai=True,
+                        ai_notice_version=get_ai_notice(app.state.settings)["notice_version"],
+                        accepted_at=1,
                     )
                 )
         value.repository = repo
@@ -115,20 +134,23 @@ def test_questions_work_with_incomplete_member_profile(client, monkeypatch, age,
     def answer(source, question, profile, settings, output):
         received.append(profile.model_dump())
         return PolicyAnswer(
-            status="grounded", answer="만 19세 이상입니다.",
+            status="grounded",
+            answer="만 19세 이상입니다.",
             citations=[{"source_field": "text", "quote": "만 19세 이상"}],
             follow_up_questions=[],
         ), {"model": "fixture"}
 
     monkeypatch.setattr(public, "answer_policy_question", answer)
     with client.app.state.auth_service.engine.begin() as connection:
-        connection.execute(update(accounts).where(accounts.c.id == "private-id-1")
-                           .values(age=age, region=region))
+        connection.execute(
+            update(accounts).where(accounts.c.id == "private-id-1").values(age=age, region=region)
+        )
     login(client)
     response = client.post("/v1/assistant/questions", json=BODY)
     assert response.status_code == 200
-    assert received == [{"region": region, "age_band": None if age is None else "10세 미만",
-                         "interests": []}]
+    assert received == [
+        {"region": region, "age_band": None if age is None else "10세 미만", "interests": []}
+    ]
 
 
 def test_unauthorized_drafts_guard_and_invalid_questions_never_invoke_model(client, monkeypatch):
@@ -220,3 +242,59 @@ def test_faq_authenticates_and_bypasses_llm_and_inference_limits(client, monkeyp
         client.repository.get_revision.return_value = record
         assert client.get(path, headers=token).status_code == 404
     assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "choice",
+    [
+        None,
+        {"ai": False},
+        {"collection": False},
+        {"notice_version": "old"},
+        {"ai_notice_version": None},
+        {"ai_notice_version": "0" * 64},
+    ],
+)
+def test_ai_consent_denial_never_reaches_model_or_rate_limit(client, monkeypatch, choice):
+    login(client)
+    model, throttle = Mock(), Mock()
+    monkeypatch.setattr(public, "answer_policy_question", model)
+    monkeypatch.setattr(client.app.state.auth_service, "throttle", throttle)
+    with client.app.state.auth_service.engine.begin() as connection:
+        condition = auth_consents.c.account_id == "private-id-1"
+        connection.execute(
+            delete(auth_consents).where(condition)
+            if choice is None
+            else update(auth_consents).where(condition).values(**choice)
+        )
+    response = client.post("/v1/assistant/questions", json=BODY)
+    assert response.status_code == 403
+    assert "개인정보 처리 안내 및 동의" in response.json()["detail"]
+    model.assert_not_called()
+    throttle.assert_not_called()
+    client.repository.get_revision.assert_not_called()
+
+
+def test_changed_ai_recipient_requires_new_consent_and_keeps_faqs_available(client, monkeypatch):
+    login(client)
+    model = Mock()
+    monkeypatch.setattr(public, "answer_policy_question", model)
+    client.app.state.settings.privacy_ai_provider = "변경된 테스트 수탁자"
+    assert client.post("/v1/assistant/questions", json=BODY).status_code == 403
+    assert client.get("/v1/assistant/faqs?revision_id=" + REVISION).status_code == 200
+    model.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "configuration",
+    [{"privacy_ai_enabled": False}, {"privacy_ai_retention": ""}],
+)
+def test_pending_ai_configuration_blocks_model_but_keeps_faqs(client, monkeypatch, configuration):
+    login(client)
+    model = Mock()
+    monkeypatch.setattr(public, "answer_policy_question", model)
+    for key, value in configuration.items():
+        setattr(client.app.state.settings, key, value)
+    assert client.post("/v1/assistant/questions", json=BODY).status_code == 503
+    assert client.get("/v1/assistant/faqs?revision_id=" + REVISION).status_code == 200
+    model.assert_not_called()

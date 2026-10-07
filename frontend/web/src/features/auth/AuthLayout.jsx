@@ -1,4 +1,5 @@
 import Icon from '../../shared/ui/Icon.jsx';
+import PrivacyPolicyAccess from './PrivacyPolicyAccess.jsx';
 
 export default function AuthLayout({ type, title, description, children }) {
   return (
@@ -36,6 +37,7 @@ export default function AuthLayout({ type, title, description, children }) {
             <p>{description}</p>
           </header>
           {children}
+          <PrivacyPolicyAccess />
         </div>
       </div>
     </section>

@@ -108,7 +108,7 @@ test('API sends the search, region and audience together and omits only default 
   });
   assert.deepEqual(Object.fromEntries(calls[0]), {
     limit: '6',
-    sort: 'recent',
+    sort: 'popular',
     q: '돌봄 지원',
     category: '건강·돌봄',
     region: '충북',
@@ -122,7 +122,7 @@ test('API sends the search, region and audience together and omits only default 
   });
   assert.deepEqual(Object.fromEntries(calls[1]), {
     limit: '6',
-    sort: 'recent',
+    sort: 'popular',
   });
 });
 test('policy response validation and safe source links', async () => {
@@ -171,10 +171,16 @@ test('recommendation endpoint posts sanitized profile and renders server reasons
     mode: 'api',
     request: async (path, options) => {
       call = { path, ...options };
-      return { items: [{ policy, reason: '서버 추천 이유' }], summary: '서버 요약' };
+      return {
+        items: [{ policy, reason: '서버 추천 이유' }],
+        summary: '서버 요약',
+      };
     },
   });
-  const result = await repository.recommend({ ...defaultProfile, password: 'excluded' });
+  const result = await repository.recommend({
+    ...defaultProfile,
+    password: 'excluded',
+  });
   assert.equal(call.path, '/v1/recommendations');
   assert.equal(call.method, 'POST');
   assert.equal(call.body.limit, 3);
@@ -213,7 +219,10 @@ test('HTTP client sends JSON with no credentials and converts HTTP/JSON/network 
       return Response.json({ ok: true });
     },
   });
-  await request('/v1/recommendations', { method: 'POST', body: { profile: {} } });
+  await request('/v1/recommendations', {
+    method: 'POST',
+    body: { profile: {} },
+  });
   assert.equal(captured.url, '/api/v1/recommendations');
   assert.equal(captured.credentials, 'omit');
   assert.deepEqual(JSON.parse(captured.body), { profile: {} });
@@ -237,14 +246,19 @@ test('HTTP timeout and cancellation are distinct', async () => {
   const fetchImpl = (_, { signal }) =>
     new Promise((resolve, reject) => {
       if (signal.aborted) reject(new Error('aborted'));
-      else signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      else
+        signal.addEventListener('abort', () => reject(new Error('aborted')), {
+          once: true,
+        });
     });
   await assert.rejects(
     createHttpClient({ fetchImpl, timeout: 5 })('/test'),
     (err) => err.code === 'timeout',
   );
   const controller = new AbortController();
-  const pending = createHttpClient({ fetchImpl })('/test', { signal: controller.signal });
+  const pending = createHttpClient({ fetchImpl })('/test', {
+    signal: controller.signal,
+  });
   controller.abort();
   await assert.rejects(pending, (err) => err.code === 'aborted');
 });

@@ -12,7 +12,7 @@ from app.main import create_app
 from app.modules.auth.models import accounts, sessions
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import password_hash
-from tests.email_helpers import verify_email
+from tests.email_helpers import SIGNUP_CONSENT, verify_email
 
 HEADERS = {"X-Auth-Request": "1"}
 PHONE = "01012345678"
@@ -43,6 +43,7 @@ def signup_body(**overrides):
         "age": 25,
         "gender": "undisclosed",
         "region": "서울",
+        "consent": SIGNUP_CONSENT.copy(),
         **overrides,
     }
 
@@ -333,10 +334,12 @@ def test_wildcard_cors_rejected():
         Settings(_env_file=None, cors_origins=["*"])
 
 
-def test_signup_requires_name(client):
+def test_signup_can_skip_optional_profile_fields(client):
     body = signup_body()
-    del body["name"]
-    assert client.post("/v1/auth/signup", json=body).status_code == 422
+    for field in ("name", "age", "gender", "region"):
+        del body[field]
+    verify_email(client)
+    assert client.post("/v1/auth/signup", json=body).status_code == 201
 
 
 def test_legacy_account_upgrade_preserves_login_and_can_be_repeated(tmp_path):

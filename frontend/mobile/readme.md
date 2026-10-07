@@ -71,7 +71,7 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 | `src/features/home/HomeBanner.tsx` | 복지·중위소득·계정 이미지 배너, 스와이프/이전/다음, 기능 진입 |
 | `src/components/ui.tsx` | 모든 화면에서 스크롤 밖에 고정한 쉬운 화면 스위치와 공통 UI |
 | `src/app/policies/` | 목록·검색·분야/지역·정렬·페이지 이동, 별도 상세 경로·공식 링크 |
-| `src/features/policies/model.js` | 공개 API의 공고/페이지 검증, 필터 쿼리 생성, HTTP(S) 원문 링크 검사 |
+| `src/features/policies/model.js` | `policyPath({query?,category?,region?,sort?,cursor?,limit?})` → 공고 조회 경로 문자열(기본 `sort="popular"`, `limit=6`). 공고/페이지 검증·분야 목록·HTTP(S) 링크 검사. [함수 계약](src/features/policies/readme.md) |
 | `src/services/client.js` | `resolveApiUrl(value,development)` → 검증된 절대 주소. `createClient({baseUrl,fetchImpl?,timeoutMs?})` → HTTP 요청 함수. 외부 HTTP 호출, 15초 제한, 취소·상태 오류 |
 | `src/services/api.js` | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile/listPolicies/getPolicy. 금융·공고 응답 검증, 공고는 비회원 요청 |
 | `src/services/session.js` | `createSession({api,storage,baseUrl,now?})` → subscribe/getSnapshot/restore/login/logout/invalidate. 저장소·서버 호출을 주입하고 세션 상태 관리 |
@@ -98,6 +98,8 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 ## 공고 조회
 
 홈의 `공고 찾아보기` 또는 `공고` 탭을 사용합니다. 웹과 같은 `GET /v1/policies`, `GET /v1/policies/{id}`에 연결하며 LLM을 호출하지 않습니다. 기본 6개/쉬운 화면 3개씩 표시하고 모드·검색 조건 변경 시 첫 페이지로 돌아갑니다. 빈 목록·통신 실패·재시도·상세 404를 구분합니다. 원문 링크는 인증정보 없는 HTTP(S)만 열고 금융/회원 토큰을 보내지 않습니다.
+
+2026-10-07: 첫 조회와 검색 조건 초기화는 출처 사이트 누적 조회수가 높은 공고부터 보여주는 `popular` 정렬을 사용합니다. 검색 조건의 정렬에서 ‘인기순 (조회수)’, ‘최근 등록순’, ‘이름순’을 선택할 수 있습니다. 분야 목록에는 `농림축산·어업`, `사업·창업`, `기타`를 포함하며 서버가 반환한 카테고리를 그대로 표시합니다. 이 변경은 앱 소스에 적용되므로 설치된 독립 APK 반영에는 새 번들이 필요합니다.
 
 공고 검증에는 MySQL을 사용하는 최신 백엔드가 필요합니다. `tests/serve-api.py`의 격리 금융/인증 서버에는 실제 공고 DB가 없습니다. 이번 실행은 backend에서 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8771`로 연 최신 서버에 앱을 연결했습니다. 브라우저도 확인하려면 시작 전 `CORS_ORIGINS`에 `http://localhost:8081`, `http://127.0.0.1:8081`을 JSON 배열로 지정합니다. 모바일은 `npm run android:local -- -ApiBaseUrl http://127.0.0.1:8771`을 사용합니다.
 

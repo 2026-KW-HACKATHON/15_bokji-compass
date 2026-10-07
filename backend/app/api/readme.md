@@ -1,5 +1,10 @@
 # HTTP API 경계
 
+2026-10-07 서버 관리자 공고 편집: GET `/v1/server-admin/policies`,
+GET/PATCH `/v1/server-admin/policies/{policy_key}`. 최고 관리자·같은 출처·전용 쿠키를 요구합니다.
+PATCH는 1MiB 본문, 엄격한 입력 검증·version 충돌 409를 적용합니다.
+[편집 항목·공개 상태·개정 보존 계약](../../../api-management.md).
+
 현재 상태: 상태 점검, 인증, 금융 계산·저장, 공개 공고 목록·상세·검색, 회원 공고 질문과
 DB 프로필 기반 조건 비교 추천 API 구현.
 
@@ -32,6 +37,11 @@ status/changes/candidates GET이 구현되어 있습니다. POST/PATCH는 같은
 조회합니다. 제어·수집 충돌은 409, 관리되지 않는 실행 환경·기동 장애는 503으로 안내합니다.
 
 `policies.router`는 MySQL의 공개된 최신 공고 목록·상세·검색을 제공합니다.
+GET `/v1/policies`의 `sort`는 `popular|recent|name`이며 기본값은 `popular`입니다.
+필터를 적용한 전체 공고를 공급자 누적 조회수 내림차순으로 정렬한 뒤 페이지를 반환합니다.
+목록·상세·캘린더 공고는 `popularity: {views,source,basis,asOf} | null`을 포함합니다.
+조회수가 같으면 공개 개정 생성일 내림차순·정책 ID 오름차순을 사용하며, 조회수 미확인
+공고는 확인된 0회 뒤에 최신순으로 표시합니다. [상세 계약](../../docs/policy-popularity.md).
 `assistant.router`는 로그인 회원의 공고 질문을 받으며 최소 프로필과 공개 원문으로 답변합니다.
 `members.get_member`는 금융/질문 API의 웹 쿠키·모바일 Bearer 검증을 공유합니다.
 [공고/질문 계약과 제한](../../docs/policy-storage.md), `test_policy_api.py`를 참고하세요.
@@ -57,3 +67,11 @@ status/changes/candidates GET이 구현되어 있습니다. POST/PATCH는 같은
 최신 공개 공고 조건을 비교합니다. 비회원 요청 프로필도 지원합니다. 금융정보는 명시적으로
 전달하거나 본인 저장 정보 사용을 선택할 때에만 읽습니다. 자격 확정/LLM 호출/저장은 없습니다.
 [계약·검증 범위](../../docs/member-policy-matching.md).
+
+2026-10-07: 비회원도 `{}`로 공개 추천 안내를 요청할 수 있습니다. 프로필 유무와 모든
+필드의 완성 여부 대신, 각 공고의 실제 필수 조건을 비교할 수 있는지 확인합니다.
+정보가 부족하면 원문상 일반 대상이며 현재 신청 가능한 공고만 보여주고, 그런 공고가
+없으면 정보 입력을 안내합니다. 응답에 `mode`, `profile_sufficient`, `guidance`,
+`missing_fields`를 추가합니다. `popular`는 실제 공급자 누적 조회수가 있는 일반 공고를
+선택했을 때만 사용합니다. [추천 안전 기준](../../docs/recommendation-safety.md),
+[누적 조회수 연결](../../docs/policy-popularity.md).

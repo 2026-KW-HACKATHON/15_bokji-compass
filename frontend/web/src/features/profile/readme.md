@@ -12,7 +12,7 @@
 
 - defaultProfile: {region,ageBand,occupation,household,interests}. 미선택은 선택하지 않음.
 - isProfile(value) → boolean. 선택값/배열 손상 검증.
-- recommendationProfile(value) → 선택 필드만 복사한 전송 모델. 미선택 null·중복 관심사 제거. 잘못된 값은 throw.
+- recommendationProfile(value) → 선택 필드만 복사한 전송 모델. `null`/`undefined`는 일반 공고 요청용 `{}`를 반환합니다. 미선택 null·중복 관심사 제거. 그 외 잘못된 값은 throw. 반환된 객체가 존재한다는 사실만으로 맞춤 추천에 충분한 정보라고 판단하지 않습니다.
 - ProfileForm({profile,onSave,easy,remembered,mode,section,onCancel}) → React 폼. onSave(profile,remember) 호출. `section`이 있으면 해당 카테고리만 편집하고 저장·취소를 제공합니다. 모드 전환 시 입력과 기억하기 선택을 보존합니다.
   폼 자체는 저장/네트워크를 수행하지 않습니다. app이 메모리 보관 또는 기억하기 선택 시 localStorage 저장 후 추천 요청합니다. 자격 판정용 사실 확정이 아닙니다.
   검증 범위: Node 모델 테스트, 브라우저 한 폼 제출·추천 3개 표시·모드 양방향 입력 보존. 현재 확인 결과와 미실행 E2E는 [쉬운 화면 문서](../../../../docs/senior-mode.md)에서 구분합니다.

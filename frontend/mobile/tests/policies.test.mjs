@@ -29,6 +29,15 @@ test("policy filters are encoded, unfiltered values omitted, cursor preserved", 
   assert.equal(params.get("cursor"), "6");
   assert.equal(params.get("limit"), "3");
   assert.equal(params.get("region"), "서울");
+  assert.equal(params.get("sort"), "popular");
+  assert.equal(
+    new URL("https://example.test" + policyPath()).searchParams.get("sort"),
+    "popular",
+  );
+  assert.equal(
+    new URL("https://example.test" + policyPath({ sort: "recent" })).searchParams.get("sort"),
+    "recent",
+  );
   assert.equal(
     new URL("https://example.test" + policyPath()).searchParams.has("category"),
     false,

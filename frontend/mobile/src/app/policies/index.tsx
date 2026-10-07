@@ -21,7 +21,12 @@ const initialFilters = {
   query: "",
   category: "전체",
   region: "전국",
-  sort: "recent",
+  sort: "popular",
+};
+const sortLabels: Record<string, string> = {
+  popular: "인기순 (조회수)",
+  recent: "최근 등록순",
+  name: "이름순",
 };
 type Page = ReturnType<typeof parsePolicyPage>;
 
@@ -95,13 +100,7 @@ export default function Policies() {
             <Pressable
               key={value}
               accessibilityRole="radio"
-              accessibilityLabel={
-                value === "recent"
-                  ? "최근 등록순"
-                  : value === "name"
-                    ? "이름순"
-                    : value
-              }
+              accessibilityLabel={sortLabels[value] ?? value}
               accessibilityState={{ checked: filters[key] === value }}
               onPress={() => change(key, value)}
               style={{
@@ -116,11 +115,7 @@ export default function Policies() {
               }}
             >
               <Text style={{ color: colors.ink, fontSize: easy ? 20 : 16 }}>
-                {value === "recent"
-                  ? "최근 등록순"
-                  : value === "name"
-                    ? "이름순"
-                    : value}
+                {sortLabels[value] ?? value}
               </Text>
             </Pressable>
           ))}
@@ -153,14 +148,14 @@ export default function Policies() {
         {filters.category === "전체" ? "모든 분야" : filters.category} ·{" "}
         {filters.region}
         {!easy
-          ? ` · ${filters.sort === "recent" ? "최근 등록순" : "이름순"}`
+          ? ` · ${sortLabels[filters.sort]}`
           : ""}
       </Copy>
       {showFilters && (
         <Card>
           {choices("분야", categories, "category")}
           {choices("지역", regions, "region")}
-          {choices("정렬", ["recent", "name"], "sort")}
+          {choices("정렬", ["popular", "recent", "name"], "sort")}
           <Button secondary label="검색 조건 지우기" onPress={reset} />
         </Card>
       )}

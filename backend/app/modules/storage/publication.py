@@ -8,6 +8,7 @@ from sqlalchemy import MetaData, Table, func, insert, select, text, update
 
 from app.modules.storage.application_dates import resolved_application_period
 from app.modules.storage.catalog import card
+from app.modules.storage.categories import effective_category
 from app.modules.storage.repository import validate_draft
 
 
@@ -17,6 +18,15 @@ class PublicationConflict(ValueError):
 
 def events_table(repository):
     return Table("policy_publication_events", MetaData(), autoload_with=repository.engine)
+
+
+def has_manual_edits(repository, connection, policy_key):
+    documents = repository.tables["condition_documents"]
+    details = repository.tables["policy_revision_details"]
+    return any(value.get("origin") == "server_admin_edit" for value in connection.scalars(
+        select(details.c.processing_json).join(documents,
+            documents.c.revision_id == details.c.revision_id).where(
+            documents.c.policy_key == policy_key)))
 
 
 def revision_query(repository):
@@ -50,7 +60,7 @@ def review_summary(record):
         warnings.append("저장 결과 검증에 실패하여 공개할 수 없습니다.")
     return {
         "revisionId": record["revision_id"], "policyKey": record["policy_key"],
-        "title": record["title"], "category": record["category"] or "기타",
+        "title": record["title"], "category": effective_category(record),
         "reviewStatus": record["review_status"], "createdAt": record["created_at"].isoformat(),
         "matchingEnabled": bool(record["matching_enabled"]),
         "canPublish": valid and record["review_status"] in {"draft", "reviewed", "published"},
@@ -111,6 +121,8 @@ def change_publication(repository, connection, events, revision_id, *, policy_ke
     if action not in {"publish", "unpublish"} or not note.strip() or len(note) > 1000:
         raise ValueError("Invalid publication request")
     documents = repository.tables["condition_documents"]
+    if require_latest and has_manual_edits(repository, connection, policy_key):
+        raise PublicationConflict("관리자 수정 공고는 새 AI 결과를 자동 공개하지 않습니다.")
     siblings = connection.execute(select(documents).where(
         documents.c.policy_key == policy_key).order_by(
         documents.c.revision_id).with_for_update()).mappings().all()

@@ -31,6 +31,7 @@ from app.modules.auth.models import accounts, sessions
 from app.modules.auth.service import digest
 from app.modules.finance.schema import initialize_finance_schema
 from app.modules.finance.storage import FinancialProfileStore, financial_profiles
+from app.modules.ingestion.models import records as collection_records
 from app.modules.matching import public
 from app.modules.normalization.raw import normalize_record
 from app.modules.regions.public import default_catalog
@@ -59,13 +60,15 @@ def leaf(identifier):
     return {"op": "condition", "condition_id": identifier, "children": [], "reason": None}
 
 
-def record(conditions=None, *, key="fixture", enabled=True, logic=None, coverage="complete"):
+def record(conditions=None, *, key="fixture", enabled=True, logic=None, coverage="complete",
+           title="검증용 공고", text="조건 검증", period="상시", category="주거"):
     conditions = conditions or [condition()]
-    source = normalize_record({"document_id": key, "title": "검증용 공고", "text": "조건 검증"})
+    source = normalize_record({"document_id": key, "title": title, "text": text,
+                               "application_period": period})
     return {
         "revision_id": "revision-" + key, "policy_key": source.policy_key,
         "created_at": datetime(2026, 10, 5), "source_json": source.model_dump(),
-        "draft_json": {}, "title": source.title, "category": "주거",
+        "draft_json": {}, "title": source.title, "category": category,
         "review_status": "published", "matching_enabled": enabled,
         "canonical_json": {
             "policy_key": source.policy_key, "region_snapshot_version": default_catalog().version,
@@ -217,11 +220,187 @@ def test_real_query_uses_latest_published_and_no_drafts_expired_or_invalid(repos
     broken["canonical_json"]["conditions"][0]["evidence_quote"] = "없는 원문"
     save_record(repository, broken)
     result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
-    assert len(result["items"]) == 1
-    item = result["items"][0]
-    assert item["policy"]["revisionId"] == "new"
-    assert item["matching"]["status"] == "needs_review"
+    assert result["items"] == []
+    assert result["mode"] == "profile_required"
+    assert result["profile_sufficient"] is False
     assert "검증을 통과하지" in result["summary"]
+
+
+def unrestricted(*, identifier="any"):
+    return condition(identifier=identifier, state=0).model_copy(
+        update={"evidence_quote": "국민 누구나 신청 가능"})
+
+
+def general_record(*, key="general", **kwargs):
+    return record([unrestricted()], key=key, text="조건 검증\n지원 대상: 국민 누구나 신청 가능",
+                  category="문화", **kwargs)
+
+
+def test_sparse_profile_gets_only_source_confirmed_broad_current_notices(repository):
+    save_record(repository, general_record())
+    for key, title in (("care", "자립준비청년 지원"), ("disability", "발달장애인 지원"),
+                       ("parent", "청소년 미혼 한부모 지원")):
+        save_record(repository, record(key=key, title=title))
+    result = public.recommend(repository, public.MatchingFacts(), today=TODAY)
+    assert [item["policy"]["id"] for item in result["items"]] == ["notice:general"]
+    assert result["mode"] == "general" and result["profile_sufficient"] is False
+    assert "정보가 부족" in result["guidance"] and "정보를 더 입력" in result["guidance"]
+    assert "care_leaver_status" in result["missing_fields"]
+    assert "일치" not in result["items"][0]["reason"]
+
+
+def test_one_relevant_fact_is_enough_and_interests_alone_are_not(repository):
+    save_record(repository, record())
+    preference = RecommendationProfile(interests=["주거"])
+    missing = public.recommend(repository, public.MatchingFacts(), preference, today=TODAY)
+    assert missing["items"] == [] and missing["profile_sufficient"] is False
+    assert missing["missing_fields"] == ["age"]
+    matched = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)),
+                               preference, today=TODAY)
+    assert matched["mode"] == "personalized" and matched["profile_sufficient"] is True
+    assert len(matched["items"]) == 1 and matched["missing_fields"] == []
+    rejected = public.recommend(repository, public.MatchingFacts(age_range=(15, 15)),
+                                preference, today=TODAY)
+    assert rejected["mode"] == "personalized" and rejected["profile_sufficient"] is True
+    assert rejected["items"] == [] and rejected["missing_fields"] == []
+    assert "조건에 맞는" in rejected["guidance"] and "정보가 부족" not in rejected["guidance"]
+
+
+def test_unrestricted_age_is_not_whole_audience_evidence_or_personalization(repository):
+    save_record(repository, record([condition(state=0)]))
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert result["items"] == [] and result["profile_sufficient"] is False
+    assert result["mode"] == "profile_required"
+    save_record(repository, general_record())
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert result["mode"] == "general" and result["profile_sufficient"] is False
+
+
+def test_specialized_source_cannot_be_recommended_from_age_match_alone(repository):
+    save_record(repository, record(title="자립청소년 정착지원"))
+    save_record(repository, record(key="parent", title="청소년 미혼 한부모 자립지원"))
+    save_record(repository, record(key="disability", title="발달장애인 주간활동서비스"))
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert result["items"] == []
+    assert {"care_leaver_status", "single_parent_status", "disability_registered"} <= set(
+        result["missing_fields"])
+
+
+def test_culture_and_transport_titles_do_not_remove_income_or_region_requirements(repository):
+    row = general_record(key="income", title="문화비 지원")
+    row["source_json"]["fields"]["eligibility"] = "국민 누구나 신청 가능, 기준중위소득 100% 이하"
+    save_record(repository, row)
+    row = general_record(key="local", title="교통비 지원")
+    row["source_json"]["fields"]["eligibility"] = "서울시민 누구나 신청 가능"
+    save_record(repository, row)
+    result = public.recommend(repository, public.MatchingFacts(), today=TODAY)
+    assert result["items"] == []
+    assert {"income", "residence_region"} <= set(result["missing_fields"])
+
+
+def test_negated_broad_audience_and_district_only_audience_are_not_general(repository):
+    denied = unrestricted().model_copy(update={"evidence_quote": "전 국민 대상"})
+    save_record(repository, record([denied], key="denied",
+                                   text="지원 대상: 전 국민 대상이 아닙니다"))
+    save_record(repository, record([unrestricted()], key="negative",
+                                   text="국민 누구나 신청 가능하지는 않습니다"))
+    local = general_record(key="district")
+    local["source_json"]["fields"]["eligibility"] = "노원구민 누구나 신청 가능"
+    save_record(repository, local)
+    result = public.recommend(repository, public.MatchingFacts(), today=TODAY)
+    assert result["items"] == [] and "residence_region" in result["missing_fields"]
+
+
+def test_or_branch_and_negated_exclusion_preserve_decisive_user_facts(repository):
+    disability = condition("disability_registered", identifier="disabled", operator="EQ",
+                           value={"kind": "BOOLEAN", "boolean": True})
+    either = {"op": "any", "condition_id": None, "reason": None,
+              "children": [leaf("c1"), leaf("disabled")]}
+    save_record(repository, record([condition(), disability], key="or", logic=either))
+    excluded = condition(role="exclusion", value={"kind": "DECIMAL", "number": "65"})
+    negated = {"op": "not", "condition_id": None, "reason": None, "children": [leaf("c1")]}
+    save_record(repository, record([excluded], key="not", logic=negated))
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert {item["policy"]["id"] for item in result["items"]} == {"notice:or", "notice:not"}
+    assert result["profile_sufficient"] is True
+    for item in result["items"]:
+        assert "장애" not in item["reason"] and "나이" in item["reason"]
+
+
+def test_closed_future_unknown_and_exclusive_application_periods_are_excluded(repository):
+    for key, period in (("closed", "2026-01-01 ~ 2026-01-31"),
+                        ("future", "2026-11-01 ~ 2026-11-30"), ("unknown", "기관 문의")):
+        save_record(repository, general_record(key=key, period=period))
+    application = condition("application_period", identifier="period", role="application",
+                            operator="RANGE", value={
+                                "kind": "DATE_RANGE", "date_min": TODAY.isoformat(),
+                                "date_max": "2026-11-30", "min_inclusive": False,
+                                "max_inclusive": True,
+                            })
+    save_record(repository, record([condition(), application], key="exclusive"))
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert result["items"] == [] and result["mode"] == "profile_required"
+
+
+def test_unknown_income_and_disabled_general_notice_are_never_weak_fallbacks(repository):
+    income = condition("monthly_income", identifier="income", value={
+        "kind": "DECIMAL", "number": "2000000"}, operator="LTE")
+    both = {"op": "all", "condition_id": None, "reason": None,
+            "children": [leaf("c1"), leaf("income")]}
+    save_record(repository, record([condition(), income], key="income", logic=both))
+    save_record(repository, general_record(key="disabled", enabled=False))
+    result = public.recommend(repository, public.MatchingFacts(age_range=(27, 27)), today=TODAY)
+    assert result["items"] == [] and "monthly_income" in result["missing_fields"]
+
+
+def test_provider_interest_only_ranks_safe_candidates_and_budget_exhaustion_excludes(
+        repository, monkeypatch):
+    for key in ("low", "high", "exhausted"):
+        save_record(repository, general_record(key=key))
+    save_record(repository, record(key="special", title="자립준비청년 지원"))
+    counts = {"notice:" + key: {"views": views, "source": "gov24",
+                               "basis": "provider_cumulative_views", "asOf": None}
+              for key, views in (("low", 10), ("high", 30), ("exhausted", 50), ("special", 1000))}
+    monkeypatch.setattr(public, "load_popularity", lambda *_: counts)
+    def signals(row, *, popularity=None):
+        result = {"popularity": popularity}
+        if row["policy_key"] == "notice:exhausted":
+            result["budget"] = {"usedPercent": 100}
+        return result
+    monkeypatch.setattr(public, "policy_signals", signals)
+    result = public.recommend(repository, public.MatchingFacts(), today=TODAY)
+    assert [item["policy"]["id"] for item in result["items"]] == ["notice:high", "notice:low"]
+    assert result["mode"] == "popular" and result["profile_sufficient"] is False
+    assert "누적 조회수" in result["guidance"]
+
+
+def test_real_collection_listings_flow_into_safe_recommendation_ranking_and_budget(repository):
+    collection_records.create(repository.engine)
+    for key, views, budget in (("low", "10", ""), ("high", "1,030", "예산 소진율: 72.5%"),
+                               ("exhausted", "10000", "예산 소진율: 100%")):
+        row = general_record(key=key)
+        source = normalize_record({"서비스ID": key, "서비스명": "문화비 지원",
+                                   "지원대상": "국민 누구나 신청 가능", "지원내용": budget,
+                                   "신청기한": "상시", "상세조회URL": "https://www.gov.kr/notice"})
+        row.update(policy_key=source.policy_key, source_json=source.model_dump(),
+                   title=source.title)
+        row["canonical_json"]["policy_key"] = source.policy_key
+        row["canonical_json"]["conditions"][0]["source_field"] = "eligibility"
+        save_record(repository, row)
+        with repository.engine.begin() as connection:
+            connection.execute(insert(collection_records).values(
+                policy_key=source.policy_key, provider="gov24", external_id=key,
+                listing_json={"조회수": views, "_views_observed_at": 1791200000},
+                last_seen_at=1791200000))
+    result = public.recommend(repository, public.MatchingFacts(), today=TODAY)
+    assert [item["policy"]["id"] for item in result["items"]] == ["gov24:high", "gov24:low"]
+    assert result["mode"] == "popular"
+    policy = result["items"][0]["policy"]
+    assert policy["popularity"]["views"] == 1030
+    assert policy["popularity"]["basis"] == "provider_cumulative_views"
+    assert policy["popularity"]["asOf"] is not None
+    assert policy["budget"]["usedPercent"] == 72.5
+    assert policy["budget"]["evidence"] == "예산 소진율: 72.5%"
 
 
 @pytest.fixture
@@ -273,7 +452,7 @@ def test_guest_requests_do_not_create_account_db_and_invalid_credentials_do_not_
     path = tmp_path / "never-created.sqlite3"
     app = create_app(Settings(_env_file=None, db_enabled=False, auth_sqlite_path=path))
     with TestClient(app, headers=HEADERS) as client:
-        assert client.post("/v1/recommendations", json={}).status_code == 401
+        assert client.post("/v1/recommendations", json={}).status_code == 503
         assert client.post("/v1/recommendations", json={"profile": {}}).status_code == 503
         assert not path.exists()
 

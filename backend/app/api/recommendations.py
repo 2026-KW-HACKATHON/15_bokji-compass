@@ -29,14 +29,14 @@ OptionalMember = Annotated[dict | None, Depends(optional_member)]
 
 @router.post("")
 def recommendations(data: RecommendationInput, request: Request, member: OptionalMember):
-    if member is None and data.profile is None:
-        raise HTTPException(401, "로그인하거나 추천에 필요한 정보를 입력해 주세요.")
     if data.financialProfile is not None and data.use_saved_financial_profile:
         raise HTTPException(422, "금융정보는 직접 입력 또는 저장 정보 중 하나를 선택해 주세요.")
     if data.use_saved_financial_profile and member is None:
         raise HTTPException(401, "저장한 금융정보를 사용하려면 로그인이 필요해요.")
     if member is not None:
-        get_service(request).throttle("recommendations:" + member["id"], 20, 60)
+        get_service(request).throttle(
+            "recommendations:" + member["id"], 20, 60, account_id=member["id"]
+        )
     repository = get_repository(request)
     financial = data.financialProfile
     if data.use_saved_financial_profile:

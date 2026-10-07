@@ -8,7 +8,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from app.contracts.parsing import SourcePolicy
 
 HASH_VERSION = "collection-content-v1"
-VOLATILE = {"collected_at", "inqNum", "조회수", "viewCount", "view_count"}
+VOLATILE = {"collected_at", "inqNum", "조회수", "viewCount", "view_count",
+            "_views_observed_at"}
 
 
 def digest(value) -> str:

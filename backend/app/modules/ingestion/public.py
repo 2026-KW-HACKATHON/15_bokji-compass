@@ -17,8 +17,15 @@ from app.core.config import BACKEND_ROOT
 from app.modules.collectors.bokjiro_services import fetch_bokjiro_detail_page, fetch_bokjiro_page
 from app.modules.collectors.data_go_kr import CollectionAPIError, CollectionError
 from app.modules.collectors.gov24_services import fetch_gov24_page
+from app.modules.collectors.kwangwoon_pages import (
+    KWANGWOON_PAGE_SIZE,
+    fetch_kwangwoon_notice_detail,
+    fetch_kwangwoon_page,
+    is_kwangwoon_notice_url,
+)
 from app.modules.discovery.public import discover
 from app.modules.ingestion import models as m
+from app.modules.ingestion.popularity import load_popularity as load_popularity
 from app.modules.ingestion.profiles import runtime_settings
 from app.modules.ingestion.repository import LeaseLost, PageSizeMismatch
 from app.modules.ingestion.web import fetch_notice
@@ -166,12 +173,20 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
     budget = ServerModelBudget(settings, store, started + seconds)
     http = HttpBudget(settings, store, budget.deadline)
     adapters = adapters or {"gov24": fetch_gov24_page, "bokjiro": fetch_bokjiro_page,
-                           "bokjiro_detail": fetch_bokjiro_detail_page}
+                           "bokjiro_detail": fetch_bokjiro_detail_page,
+                           "kwangwoon": fetch_kwangwoon_page}
     use_batch = parser is None and settings.ingestion_ai_batch_size > 1
     parser = parser or parse_policy
     discovery_fn, notice_fetcher = discovery_fn or discover, notice_fetcher or fetch_notice
     raw_root = raw_root or BACKEND_ROOT / "data/collection/raw"
     handled = 0
+
+    def model_budget_reached():
+        return report["status"] == "budget_reached" and report.get("reason") in {
+            "model_calls", "daily_model_calls", "tokens"}
+
+    def collection_budget_reached():
+        return report["status"] == "budget_reached" and not model_budget_reached()
 
     def count(result):
         for name in ("new", "changed", "unchanged"):
@@ -256,7 +271,8 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
             budget.check()
             available_kinds = tuple(kind for kind in (kinds or ("detail", "notice", "parse"))
                 if not (kind == "detail" and "bokjiro" in http.unavailable)
-                and not (kind == "notice" and "notice" in http.unavailable))
+                and not (kind == "notice" and "notice" in http.unavailable)
+                and not (kind == "parse" and model_budget_reached()))
             if not available_kinds:
                 return
             job = store.claim(token, time.time(), max(1, budget.deadline - time.monotonic() + 30),
@@ -277,17 +293,24 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                     count(store.complete_observation(job, source, row, signature, time.time(),
                         settings.ingestion_recheck_seconds, raw_path=raw_path))
                 elif job["kind"] == "notice":
-                    row, raw = notice_fetcher(job["payload"]["url"],
+                    kwangwoon = is_kwangwoon_notice_url(job["payload"]["url"])
+                    fetcher = (adapters.get("kwangwoon_detail", fetch_kwangwoon_notice_detail)
+                               if kwangwoon else notice_fetcher)
+                    row, raw = fetcher(job["payload"]["url"],
                                              settings.ingestion_discovery_domains, http)
                     row["document_id"] = job["policy_key"].split(":", 1)[1]
                     period = application_period({"text": row["text"]})
                     if period:
                         row["application_period"] = period
                     proposed = job["payload"]["candidate"]["organization"]
-                    row["organization"] = proposed if proposed in row["text"] else ""
+                    row["organization"] = "광운대학교" if kwangwoon else (
+                        proposed if proposed in row["text"] else "")
                     source = normalize_record(row)
                     source.fields["attachment_status"] = row["attachment_status"]
                     source.fields["attachment_urls"] = row["attachments"]
+                    if row.get("image_urls"):
+                        source.fields["image_urls"] = row["image_urls"]
+                        source.fields["image_status"] = row["image_status"]
                     raw_path = save_raw(raw, "notice", raw_root)
                     count(store.complete_observation(job, source, row, signature, time.time(),
                         settings.ingestion_recheck_seconds, raw_path=raw_path))
@@ -301,7 +324,7 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                                 settings.ingestion_ai_batch_input_chars,
                                 settings.parsing_max_input_chars):
                         process_batch(job)
-                        if report["status"] == "budget_reached":
+                        if collection_budget_reached():
                             return
                         continue
                     def checkpoint(value):
@@ -323,6 +346,8 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                     continue
                 report["status"] = "budget_reached"
                 report["reason"] = str(error)
+                if model_budget_reached():
+                    continue
                 return
             except LeaseLost:
                 raise
@@ -358,6 +383,8 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
         elif settings.ingestion_profile == "custom":
             process_jobs()
         scans = []
+        if settings.ingestion_kwangwoon_enabled and "kwangwoon" in adapters:
+            scans.append(("kwangwoon", "list"))
         if settings.data_go_kr_api_key.get_secret_value():
             scans.extend(("gov24", endpoint) for endpoint in (
                 "serviceDetail", "serviceList", "supportConditions"))
@@ -375,18 +402,22 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
         while scans and stalled < len(scans):
             provider, endpoint = scans[scan_index % len(scans)]
             scan_index += 1
-            if report["status"] == "budget_reached":
+            if collection_budget_reached():
                 break
-            if report["pages"] >= settings.ingestion_max_pages or (
-                    store.pending_count() + settings.ingestion_page_size >
-                    settings.ingestion_queue_limit):
+            if report["pages"] >= settings.ingestion_max_pages:
                 break
-            budget.check()
-            scan_key = f"scan:{provider}:{endpoint}"
-            if provider in http.unavailable:
+            per_page = (KWANGWOON_PAGE_SIZE if provider == "kwangwoon" else
+                        settings.ingestion_page_size)
+            if store.pending_count() + per_page > settings.ingestion_queue_limit:
                 stalled += 1
                 continue
-            cursor = store.prepare_scan(scan_key, settings.ingestion_page_size,
+            budget.check()
+            scan_key = f"scan:{provider}:{endpoint}"
+            http_provider = "notice" if provider == "kwangwoon" else provider
+            if http_provider in http.unavailable:
+                stalled += 1
+                continue
+            cursor = store.prepare_scan(scan_key, per_page,
                                         time.time(), worker_token=token)
             if cursor.get("next_due_at", 0) > time.time():
                 stalled += 1
@@ -395,18 +426,24 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                 stalled += 1
                 continue
             try:
-                options = http.before(provider)
-                kwargs = {"page": cursor.get("page", 1), "per_page": settings.ingestion_page_size,
-                          "api_key": getattr(settings, "data_go_kr_api_key" if provider == "gov24"
-                                             else "bokjiro_api_key").get_secret_value(), **options}
+                options = http.before(http_provider)
+                kwargs = {"page": cursor.get("page", 1), "per_page": per_page, **options}
+                if provider != "kwangwoon":
+                    kwargs["api_key"] = getattr(settings, "data_go_kr_api_key"
+                        if provider == "gov24" else "bokjiro_api_key").get_secret_value()
                 if provider == "gov24":
                     kwargs["endpoint"] = endpoint
                 page = adapters[provider](**kwargs)
+                if store.pending_count() + len(page.rows) > settings.ingestion_queue_limit:
+                    raise CallBudgetExhausted("queue_limit")
                 raw_path = save_raw(page.raw, f"{provider}-{endpoint}", raw_root)
                 def handle(c, rows, provider=provider, endpoint=endpoint, raw_path=raw_path):
                     outcomes = []
                     for row in rows:
-                        if endpoint == "serviceDetail":
+                        if provider == "kwangwoon":
+                            store.observe_notice_listing(c, row, time.time(),
+                                                         settings.ingestion_recheck_seconds)
+                        elif endpoint == "serviceDetail":
                             source = normalize_record(row)
                             outcomes.append(store.observe_source(
                                 source, row, signature, time.time(),
@@ -441,7 +478,7 @@ def run_tick(settings, store, policy_repository, *, adapters=None, parser=None,
                     "failures": cursor.get("failures", 0) + 1, "error_code": code})
                 report["errors"].append({"source": scan_key, "code": code})
                 stalled += 1
-        if report["status"] != "budget_reached":
+        if not collection_budget_reached():
             if bootstrap:
                 process_jobs(kinds=raw_kinds)
                 collected = bool(scans) and all(

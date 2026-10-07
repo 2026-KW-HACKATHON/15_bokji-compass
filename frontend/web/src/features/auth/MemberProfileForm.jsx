@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { regions } from '../policies/policyModel.js';
 import { authRequest } from './authApi.js';
 import { genders, memberFieldError } from './authFields.js';
+import AccountWithdrawal from './AccountWithdrawal.jsx';
 
 const regionOptions = regions.filter((region) => region !== '전국');
 const draftOf = (user) => ({
@@ -83,119 +84,129 @@ export default function MemberProfileForm({ user, onSaved, setup = false, onCanc
     }
   }
   return (
-    <form
-      className="profile-form member-profile-form"
-      aria-label={setup ? '맞춤 정보 설정' : '회원 정보 수정'}
-      onSubmit={submit}
-      noValidate
-    >
-      <div className="form-intro">
-        <h2>{setup ? '맞춤 복지 정보를 설정할까요?' : '회원 정보 수정'}</h2>
-        <p>
-          {setup
-            ? '나이와 지역을 알려주시면 관련 공고 추천과 질문 답변에 참고해요. 모두 선택 사항이에요.'
-            : '모두 선택 사항이에요. 나이와 지역은 복지 안내에 참고하고, 비워 두면 기본 안내를 제공해요.'}
-        </p>
-      </div>
-      {error && (
-        <p role="alert" ref={errorRef} tabIndex={-1} id="member-error" className="auth-error">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="notice-box">
-          {message}
-        </p>
-      )}
-      <fieldset className="auth-fields" disabled={busy}>
-        <div className="auth-grid">
-          {!setup && (
+    <>
+      <form
+        className="profile-form member-profile-form"
+        aria-label={setup ? '맞춤 정보 설정' : '회원 정보 수정'}
+        onSubmit={submit}
+        noValidate
+      >
+        <div className="form-intro">
+          <h2>{setup ? '맞춤 복지 정보를 설정할까요?' : '회원 정보 수정'}</h2>
+          <p>
+            {setup
+              ? '나이와 지역을 알려주시면 관련 공고 추천과 질문 답변에 참고해요. 모두 선택 사항이에요.'
+              : '모두 선택 사항이에요. 나이와 지역은 복지 안내에 참고하고, 비워 두면 기본 안내를 제공해요.'}
+          </p>
+        </div>
+        {error && (
+          <p role="alert" ref={errorRef} tabIndex={-1} id="member-error" className="auth-error">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p role="status" className="notice-box">
+            {message}
+          </p>
+        )}
+        <fieldset className="auth-fields" disabled={busy}>
+          <div className="auth-grid">
+            {!setup && (
+              <div>
+                <label className="field-label" htmlFor="member-username">
+                  아이디
+                </label>
+                <input id="member-username" value={user.username || '카카오 계정'} readOnly />
+                <small>
+                  {user.username
+                    ? '가입한 아이디는 변경할 수 없어요.'
+                    : '카카오로 가입한 계정이에요.'}
+                </small>
+              </div>
+            )}
+            {!setup && (
+              <div>
+                <label className="field-label" htmlFor="member-email">
+                  이메일
+                </label>
+                <input
+                  id="member-email"
+                  value={user.email || ''}
+                  placeholder="등록된 이메일 없음"
+                  readOnly
+                />
+                <small>
+                  {user.email_verified ? '인증한 이메일이에요.' : '가입 시 입력한 이메일이에요.'}
+                </small>
+              </div>
+            )}
+            {!setup && (
+              <div>
+                <label className="field-label" htmlFor="member-name">
+                  이름
+                </label>
+                <input {...props('name')} autoComplete="name" maxLength={50} />
+                <small>화면에 표시할 이름이에요. 실명을 입력하지 않아도 돼요.</small>
+              </div>
+            )}
             <div>
-              <label className="field-label" htmlFor="member-username">
-                아이디
+              <label className="field-label" htmlFor="member-region">
+                {setup ? '거주 지역' : '회원 거주 지역'}
               </label>
-              <input id="member-username" value={user.username || '카카오 계정'} readOnly />
-              <small>
-                {user.username
-                  ? '가입한 아이디는 변경할 수 없어요.'
-                  : '카카오로 가입한 계정이에요.'}
-              </small>
-            </div>
-          )}
-          {!setup && (
-            <div>
-              <label className="field-label" htmlFor="member-email">
-                이메일
-              </label>
-              <input
-                id="member-email"
-                value={user.email || ''}
-                placeholder="등록된 이메일 없음"
-                readOnly
-              />
-              <small>
-                {user.email_verified ? '인증한 이메일이에요.' : '가입 시 입력한 이메일이에요.'}
-              </small>
-            </div>
-          )}
-          {!setup && (
-            <div>
-              <label className="field-label" htmlFor="member-name">
-                이름
-              </label>
-              <input {...props('name')} autoComplete="name" maxLength={50} />
-              <small>화면에 표시할 이름이에요. 실명을 입력하지 않아도 돼요.</small>
-            </div>
-          )}
-          <div>
-            <label className="field-label" htmlFor="member-region">
-              {setup ? '거주 지역' : '회원 거주 지역'}
-            </label>
-            <select {...props('region')}>
-              <option value="">선택하지 않음</option>
-              {regionOptions.map((region) => (
-                <option key={region}>{region}</option>
-              ))}
-            </select>
-            <small>지역별 공고를 찾고 질문에 답할 때 참고해요.</small>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="member-age">
-              나이 (만 나이)
-            </label>
-            <input {...props('age')} type="number" inputMode="numeric" min={0} max={120} step={1} />
-            <small>연령 조건이 있는 복지 정보를 안내할 때 참고해요.</small>
-          </div>
-          {!setup && (
-            <div>
-              <label className="field-label" htmlFor="member-gender">
-                성별
-              </label>
-              <select {...props('gender')}>
-                {genders.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
+              <select {...props('region')}>
+                <option value="">선택하지 않음</option>
+                {regionOptions.map((region) => (
+                  <option key={region}>{region}</option>
                 ))}
               </select>
-              <small>원하지 않으면 ‘응답하지 않음’을 선택할 수 있어요.</small>
+              <small>지역별 공고를 찾고 질문에 답할 때 참고해요.</small>
             </div>
-          )}
-        </div>
-        <button type="submit" className="button primary">
-          {busy ? '저장 중…' : setup ? '저장하고 시작하기' : '회원 정보 저장'}
-        </button>
-        {onCancel && (
-          <button type="button" className="button secondary" onClick={onCancel}>
-            취소
+            <div>
+              <label className="field-label" htmlFor="member-age">
+                나이 (만 나이)
+              </label>
+              <input
+                {...props('age')}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                step={1}
+              />
+              <small>연령 조건이 있는 복지 정보를 안내할 때 참고해요.</small>
+            </div>
+            {!setup && (
+              <div>
+                <label className="field-label" htmlFor="member-gender">
+                  성별
+                </label>
+                <select {...props('gender')}>
+                  {genders.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <small>원하지 않으면 ‘응답하지 않음’을 선택할 수 있어요.</small>
+              </div>
+            )}
+          </div>
+          <button type="submit" className="button primary">
+            {busy ? '저장 중…' : setup ? '저장하고 시작하기' : '회원 정보 저장'}
           </button>
-        )}
-        {setup && (
-          <a className="text-button" href="#home">
-            나중에 하기
-          </a>
-        )}
-      </fieldset>
-    </form>
+          {onCancel && (
+            <button type="button" className="button secondary" onClick={onCancel}>
+              취소
+            </button>
+          )}
+          {setup && (
+            <a className="text-button" href="#home">
+              나중에 하기
+            </a>
+          )}
+        </fieldset>
+      </form>
+      {!setup && <AccountWithdrawal />}
+    </>
   );
 }

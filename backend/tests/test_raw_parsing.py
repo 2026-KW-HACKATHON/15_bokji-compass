@@ -356,7 +356,7 @@ def test_config_model_loads_from_env_and_environment_wins(tmp_path, monkeypatch)
     assert config.load_settings().codex_model == "gpt-5.6-luna"
 
 
-def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch):
+def test_cli_overview_uses_expanded_category_prompt_and_schema(tmp_path, monkeypatch):
     executable = tmp_path / "codex.exe"
     executable.touch()
     executable.chmod(0o700)
@@ -379,9 +379,14 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
         source(), Settings(_env_file=None, codex_executable=str(executable)),
         tmp_path / "overview-attempt", "gpt-5.6-luna")
     assert result.category == "교육"
-    assert metadata["prompt_version"] == "welfare-overview-v4"
+    assert metadata["prompt_version"] == "welfare-overview-v5"
     assert all(category in captured["prompt"] for category in
-               ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"))
+               ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화",
+                "농림축산·어업", "사업·창업"))
+    schema = json.loads((tmp_path / "overview-attempt" / "schema.json").read_text(encoding="utf-8"))
+    enum = schema["properties"]["category"]["anyOf"][0]["enum"]
+    assert "농림축산·어업" in enum and "사업·창업" in enum
+    assert "방식만으로 농어업·사업 지원을 생활·금융으로 분류하지 마라" in captured["prompt"]
     assert all(field in captured["prompt"] for field in (
         "title", "region_conditions", "gender_conditions", "age_conditions",
         "other_conditions", "benefits", "application_period", "application_method",

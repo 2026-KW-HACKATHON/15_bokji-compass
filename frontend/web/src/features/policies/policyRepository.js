@@ -1,4 +1,4 @@
-import { parsePolicy, parsePolicyPage } from './policyModel.js';
+import { parsePolicy, parsePolicyPage, parsePopularity } from './policyModel.js';
 import { isCalendarDate } from '../calendar/calendarModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
 export function filterPolicies(
@@ -9,7 +9,7 @@ export function filterPolicies(
     category = '전체',
     region = '전국',
     audience = '전체',
-    sort = 'recent',
+    sort = 'popular',
     savedIds = null,
   } = {},
 ) {
@@ -28,12 +28,25 @@ export function filterPolicies(
         (savedIds === null || savedIds.includes(item.id))
       );
     })
-    .sort((a, b) =>
-      sort === 'name' ? a.title.localeCompare(b.title, 'ko') : b.date.localeCompare(a.date),
-    );
+    .sort((a, b) => {
+      if (sort === 'name') return a.title.localeCompare(b.title, 'ko');
+      if (sort === 'popular') {
+        const aViews = parsePopularity(a.popularity)?.views ?? null;
+        const bViews = parsePopularity(b.popularity)?.views ?? null;
+        const popularityOrder =
+          Number(bViews !== null) - Number(aViews !== null) || (bViews ?? 0) - (aViews ?? 0);
+        if (popularityOrder) return popularityOrder;
+      }
+      return b.date.localeCompare(a.date) || a.id.localeCompare(b.id);
+    });
 }
 export function createPolicyRepository({ mode, request, path = '/v1/policies' }) {
   return {
+    async get(id, { signal } = {}) {
+      if (mode !== 'api' || !request)
+        throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
+      return parsePolicy(await request(path + '/' + encodeURIComponent(id), { signal }));
+    },
     async calendar(month, filters = {}, { signal } = {}) {
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
@@ -81,7 +94,7 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
     async list(filters = {}, { cursor = null, limit = 6, signal } = {}) {
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
-      const params = new URLSearchParams({ limit: String(limit), sort: filters.sort || 'recent' });
+      const params = new URLSearchParams({ limit: String(limit), sort: filters.sort || 'popular' });
       for (const [key, value] of Object.entries({
         q: filters.query,
         tag: filters.tag,

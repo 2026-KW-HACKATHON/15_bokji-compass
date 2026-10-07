@@ -70,6 +70,13 @@ eligibility_decided:false,truncated}`입니다. matching에는 조건별 state(m
 근거 인용, 확인사항과 검토 상태를 포함합니다. 회원 ID·이름·전화번호·금액 원입력은 응답에 없습니다.
 원문/공식 스냅샷 검증, 최신 공개 개정, 기간, AND/OR/NOT, partial과 비활성 상태를 보존합니다.
 
+2026-10-07: 비회원도 `{}`로 일반 추천을 요청할 수 있습니다. 메인 추천은 미확인 특수 자격,
+부분/비활성 조건, 기간 미확인 공고로 채우지 않습니다. 공고마다 실제 필수 정보를 확인해
+`mode`, `profile_sufficient`, `guidance`, `missing_fields`를 함께 반환합니다. 정보가 부족하면
+명시적으로 일반 대상인 신청 중 공고만 안내하며, 없으면 입력 안내를 반환합니다.
+실제 공급자 누적 조회수와 출처에 적힌 예산 소진율·마감 안내는 선택적으로 전달합니다.
+[추천 안전 기준](recommendation-safety.md), [출처 누적 조회수](policy-popularity.md).
+
 웹 추천 요청은 credentials=include와 X-Auth-Request:1을 사용합니다. 계정 변경 시 진행 중인
 추천을 취소하고 재조회합니다. 앱도 같은 Bearer API를 호출할 수 있으며 앱 추천 화면 연결은 별도입니다.
 LLM 답변 튜닝은 이 비교 결과와 공개 원문을 설명하는 후속 단계입니다.

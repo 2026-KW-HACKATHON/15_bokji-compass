@@ -8,6 +8,8 @@ export const categories = [
   "교육",
   "건강·돌봄",
   "문화",
+  "농림축산·어업",
+  "사업·창업",
   "기타",
 ];
 export const regions = [
@@ -115,7 +117,7 @@ export function policyPath({
   query = "",
   category = "전체",
   region = "전국",
-  sort = "recent",
+  sort = "popular",
   cursor = null,
   limit = 6,
 } = {}) {

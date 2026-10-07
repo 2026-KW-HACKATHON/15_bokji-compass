@@ -50,12 +50,13 @@ echo Building the public website...
 call npm.cmd --prefix "frontend\web" run build
 if errorlevel 1 goto :failed
 
-echo Stopping the project development API after startup checks, then starting the public servers...
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" start -TunnelMode fixed
+echo Starting the public servers; an existing fixed-domain tunnel will be reused...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" start -TunnelMode fixed -ReloadIfRunning
 set "server_exit_code=%errorlevel%"
 if not "%server_exit_code%"=="0" (
     echo [ERROR] Startup failed. Check the messages above.
-    echo If the public server is already running, stop it before starting again.
+    echo To inspect the server: start-server-prod.bat status
+    echo To stop all public server processes: start-server-prod.bat stop
     goto :finished
 )
 echo.

@@ -33,6 +33,7 @@ import Icon from '../shared/ui/Icon.jsx';
 import { policyRepository, recommendationRepository } from './services.js';
 import { recommendationFailure } from '../features/assistant/recommendationFeedback.js';
 import SourceFooter from './SourceFooter.jsx';
+import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 
 const navigation = [
   { id: 'home', label: '내 비서', icon: 'house' },
@@ -242,6 +243,25 @@ export default function App() {
   });
   const [savedIndex, setSavedIndex] = useState(0);
   const [selected, setSelected] = useState(null);
+  const policyRefresh = usePolicyRefresh();
+  const selectedId = selected?.id;
+  useEffect(() => {
+    if (!selectedId || appConfig.dataMode !== 'api') return;
+    const controller = new AbortController();
+    policyRepository
+      .get(selectedId, { signal: controller.signal })
+      .then((policy) => {
+        if (!controller.signal.aborted)
+          setSelected((current) => (current?.id === selectedId ? policy : current));
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted && error.status === 404) {
+          setSelected((current) => (current?.id === selectedId ? null : current));
+          setNotice('이 공고는 비공개로 변경됐습니다. 최신 목록을 확인해 주세요.');
+        }
+      });
+    return () => controller.abort();
+  }, [selectedId, policyRefresh]);
   const [assistant, setAssistant] = useState(null);
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(emptyResult);
@@ -339,10 +359,6 @@ export default function App() {
     const controller = new AbortController();
     setResult(emptyResult);
     setError(null);
-    if (!profile) {
-      setState('idle');
-      return () => controller.abort();
-    }
     setState('loading');
     recommendationRepository
       .recommend(profile, {

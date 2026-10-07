@@ -3,6 +3,25 @@ import { filterPolicies } from '../../src/features/policies/policyRepository.js'
 
 // Browser test transport only. Never imported by the application.
 export async function mockPolicyApi(page) {
+  const details = new Map(demoPolicies.map((policy) => [policy.id, policy]));
+  page.on('response', async (response) => {
+    const url = new URL(response.url());
+    if (!response.ok() || !['/api/v1/policies', '/api/v1/recommendations'].includes(url.pathname))
+      return;
+    try {
+      for (const item of (await response.json()).items || []) {
+        const policy = item.policy || item;
+        if (policy.id) details.set(policy.id, policy);
+      }
+    } catch {
+      /* Responses can be aborted during navigation. */
+    }
+  });
+  await page.route(/\/api\/v1\/policies\/[^/?]+$/, (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1));
+    const policy = details.get(id);
+    return route.fulfill(policy ? { json: policy } : { status: 404, json: {} });
+  });
   await page.route('**/api/v1/policies?**', (route) => {
     const query = new URL(route.request().url()).searchParams;
     const filters = Object.fromEntries(query);
@@ -24,8 +43,8 @@ export async function mockPolicyApi(page) {
       .map((policy) => ({
         policy,
         score:
-          (profile.interests.includes(policy.category) ? 2 : 0) +
-          (policy.region === profile.region ? 1 : 0),
+          (profile?.interests?.includes(policy.category) ? 2 : 0) +
+          (policy.region === profile?.region ? 1 : 0),
       }))
       .sort((a, b) => b.score - a.score);
     return route.fulfill({

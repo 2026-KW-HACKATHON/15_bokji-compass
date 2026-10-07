@@ -33,6 +33,7 @@ export function isProfile(value) {
   );
 }
 export function recommendationProfile(value) {
+  if (value == null) return {};
   if (!isProfile(value)) throw new Error('올바른 사용자 정보가 필요합니다.');
   return {
     region: value.region,

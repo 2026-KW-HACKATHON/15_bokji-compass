@@ -11,13 +11,15 @@ Windows에서는 저장소 루트의 [`start-server-dev.bat`](../../start-server
 `Ctrl+C`로 종료합니다. 종료·오류 후에는 창을 유지하여 메시지를 확인할 수 있습니다.
 MySQL과 수집 worker는 별도로 실행하며, 자동 수집은 아래 스케줄 안내를 따릅니다.
 
-[`start-server-prod.bat`](../../start-server-prod.bat)는 프론트를 빌드한 뒤 `share.ps1 start -TunnelMode fixed`로
+[`start-server-prod.bat`](../../start-server-prod.bat)는 프론트를 빌드한 뒤 `share.ps1 start -TunnelMode fixed -ReloadIfRunning`으로
 8001 API·8080 웹·QR 게이트웨이·고정 도메인 터널을 실행합니다. 주소는 `https://bokji.commitnaru.com`입니다.
 빌드·터널 설정·포트·Caddy 설정 검사 후, 이 프로젝트의 `backend/server.py`로 실행한 개발 API를
 프로세스 경로와 시작 시각으로 확인하여 하위 프로세스와 함께 종료합니다. 종료에 실패하면 운영 시작을 중단합니다.
 따로 실행한 Vite 프론트와 MySQL은 유지합니다. 개발 API 종료 후 운영 기동이 실패하면 개발 API를 자동 재실행하지 않습니다.
 창을 닫아도 서버는 계속 실행됩니다. 루트에서 `start-server-prod.bat stop`으로 종료하고
-`start-server-prod.bat status`로 상태를 확인합니다. 이미 실행 중이면 먼저 종료한 뒤 다시 실행합니다.
+`start-server-prod.bat status`로 상태를 확인합니다. 같은 고정 주소의 터널이 실행 중이면 터널을 유지하고
+API·QR·웹을 다시 실행합니다. 관리자 콘솔에서 서버를 중지해 터널만 남은 경우에도 같은 BAT로 복구합니다.
+다른 주소·터널 모드이거나 터널 없이 일부 서버만 남아 있으면 상태 확인 후 `stop`으로 종료하고 다시 실행합니다.
 Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰을 준비해야 하며 MySQL은 별도로 실행합니다.
 두 실행 파일 모두 `backend/.env`와 해당 DB 설정을 공유합니다. 운영용 BAT는 별도의 DB나 수집 스케줄을 만들지 않습니다.
 
@@ -27,7 +29,7 @@ Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰을 준�
 | `start.ps1` | 선택 Reload | API 포그라운드 실행, Ctrl+C로 종료 |
 | `stop-dev.ps1` | 없음 | 이 프로젝트의 server.py 개발 API만 확인 후 프로세스 트리 종료 |
 | `process-control.ps1` | Action=Status/Stop/Restart, Target=backend/frontend/all, ServerProcessId, JobId | 관리자 콘솔 전용 고정 프로세스 제어. 변경은 접수된 작업·잠금과 일치해야 실행 |
-| `share.ps1` | start / stop / status | 별도 시연 API·정적 웹·Cloudflare HTTPS 터널 실행/종료/상태. [준비·범위](../../frontend/web/deploy/readme.md) |
+| `share.ps1` | start / stop / status / reload, 선택 ReloadIfRunning | 공유 API·정적 웹·Cloudflare HTTPS 터널 실행/종료/상태. start -ReloadIfRunning은 같은 주소의 실행 중 터널을 유지하며 reload. [준비·범위](../../frontend/web/deploy/readme.md) |
 | `setup-mysql.ps1` | 선택 MySqlExecutable, Port | 독립 개발 DB 초기화·시작, 로컬 DB 설정 기록 |
 | `mysql.ps1` | start / stop / status | 프로젝트 DB 실행·종료·상태 확인 |
 | `test.ps1` | 없음 | pytest·Ruff·패키지 충돌 검사 |

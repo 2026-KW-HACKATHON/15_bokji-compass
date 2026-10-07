@@ -86,3 +86,26 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 - `recommendationFailure(error)`는 HTTP 상태·오류 코드만으로 안내를 구성합니다. 404/5xx/응답 검증 실패는 서비스 확인 불가, 429는 요청 증가, timeout/504는 응답 지연, network는 연결 확인 안내입니다. 서버 내부 메시지를 표시하지 않습니다.
 - 401은 로그인하기, 400/422는 내 정보 수정하기, 서비스 오류는 다시 시도하기로 연결합니다. 요청 시작 시 오류를 초기화하고 ready 상태에서만 빈 목록을 표시합니다.
 - 추천 요약과 신청 조건 안내는 공고가 있을 때 표시해 빈 목록 안내와 중복되지 않도록 합니다. 일반/쉬운 화면에 동일한 구분을 적용합니다.
+
+## 2026-10-07 정보 부족과 일반 공고 안내
+
+`createRecommendationRepository(...).recommend(profile,{signal?,financialProfile?})`는 `profile`이
+`null`일 때도 `{profile:{},limit:3}`로 서버에 요청합니다. 임의 예시 공고로 채우지 않습니다.
+기존 반환값에 `mode`, `profileSufficient`, `guidance`, `missingFields`를 추가했습니다.
+서버의 `profile_sufficient`와 `missing_fields`를 해당 표시 모델로 변환합니다.
+`parseRecommendationContext(result)`는 잘못된 모드·필드 형식과 정보 부족인 개인화 응답을
+거부합니다. 메타데이터가 없는 이전 응답은 `general`·정보 부족으로 표시합니다.
+
+- `personalized`이며 `profileSufficient === true`인 완료 응답에서만 메인 배너와 쉬운 홈의
+  제목을 내 정보에 맞는 공고로 표시합니다. 단순히 프로필 객체가 있다는 이유로 개인화하지 않습니다.
+- `popular`는 ‘많이 살펴본 일반 공고’, `general`은 ‘먼저 살펴볼 일반 공고’로 표시합니다.
+  카드 아래에 서버의 정보 부족 사유와 ‘내 정보 추가하고 맞춤 추천받기’를 제공합니다.
+  `recommendationGuidance(result)`는 서버 안내가 없을 때 모드별 보수적인 안내를 반환합니다.
+- `profile_required`는 안전하게 안내할 후보가 없다는 정상 응답이며 내 정보 추가를 안내합니다.
+  서비스 오류와 구분합니다. 로딩·오류·재시도는 프로필이 없는 비회원에게도 표시합니다.
+- 인기 기준은 공식 제공처의 **누적 조회수**입니다. 현재의 실시간 관심 인원이나 최근 유행으로
+  해석하지 않습니다. 해당 기준·출처·수집일은 카드에서 확인합니다.
+
+검증: `tests/recommendation-context.test.js`, `tests/e2e/recommendations.spec.js`에
+무정보 방문자·저장된 일부 정보·일반/인기 공고·정보 추가·안전 후보 없음·선택 지표 표시 회귀를
+추가했습니다. 실행 결과와 확인 범위는 [정보 부족 추천 개선](../../../../docs/recommendation-fallback.md)에 기록합니다.

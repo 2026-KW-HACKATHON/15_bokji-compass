@@ -29,7 +29,7 @@ def list_policies(
     repository: Repository,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     cursor: Annotated[str | None, Query(pattern=r"^(0|[1-9][0-9]{0,5})$")] = None,
-    sort: Literal["recent", "name"] = "recent",
+    sort: Literal["popular", "recent", "name"] = "popular",
     q: Annotated[str, Query(max_length=200)] = "",
     category: Filter = "",
     region: Filter = "",

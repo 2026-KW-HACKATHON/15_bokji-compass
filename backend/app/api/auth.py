@@ -4,12 +4,21 @@ import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import with_capabilities
+from app.modules.auth.consent import ACCOUNT_RETENTION, NOTICE_VERSION, SignupConsentInput
 from app.modules.auth.mail import EMAIL_SECONDS, RESEND_SECONDS, normalize_email
 from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
@@ -141,11 +150,7 @@ class EmailVerifyInput(EmailInput):
 
 
 class SignupInput(LoginInput, ProfileInput, EmailInput):
-    # Password signup retains its existing required fields.
-    name: str = Field(min_length=1, max_length=50)
-    age: int = Field(strict=True, ge=0, le=120)
-    gender: Literal["male", "female", "other", "undisclosed"]
-    region: str = Field(max_length=32)
+    consent: SignupConsentInput
     confirm_password: SecretStr = Field(min_length=8, max_length=128)
 
     @model_validator(mode="after")
@@ -158,9 +163,37 @@ class SignupInput(LoginInput, ProfileInput, EmailInput):
         return self
 
 
+class WithdrawalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    notice_version: Literal["2026-10-07.2"]
+    confirmation: StrictBool
+
+    @field_validator("confirmation")
+    @classmethod
+    def explicit_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("탈퇴와 저장한 개인정보의 즉시 삭제에 동의해 주세요.")
+        return value
+
+
 def ip(request: Request):
     # Do not trust arbitrary X-Forwarded-For; configure trusted proxies in the ASGI server.
     return request.client.host if request.client else "unknown"
+
+
+@router.get("/privacy-notice")
+def privacy_notice(request: Request):
+    from app.modules.auth.ai_privacy import get_ai_notice
+
+    settings = request.app.state.settings
+    return {
+        "version": NOTICE_VERSION,
+        "operator_name": settings.privacy_operator_name,
+        "contact_email": settings.privacy_contact_email,
+        "retention": ACCOUNT_RETENTION,
+        "ai": get_ai_notice(settings),
+    }
 
 
 @router.post("/signup", status_code=201)
@@ -251,6 +284,25 @@ def logout(request: Request, response: Response, service: Service):
         secure=request.app.state.settings.app_env == "production",
     )
     return {"message": "로그아웃했어요."}
+
+
+@router.post("/withdraw")
+def withdraw(data: WithdrawalInput, request: Request, response: Response, service: Service):
+    service.withdraw(
+        request.cookies.get(COOKIE),
+        signup_email_token=request.cookies.get(EMAIL_COOKIE, ""),
+        kakao_flow_binding=request.cookies.get("bokji_kakao_flow", ""),
+        kakao_pending_token=request.cookies.get("bokji_kakao_signup", ""),
+    )
+    for name in (COOKIE, EMAIL_COOKIE, "bokji_kakao_flow", "bokji_kakao_signup"):
+        response.delete_cookie(
+            name,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=request.app.state.settings.app_env == "production",
+        )
+    return {"deleted": True, "message": "회원 탈퇴와 저장한 개인정보 삭제가 완료됐어요."}
 
 
 async def database_error_handler(request: Request, exc: SQLAlchemyError):

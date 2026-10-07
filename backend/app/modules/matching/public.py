@@ -1,5 +1,6 @@
 """Read-only, three-valued comparisons. No model calls, writes or eligibility decisions."""
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -11,6 +12,7 @@ from app.contracts.conditions import CanonicalCondition, CanonicalPolicy, LogicN
 from app.contracts.finance import FinancialProfile
 from app.contracts.matching import RecommendationProfile
 from app.contracts.parsing import SourcePolicy
+from app.modules.presentation.public import load_popularity, policy_signals
 from app.modules.regions.public import RegionCatalog, default_catalog
 from app.modules.storage.catalog import card, published_catalog
 from app.modules.validation.public import validate_canonical
@@ -31,8 +33,35 @@ LABELS = {
     "registered_residence_region": "주민등록 지역", "actual_residence_region": "실거주 지역",
     "household_size": "심사 가구원 수", "employment_status": "취업 상태",
     "application_period": "신청 기간",
+    "disability_registered": "장애 등록 여부", "monthly_income": "월 소득",
+    "recognized_income_median_ratio": "소득인정액 기준", "total_assets": "재산",
 }
 MAX_CANDIDATES = 500
+
+# A title can reveal a required audience omitted by an incomplete extraction. These
+# checks only detect missing representation; the recorded OR/NOT logic still decides
+# whether a represented requirement actually applies to the successful branch.
+TARGET_REQUIREMENTS = (
+    (r"장애(?:인|아동|청소년|여성)?", "disability_registered", {"disability_registered"}),
+    (r"자립\s*(?:준비\s*)?(?:청년|청소년)|보호\s*종료|자립수당", "care_leaver_status",
+     {"care_leaver_status", "care_leaver", "self_reliant_youth"}),
+    (r"한\s*부모|미혼\s*(?:모|부)", "single_parent_status",
+     {"single_parent_status", "single_parent"}),
+    (r"기초\s*생활|차상위|수급(?:자|가구)", "benefit_recipient_status",
+     {"benefit_recipient_status", "housing_benefit_recipient",
+      "child_tax_credit_recipient", "earned_income_tax_credit_recipient"}),
+    (r"저소득|중위\s*소득|소득\s*인정액|소득\s*(?:기준|[0-9])", "income",
+     {"income", "monthly_income", "annual_income",
+                           "recognized_income_amount", "recognized_income_median_ratio"}),
+    (r"국가\s*유공자|참전|보훈", "veteran_status", {"veteran_status"}),
+    (r"임산부|임신|출산", "pregnancy_or_parent_status", {"pregnancy_or_parent_status"}),
+    (r"다문화", "multicultural_family_status", {"multicultural_family_status"}),
+)
+BROAD_AUDIENCE = re.compile(
+    r"국민\s*누구나|누구나\s*(?:신청|이용|참여)|"
+    r"(?:모든|전체)\s*국민|전\s*국민\s*(?:대상|이용|신청)|"
+    r"(?:지원\s*대상|신청\s*자격|대상자)\s*(?:에\s*)?제한\s*없"
+)
 
 
 @dataclass(frozen=True)
@@ -206,56 +235,199 @@ def candidate_query(repository):
     ).order_by(latest.c.created_at.desc(), latest.c.policy_key).limit(MAX_CANDIDATES + 1)
 
 
+def target_evidence(source: SourcePolicy) -> list[str]:
+    """Read actual audience statements; benefit descriptions and priority lists aren't targets."""
+    values = [source.title]
+    for field in ("eligibility", "selection"):
+        values.extend(line for line in source.fields.get(field, "").splitlines()
+                      if not re.search(r"우선|우대|가점", line))
+    values.extend(line for line in source.fields.get("text", "").splitlines()
+                  if re.match(r"\s*(?:[-*○□]\s*)?(?:지원\s*대상|신청\s*자격|지원\s*자격)"
+                              r"\s*[:：]", line) and not re.search(r"우선|우대|가점", line))
+    return values
+
+
+def missing_target_requirements(canonical: CanonicalPolicy, source: SourcePolicy) -> list[str]:
+    """Fail safely when an audience in the source has no required canonical representation."""
+    def referenced(node):
+        if node.op == "condition":
+            return {node.condition_id}
+        return set().union(*(referenced(child) for child in node.children))
+    required_ids = referenced(canonical.logic)
+    represented = {name for condition in canonical.conditions
+                   if condition.condition_id in required_ids and condition.state_code == 1
+                   for name in (condition.field_key, condition.source_field_key)}
+    statements = target_evidence(source)
+    target = "\n".join(statements)
+    missing = [field for pattern, field, names in TARGET_REQUIREMENTS
+               if re.search(pattern, target) and not represented.intersection(names)]
+    audience = "\n".join(statements[1:])
+    if re.search(r"(?:만\s*)?[0-9]+\s*세\s*(?:이상|이하|미만|초과)|"
+                 r"[0-9]+\s*[~～-]\s*[0-9]+\s*세", audience) and "age" not in represented:
+        missing.append("age")
+    region = "|".join(re.escape(name) for name in REGION_NAMES.values())
+    local_audience = re.search(r"(?:" + region + r")|(?:서울|부산|대구|인천|광주|대전|울산|세종)"
+                               r"\s*(?:시민|주민|거주)|[가-힣]+(?:시|군|구|읍|면|동)"
+                               r"\s*(?:시민|주민|거주|민)", audience)
+    has_region = represented.intersection({"residence_region", "registered_residence_region",
+                                           "actual_residence_region"})
+    if local_audience and not has_region and not re.search(
+            r"(?:거주\s*)?지역\s*제한\s*없", audience):
+        missing.append("residence_region")
+    return missing
+
+
+def has_broad_audience_evidence(canonical: CanonicalPolicy, source: SourcePolicy) -> bool:
+    """A negative audience statement cannot establish unrestricted access."""
+    audience = "\n".join(target_evidence(source)[1:])
+    audience += "\n" + "\n".join(condition.evidence_quote or ""
+                                     for condition in canonical.conditions
+                                     if condition.role == "eligibility")
+    original = "\n".join(source.fields.get(field, "")
+                         for field in ("text", "eligibility", "selection"))
+    negative = re.search(r"(?:누구나|전\s*국민|모든\s*국민|전체\s*국민)[^\n.。]{0,80}"
+                         r"(?:아니|아닌|아닙|않|불가|제외)", original)
+    return bool(BROAD_AUDIENCE.search(audience)) and not negative
+
+
+def proof_fields(node: LogicNode, states: dict[str, bool | None],
+                 conditions: dict[str, CanonicalCondition]) -> set[str]:
+    """Gather actual facts on a decisive branch, preserving OR and negated exclusions."""
+    if node.op in {"unknown", "condition"}:
+        if node.op == "unknown" or states[node.condition_id] is None:
+            return set()
+        condition = conditions[node.condition_id]
+        return {condition.field_key} if condition.state_code == 1 else set()
+    outcome = evaluate_logic(node, states)
+    if outcome is None:
+        return set()
+    relevant = node.children
+    if node.op in {"any", "all"}:
+        # True OR / false AND need only the branches that establish their outcome.
+        if (node.op == "any" and outcome) or (node.op == "all" and not outcome):
+            relevant = [child for child in relevant
+                        if evaluate_logic(child, states) is outcome]
+    return set().union(*(proof_fields(child, states, conditions) for child in relevant))
+
+
+def application_is_open(policy: dict, matching: dict, today: date) -> bool:
+    """Only known ongoing/current application periods belong in the home recommendation."""
+    periods = [check for check in matching["checks"] if check["field_key"] == "application_period"
+               and check["role"] == "application"]
+    if any(check["state"] != "match" for check in periods):
+        return False
+    start, end = policy.get("applicationStart"), policy.get("applicationEnd")
+    if (start and date.fromisoformat(start) > today) or (
+            end and date.fromisoformat(end) < today):
+        return False
+    budget = policy.get("budget") or {}
+    if budget.get("usedPercent", 0) >= 100:
+        return False
+    return bool(periods or policy.get("scheduleStatus") == "ongoing" or start or end)
+
+
 def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile | None = None,
               *, limit: int = 3, today: date | None = None) -> dict:
-    """Rank advisory evidence and interests. Missing monetary definitions never become a pass."""
+    """Offer proven profile comparisons or explicitly broad current notices."""
     today = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
     with repository.engine.connect() as connection:
         records = connection.execute(candidate_query(repository)).mappings().all()
     truncated = len(records) > MAX_CANDIDATES
-    candidates, skipped_invalid = [], 0
+    records = records[:MAX_CANDIDATES]
+    popularity = load_popularity(repository, [record["policy_key"] for record in records])
+    personalized, general, skipped_invalid, missing = [], [], 0, set()
+    classified_with_profile = False
     interests = set((profile or RecommendationProfile()).interests)
-    for record in records[:MAX_CANDIDATES]:
+    for record in records:
         try:
             policy = card(record)
-            end = policy.get("applicationEnd")
-            if end and date.fromisoformat(end) < today:
-                continue
+            policy.update(policy_signals(record, popularity=popularity.get(record["policy_key"])))
             matching = compare_policy(record, facts, today=today)
+            canonical = CanonicalPolicy.model_validate(record["canonical_json"])
+            source = SourcePolicy.model_validate(record["source_json"])
+            if not application_is_open(policy, matching, today):
+                continue
         except (ValueError, KeyError, TypeError):
             skipped_invalid += 1
             continue
-        if matching["status"] == "not_matched":
+        missing_targets = missing_target_requirements(canonical, source)
+        missing.update(missing_targets)
+        if missing_targets or matching["status"] == "needs_review":
+            if matching["status"] == "needs_review":
+                missing.update(check["field_key"] for check in matching["checks"]
+                               if check["role"] in {"eligibility", "exclusion"}
+                               and check["state"] == "unknown")
             continue
-        # Do not collapse OR branches or invert exclusion facts into hard filtering/ranking.
-        checks = [c for c in matching["checks"] if c["role"] == "eligibility"]
-        matching_labels = list(dict.fromkeys(c["label"] for c in checks if c["state"] == "match"))
+        conditions = {condition.condition_id: condition for condition in canonical.conditions}
+        states = {check["condition_id"]: None if check["state"] == "unknown" else
+                  check["state"] == "match" for check in matching["checks"]}
+        empty_states = {identifier: compare_condition(condition, MatchingFacts(),
+                                                      default_catalog(), today)[0]
+                        for identifier, condition in conditions.items()}
+        empty_outcome = evaluate_logic(canonical.logic, empty_states)
+        if matching["status"] == "not_matched":
+            if empty_outcome is not False and proof_fields(canonical.logic, states, conditions):
+                classified_with_profile = True
+            continue
+        broad = empty_outcome is True
         interest = policy["category"] in interests
-        score = (matching["status"] == "potential_match", interest, len(matching_labels))
+        views = (policy.get("popularity") or {}).get("views", 0)
         reasons = []
-        if interest:
-            reasons.append("선택한 관심 분야의 공고예요.")
-        if matching_labels:
-            reasons.append(
-                f"{', '.join(matching_labels[:3])}의 개별 조건과 일치하는 정보가 있어요.")
-        if not reasons:
-            reasons.append("조건을 추가 확인하며 살펴볼 수 있는 공개 공고예요.")
-        reasons.append("신청 자격은 추가 조건과 담당 기관의 확인이 필요해요.")
-        if any(c["state"] == "mismatch" for c in checks):
-            reasons.append("일부 조건과 다른 정보가 있으므로 적용 대상·예외를 확인해 주세요.")
-        candidates.append((score, {"policy": policy, "reason": " ".join(reasons),
-                                   "matching": matching}))
+        if broad:
+            # Age/region unrestricted individually isn't evidence that the whole
+            # audience is unrestricted. Require an explicit source audience statement.
+            if not has_broad_audience_evidence(canonical, source):
+                continue
+            reasons.append("원문에 누구나 이용할 수 있는 대상으로 안내된 공고예요.")
+            if views > 0:
+                reasons.append("공공기관이 제공한 누적 조회수를 참고했어요.")
+            useful = policy["category"] == "문화" or "교통" in policy["title"]
+            score = (policy.get("scheduleStatus") == "ongoing", views, useful)
+            bucket = general
+        else:
+            fields = proof_fields(canonical.logic, states, conditions)
+            if not fields:
+                continue
+            if interest:
+                reasons.append("선택한 관심 분야의 공고예요.")
+            labels = [LABELS.get(field, field) for field in sorted(fields)]
+            reasons.append(f"입력한 정보로 {', '.join(labels[:3])} 조건을 비교했어요.")
+            score, bucket = (interest, len(fields), views), personalized
+        reasons.append("신청 전 공식 공고와 담당 기관의 안내를 확인해 주세요.")
+        bucket.append((score, {"policy": policy, "reason": " ".join(reasons),
+                               "matching": matching}))
+    profile_sufficient = bool(personalized) or classified_with_profile
+    candidates = personalized if profile_sufficient else general
     candidates.sort(key=lambda entry: entry[0], reverse=True)
     items = [item for _, item in candidates[:limit]]
-    summary = (
-        f"공개 공고에서 {len(items)}건을 골랐어요. "
-        "조건별 비교이며 신청 자격 확정은 아니에요."
-        if items else "현재 정보로 안내할 공개 공고가 없어요. "
-        "전체 공고와 추가 조건을 확인해 주세요."
-    )
+    if profile_sufficient:
+        mode = "personalized"
+        guidance = (("입력한 정보로 비교할 수 있는 공고를 골랐어요. "
+                     "신청 자격은 담당 기관에서 확인해 주세요.") if items else
+                    "현재 입력한 조건에 맞는 신청 중 공고가 없어요. 전체 공고도 확인해 주세요.")
+    elif items:
+        popular = any((item["policy"].get("popularity") or {}).get("views", 0) > 0
+                      for item in items)
+        mode = "popular" if popular else "general"
+        guidance = ("맞춤 추천에 필요한 정보가 부족해 누구나 이용할 수 있는 공고를 보여드려요. "
+                    + ("공공기관의 누적 조회수를 참고했어요. " if popular else "")
+                    + "내 정보를 더 입력하면 나에게 맞는 추천을 받을 수 있어요.")
+    else:
+        mode = "profile_required"
+        guidance = ("현재 정보로 안전하게 추천할 수 있는 신청 중 공고가 없어요. "
+                    "나이·거주 지역 등 내 정보를 추가하고 전체 공고도 확인해 주세요.")
+    summary = (f"조건을 비교한 신청 중 공개 공고 {len(items)}건을 안내해요."
+               if profile_sufficient else f"신청 중인 일반 공고 {len(items)}건을 안내해요."
+               if items else "현재 안내할 수 있는 신청 중 공개 공고가 없어요.")
     if truncated:
         summary += f" 최근 공개 공고 {MAX_CANDIDATES}건을 비교했어요."
     if skipped_invalid:
         summary += " 원문·조건 검증을 통과하지 못한 공고는 제외했어요."
+    if not profile_sufficient and not missing:
+        missing.update(field for field, absent in (("age", facts.age_range is None),
+                                                   ("residence_region", facts.region is None))
+                       if absent)
     return {"items": items, "summary": summary, "eligibility_decided": False,
-            "profile_source": "request", "truncated": truncated}
+            "profile_source": "request", "truncated": truncated, "mode": mode,
+            "profile_sufficient": profile_sufficient, "guidance": guidance,
+            "missing_fields": [] if profile_sufficient else sorted(missing)}

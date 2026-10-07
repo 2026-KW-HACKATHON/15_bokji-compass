@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mockPolicyApi } from '../fixtures/api.js';
 import { demoPolicies } from '../fixtures/policies.js';
+import { acceptSignupConsent } from '../fixtures/privacy-consent.js';
 
 test.beforeEach(async ({ page }) => {
   await mockPolicyApi(page);
@@ -15,6 +16,7 @@ test('policy cards show a short description and keep guarantee limits in the det
     summary: '월세 자금 대출을 보증해 주거비 부담을 덜어주는 제도입니다.',
     benefit: '보증 한도: 최대 1,152만원 이내. 보증 범위: 대출금액의 80%.',
   };
+  await page.route('**/api/v1/policies/' + policy.id, (route) => route.fulfill({ json: policy }));
   await page.route('**/api/v1/policies?**', (route) =>
     route.fulfill({ json: { items: [policy], total: 1, nextCursor: null } }),
   );
@@ -41,6 +43,7 @@ test('notice summary and payment schedule stay separate from application dates i
     applicationPeriod: '2026년 10월 1일 ~ 10월 31일',
     paymentSchedule: '2026년 12월 초 지급 예정',
   };
+  await page.route('**/api/v1/policies/' + policy.id, (route) => route.fulfill({ json: policy }));
   await page.route('**/api/v1/policies?**', (route) =>
     route.fulfill({
       json: { items: [policy], total: 1, nextCursor: null },
@@ -352,6 +355,7 @@ test('auth pages offer username login, phone-free signup and Kakao availability'
     .getByRole('navigation', { name: '계정 메뉴', exact: true })
     .getByRole('link', { name: '회원가입', exact: true })
     .click();
+  await acceptSignupConsent(page);
   await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
   await expect(
     page.getByRole('button', { name: '카카오톡으로 로그인/회원가입하기' }),

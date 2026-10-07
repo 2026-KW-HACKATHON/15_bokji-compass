@@ -42,12 +42,17 @@ class _PinnedHTTPConnection(http.client.HTTPConnection):
 
 
 @contextmanager
-def urlopen(request, timeout=15):
+def urlopen(request, timeout=15, *, deadline=None):
     """Connect to one validated public address, ignoring environment proxy settings."""
     value = request.full_url
     scheme, host, port = validate_url(value)
-    deadline = time.monotonic() + timeout
-    address = resolve_public(host, port, timeout)
+    explicit_deadline = deadline is not None
+    deadline = min(deadline, time.monotonic() + timeout) if explicit_deadline else (
+        time.monotonic() + timeout)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise CollectionTransportError("request_deadline", retryable=True)
+    address = resolve_public(host, port, remaining if explicit_deadline else timeout)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise CollectionTransportError("request_deadline", retryable=True)
@@ -75,6 +80,9 @@ def urlopen(request, timeout=15):
         connection.close()
 
 
-def read_response(response) -> bytes:
-    return _read_bounded(response, MAX_RESPONSE_BYTES, 15,
-                         getattr(response, "_collector_deadline", time.monotonic() + 15))
+def read_response(response, *, max_response_bytes=None, timeout=15, deadline=None) -> bytes:
+    response_deadline = getattr(response, "_collector_deadline", time.monotonic() + timeout)
+    if deadline is not None:
+        response_deadline = min(response_deadline, deadline)
+    return _read_bounded(response, max_response_bytes or MAX_RESPONSE_BYTES, timeout,
+                         response_deadline)

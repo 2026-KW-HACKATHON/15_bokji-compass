@@ -75,6 +75,11 @@ function response(month, filters = {}) {
   };
 }
 async function mockCalendar(page) {
+  await page.route(/\/api\/v1\/policies\/fixture-calendar-[^/?]+$/, (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1));
+    const policy = records.find((item) => item.id === id);
+    return route.fulfill(policy ? { json: policy } : { status: 404, json: {} });
+  });
   await page.route('**/api/v1/policies/calendar?**', (route) => {
     const params = new URL(route.request().url()).searchParams;
     const filters = Object.fromEntries(params);

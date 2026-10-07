@@ -350,3 +350,130 @@
     gap: 10px;
   }
 }
+
+.privacy-consent {
+  display: grid;
+  gap: 20px;
+}
+.privacy-consent > h2 {
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+.privacy-notice-content {
+  display: grid;
+  gap: 18px;
+  overflow-wrap: anywhere;
+}
+.privacy-notice-content p {
+  line-height: 1.7;
+  margin: 0;
+}
+.privacy-notice-content section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.privacy-notice-content h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.privacy-notice-content dl {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.privacy-notice-content dt {
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.privacy-notice-content dd {
+  margin: 0;
+  line-height: 1.7;
+}
+.privacy-notice-content a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.privacy-pending {
+  border-left: 3px solid #537eb4;
+  padding-left: 12px;
+  margin-top: 12px !important;
+}
+.privacy-laws summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 8px;
+}
+.privacy-version {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.privacy-choices {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 12px;
+}
+.privacy-choices legend {
+  font-weight: 600;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.privacy-choices label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.privacy-choices input {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  margin: 2px 0 0;
+  accent-color: var(--primary);
+}
+.easy-mode .privacy-consent .button,
+.easy-mode .privacy-choices label {
+  min-height: 56px;
+}
+.privacy-policy-access {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.privacy-policy-access > summary {
+  cursor: pointer;
+  text-decoration: underline;
+  margin-bottom: 12px;
+}
+.account-withdrawal {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+}
+.account-withdrawal h3,
+.account-withdrawal p {
+  margin: 0;
+}
+.account-withdrawal label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.6;
+}
+.account-withdrawal input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin-top: 3px;
+}

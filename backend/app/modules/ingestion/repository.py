@@ -191,19 +191,53 @@ class IngestionRepository:
         old = c.execute(select(m.records).where(
             m.records.c.policy_key == key).with_for_update()).mappings().first()
         new_hash = listing_hash(row)
+        listing = {**row, "_views_observed_at": now}
         if old is None:
             c.execute(insert(m.records).values(policy_key=key, provider=provider,
-                external_id=external_id, listing_json=row, listing_hash=new_hash,
+                external_id=external_id, listing_json=listing, listing_hash=new_hash,
                 last_seen_at=now, next_check_at=0))
         else:
             c.execute(update(m.records).where(m.records.c.policy_key == key).values(
-                listing_json=row, listing_hash=new_hash, last_seen_at=now))
+                listing_json=listing, listing_hash=new_hash, last_seen_at=now))
         if provider == "bokjiro" and (old is None or old["source_json"] is None
                 or old["listing_hash"] != new_hash or old["next_check_at"] <= now):
             identity = [new_hash, int(now // recheck_seconds)]
             _, queued = self._enqueue(c, "detail", key, {"provider": provider,
                 "external_id": external_id}, identity, now,
                 priority=10 if old and old["listing_hash"] != new_hash else 20)
+            return int(queued)
+        return 0
+
+    def observe_notice_listing(self, c, row, now, recheck_seconds):
+        """Queue a linked official notice with its listing and cursor in one transaction."""
+        if not isinstance(row, dict) or any(not isinstance(row.get(name), str)
+                or not row[name].strip() for name in ("url", "title", "organization")):
+            raise ValueError("Notice listing requires URL, title and organization")
+        url = canonical_url(row["url"])
+        external_id = hashlib.sha256(row["url"].strip().encode()).hexdigest()[:16]
+        key = "notice:" + external_id
+        old = c.execute(select(m.records).where(
+            m.records.c.provider == "notice", m.records.c.url_hash == digest(url)
+            ).order_by(m.records.c.last_seen_at.desc()).limit(1).with_for_update()).mappings().first()
+        if old is None:
+            old = c.execute(select(m.records).where(
+                m.records.c.policy_key == key).with_for_update()).mappings().first()
+        if old:
+            key, external_id = old["policy_key"], old["external_id"]
+        new_hash = listing_hash(row)
+        if old is None:
+            c.execute(insert(m.records).values(policy_key=key, provider="notice",
+                external_id=external_id, url_hash=digest(url), listing_json=row,
+                listing_hash=new_hash, last_seen_at=now, next_check_at=0))
+        else:
+            c.execute(update(m.records).where(m.records.c.policy_key == key).values(
+                listing_json=row, listing_hash=new_hash, last_seen_at=now))
+        if (old is None or old["source_json"] is None or old["listing_hash"] != new_hash
+                or old["next_check_at"] <= now):
+            _, queued = self._enqueue(c, "notice", key, {"url": url,
+                "candidate": {"organization": row["organization"]}},
+                [url, new_hash, int(now // recheck_seconds)], now,
+                priority=10 if old and old["listing_hash"] != new_hash else 15)
             return int(queued)
         return 0
 

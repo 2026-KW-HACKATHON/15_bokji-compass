@@ -1,4 +1,14 @@
 import { test, expect } from '@playwright/test';
+import {
+  acceptKakaoConsent,
+  acceptSignupConsent,
+  aiConsentLabel,
+  consentVersion,
+  expectedConsent,
+  privacyNotice,
+  profileConsentLabel,
+  requiredConsentLabel,
+} from '../fixtures/privacy-consent.js';
 
 const password = 'ExamplePassword42!';
 async function openBasics(page, recommendation = false) {
@@ -11,8 +21,9 @@ async function openBasics(page, recommendation = false) {
   }
 }
 const next = (page) => page.getByRole('button', { name: '다음', exact: true }).click();
-async function startSignup(page) {
+async function startSignup(page, { profile = true } = {}) {
   await page.goto('/#signup');
+  await acceptSignupConsent(page, { profile });
   await page.getByRole('button', { name: '아이디로 회원가입' }).click();
 }
 async function chooseUsername(page, username = 'wizard_user') {
@@ -95,7 +106,7 @@ async function mockKakaoSignup(page, name = '카카오별명') {
       username: 'k_test',
       email: route.request().postDataJSON().email,
       email_verified: false,
-      name: name || null,
+      name: route.request().postDataJSON().consent.profile ? name || null : null,
       age: null,
       gender: 'undisclosed',
       region: null,
@@ -150,6 +161,198 @@ async function loginNextAccount(page) {
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   await openBasics(page, true);
 }
+
+test('signup requires an explicit collection decision before opening signup methods', async ({
+  page,
+}) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (
+      /\/auth\/(signup|username\/check|email\/request|kakao\/start)$/.test(
+        new URL(request.url()).pathname,
+      )
+    ) {
+      requests.push(request.url());
+    }
+  });
+  await page.goto('/#signup');
+  await expect(
+    page.getByRole('heading', { name: '개인정보 수집·이용 안내', exact: true }),
+  ).toBeVisible();
+  const required = page.getByRole('checkbox', { name: requiredConsentLabel, exact: true });
+  const profile = page.getByRole('checkbox', { name: profileConsentLabel, exact: true });
+  const proceed = page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true });
+  await expect(required).not.toBeChecked();
+  await expect(profile).not.toBeChecked();
+  await expect(proceed).toBeDisabled();
+  await expect(page.getByLabel('아이디', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('이메일', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toHaveCount(0);
+  const accountNotice = page.getByRole('region', { name: '회원가입 개인정보 안내', exact: true });
+  await expect(accountNotice.locator('dt')).toHaveText([
+    '수집 항목',
+    '이용 목적',
+    '보유 기간',
+    '거부 권리',
+  ]);
+  await expect(accountNotice).toContainText('회원 탈퇴');
+  await expect(accountNotice).toContainText(/(?:즉시|지체 없이) 삭제/);
+  const aiNotice = page.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
+  await expect(aiNotice).toContainText('질문 내용');
+  await expect(aiNotice).toContainText('국외이전');
+  await expect(page.getByRole('checkbox', { name: aiConsentLabel, exact: true })).toHaveCount(0);
+  await page.getByText('관련 법령 확인', { exact: true }).click();
+  await expect(page.getByRole('link', { name: '국가법령정보센터에서 법령 보기' })).toHaveAttribute(
+    'href',
+    'https://www.law.go.kr/법령/개인정보보호법',
+  );
+  await profile.check();
+  await expect(proceed).toBeDisabled();
+  await required.check();
+  await expect(proceed).toBeEnabled();
+  await required.uncheck();
+  await expect(proceed).toBeDisabled();
+  expect(requests).toEqual([]);
+});
+
+test('an outdated privacy notice blocks signup until a current notice is loaded', async ({
+  page,
+}) => {
+  let current = false;
+  await page.route('**/v1/auth/privacy-notice', (route) =>
+    route.fulfill({
+      json: { ...privacyNotice, version: current ? privacyNotice.version : '2026-01-01.1' },
+    }),
+  );
+  await page.goto('/#signup');
+  await expect(page.getByRole('alert')).toContainText('최신 개인정보 안내');
+  await expect(
+    page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: requiredConsentLabel, exact: true })).toHaveCount(
+    0,
+  );
+  current = true;
+  await page.getByRole('button', { name: '안내 다시 불러오기', exact: true }).click();
+  await acceptSignupConsent(page);
+  await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
+});
+
+test('external AI consent is a separate opt-in recorded with its notice version', async ({
+  page,
+}) => {
+  const aiVersion = 'ai-test-notice.1';
+  await page.route('**/v1/auth/privacy-notice', (route) =>
+    route.fulfill({
+      json: {
+        ...privacyNotice,
+        ai: {
+          enabled: true,
+          notice_version: aiVersion,
+          provider_name: '테스트 AI 처리 업체',
+          contact: 'processor@example.com',
+          countries: ['미국'],
+          purpose: '사용자 질문에 대한 복지 안내 답변 생성',
+          items: ['질문 내용', '지역', '연령대'],
+          transfer_time: '사용자가 질문을 전송하는 시점',
+          transfer_method: '암호화된 통신',
+          retention: '테스트용 보유 기간',
+          training: '모델 학습에 사용하지 않음',
+        },
+      },
+    }),
+  );
+  await mockSignup(page);
+  let submitted;
+  await page.route('**/v1/auth/signup', (route) => {
+    submitted = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { message: '회원가입이 완료됐어요.' } });
+  });
+  await page.goto('/#signup');
+  const aiChoice = page.getByRole('checkbox', { name: aiConsentLabel, exact: true });
+  await expect(aiChoice).not.toBeChecked();
+  const aiNotice = page.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
+  await expect(aiNotice).toContainText('테스트 AI 처리 업체');
+  await expect(aiNotice).toContainText('미국');
+  await expect(aiNotice).toContainText('모델 학습에 사용하지 않음');
+  await aiChoice.check();
+  await expect(
+    page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true }),
+  ).toBeDisabled();
+  await acceptSignupConsent(page);
+  await page.getByRole('button', { name: '아이디로 회원가입' }).click();
+  await chooseUsername(page, 'ai_optin_user');
+  await page.getByLabel('비밀번호', { exact: true }).fill(password);
+  await next(page);
+  await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
+  await next(page);
+  await confirmEmail(page);
+  await page.getByRole('button', { name: '회원가입', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('회원가입이 완료');
+  expect(submitted.consent).toEqual({
+    ...expectedConsent(false, true),
+    ai_notice_version: aiVersion,
+  });
+});
+
+test('declining optional profile and AI consent still allows ID signup without demographics', async ({
+  page,
+}) => {
+  await mockSignup(page);
+  let submitted;
+  await page.route('**/v1/auth/signup', (route) => {
+    submitted = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { message: '회원가입이 완료됐어요.' } });
+  });
+  await startSignup(page, { profile: false });
+  await chooseUsername(page, 'minimal_user');
+  await page.getByLabel('비밀번호', { exact: true }).fill(password);
+  await next(page);
+  await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
+  await next(page);
+  await confirmEmail(page);
+  await expect(page.getByRole('heading', { name: '가입 정보를 확인해 주세요' })).toBeVisible();
+  for (const label of ['이름', '나이 (만 나이)', '성별', '거주 지역']) {
+    await expect(page.getByLabel(label, { exact: true })).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: '회원가입', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('회원가입이 완료');
+  expect(submitted).toEqual({
+    username: 'minimal_user',
+    email: 'wizard@example.com',
+    password,
+    confirm_password: password,
+    name: null,
+    age: null,
+    gender: 'undisclosed',
+    region: null,
+    consent: expectedConsent(),
+  });
+});
+
+test('Kakao callback requires our notice consent and accepts optional refusal', async ({
+  page,
+}) => {
+  const state = await mockKakaoSignup(page);
+  await page.goto('/#signup?kakao=complete');
+  await expect(
+    page.getByRole('heading', { name: '개인정보 수집·이용 안내', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: '동의하고 가입 계속하기', exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel('이메일', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toHaveCount(0);
+  expect(state.signupBodies).toEqual([]);
+  await acceptKakaoConsent(page);
+  await page.getByLabel('이메일', { exact: true }).fill('minimal-kakao@example.com');
+  await page.getByRole('button', { name: '가입하고 시작하기' }).click();
+  await expect(page).toHaveURL(/#home$/);
+  expect(state.signupBodies).toEqual([
+    { email: 'minimal-kakao@example.com', consent: expectedConsent() },
+  ]);
+  expect(state.profileBodies).toEqual([]);
+});
 
 for (const nextUser of [
   { age: 25, region: '부산' },
@@ -222,13 +425,14 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   const suffix = String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 10));
   const username = 'user_' + suffix;
   await page.goto('/#signup');
+  await acceptSignupConsent(page, { profile: true });
   await expect(
     page.getByRole('button', { name: '카카오톡으로 로그인/회원가입하기' }),
   ).toBeDisabled();
   await expect(page.getByText('카카오 로그인을 준비 중이에요.', { exact: false })).toBeVisible();
   await expect(page.getByLabel('아이디', { exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('signup-method.png'), fullPage: true });
-  await startSignup(page);
+  await page.getByRole('button', { name: '아이디로 회원가입' }).click();
   await expect(page.getByLabel('전화번호', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '사용할 아이디를 정해 주세요' })).toBeFocused();
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeDisabled();
@@ -294,6 +498,85 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await expect(page.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
 });
 
+test('account withdrawal requires confirmation, ends the session and releases the username', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60000);
+  const username =
+    'delete_' + String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 10));
+  async function signup(email) {
+    await startSignup(page, { profile: false });
+    await chooseUsername(page, username);
+    await page.getByLabel('비밀번호', { exact: true }).fill(password);
+    await next(page);
+    await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
+    await next(page);
+    await confirmEmail(page, email, true);
+    await page.getByRole('button', { name: '회원가입', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('회원가입이 완료');
+  }
+  async function login() {
+    await page.getByRole('link', { name: '로그인하러 가기' }).click();
+    await page.getByLabel('아이디', { exact: true }).fill(username);
+    await page.getByLabel('비밀번호', { exact: true }).fill(password);
+    await page.getByRole('button', { name: '로그인', exact: true }).click();
+    await expect(page.getByText('회원님', { exact: true })).toBeVisible();
+  }
+
+  await signup(`${username}@example.com`);
+  await login();
+  const before = await page.request.get('/api/v1/auth/me');
+  expect(before.status()).toBe(200);
+  const firstAccount = (await before.json()).user;
+  const storedKeys = ['bokji.profile.v2', 'bokji.saved.v2.api', 'bokji.saved.v2.demo'];
+  await page.evaluate((keys) => {
+    localStorage.setItem(
+      keys[0],
+      JSON.stringify({ region: '서울', ageBand: '19~34세', interests: [] }),
+    );
+    for (const key of keys.slice(1))
+      localStorage.setItem(key, JSON.stringify(['withdrawal-fixture']));
+  }, storedKeys);
+  await page.goto('/#profile');
+  await openBasics(page);
+  await page.getByRole('button', { name: '회원 탈퇴', exact: true }).click();
+  const confirmation = page.getByRole('checkbox', {
+    name: '삭제되는 정보를 확인했고 회원 탈퇴에 동의합니다.',
+    exact: true,
+  });
+  const withdraw = page.getByRole('button', { name: '탈퇴하고 개인정보 삭제', exact: true });
+  await expect(confirmation).not.toBeChecked();
+  await expect(withdraw).toBeDisabled();
+  expect((await page.request.get('/api/v1/auth/me')).status()).toBe(200);
+  await confirmation.check();
+  await expect(withdraw).toBeEnabled();
+  await page
+    .locator('.account-withdrawal')
+    .screenshot({ path: testInfo.outputPath('withdrawal-review-panel.png') });
+  await page.screenshot({ path: testInfo.outputPath('withdrawal-review.png'), fullPage: true });
+  const request = page.waitForRequest('**/v1/auth/withdraw');
+  await withdraw.click();
+  expect((await request).postDataJSON()).toEqual({
+    notice_version: consentVersion,
+    confirmation: true,
+  });
+  await expect(page.getByRole('link', { name: '로그인', exact: true }).first()).toBeVisible();
+  expect((await page.request.get('/api/v1/auth/me')).status()).toBe(401);
+  expect(
+    await page.evaluate((keys) => keys.map((key) => localStorage.getItem(key)), storedKeys),
+  ).toEqual([null, null, null]);
+  await page.reload();
+  expect((await page.request.get('/api/v1/auth/me')).status()).toBe(401);
+
+  await signup(`${username}-rejoin@example.com`);
+  await login();
+  const after = await page.request.get('/api/v1/auth/me');
+  expect(after.status()).toBe(200);
+  const rejoinedAccount = (await after.json()).user;
+  expect(rejoinedAccount.username).toBe(username);
+  expect(rejoinedAccount.id).not.toBe(firstAccount.id);
+});
+
 test('duplicate check, edits, previous steps and mode switches preserve the wizard', async ({
   page,
 }) => {
@@ -337,8 +620,6 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
   await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
   await next(page);
   await confirmEmail(page);
-  await next(page);
-  await expect(page.getByRole('alert')).toContainText('이름을');
   await page.getByLabel('이름', { exact: true }).fill('김복지');
   await next(page);
   await page.getByLabel('나이 (만 나이)').fill('121');
@@ -364,6 +645,7 @@ test('duplicate check, edits, previous steps and mode switches preserve the wiza
     age: 67,
     gender: 'undisclosed',
     region: '부산',
+    consent: expectedConsent(true),
   });
 });
 
@@ -444,6 +726,7 @@ test('expired proof at final signup returns to email without clearing other fiel
 test('Kakao signup requires valid email before creating an account', async ({ page }) => {
   const state = await mockKakaoSignup(page);
   await page.goto('/#signup?kakao=complete');
+  await acceptKakaoConsent(page, { profile: true });
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   await expect(page.getByRole('alert')).toContainText('올바른 이메일');
   expect(state.signupBodies).toEqual([]);
@@ -453,7 +736,9 @@ test('Kakao signup requires valid email before creating an account', async ({ pa
   await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   await expect(page).toHaveURL(/#profile\?setup=1$/);
-  expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
+  expect(state.signupBodies).toEqual([
+    { email: 'kakao@example.com', consent: expectedConsent(true) },
+  ]);
 });
 
 test('login network failure is visible and focused', async ({ page }) => {
@@ -491,8 +776,11 @@ for (const name of ['카카오별명', '']) {
   }, testInfo) => {
     const state = await mockKakaoSignup(page, name);
     await page.goto('/#signup?kakao=complete');
+    await acceptKakaoConsent(page, { profile: true });
     await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
-    await expect(page.locator('.auth-card input, .auth-card select')).toHaveCount(1);
+    await expect(
+      page.locator('.auth-card input:not([type="checkbox"]), .auth-card select'),
+    ).toHaveCount(1);
     await expect(page.getByRole('button', { name: '다른 카카오 계정으로 로그인' })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath('kakao-signup.png'), fullPage: true });
     await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
@@ -516,7 +804,9 @@ for (const name of ['카카오별명', '']) {
     await setup.getByLabel('나이 (만 나이)').fill('35');
     await setup.getByRole('link', { name: '나중에 하기' }).click();
     await expect(page).toHaveURL(/#home$/);
-    expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
+    expect(state.signupBodies).toEqual([
+      { email: 'kakao@example.com', consent: expectedConsent(true) },
+    ]);
     expect(state.profileBodies).toEqual([]);
     await page.reload();
     await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
@@ -541,6 +831,7 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   const state = await mockKakaoSignup(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#signup?kakao=complete');
+  await acceptKakaoConsent(page, { profile: true });
   await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();
   const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
@@ -557,7 +848,9 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await setup.getByRole('button', { name: '저장하고 시작하기' }).click();
   await expect(page).toHaveURL(/#home$/);
-  expect(state.signupBodies).toEqual([{ email: 'kakao@example.com' }]);
+  expect(state.signupBodies).toEqual([
+    { email: 'kakao@example.com', consent: expectedConsent(true) },
+  ]);
   expect(state.profileBodies).toEqual([{ age: 35, region: '부산' }]);
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   await openBasics(page, true);
@@ -596,8 +889,13 @@ test('Kakao signup cancellation returns to the initial method screen', async ({ 
     return route.fulfill({ json: { message: '가입 방법을 다시 선택해 주세요.' } });
   });
   await page.goto('/#signup?kakao=complete');
+  await acceptKakaoConsent(page);
   await page.getByRole('button', { name: '가입 방법 다시 선택' }).click();
   await expect(page).toHaveURL(/#signup$/);
+  await expect(
+    page.getByRole('heading', { name: '개인정보 수집·이용 안내', exact: true }),
+  ).toBeVisible();
+  await acceptSignupConsent(page);
   await expect(page.getByRole('heading', { name: '가입 방법을 선택해 주세요' })).toBeVisible();
   await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toBeVisible();
   await expect(page.getByLabel('이름', { exact: true })).toHaveCount(0);
@@ -612,6 +910,7 @@ test('expired Kakao signup requires a new login', async ({ page }) => {
     }),
   );
   await page.goto('/#signup?kakao=complete');
+  await acceptKakaoConsent(page);
   await expect(page.getByRole('alert')).toContainText('만료');
   await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '가입 방법 다시 선택' })).toBeEnabled();
@@ -631,6 +930,7 @@ test('Kakao start rejects other sites and navigates to the expected authorizatio
     route.fulfill({ contentType: 'text/html', body: '<h1>OAuth test destination</h1>' }),
   );
   await page.goto('/#signup');
+  await acceptSignupConsent(page);
   const button = page.getByRole('button', { name: '카카오톡으로 로그인/회원가입하기' });
   await button.click();
   await expect(page.getByRole('alert')).toContainText('로그인 주소');
@@ -658,6 +958,7 @@ test('Kakao expiry at completion requires returning to login methods', async ({ 
     });
   });
   await page.goto('/#signup?kakao=complete');
+  await acceptKakaoConsent(page, { profile: true });
   await expect(page.getByRole('button', { name: '가입하고 시작하기' })).toBeEnabled();
   await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
   await page.getByRole('button', { name: '가입하고 시작하기' }).click();

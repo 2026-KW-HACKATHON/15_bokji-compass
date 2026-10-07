@@ -57,7 +57,7 @@ groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원�
 
 ## PolicyOverview
 
-파이프라인 초안의 `overview`는 `title`, `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 제공합니다. 제목은 원문 제목 그대로이며 `source_url`은 `SourcePolicy.source_url`에서 복사합니다. 모델이 URL을 생성·수정하지 않습니다. 원문 URL이 없으면 null입니다. 분야는 웹과 동일한 6개 값(`생활·금융`, `주거`, `일자리`, `교육`, `건강·돌봄`, `문화`) 중 주된 지원 내용에 따라 선택하며, 미분류 시 category=null과 unresolved 사유를 기록합니다.
+파이프라인 초안의 `overview`는 `title`, `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 제공합니다. 제목은 원문 제목 그대로이며 `source_url`은 `SourcePolicy.source_url`에서 복사합니다. 모델이 URL을 생성·수정하지 않습니다. 원문 URL이 없으면 null입니다. 분야는 웹과 동일한 8개 값(`생활·금융`, `주거`, `일자리`, `교육`, `건강·돌봄`, `문화`, `농림축산·어업`, `사업·창업`) 중 주된 지원 내용에 따라 선택하며, 미분류 시 category=null과 unresolved 사유를 기록합니다.
 
 지역·성별·나이 조건 및 혜택은 `status`와 `text`, `evidence`, `unresolved_reason`을 가집니다. `specified`는 조건/혜택 명시, `unrestricted`는 제한 없음 명시, `not_stated`는 원문 미기재, `unclear`는 모호·상충을 뜻합니다. 근거가 있는 text는 원문 인용을 가져야 하고, 미기재 상태는 내용을 추론해 채우지 않습니다. `other_conditions`는 소득·가구·자산·신청 조건 등을 항목별 text/evidence로 보존합니다. 검증은 제목과 인용의 원문 일치만 보장하며 의미 정확성·조건 완전성·사용자 자격을 확정하지 않습니다.
 

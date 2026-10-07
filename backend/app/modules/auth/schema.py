@@ -62,6 +62,7 @@ def initialize_auth_schema(engine):
                 "email_verified_at": "INTEGER",
             },
             "auth_kakao_flows": {"nickname_ciphertext": "TEXT"},
+            "auth_consents": {"ai_notice_version": "VARCHAR(64)"},
         }.items():
             columns = {c["name"] for c in inspect(connection).get_columns(table)}
             for name, sql_type in additions.items():

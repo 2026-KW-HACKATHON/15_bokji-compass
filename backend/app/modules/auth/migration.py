@@ -9,6 +9,7 @@ from app.modules.admin.access import admin_grants
 from app.modules.auth.models import (
     PROFILE_FIELDS,
     accounts,
+    auth_consents,
     kakao_flows,
     kakao_identities,
     privacy_state,
@@ -93,7 +94,7 @@ def restore_plaintext_data(engine, settings):
 
 
 def import_sqlite_accounts(source, target, settings=None):
-    """Copy accounts, roles, provider links, sessions and finance without overwriting targets."""
+    """Copy accounts and their data without overwriting live records or inferring consent."""
     count = 0
     source_account_ids = set()
     imported_account_ids = set()
@@ -143,6 +144,7 @@ def import_sqlite_accounts(source, target, settings=None):
             (kakao_identities, "subject"),
             (sessions, "token_hash"),
             (financial_profiles, "account_id"),
+            (auth_consents, "account_id"),
         ):
             if table.name not in source_tables:
                 continue

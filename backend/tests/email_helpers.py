@@ -1,6 +1,12 @@
 """Mailbox capture used only by offline tests, never by the application."""
 
 mailbox = {}
+SIGNUP_CONSENT = {
+    "notice_version": "2026-10-07.2",
+    "collection": True,
+    "profile": True,
+    "ai": False,
+}
 
 
 def verify_email(client, email="tester@example.com"):

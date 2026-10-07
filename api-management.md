@@ -1,5 +1,41 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 공고 DB 편집 (2026-10-07)
+
+최고 관리자 콘솔 전용 `bokji_server_admin` 인증을 사용합니다.
+
+| 메서드·경로 | 요청 | 응답 |
+|---|---|---|
+| GET `/v1/server-admin/policies` | q, status, limit(1~100), cursor | 원문/분석 공고 목록, total, nextCursor |
+| GET `/v1/server-admin/policies/{policy_key}` | URL 인코딩 공고 키 | version, 기본 정보, fields, display, analysis, canonical, 공개 상태, 최근 20개 개정 |
+| PATCH `/v1/server-admin/policies/{policy_key}` | version, title, organization, source_url, fields, category, display, analysis(선택), published, note | 저장한 새 개정 및 새 version |
+
+PATCH는 JSON·같은 출처·`X-Auth-Request: 1`을 요구하며 본문 1MiB 상한입니다.
+인증/권한 401/403, 없음 404, 개정 충돌 409, 입력/코드/인용 검증 422, 본문 초과 413입니다.
+원문 필드는 항목당 최대 200,000글자입니다. 공개 상태와 편집을 한 트랜잭션으로 저장하고
+이전 개정·수집 원문을 보존합니다. 관리자 수정 이후 AI 자동 승인은 수동 내용을 덮어쓰지 않습니다.
+공개 GET `/v1/policies/{id}`는 `content`, `sourceFields`, `gender`, `otherConditions`,
+`applicationMethod`, `applicationUrl`, `contact`, `publishedDate`, `modifiedDate`를 추가 반환합니다.
+웹 목록/캘린더/열린 상세는 화면 복귀·포커스 및 활성 상태 30초 간격으로 갱신합니다.
+
+## 공고 DB 편집 (2026-10-07)
+
+최고 관리자 콘솔 전용 `bokji_server_admin` 인증을 사용합니다.
+
+| 메서드·경로 | 요청 | 응답 |
+|---|---|---|
+| GET `/v1/server-admin/policies` | q, status, limit(1~100), cursor | 원문/분석 공고 목록, total, nextCursor |
+| GET `/v1/server-admin/policies/{policy_key}` | URL 인코딩 공고 키 | version, 기본 정보, fields, display, analysis, canonical, 공개 상태, 최근 20개 개정 |
+| PATCH `/v1/server-admin/policies/{policy_key}` | version, title, organization, source_url, fields, category, display, analysis(선택), published, note | 저장한 새 개정 및 새 version |
+
+PATCH는 JSON·같은 출처·`X-Auth-Request: 1`을 요구하며 본문 1MiB 상한입니다.
+인증/권한 401/403, 없음 404, 개정 충돌 409, 입력/코드/인용 검증 422, 본문 초과 413입니다.
+원문 필드는 항목당 최대 200,000글자입니다. 공개 상태와 편집을 한 트랜잭션으로 저장하고
+이전 개정·수집 원문을 보존합니다. 관리자 수정 이후 AI 자동 승인은 수동 내용을 덮어쓰지 않습니다.
+공개 GET `/v1/policies/{id}`는 `content`, `sourceFields`, `gender`, `otherConditions`,
+`applicationMethod`, `applicationUrl`, `contact`, `publishedDate`, `modifiedDate`를 추가 반환합니다.
+웹 목록/캘린더/열린 상세는 화면 복귀·포커스 및 활성 상태 30초 간격으로 갱신합니다.
+
 ## 백엔드 서버 관리자 화면·API (2026-10-02)
 
 백엔드 `GET /`는 관리자 로그인·서버 관리 콘솔입니다. 일반 서버 8000과 공유 서버 8001은
@@ -256,7 +292,7 @@ DB 암호·수집용 키·CLI 인증값은 서버에만 둡니다. 프론트 `VI
 |---|---|---|
 | Gov24 | `https://api.odcloud.kr/api/gov24/v3/serviceList`, 첫 페이지 목록 | 서버의 `DATA_GO_KR_API_KEY`; [수집기](backend/app/modules/collectors/gov24_services.py) |
 | 복지로 | `https://apis.data.go.kr/B554287/NationalWelfareInformationsV001` 아래 `/NationalWelfarelistV001`, `/NationalWelfaredetailedV001` | 서버의 `BokjiRO_API_KEY`; [수집기](backend/app/modules/collectors/bokjiro_services.py) |
-| 일반 공고·광운대 공지 | 전달받은 공고 URL·`https://www.kw.ac.kr/ko/life/notice.jsp` | 내부 Python 수집 함수. 업로드/수집 HTTP API 없음 |
+| 일반 공고·광운대 공지 | 전달받은 공고 URL·`https://www.kw.ac.kr/ko/life/notice.jsp` | 광운대 등록/장학은 관리자/CLI 자동 수집에 연결. `INGESTION_KWANGWOON_ENABLED=true`, API 키 없이 외부 원문 예산 사용. 별도 업로드 HTTP API 없음. [설정·검증](backend/docs/kwangwoon-auto-collection.md) |
 | 원문 파싱 | `backend/scripts/parse-raw.ps1` | 내부 CLI. 원문 → 조건 후보·검증 → MySQL 초안. HTTP 분석 API 없음 |
 | MySQL | 서버 내부 연결 | 공고 저장·개정·재개, 공개 공고 조회 API 구현 |
 
@@ -370,6 +406,23 @@ DB·외부 API를 호출하지 않는 계약 회귀 검증은 backend 폴더에�
 전체 수신 기본값은 OFF입니다. 로그아웃/세션 만료 기기는 발송 대상에서 제외합니다. MySQL 추가 테이블 초기화는 `python -m app.modules.notifications`. 권한창·설정 UI·기기 등록·수신 필터 payload까지 구현했으며 실제 자동 이벤트와 발송 worker는 아직 없습니다. [서버 계약](backend/app/modules/notifications/readme.md), [모바일 사용·푸시 구성](frontend/mobile/src/features/notifications/readme.md).
 
 
+## 전체공고 인기순·분야 확장 (2026-10-07)
+
+`GET /v1/policies`의 `sort`는 `popular`(기본), `recent`, `name`을 받습니다.
+확인된 정부24 `조회수`·복지로 `inqNum`의 누적 조회수를 내림차순으로 정렬한 뒤
+limit/offset 페이지를 적용합니다. 조회수가 없는 공고는 뒤에, 동률은 최근 등록일·공고 ID
+순서로 표시합니다. 웹 전체공고 기본값과 조건 초기화도 인기순이며 정렬 변경 시 cursor를
+초기화합니다. 기존 최근 등록순·이름순 요청은 호환됩니다. 인증·오류·페이지 응답 형태는 유지합니다.
+목록·상세의 선택 `popularity`는 기존 추천과 동일한 `{views,source,basis,asOf} | null`입니다.
+
+분야는 생활·금융, 주거, 일자리, 교육, 건강·돌봄, 문화, 농림축산·어업, 사업·창업, 기타입니다.
+기존 공고는 저장 원문과 개정을 보존하며 지원 내용에 따라 표시 분류를 보완합니다.
+관리자 수동 분류를 우선하며 목록·상세·캘린더·추천·분야/태그 필터에 같은 기준을 사용합니다.
+신규 분석과 관리자 편집도 추가 분야를 허용합니다.
+[분류 기준·검증](backend/docs/policy-categories.md),
+[조회수 기준](backend/docs/policy-popularity.md),
+[웹 호출 계약](frontend/docs/service-contract.md).
+
 ## 공고 검색 필터 보완 (2026-10-06)
 
 2026-10-06 공고 표시 응답에 선택 `paymentSchedule: string | null`을 추가했습니다.
@@ -405,3 +458,24 @@ eligibility_decided:false,truncated}`. 로그인 정보 오류 401, DB 준비/�
 비활성 매칭/부분 조건은 needs_review이며 자격 확정을 하지 않습니다. OpenAPI는 코드에서 생성됩니다.
 [DB 확인·저장·대응표](backend/docs/member-policy-matching.md),
 [공개 함수](backend/app/modules/matching/readme.md).
+
+## 추천 정보 충분성·인기 공고 (2026-10-07)
+
+`POST /v1/recommendations`는 비회원의 빈 `{}` 요청도 지원합니다. 기존 인증 세션이
+잘못되었을 때는 401로 응답합니다. `mode`는 `personalized`/`popular`/`general`/
+`profile_required`이며, `profile_sufficient:boolean`, `guidance:string`,
+`missing_fields:string[]`가 추가됩니다. 웹은 `personalized`와 정보 충분성 확인이
+함께 있는 경우에만 맞춤 추천으로 안내합니다. 특수 자격이 확인되지 않은 공고나
+조건 검토가 미완료인 공고를 메인 추천에 채우지 않습니다.
+
+추천 정책의 선택 `popularity`는 `{views,source,basis:"provider_cumulative_views",asOf}`이며
+정부24·복지로의 실제 누적 조회수를 나타냅니다. 수집 목록에서 갱신되며, 최근 증가량·
+사이트 회원 관심 수로 해석하지 않습니다. 기존 수집 테이블을 읽어 추가 마이그레이션은
+없습니다. 관측 시각을 확인할 수 없으면 `asOf:null`입니다.
+
+선택 `budget`은 `{usedPercent,sourceUrl,asOf,evidence}`이며 공고 원문의 명시적
+예산 소진율만 전달합니다. 일반 공공 API에서 수치를 제공하지 않으면 생략합니다.
+선택 `budgetNotice`는 원문에 예산 소진 시 마감 안내가 있을 때만 전달합니다.
+100% 소진이 명시된 공고는 메인 추천에서 제외합니다.
+[조건·정보 기준](backend/docs/recommendation-safety.md),
+[출처 조회수·갱신 방식](backend/docs/policy-popularity.md).

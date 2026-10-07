@@ -1,5 +1,10 @@
 # Codex CLI 조건 추출
 
+2026-10-07: 단건 개요 `welfare-overview-v5`와 묶음 `welfare-batch-v2`는 공유 8개 분야를
+분류합니다. 농림축산·어업과 사업·창업을 추가했으며 농어업·사업 자금 대출/보증을
+지급 방식만으로 생활·금융에 넣지 않습니다. 자녀 장학금은 교육처럼 지원 목적을
+우선합니다. [공유 계약·기존 공고 반영](../../../docs/policy-categories.md).
+
 2026-10-06 묶음 최적화: `extract_policy_batch(requests, settings, output, model)`은
 최대 8건의 transport를 지원하며 운영 프리셋은 4건/24,000글자로 시작한다. 지시문·스키마를
 공유하고 요약+조건을 통합한다. 결정 가능한 제목·URL·중첩 ID는 서버에서 채운다.

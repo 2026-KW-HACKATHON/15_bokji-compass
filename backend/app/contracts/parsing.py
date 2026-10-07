@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.contracts.categories import PolicyCategory
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
@@ -115,9 +117,6 @@ class PolicyExtraction(StrictModel):
     groups: list[ConditionGroup] = Field(max_length=64)
     coverage: Literal["partial", "complete"]
     unresolved: list[str]
-
-
-PolicyCategory = Literal["생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"]
 
 
 class SourceEvidence(StrictModel):

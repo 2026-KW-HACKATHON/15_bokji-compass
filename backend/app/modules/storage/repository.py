@@ -141,13 +141,14 @@ class PolicyRepository:
         from app.modules.storage.publication import (
             change_publication,
             events_table,
+            has_manual_edits,
             publication_transaction,
         )
 
         automatic = self.auto_publish and draft["status"] == "needs_review"
         events = events_table(self) if automatic else None
         transaction = (publication_transaction(self, source["policy_key"])
-                       if automatic else self.engine.begin())
+                       if draft["status"] == "needs_review" else self.engine.begin())
         with transaction as connection:
             item = connection.execute(select(items).where(
                 items.c.run_id == run_id, items.c.policy_key == source["policy_key"]
@@ -160,8 +161,10 @@ class PolicyRepository:
             reused = False
             if draft["status"] == "needs_review":
                 revision_id, reused = self._save_revision(connection, draft, processing)
-                self._save_legacy_policy(connection, draft)
-                if automatic and not reused:
+                manual = has_manual_edits(self, connection, source["policy_key"])
+                if not manual:
+                    self._save_legacy_policy(connection, draft)
+                if automatic and not reused and not manual:
                     change_publication(self, connection, events, revision_id,
                                        policy_key=source["policy_key"], action="publish",
                                        expected_status="draft", actor_id="system:auto-publish",

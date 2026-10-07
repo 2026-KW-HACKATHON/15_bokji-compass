@@ -1,5 +1,10 @@
 # 공고·개인비서 HTTP 계약
 
+2026-10-07 공개 상세 `/v1/policies/{id}`는 content, sourceFields, gender, otherConditions,
+applicationMethod, applicationUrl, contact, publishedDate, modifiedDate를 선택 필드로 반환합니다.
+관리자 편집은 [전용 서버 콘솔 계약](../../api-management.md)을 사용합니다. 같은 공개 개정을
+목록·상세·캘린더가 조회하며 웹은 활성 상태 30초 및 화면 복귀/포커스 시 갱신합니다.
+
 상태: **공고 조회·조건 비교 추천 서버 구현** (2026-10-06). 담당: 프론트·백엔드 공동.
 회원 DB 연결·추가 반환값은 [현재 매칭 계약](../../backend/docs/member-policy-matching.md),
 인증·금융 계산·회원 저장 API는 [연동 현황](api-integration.md)과 [루트 관리대장](../../api-management.md) 참고.
@@ -10,8 +15,8 @@ API에 노출하지 않습니다. matching_enabled=false 공고는 조건 비교
 
 ## 공고 목록: GET /v1/policies
 웹 기본 요청: /api/v1/policies (proxy가 /api 제거).
-쿼리: q(공백 구분 AND 검색), tag(정확한 태그), category, region, audience, sort(recent/name), limit(1 또는 6), cursor(불투명 문자열).
-전체 필터는 생략. 지역 선택 시 전국 공고도 포함. 검색·태그·필터는 AND, 최근순 동률은 고정 ID로 안정적으로 처리. 서버는 필터 변경 시 cursor를 재사용하지 않는다고 가정합니다.
+쿼리: q(공백 구분 AND 검색), tag(정확한 태그), category, region, audience, sort(popular/recent/name, 기본 popular), limit(1~100, 웹 일반 6/쉬운 화면 3), cursor(숫자 offset 문자열).
+전체 필터는 생략. 지역 선택 시 전국 공고도 포함. 검색·태그·필터는 AND로 적용합니다. 인기순은 확인된 정부24/복지로 누적 조회수 내림차순이며 미제공 공고는 뒤에 표시합니다. 동률은 최근 등록일·고정 ID로 처리하고 전체 결과를 정렬한 뒤 페이지를 나눕니다. 서버는 필터·정렬 변경 시 cursor를 재사용하지 않는다고 가정합니다.
 ```json
 {
   "items": [{
@@ -33,8 +38,8 @@ API에 노출하지 않습니다. matching_enabled=false 공고는 조건 비교
 }
 ```
 id/title/summary/tags 필수. total은 현재 필터의 전체 수, nextCursor는 다음 페이지의 문자열 또는 null(끝). ID 중복·누락된 페이지 정보는 오류. 나머지 필드는 누락 시 안전한 안내문으로 표시. sourceUrl은 HTTP(S)만 허용하며 사용자명/비밀번호 URL 차단. icon/tone은 클라이언트에서 정하고 서버 HTML은 렌더링하지 않음.
-분야: 생활·금융, 주거, 일자리, 교육, 건강·돌봄, 문화. 지역은 현재 표시명으로 공식 행정 코드 미확정. 날짜/지역 코드 및 대상 확장 정책은 서버 확정 시 어댑터를 함께 수정.
-별도 상세 endpoint는 아직 제안하지 않음. 현재 목록이 상세 표시에 필요한 정보를 포함하며 저장은 해당 스냅샷. 최신 신청 조건은 sourceUrl로 확인.
+분야: 생활·금융, 주거, 일자리, 교육, 건강·돌봄, 문화, 농림축산·어업, 사업·창업, 기타. 기존 넓은 분류도 서버에서 공고의 지원 내용에 따라 재분류하며 관리자 수동 분류를 우선합니다. 목록·상세·캘린더와 분야/태그 필터에 동일한 분류를 적용합니다. [분류 기준](../../backend/docs/policy-categories.md).
+`GET /v1/policies/{id}`는 최신 공개 상세를 반환합니다. 목록·상세는 선택 `popularity: {views,source,basis:"provider_cumulative_views",asOf} | null`로 정렬 근거를 전달합니다. 최신 신청 조건은 sourceUrl로 확인합니다.
 
 ## 개인비서: POST /v1/recommendations
 ```json
@@ -54,10 +59,17 @@ id/title/summary/tags 필수. total은 현재 필터의 전체 수, nextCursor�
 상황: 학생 / 취업 준비 중 / 직장인 / 자영업자 / 은퇴 후 / 기타.
 가구: 혼자 살아요 / 가족과 살아요.
 
-응답: { "summary": "짧은 추천 요약", "items": [{ "policy": "위 공고 객체", "reason": "사용자에게 설명할 추천 이유" }] }.
+응답: { "summary": "짧은 추천 요약", "items": [{ "policy": "위 공고 객체", "reason": "사용자에게 설명할 추천 이유", "matching": "조건 비교 객체" }], "mode": "personalized | popular | general | profile_required", "profile_sufficient": false, "guidance": "정보 충분성 안내", "missing_fields": [] }.
 policy 값은 실제 JSON 객체입니다. 최대 3개, 중복 ID 불가, 각 reason은 비어 있지 않은 문자열. items=[]는 추천 없음.
 서버가 공고 조회·조건 비교·원문 검증을 수행합니다. 추천에는 LLM을 호출하지 않습니다.
 쉬운 화면에서도 요청은 최대 3개입니다. UI가 이유를 임의 생성하거나 자격 확률을 만들지 않습니다.
+
+2026-10-07: 프로필을 생략한 비회원 요청도 지원합니다. 공고별 필수 조건을 확인할 수 있을
+때만 `personalized`와 `profile_sufficient=true`를 반환합니다. 정보가 부족하면 지원 대상
+제한이 없다는 원문 근거와 현재 접수 기간이 확인된 일반 후보를 반환하며, 실제 정부24·복지로
+누적 조회수 근거가 있으면 `popular`로 안내합니다. 안전한 후보가 없으면 `profile_required`와
+정보 입력 안내를 제공합니다. `policy.popularity`, `policy.budget`, `policy.budgetNotice`는
+실제 출처 데이터가 있을 때만 있는 선택 필드입니다. [필드와 검증](../../api-management.md).
 
 ### 선택 확장: financialProfile
 

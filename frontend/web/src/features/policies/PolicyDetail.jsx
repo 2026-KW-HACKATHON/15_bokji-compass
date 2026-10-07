@@ -14,6 +14,20 @@ export default function PolicyDetail({
   onAsk,
 }) {
   const source = safeSourceUrl(policy.sourceUrl);
+  const sourceLabels = {
+    text: '공고 본문',
+    purpose_summary: '사업 목적',
+    eligibility: '지원 대상',
+    selection: '선정 기준',
+    benefits: '지원 내용',
+    application_period: '신청 기간',
+    application_method: '신청 방법',
+    application_url: '신청 주소',
+    contact: '문의처',
+    documents: '제출 서류',
+    published_date: '게시일',
+    modified_date: '수정일',
+  };
   const relatedTags = (
     <div className="tags detail-tags">
       {policy.tags.map((tag) => (
@@ -72,6 +86,42 @@ export default function PolicyDetail({
             <dt>담당 기관</dt>
             <dd>{policy.organization}</dd>
           </div>
+          {policy.publishedDate && (
+            <div>
+              <dt>게시일</dt>
+              <dd>{policy.publishedDate}</dd>
+            </div>
+          )}
+          {policy.modifiedDate && (
+            <div>
+              <dt>수정일</dt>
+              <dd>{policy.modifiedDate}</dd>
+            </div>
+          )}
+          {policy.applicationMethod && (
+            <div>
+              <dt>신청 방법</dt>
+              <dd>{policy.applicationMethod}</dd>
+            </div>
+          )}
+          {policy.contact && (
+            <div>
+              <dt>문의처</dt>
+              <dd>{policy.contact}</dd>
+            </div>
+          )}
+          {policy.gender && (
+            <div>
+              <dt>성별 조건</dt>
+              <dd>{policy.gender}</dd>
+            </div>
+          )}
+          {policy.otherConditions?.length > 0 && (
+            <div>
+              <dt>기타 조건</dt>
+              <dd>{policy.otherConditions.join('\n')}</dd>
+            </div>
+          )}
           {!easy && (
             <>
               <div>
@@ -86,6 +136,25 @@ export default function PolicyDetail({
           )}
         </dl>
       </details>
+      {policy.content && (
+        <details className="detail-more">
+          <summary>공고 본문 보기</summary>
+          <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{policy.content}</p>
+        </details>
+      )}
+      {Object.keys(policy.sourceFields || {}).length > 0 && (
+        <details className="detail-more">
+          <summary>공고의 전체 항목 확인</summary>
+          <dl className="policy-detail">
+            {Object.entries(policy.sourceFields).map(([key, value]) => (
+              <div key={key}>
+                <dt>{sourceLabels[key] || key}</dt>
+                <dd style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       {easy ? (
         <details className="detail-related">
           <summary>관련 공고 더 찾기</summary>
@@ -116,6 +185,18 @@ export default function PolicyDetail({
         {mode === 'api' && source && (
           <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
             자세한 공고 확인하기
+            <Icon name="external" size={18} />
+            <span className="sr-only">새 창</span>
+          </a>
+        )}
+        {policy.applicationUrl && (
+          <a
+            className="button secondary"
+            href={policy.applicationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            신청 페이지 열기
             <Icon name="external" size={18} />
             <span className="sr-only">새 창</span>
           </a>

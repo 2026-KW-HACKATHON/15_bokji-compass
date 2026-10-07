@@ -1,10 +1,59 @@
 import { test, expect } from '@playwright/test';
+import {
+  acceptSignupConsent,
+  profileConsentLabel,
+  requiredConsentLabel,
+} from '../fixtures/privacy-consent.js';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/v1/auth/kakao/status', (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
 });
+
+for (const width of [320, 1440]) {
+  test(`signup notice stays readable and preserves consent in both screen modes at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/#signup');
+    const heading = page.getByRole('heading', { name: '개인정보 수집·이용 안내', exact: true });
+    const required = page.getByRole('checkbox', { name: requiredConsentLabel, exact: true });
+    const profile = page.getByRole('checkbox', { name: profileConsentLabel, exact: true });
+    await expect(heading).toBeVisible();
+    await expect(required).toBeVisible();
+    await expect(profile).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true }),
+    ).toBeDisabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`privacy-normal-${width}.png`),
+      fullPage: true,
+    });
+    await required.check();
+    await profile.check();
+    await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+    await expect(heading).toBeVisible();
+    await expect(required).toBeChecked();
+    await expect(profile).toBeChecked();
+    await expect(
+      page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true }),
+    ).toBeEnabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`privacy-easy-${width}.png`),
+      fullPage: true,
+    });
+    await page
+      .locator('.privacy-choices')
+      .screenshot({ path: testInfo.outputPath(`privacy-controls-${width}.png`) });
+  });
+}
 
 test('ID login opens on selection and preserves input across disclosure and easy mode', async ({
   page,
@@ -78,6 +127,7 @@ test('signup keeps one field per step and its draft when changing screen mode', 
   await page.goto('/#signup');
   await expect(page.getByRole('heading', { name: '회원가입', exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('signup-normal.png'), fullPage: true });
+  await acceptSignupConsent(page);
   await page.getByRole('button', { name: '아이디로 회원가입' }).click();
   await page.getByLabel('아이디', { exact: true }).fill('design_user');
   await page.getByRole('button', { name: '중복확인', exact: true }).click();
@@ -110,6 +160,7 @@ for (const type of ['login', 'signup']) {
         }),
     );
     await page.goto('/#' + type);
+    if (type === 'signup') await acceptSignupConsent(page);
     await page
       .getByRole('button', {
         name: type === 'login' ? '카카오 로그인' : '카카오톡으로 로그인/회원가입하기',

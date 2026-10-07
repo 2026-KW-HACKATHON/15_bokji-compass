@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const state = { user: null, view: "overview", collectionTab: "status", settings: null, overview: null, generation: 0, saving: false };
   const controls = new Map();
-  const viewLabels = { overview: "서버 개요", processes: "서버·프론트 제어", operations: "수집 실행", collection: "데이터 수집", settings: "서버 설정" };
+  const viewLabels = { overview: "서버 개요", processes: "서버·프론트 제어", operations: "수집 실행", collection: "데이터 수집", policies: "공고 DB 편집", settings: "서버 설정" };
   let controlTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
   let operationTimer = null, operationLoading = false, operationSubmitting = false, operationActive = false;
   const runFields = ["page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls", "max_model_calls", "max_tokens"];
@@ -33,7 +33,8 @@
     ingestion_ai_batch_input_chars: "지시문과 공고를 합친 묶음 프롬프트의 글자 한도입니다. 내용을 잘라내지 않고 묶음 크기를 줄입니다.",
     codex_fallback_reasoning_effort: "기본 모델의 근거 검증에 실패한 공고를 재처리할 때 적용합니다.",
     ingestion_enabled: "끄면 다음 수집 회차부터 대기합니다. 진행 중인 회차는 기존 제한 시간 내 종료합니다. 켜도 스케줄 또는 명시적 실행이 있어야 수집합니다.",
-    ingestion_page_size: "목록을 한 번 요청할 때 가져올 공고 수입니다. 이 수 × 수집 반복 횟수가 목록 조회량의 상한이며, 실제 수집량은 남은 데이터와 다른 한도에 따라 줄어들 수 있습니다. 대기열 한도보다 작거나 같아야 합니다.",
+    ingestion_kwangwoon_enabled: "광운대학교 등록·장학 목록을 자동으로 확인합니다. API 키 없이 수집하며 외부 원문 호출 한도를 사용합니다. 확보한 목록의 상세와 AI 분석은 대기 작업으로 이어서 처리합니다.",
+    ingestion_page_size: "정부24·복지로 목록 요청당 공고 수입니다. 광운대는 사이트 기준으로 페이지당 일반 공지 10건과 상단 고정 공지를 확인합니다. 실제 수집량은 남은 데이터와 다른 한도에 따라 줄어들 수 있습니다. 대기열 한도보다 작거나 같아야 합니다.",
     ingestion_max_pages: "한 번 실행할 때 목록을 수집할 최대 횟수입니다. 자동 수집의 실행 횟수와는 별개이며, 0이면 목록 수집을 건너뜁니다.",
     ingestion_max_jobs: "한 번 실행할 때 처리할 작업 수입니다. 상세 수집과 AI 분석을 각각 1개 작업으로 세므로 분석 완료 공고 수와 다를 수 있습니다.",
     ingestion_max_seconds: "한 차례 작업의 최대 실행 시간입니다. 단위: 초.",
@@ -129,6 +130,7 @@
     finally { window.clearTimeout(timer); }
   }
   function showLogin(text = "") {
+    policyEditor.reset();
     window.clearTimeout(controlTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
     message("process-message", ""); $("process-job-result").replaceChildren();
     window.clearTimeout(operationTimer); operationTimer = null; operationActive = false; operationSubmitting = false;
@@ -517,7 +519,7 @@
       pollProcessJob(data.operation, Date.now(), state.generation);
     } catch (error) { controlBusy = false; updateProcessButtons(); if (state.user) message("process-message", errorMessage(error), "error"); }
   }
-  function selectView(view, load = true) { state.view = view; window.clearTimeout(operationTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "settings" && !state.settings) loadSettings(); } }
+  function selectView(view, load = true) { state.view = view; window.clearTimeout(operationTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "policies") policyEditor.load(); if (view === "settings" && !state.settings) loadSettings(); } }
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault(); if (!$("login-form").reportValidity()) return; const button = $("login-submit"); button.disabled = true; button.querySelector("span").textContent = "로그인 중"; message("login-message", "");
@@ -543,6 +545,7 @@
   for (const button of document.querySelectorAll("[data-collection]")) button.addEventListener("click", () => { state.collectionTab = button.dataset.collection; for (const item of document.querySelectorAll("[data-collection]")) { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-selected", String(active)); } $("collection-content").setAttribute("aria-labelledby", button.id); loadCollection(); });
   document.querySelector(".tab-bar").addEventListener("keydown", (event) => { const tabs = [...document.querySelectorAll("[data-collection]")]; const current = tabs.indexOf(document.activeElement); if (current < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; tabs[next].focus(); tabs[next].click(); });
   $("refresh-overview").addEventListener("click", loadOverview); $("refresh-collection").addEventListener("click", loadCollection); $("settings-form").addEventListener("submit", saveSettings); $("reset-settings").addEventListener("click", () => { renderSettings(); message("settings-message", ""); });
-  window.addEventListener("beforeunload", (event) => { if (Object.keys(changes()).length) { event.preventDefault(); event.returnValue = ""; } });
+  const policyEditor = window.PolicyEditor.create({ request: api, onError: errorMessage });
+  window.addEventListener("beforeunload", (event) => { if (Object.keys(changes()).length || policyEditor.isDirty()) { event.preventDefault(); event.returnValue = ""; } });
   api("/session").then((data) => showConsole(data.user)).catch((error) => { if (error.status !== 401) message("login-message", errorMessage(error)); });
 })();

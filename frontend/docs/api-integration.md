@@ -1,19 +1,26 @@
 # 백엔드 API 연동 현황
 
-기준: 2026-10-01. 공통 주소/상태는 루트 [API 관리대장](../../api-management.md).
+기준: 2026-10-07. 공통 주소/상태는 루트 [API 관리대장](../../api-management.md).
 
 서버는 상태 점검·인증·금융 계산/저장 외에 `/v1/policies` 공고 조회와
-`/v1/assistant/questions` 회원 공고 질문을 구현했습니다. 추천 서버는 후속입니다.
+`/v1/assistant/questions` 회원 공고 질문과 `/v1/recommendations` 조건 비교 추천을 구현했습니다.
 [실제 공고·질문 계약](../../backend/docs/policy-storage.md)을 우선 참고하세요.
 
 - createPolicyRepository({mode,request}).list(filters,{cursor,limit,signal}) → {items,total,nextCursor,source}
-- createRecommendationRepository({mode,request}).recommend(profile,{signal,financialProfile?}) → {items:[{policy,reason}],summary,source}
+- createRecommendationRepository({mode,request}).recommend(profile,{signal,financialProfile?}) → {items:[{policy,reason,matching}],summary,source,mode,profileSufficient,guidance,missingFields}
 - api: GET /v1/policies, POST /v1/recommendations. HTTP 클라이언트가 /api 등 기준 주소 결합.
 - demo 런타임 데이터는 제거했습니다. 테스트 대역은 tests/fixtures에서만 사용합니다.
 - 공고 15초, 추천 30초 제한. 취소·이전 응답 무시·JSON/schema 검증·안전한 오류 표시.
 - 질문은 회원 쿠키·X-Auth-Request를 사용하며 웹 요청 70초/서버 모델 60초 제한입니다. 공고별 답변·원문 근거를 표시하고 닫을 때 제거합니다.
 - API 실패 시 예시 fallback 없음. 빈 결과, 404 준비 중, 기타 실패와 재시도 구분.
 - checkHealth() 도구 함수는 유지하지만 현재 제품 UI에서 호출하지 않음.
+
+프로필이 없는 방문자도 `recommend(null)`로 일반 공고 안내를 요청합니다. 메인 배너는
+서버의 `mode=personalized`와 `profile_sufficient=true`를 함께 확인하고, 그 외에는
+일반·인기 공고를 보여주는 이유와 정보 추가 행동을 안내합니다. 인기 근거는 정부24·복지로
+누적 조회수이며 최근 관심 사용자 수가 아닙니다. 예산 비율·조기 마감 안내는 실제 원문
+근거가 있을 때만 표시합니다. [서버 추천 기준](../../backend/docs/recommendation-safety.md),
+[조회수 데이터](../../backend/docs/policy-popularity.md).
 - 로그인/가입은 `authApi.js`를 통해 실제 서버와 연결합니다. credentials=include, X-Auth-Request: 1, 15초 제한이며 HttpOnly 세션 쿠키를 사용합니다. 일반 가입은 전화번호 없이 진행하고, 카카오 설정이 완료되면 실제 카카오 로그인·가입을 제공합니다. [필드·오류·세션 계약](../../backend/app/modules/auth/readme.md).
 
 ## 소득·재산 계산과 회원 저장: 구현됨

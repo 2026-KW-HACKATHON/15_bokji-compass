@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.auth import LoginInput, Service, get_service, ip
+from app.api.policies import get_repository
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import admin_role
 from app.modules.auth.service import SESSION_SECONDS
@@ -23,6 +24,8 @@ from app.modules.server_admin.settings import (
     SettingsInputError,
     SettingsWriteError,
 )
+from app.modules.storage import editor
+from app.modules.storage.publication import PublicationConflict
 
 COOKIE = "bokji_server_admin"
 ASSETS = BACKEND_ROOT / "app/modules/server_admin/static"
@@ -38,10 +41,14 @@ class ConsoleRoute(APIRoute):
         async def bounded(request: Request):
             if request.method in {"POST", "PATCH"}:
                 total, chunks = 0, []
+                policy_edit = request.method == "PATCH" and request.url.path.startswith(
+                    "/v1/server-admin/policies/")
+                maximum = 1048576 if policy_edit else 65536
                 async for chunk in request.stream():
                     total += len(chunk)
-                    if total > 65536:
-                        raise HTTPException(413, "관리자 요청은 64KB 이하로 보내 주세요.")
+                    if total > maximum:
+                        raise HTTPException(
+                            413, "공고 편집은 1MB, 그 외 관리자 요청은 64KB 이하입니다.")
                     chunks.append(chunk)
                 request._body = b"".join(chunks)
             return await original(request)
@@ -106,7 +113,8 @@ def home():
 
 @pages.get("/server-admin-assets/{filename}")
 def asset(filename: str):
-    allowed = {"console.css": "text/css", "console.js": "text/javascript"}
+    allowed = {"console.css": "text/css", "console.js": "text/javascript",
+               "policies.js": "text/javascript"}
     if filename not in allowed:
         raise HTTPException(404)
     return FileResponse(ASSETS / filename, media_type=allowed[filename],
@@ -145,6 +153,38 @@ def logout(request: Request, response: Response):
 @router.get("/overview")
 def overview(request: Request, user: Admin):
     return console.get_overview(request.app.state)
+
+
+@router.get("/policies")
+def policy_list(request: Request, user: Admin,
+                q: Annotated[str, Query(max_length=200)] = "",
+                status: Annotated[str, Query(
+                    pattern=r"^(all|raw|listing|draft|reviewed|published|rejected)$")] = "all",
+                limit: Annotated[int, Query(ge=1, le=100)] = 20,
+                cursor: Annotated[str, Query(pattern=r"^(0|[1-9][0-9]{0,7})$")] = "0"):
+    return editor.list_editable_policies(get_repository(request), q=q, status=status,
+                                         limit=limit, offset=int(cursor))
+
+
+@router.get("/policies/{policy_key}")
+def policy_edit_view(policy_key: str, request: Request, user: Admin):
+    result = editor.read_policy_edit(get_repository(request), policy_key)
+    if result is None:
+        raise HTTPException(404, "편집할 원문을 찾을 수 없습니다. 상세 수집 상태를 확인하세요.")
+    return result
+
+
+@router.patch("/policies/{policy_key}")
+def policy_edit_save(policy_key: str, data: editor.PolicyEditInput, request: Request, user: Admin):
+    try:
+        return editor.save_policy_edit(get_repository(request), policy_key, data, user["id"])
+    except PublicationConflict as exc:
+        raise HTTPException(409, str(exc)) from None
+    except LookupError:
+        raise HTTPException(404, "공고를 찾을 수 없습니다.") from None
+    except ValueError:
+        raise HTTPException(
+            422, "공고 내용·요약 길이·조건 코드와 원문 근거를 확인하세요.") from None
 
 
 @router.get("/settings")

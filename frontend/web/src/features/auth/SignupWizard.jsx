@@ -6,6 +6,7 @@ import { emailError, genders, memberFieldError, normalizeEmail } from './authFie
 import PasswordInput from './PasswordInput.jsx';
 import KakaoLogin, { kakaoOutcomeError } from './KakaoLogin.jsx';
 import AuthLayout from './AuthLayout.jsx';
+import PrivacyConsent from './PrivacyConsent.jsx';
 
 const initialFields = {
   username: '',
@@ -45,7 +46,8 @@ const regularGroups = ['아이디', '비밀번호', '이메일 인증', '기본 
 const regionOptions = regions.filter((region) => region !== '전국');
 
 export default function SignupWizard({ outcome, easy }) {
-  const [step, setStep] = useState('method');
+  const [step, setStep] = useState('consent');
+  const [consent, setConsent] = useState(null);
   const [fields, setFields] = useState(initialFields);
   const [checkedUsername, setCheckedUsername] = useState('');
   const [sentEmail, setSentEmail] = useState('');
@@ -68,11 +70,15 @@ export default function SignupWizard({ outcome, easy }) {
   const emailVerified =
     Boolean(verifiedEmail) && verifiedEmail === normalizeEmail(fields.email) && now < expiresAt;
   const resendSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000));
-  const activeStages = stages;
-  const groups = regularGroups;
+  const activeStages = consent?.profile
+    ? stages
+    : stages.filter((stage) => !['name', 'age', 'gender', 'region'].includes(stage));
+  const groups = consent?.profile
+    ? regularGroups
+    : regularGroups.filter((label) => label !== '기본 정보');
   const group =
     step === 'review'
-      ? 4
+      ? groups.length - 1
       : ['name', 'age', 'gender', 'region'].includes(step)
         ? 3
         : step === 'email'
@@ -113,7 +119,7 @@ export default function SignupWizard({ outcome, easy }) {
       id: 'signup-' + name,
       name,
       value: fields[name],
-      required: true,
+      required: !['name', 'age', 'gender', 'region'].includes(name),
       'aria-invalid': invalidField === name || undefined,
       'aria-describedby': invalidField === name ? 'signup-error' : undefined,
       onChange: (event) => {
@@ -131,6 +137,7 @@ export default function SignupWizard({ outcome, easy }) {
     };
   }
   function validate(name) {
+    if (['name', 'age', 'gender', 'region'].includes(name) && fields[name] === '') return '';
     if (name === 'email')
       return emailError(fields.email) || (!emailVerified ? '이메일 인증을 완료해 주세요.' : '');
     if (name === 'username' && !/^[a-zA-Z0-9_]{4,20}$/.test(fields.username))
@@ -229,7 +236,7 @@ export default function SignupWizard({ outcome, easy }) {
     if (step !== 'review') {
       const issue = validate(step);
       if (issue) showError(issue, step);
-      else moveStep(stages[stages.indexOf(step) + 1]);
+      else moveStep(activeStages[activeStages.indexOf(step) + 1]);
       return;
     }
     for (const name of activeStages.filter((stage) => !['method', 'review'].includes(stage))) {
@@ -245,7 +252,11 @@ export default function SignupWizard({ outcome, easy }) {
         const result = await request('signup', {
           ...fields,
           email: normalizeEmail(fields.email),
-          age: Number(fields.age),
+          name: consent.profile ? fields.name.trim() || null : null,
+          age: consent.profile && fields.age !== '' ? Number(fields.age) : null,
+          gender: consent.profile ? fields.gender || 'undisclosed' : 'undisclosed',
+          region: consent.profile ? fields.region || null : null,
+          consent,
         });
         setFields(initialFields);
         setMessage(result.message);
@@ -278,7 +289,11 @@ export default function SignupWizard({ outcome, easy }) {
     />
   );
   return (
-    <AuthLayout type="signup" title="회원가입" description="한 단계씩 입력하면 가입이 완료돼요.">
+    <AuthLayout
+      type="signup"
+      title="회원가입"
+      description="개인정보 안내를 확인한 뒤 가입을 시작해요."
+    >
       <div className="signup-page">
         {complete ? (
           <div ref={completeRef} tabIndex={-1}>
@@ -289,6 +304,13 @@ export default function SignupWizard({ outcome, easy }) {
               로그인하러 가기
             </a>
           </div>
+        ) : step === 'consent' ? (
+          <PrivacyConsent
+            onAccept={(accepted) => {
+              setConsent(accepted);
+              moveStep('method');
+            }}
+          />
         ) : (
           <form onSubmit={submit} noValidate aria-label="회원가입 정보">
             {step !== 'method' && (
@@ -398,6 +420,7 @@ export default function SignupWizard({ outcome, easy }) {
                     이름
                   </label>
                   <input {...inputProps('name')} autoComplete="name" maxLength={50} />
+                  <small>실명을 입력하지 않아도 돼요. 표시할 이름만 알려주세요.</small>
                 </>
               )}
               {step === 'email' && (
@@ -520,10 +543,18 @@ export default function SignupWizard({ outcome, easy }) {
                     {[
                       ['아이디', fields.username.toLowerCase()],
                       ['이메일', normalizeEmail(fields.email)],
-                      ['이름', fields.name.trim()],
-                      ['만 나이', `${fields.age}세`],
-                      ['성별', genders.find(([value]) => value === fields.gender)?.[1]],
-                      ['거주 지역', fields.region],
+                      ...(consent.profile
+                        ? [
+                            ['이름', fields.name.trim() || '입력하지 않음'],
+                            ['만 나이', fields.age === '' ? '입력하지 않음' : `${fields.age}세`],
+                            [
+                              '성별',
+                              genders.find(([value]) => value === fields.gender)?.[1] ||
+                                '응답하지 않음',
+                            ],
+                            ['거주 지역', fields.region || '선택하지 않음'],
+                          ]
+                        : []),
                     ].map(([label, value]) => (
                       <div key={label}>
                         <dt>{label}</dt>
@@ -532,6 +563,14 @@ export default function SignupWizard({ outcome, easy }) {
                     ))}
                   </dl>
                   <p className="auth-field-hint">수정할 내용이 있으면 이전 단계로 돌아가 주세요.</p>
+                  <p className="auth-field-hint">
+                    개인정보 수집·이용 동의를 확인했어요. 맞춤 정보:{' '}
+                    {consent.profile ? '동의' : '동의하지 않음'} · 외부 AI 처리:{' '}
+                    {consent.ai ? '동의' : '동의하지 않음'}
+                  </p>
+                  <button type="button" className="text-button" onClick={() => moveStep('consent')}>
+                    개인정보 안내와 동의 다시 확인
+                  </button>
                 </>
               )}
               {step !== 'method' && (
@@ -539,6 +578,21 @@ export default function SignupWizard({ outcome, easy }) {
                   {activeStages.indexOf(step) > 0 && (
                     <button type="button" className="button secondary" onClick={previous}>
                       이전
+                    </button>
+                  )}
+                  {['name', 'age', 'gender', 'region'].includes(step) && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setFields((current) => ({
+                          ...current,
+                          [step]: step === 'gender' ? 'undisclosed' : '',
+                        }));
+                        moveStep(activeStages[activeStages.indexOf(step) + 1]);
+                      }}
+                    >
+                      건너뛰기
                     </button>
                   )}
                   <button type="submit" className="button primary full" disabled={submitDisabled}>

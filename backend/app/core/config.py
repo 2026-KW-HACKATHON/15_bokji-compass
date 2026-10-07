@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     server_port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = []
     auth_enabled: bool = True
+    privacy_operator_name: str = "복지나침반 팀"
+    privacy_contact_email: str = "03xodbs@gmail.com"
+    privacy_ai_enabled: bool = False
+    privacy_ai_provider: str = ""
+    privacy_ai_contact: str = ""
+    privacy_ai_countries: list[str] = []
+    privacy_ai_retention: str = ""
+    privacy_ai_training: str = ""
     # Used only by explicit restoration of older encrypted databases.
     auth_encryption_keys: SecretStr = SecretStr("{}")
     auth_encryption_key_id: str = "primary"
@@ -53,6 +61,7 @@ class Settings(BaseSettings):
     codex_timeout_seconds: int = Field(default=300, ge=10, le=1800)
     parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
     ingestion_enabled: bool = True
+    ingestion_kwangwoon_enabled: bool = True
     ingestion_profile: Literal["custom", "bootstrap", "steady"] = "custom"
     ingestion_ai_batch_size: int = Field(default=1, ge=1, le=16)
     ingestion_ai_batch_input_chars: int = Field(default=24000, ge=4000, le=100000)

@@ -12,6 +12,7 @@ from app.contracts.assistance import GuidanceProfile
 from app.contracts.parsing import StrictModel
 from app.modules.assistant import public
 from app.modules.assistant.faq import prepared_faqs
+from app.modules.auth.ai_privacy import require_member_ai_consent
 from app.modules.llm.public import CodexRunError
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"], dependencies=[Depends(guard)])
@@ -45,10 +46,11 @@ def faqs(request: Request, member: Member, revision_id: Annotated[str, Query(
 @router.post("/questions")
 def question(data: QuestionInput, request: Request, member: Member, service: Service):
     # Authenticate before even reflecting the policy database or invoking the model.
+    require_member_ai_consent(service, member["id"], request.app.state.settings)
     repository = get_repository(request)
     if repository.get_revision(data.revision_id) is None:
         raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
-    service.throttle("assistant:" + member["id"], 6, 60)
+    service.throttle("assistant:" + member["id"], 6, 60, account_id=member["id"])
     slots = request.app.state.assistant_slots
     if not slots.acquire(blocking=False):
         raise HTTPException(429, "다른 질문에 답하고 있어요. 잠시 후 다시 질문해 주세요.",

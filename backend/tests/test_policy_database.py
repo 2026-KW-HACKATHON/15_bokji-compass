@@ -389,8 +389,9 @@ def repository(engine):
     with engine.begin() as connection:
         policy_keys = list(connection.execute(select(items.c.policy_key).where(
             items.c.run_id.in_(runs))).scalars())
-        revisions = list(connection.execute(select(items.c.revision_id).where(
-            items.c.run_id.in_(runs), items.c.revision_id.is_not(None))).scalars())
+        revisions = list(connection.scalars(select(
+            tables["condition_documents"].c.revision_id).where(
+                tables["condition_documents"].c.policy_key.in_(policy_keys))))
         policy_ids = select(policies.c.id).where(policies.c.source_key.in_(policy_keys))
         connection.execute(delete(requirements).where(requirements.c.policy_id.in_(policy_ids)))
         connection.execute(delete(policies).where(policies.c.source_key.in_(policy_keys)))

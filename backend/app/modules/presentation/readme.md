@@ -1,5 +1,22 @@
 # 콘솔 표시
 
+## 추천용 출처 지표 (2026-10-07)
+
+`public.load_popularity(repository, policy_keys) -> dict`는 수집 목록의 실제 정부24
+`조회수`·복지로 `inqNum`을 한 번에 조회합니다. 수집 목록이 없는 DB에서는 빈 dict를
+반환합니다. 누적 조회수이며 최근 증가량이나 관심 사용자 수로 표현하지 않습니다.
+[관측 시각·갱신·검증](../../../docs/policy-popularity.md).
+
+`public.policy_signals(record, popularity=None) -> dict`는 추천 카드의 선택 항목
+`popularity`, `budget`, `budgetNotice`를 반환합니다. `budget`은 사용 가능한 원문 URL과
+독립된 `예산 소진율: 72.5%` 같은 문장이 있을 때만 생성합니다. 비율은 0~100이며
+상충한 수치는 숨깁니다. `asOf`는 원문에 별도 `예산 기준일: YYYY-MM-DD`가 있을 때만
+표시하며 없으면 null입니다. 혜택의 지급 비율·전체 사업 예산·계획 수치·조기 마감 조건으로
+소진율을 계산하지 않습니다. `budgetNotice`는 실제 원문의 예산 소진 시 마감 문장을
+전달합니다. 입력·원문·DB를 수정하지 않고 모델·외부 HTTP도 호출하지 않습니다.
+
+검증: `python -m pytest -p no:cacheprovider tests/test_policy_signals.py tests/test_policy_popularity.py`.
+
 ## 공고 화면 표시 (2026-10-06)
 
 - `public.format_notice_text(value: str) -> str`: 화면용 요약·혜택·조건의 명사형 공고체.

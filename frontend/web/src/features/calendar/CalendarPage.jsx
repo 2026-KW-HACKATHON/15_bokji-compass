@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import './calendar.css';
 import Icon from '../../shared/ui/Icon.jsx';
 import { categories, regions } from '../policies/policyModel.js';
+import usePolicyRefresh from '../policies/usePolicyRefresh.js';
 import {
   calendarCells,
   calendarEvents,
@@ -26,6 +27,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
   const [state, setState] = useState('loading');
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const refreshRevision = usePolicyRefresh();
   const dayHeading = useRef(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -46,7 +48,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         }
       });
     return () => controller.abort();
-  }, [repository, month, filters, retry]);
+  }, [repository, month, filters, retry, refreshRevision]);
   const events = useMemo(
     () => calendarEvents(result.items, month, type),
     [result.items, month, type],
@@ -168,7 +170,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         </summary>
         <div className="filter-row">
           {[
-            ['category', '분야', [...categories, '기타']],
+            ['category', '분야', categories],
             ['region', '지역', regions],
             ['audience', '대상', ['전체', '청년', '가족', '어르신']],
           ].map(([key, label, options]) => (

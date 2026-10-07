@@ -513,6 +513,69 @@ em {
   font-size: 0.94rem;
   color: var(--muted);
 }
+.recommendation-guidance {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.recommendation-guidance p {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.recommendation-guidance p svg {
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.recommendation-guidance .text-button {
+  white-space: normal;
+  text-align: left;
+}
+.policy-indicators {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+}
+.policy-indicators > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+  margin: 6px 0;
+}
+.policy-indicators dt {
+  color: var(--muted);
+}
+.policy-indicators dd {
+  margin: 0;
+  font-weight: 600;
+}
+.policy-indicators small {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.policy-budget progress {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  height: 8px;
+  margin: 5px 0;
+  accent-color: var(--green);
+}
+.easy-mode .policy-indicators {
+  font-size: 1rem;
+}
+.easy-mode .policy-indicators small {
+  font-size: 0.9rem;
+}
 .explore-invitation {
   display: flex;
   justify-content: space-between;

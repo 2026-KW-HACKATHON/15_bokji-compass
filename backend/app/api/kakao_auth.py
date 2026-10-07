@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.auth import COOKIE, EmailInput, ProfileInput, Service, guard, ip
 from app.modules.admin.access import with_capabilities
 from app.modules.auth import kakao
+from app.modules.auth.consent import SignupConsentInput, consented_profile, save_signup_consent
 from app.modules.auth.models import accounts, kakao_flows, kakao_identities
 from app.modules.auth.service import SESSION_SECONDS, digest, password_hash
 
@@ -22,7 +23,7 @@ FLOW_SECONDS = 600
 
 
 class KakaoSignupInput(ProfileInput, EmailInput):
-    pass
+    consent: SignupConsentInput
 
 
 def cookie(response, request, name, value, seconds=FLOW_SECONDS):
@@ -191,16 +192,21 @@ def cancel(request: Request, response: Response, service: Service):
 
 @router.post("/complete", status_code=201)
 def complete(data: KakaoSignupInput, request: Request, response: Response, service: Service):
+    from app.modules.auth.ai_privacy import validate_ai_consent
+
+    validate_ai_consent(data.consent, request.app.state.settings)
     service.throttle("kakao-complete:" + ip(request), 20, 900)
     pending_token = request.cookies.get(PENDING_COOKIE, "")
     # No usable password or phone is created for a social identity.
+    now = int(time.time())
     account = dict(
         id=secrets.token_urlsafe(24),
         username="k_" + secrets.token_hex(12),
         password_hash=password_hash(secrets.token_urlsafe(48)),
         phone=None,
-        created_at=int(time.time()),
-        **data.model_dump(),
+        created_at=now,
+        email=data.email,
+        **consented_profile(data),
     )
     try:
         with service.engine.begin() as connection:
@@ -212,8 +218,10 @@ def complete(data: KakaoSignupInput, request: Request, response: Response, servi
             )
             if consumed.rowcount != 1:
                 raise HTTPException(401, "카카오 로그인을 다시 진행해 주세요.")
-            account["name"] = data.name or flow["nickname"] or None
+            if data.consent.profile:
+                account["name"] = data.name or flow["nickname"] or None
             connection.execute(insert(accounts).values(**account))
+            save_signup_consent(connection, account["id"], data.consent, now)
             connection.execute(
                 insert(kakao_identities).values(subject=flow["subject"], account_id=account["id"])
             )

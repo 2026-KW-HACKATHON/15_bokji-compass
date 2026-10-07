@@ -31,7 +31,7 @@
 
 DB_ENABLED=true와 python -m app.modules.storage init이 필요하다. DB 오류를 파일로 우회하지 않는다.
 prepare_only는 원문/pending 작업만 DB에 저장하고 모델을 호출하지 않는다.
-요약/6개 분야 분류는 별도 LLM 호출이며 미해결 조건에만 조건 추출 LLM을 추가 호출한다.
+요약/8개 분야 분류는 별도 LLM 호출이며 미해결 조건에만 조건 추출 LLM을 추가 호출한다.
 overview/analysis/canonical/부분 코드 결과와 근거를 보존한다. 모델 호출 중 트랜잭션을 잡지 않는다.
 전송용 임시 파일은 사용 후 제거한다. 중복 입력 ID는 거부하고 부분 실패는 실패로 보고한다.
 

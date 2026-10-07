@@ -24,6 +24,17 @@ accounts = Table(
     Column("username_lookup", String(64), nullable=True),
     Column("profile_ciphertext", Text, nullable=True),
 )
+auth_consents = Table(
+    "auth_consents",
+    metadata,
+    Column("account_id", String(64), primary_key=True),
+    Column("notice_version", String(32), nullable=False),
+    Column("collection", Boolean, nullable=False),
+    Column("profile", Boolean, nullable=False),
+    Column("ai", Boolean, nullable=False),
+    Column("ai_notice_version", String(64), nullable=True),
+    Column("accepted_at", Integer, nullable=False),
+)
 sessions = Table(
     "auth_sessions",
     metadata,

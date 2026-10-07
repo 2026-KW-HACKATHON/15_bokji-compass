@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { categories, regions } from './policyModel.js';
 import PolicyCard from './PolicyCard.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
+import usePolicyRefresh from './usePolicyRefresh.js';
 const initialFilters = {
   query: '',
   category: '전체',
   region: '전국',
   audience: '전체',
-  sort: 'recent',
+  sort: 'popular',
 };
+const sortLabels = { popular: '인기순 (조회수)', recent: '최근 등록순', name: '이름순' };
 export default function PolicyExplorer({
   repository,
   tag,
@@ -30,6 +32,7 @@ export default function PolicyExplorer({
   const [state, setState] = useState('loading');
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const refreshRevision = usePolicyRefresh();
   const heading = useRef(null);
   const cursor = cursors.at(-1);
   const pageSize = easy ? 3 : 6;
@@ -38,7 +41,7 @@ export default function PolicyExplorer({
     filters.category === '전체' ? '모든 분야' : filters.category,
     filters.region,
     filters.audience === '전체' ? '모든 대상' : filters.audience,
-    filters.sort === 'recent' ? '최근 등록순' : '이름순',
+    sortLabels[filters.sort],
   ].join(' · ');
   useEffect(() => {
     const controller = new AbortController();
@@ -62,7 +65,7 @@ export default function PolicyExplorer({
         }
       });
     return () => controller.abort();
-  }, [repository, filters, tag, cursor, pageSize, retry]);
+  }, [repository, filters, tag, cursor, pageSize, retry, refreshRevision]);
   const change = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
     setCursors([null]);
@@ -178,6 +181,7 @@ export default function PolicyExplorer({
           <label>
             정렬
             <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
+              <option value="popular">인기순 (조회수)</option>
               <option value="recent">최근 등록순</option>
               <option value="name">이름순</option>
             </select>
