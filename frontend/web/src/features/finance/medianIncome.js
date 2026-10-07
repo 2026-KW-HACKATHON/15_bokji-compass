@@ -1,1 +1,1 @@
-export * from "../../../../packages/core/src/medianIncome.js";
+export * from '../../../../packages/core/src/medianIncome.js';

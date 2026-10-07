@@ -34,7 +34,7 @@ http://:8080 {
 		file_server
 	}
 	handle_path /api/* {
-		@publicApi path /health /health/ready /v1/policies /v1/policies/* /v1/recommendations /v1/assistant/faqs /v1/assistant/questions /v1/auth/* /v1/finance/* /v1/admin/session /v1/admin/accounts /v1/admin/policies /v1/admin/policies/* /v1/mobile/auth/login /v1/mobile/auth/me /v1/mobile/auth/logout /v1/mobile/notifications/preferences /v1/mobile/notifications/devices /v1/mobile/notifications/devices/disable
+		@publicApi path /health /health/ready /v1/policies /v1/policies/* /v1/recommendations /v1/assistant/faqs /v1/assistant/questions /v1/assistant/dialogue /v1/assistant/dialogue/profile /v1/monitoring /v1/monitoring/* /v1/auth/* /v1/finance/* /v1/admin/session /v1/admin/accounts /v1/admin/policies /v1/admin/policies/* /v1/mobile/auth/login /v1/mobile/auth/me /v1/mobile/auth/logout /v1/mobile/notifications/preferences /v1/mobile/notifications/devices /v1/mobile/notifications/devices/disable
 		handle @publicApi {
 			reverse_proxy 127.0.0.1:8001 {
 				header_up X-Forwarded-For {http.request.header.Cf-Connecting-Ip}

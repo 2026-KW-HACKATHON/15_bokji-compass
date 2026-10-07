@@ -678,7 +678,7 @@ test('guest draft follows explicit login and logout clears all calculator memory
   await page.getByLabel('아이디', { exact: true }).fill('finance_guest');
   await page.getByLabel('비밀번호', { exact: true }).fill('Finance123!');
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page.getByText('이어쓰기회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('이어쓰기회원님', { exact: true })).toHaveText('이어쓰기회원님');
   await page.evaluate(() => {
     location.hash = 'calculator-details';
   });

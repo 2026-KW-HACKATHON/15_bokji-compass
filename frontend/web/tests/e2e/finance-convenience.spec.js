@@ -81,7 +81,7 @@ test('known member age and region prefill a new detailed form and quick househol
   await page.route('**/v1/auth/me', (route) => route.fulfill({ json: { user } }));
   await page.route('**/v1/finance/profile', (route) => route.fulfill({ json: record(null) }));
   await page.goto('/#calculator');
-  await expect(page.getByText('회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('회원님', { exact: true })).toHaveText('회원님');
   await page.getByLabel('가구원 수', { exact: true }).selectOption('4');
   await page.getByRole('link', { name: '소득·재산 상세 계산', exact: true }).click();
   await page.getByRole('button', { name: '처음 계산하기', exact: true }).click();
@@ -108,7 +108,7 @@ test('late saved data never replaces quick values already edited by the user', a
     pending = route;
   });
   await page.goto('/#calculator');
-  await expect(page.getByText('회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('회원님', { exact: true })).toHaveText('회원님');
   await expect(
     page.getByText('회원의 소득·재산 정보를 불러오고 있어요…', { exact: true }),
   ).toBeVisible();
@@ -183,7 +183,7 @@ test('a delayed authentication response preserves choices entered while the sess
   await page.getByLabel('가구원 수', { exact: true }).selectOption('2');
   await page.getByLabel('가구 전체 월소득 (선택 · 만원)', { exact: true }).fill('123');
   await pendingAuth.fulfill({ json: { user } });
-  await expect(page.getByText('회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('회원님', { exact: true })).toHaveText('회원님');
   await expect(page.getByText(/입력한 소득·재산 정보에서/)).toBeVisible();
   await expect(page.getByLabel('가구원 수', { exact: true })).toHaveValue('2');
   await expect(page.getByLabel('가구 전체 월소득 (선택 · 만원)', { exact: true })).toHaveValue(

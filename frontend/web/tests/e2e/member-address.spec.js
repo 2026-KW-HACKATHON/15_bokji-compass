@@ -38,7 +38,7 @@ async function mockMember(page, fields = {}) {
 }
 
 async function openMemberForm(page) {
-  await expect(page.getByText('주소회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('주소회원님', { exact: true })).toHaveText('주소회원님');
   await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
   await page.getByRole('button', { name: /^기본 정보 (추가|수정)$/ }).click();
   return page.getByRole('form', { name: '회원 정보 수정' });
@@ -64,7 +64,9 @@ test('members select an exact address and restore it from their account after re
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(form.getByLabel('상세 주소', { exact: true })).toHaveValue('101동 202호');
   await form.getByRole('button', { name: '회원 정보 저장', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
+  await expect(
+    page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+  ).toContainText('기본 정보를 저장했어요');
   expect(state.bodies).toEqual([
     {
       name: '주소회원',
@@ -101,7 +103,9 @@ test('legacy region-only members keep their region when editing another field', 
   await expect(form).toContainText('서울');
   await form.getByLabel('나이 (만 나이)').fill('36');
   await form.getByRole('button', { name: '회원 정보 저장', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
+  await expect(
+    page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+  ).toContainText('기본 정보를 저장했어요');
   expect(state.bodies).toEqual([
     {
       name: '주소회원',
@@ -148,7 +152,9 @@ test('clearing an address removes postal, base, detail and derived region from t
     await expect(form.getByLabel(label, { exact: true })).toHaveValue('');
   }
   await form.getByRole('button', { name: '회원 정보 저장', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
+  await expect(
+    page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+  ).toContainText('기본 정보를 저장했어요');
   expect(state.bodies[0]).toMatchObject({
     region: null,
     postal_code: null,

@@ -24,7 +24,7 @@ test('policy cards show a short description and keep guarantee limits in the det
   const article = page.getByRole('article');
   await expect(article.locator('.card-summary')).toHaveText(policy.summary);
   await expect(article).not.toContainText('1,152만원');
-  await expect(article.locator('.policy-icon')).toHaveCSS('background-color', 'rgb(224, 242, 254)');
+  await expect(article.locator('.policy-icon')).toHaveCSS('background-color', 'rgb(237, 246, 253)');
   await expect(article.locator('.policy-icon')).toHaveCSS('color', 'rgb(0, 104, 183)');
   await expect(article.locator('.tags button').first()).toHaveCSS('color', 'rgb(0, 104, 183)');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(

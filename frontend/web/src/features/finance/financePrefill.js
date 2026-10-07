@@ -1,1 +1,1 @@
-export * from "../../../../packages/core/src/financePrefill.js";
+export * from '../../../../packages/core/src/financePrefill.js';

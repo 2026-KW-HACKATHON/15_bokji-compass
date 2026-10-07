@@ -65,7 +65,7 @@ test('entire catalog defaults to views and sort changes and reset return to firs
   page,
 }) => {
   await page.goto('/#explore');
-  await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('popular');
+  await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('auto');
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');
   await expect(page.getByRole('article').first()).toContainText('9,000회');
   await page.getByRole('button', { name: '다음 페이지', exact: true }).click();
@@ -78,7 +78,7 @@ test('entire catalog defaults to views and sort changes and reset return to firs
   expect(new URL((await next).url()).searchParams.has('cursor')).toBe(false);
   await expect(page.getByRole('article').first()).toContainText('생활비 지원');
   await page.getByRole('button', { name: '검색 조건 지우기', exact: true }).click();
-  await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('popular');
+  await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('auto');
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');
 });
 

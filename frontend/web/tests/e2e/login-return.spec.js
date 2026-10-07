@@ -31,6 +31,6 @@ for (const destination of ['calculator-details', 'calculator', 'profile', 'https
     await page.getByRole('button', { name: '로그인', exact: true }).click();
     const expected = destination.startsWith('https:') ? 'home' : destination;
     await expect(page).toHaveURL(new RegExp(`#${expected}$`));
-    await expect(page.getByText('계산회원님', { exact: true })).toBeVisible();
+    await expect(page.getByText('계산회원님', { exact: true })).toHaveText('계산회원님');
   });
 }

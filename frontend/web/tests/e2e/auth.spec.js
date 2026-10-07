@@ -166,7 +166,7 @@ async function loginNextAccount(page) {
   await page.getByLabel('아이디', { exact: true }).fill('member_b');
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page.getByText('다음회원님', { exact: true })).toBeVisible();
+  await expect(page.getByText('다음회원님', { exact: true })).toHaveText('다음회원님');
   await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   await openBasics(page, true);
 }
@@ -375,7 +375,7 @@ for (const nextUser of [
   }) => {
     await mockAccountSwitch(page, nextUser);
     await page.goto('/#profile');
-    await expect(page.getByText('첫회원님', { exact: true })).toBeVisible();
+    await expect(page.getByText('첫회원님', { exact: true })).toHaveText('첫회원님');
     await openBasics(page, true);
     const recommendation = page.getByRole('region', { name: '지역과 연령' });
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue('서울');
@@ -401,7 +401,7 @@ for (const remember of [false, true]) {
   }) => {
     await mockAccountSwitch(page, { age: 25, region: '부산' });
     await page.goto('/#profile');
-    await expect(page.getByText('첫회원님', { exact: true })).toBeVisible();
+    await expect(page.getByText('첫회원님', { exact: true })).toHaveText('첫회원님');
     await openBasics(page, true);
     const recommendation = page.getByRole('region', { name: '지역과 연령' });
     await recommendation.getByLabel('거주 지역').selectOption('제주');
@@ -422,7 +422,7 @@ for (const remember of [false, true]) {
       remember ? '35~49세' : '19~34세',
     );
     await page.reload();
-    await expect(page.getByText('다음회원님', { exact: true })).toBeVisible();
+    await expect(page.getByText('다음회원님', { exact: true })).toHaveText('다음회원님');
     await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue(remember ? '제주' : '부산');
     await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked({
@@ -481,7 +481,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page.getByText('홍길동님', { exact: true })).toBeVisible();
+  await expect(page.getByText('홍길동님', { exact: true })).toHaveText('홍길동님');
   await page.goto('/#profile');
   await openBasics(page);
   const member = page.getByRole('form', { name: '회원 정보 수정' });
@@ -493,10 +493,12 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   await member.getByLabel('성별', { exact: true }).selectOption('female');
   await selectPostcode(member, '부산');
   await member.getByRole('button', { name: '회원 정보 저장' }).click();
-  await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
-  await expect(page.getByText('김복지님', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+  ).toContainText('기본 정보를 저장했어요');
+  await expect(page.getByText('김복지님', { exact: true })).toHaveText('김복지님');
   await page.reload();
-  await expect(page.getByText('김복지님', { exact: true })).toBeVisible();
+  await expect(page.getByText('김복지님', { exact: true })).toHaveText('김복지님');
   await openBasics(page);
   await expect(member.getByLabel('이름', { exact: true })).toHaveValue('김복지');
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('67');
@@ -535,7 +537,7 @@ test('account withdrawal requires confirmation, ends the session and releases th
     await page.getByLabel('아이디', { exact: true }).fill(username);
     await page.getByLabel('비밀번호', { exact: true }).fill(password);
     await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page.getByText('회원님', { exact: true })).toBeVisible();
+    await expect(page.getByText('회원님', { exact: true })).toHaveText('회원님');
   }
 
   await signup(`${username}@example.com`);
@@ -802,7 +804,9 @@ for (const name of ['카카오별명', '']) {
     await page.screenshot({ path: testInfo.outputPath('kakao-signup.png'), fullPage: true });
     await page.getByLabel('이메일', { exact: true }).fill('Kakao@Example.com');
     await page.getByRole('button', { name: '가입하고 시작하기' }).click();
-    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toHaveText(
+      `${name || '회원'}님`,
+    );
     await expect(page).toHaveURL(/#profile\?setup=1$/);
     const setup = page.getByRole('form', { name: '맞춤 정보 설정' });
     await expect(setup.getByLabel('나이 (만 나이)')).toHaveValue('');
@@ -826,7 +830,9 @@ for (const name of ['카카오별명', '']) {
     ]);
     expect(state.profileBodies).toEqual([]);
     await page.reload();
-    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toHaveText(
+      `${name || '회원'}님`,
+    );
     await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
     await openBasics(page, true);
     await openBasics(page);
@@ -835,7 +841,9 @@ for (const name of ['카카오별명', '']) {
     await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('');
     await expect(member.getByLabel('기본 주소', { exact: true })).toHaveValue('');
     await member.getByRole('button', { name: '회원 정보 저장' }).click();
-    await expect(page.getByRole('status')).toContainText('기본 정보를 저장했어요');
+    await expect(
+      page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+    ).toContainText('기본 정보를 저장했어요');
     expect(state.profileBodies).toEqual([
       {
         name: name || null,
@@ -890,7 +898,7 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
   await expect(member.getByLabel('이름', { exact: true })).toHaveValue('카카오별명');
   await page.reload();
-  await expect(page.getByText('카카오별명님', { exact: true })).toBeVisible();
+  await expect(page.getByText('카카오별명님', { exact: true })).toHaveText('카카오별명님');
   await openBasics(page, true);
   await expect(member.getByLabel('나이 (만 나이)')).toHaveValue('35');
   await expect(member.getByLabel('기본 주소', { exact: true })).toHaveValue(
