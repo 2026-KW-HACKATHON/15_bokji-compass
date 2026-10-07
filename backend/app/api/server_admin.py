@@ -182,7 +182,15 @@ def collection_view(kind: str, request: Request, user: Admin,
 
 @router.get("/operations")
 def operations_view(request: Request, user: Admin):
-    return request.app.state.server_operations.snapshot()
+    return request.app.state.server_operations.snapshot(request.app.state)
+
+
+@router.post("/operations/{operation_id}/stop", status_code=202)
+def operation_stop(operation_id: UUID, request: Request, user: Admin):
+    try:
+        return request.app.state.server_operations.stop(request.app.state, str(operation_id))
+    except OperationError:
+        raise HTTPException(409, "현재 실행 중인 AI 전체 분석 작업을 확인해 주세요.") from None
 
 
 @router.post("/operations", status_code=202)

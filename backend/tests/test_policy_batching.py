@@ -117,6 +117,26 @@ def test_batch_schema_omits_deterministic_output_and_preserves_source(tmp_path, 
     assert captured["raw_response"] is True
 
 
+def test_bulk_transport_accepts_sixteen_independent_policies_and_exact_output_count(
+        tmp_path, monkeypatch):
+    captured = {}
+    def transport(*args, **kwargs):
+        captured.update(kwargs)
+        return {"results": []}, {}
+    monkeypatch.setattr(llm, "_extract_structured", transport)
+    requests = [(s, True, True) for s in records(16)]
+    settings = Settings(_env_file=None, ingestion_ai_batch_size=16,
+                        ingestion_ai_batch_input_chars=100000, parsing_max_input_chars=100000)
+    llm.extract_policy_batch(requests, settings, tmp_path, "model")
+    assert len(captured["payload"]) == 16
+    assert len({r["policy_key"] for r in captured["payload"]}) == 16
+    results_schema = captured["output_schema"]["properties"]["results"]
+    assert results_schema["minItems"] == results_schema["maxItems"] == 16
+    with pytest.raises(ValueError):
+        llm.extract_policy_batch([(s, True, True) for s in records(17)],
+                                 settings, tmp_path, "model")
+
+
 def test_completed_checkpoints_need_no_model_allowance(tmp_path, monkeypatch):
     monkeypatch.setattr(batching, "extract_policy_batch", lambda requests, *_:
         ([response(s) for s, *_ in requests], {}))

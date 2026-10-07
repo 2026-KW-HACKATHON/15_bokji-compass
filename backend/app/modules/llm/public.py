@@ -345,7 +345,7 @@ def _extract_structured[T: StrictModel](
         parsed = json.loads(raw) if raw_response else response_model.model_validate_json(raw)
         if raw_response and (not isinstance(parsed, dict) or set(parsed) != {"results"}
                              or not isinstance(parsed["results"], list)
-                             or len(parsed["results"]) > 8):
+                             or len(parsed["results"]) > 16):
             raise ValueError("Invalid batch envelope")
     except ValueError:
         raise CodexOutputError(metadata) from None
@@ -359,7 +359,7 @@ class BatchPolicyResult(StrictModel):
 
 
 class BatchResponse(StrictModel):
-    results: list[BatchPolicyResult] = Field(min_length=1, max_length=8)
+    results: list[BatchPolicyResult] = Field(min_length=1, max_length=16)
 
 
 BATCH_PROMPT = PROMPT + "\n" + OVERVIEW_PROMPT + """
@@ -388,12 +388,13 @@ def batch_input_chars(requests):
 
 
 def extract_policy_batch(requests, settings, output, model):
-    if not 1 <= len(requests) <= 8 or len({s.policy_key for s, *_ in requests}) != len(requests):
-        raise ValueError("Batch requires 1-8 unique policies")
+    if not 1 <= len(requests) <= 16 or len({s.policy_key for s, *_ in requests}) != len(requests):
+        raise ValueError("Batch requires 1-16 unique policies")
     if batch_input_chars(requests) > min(settings.ingestion_ai_batch_input_chars,
                                        settings.parsing_max_input_chars):
         raise CodexRunError("batch_input_too_long")
     schema = BatchResponse.model_json_schema()
+    schema["properties"]["results"].update(minItems=len(requests), maxItems=len(requests))
     # Deterministic identity/title/URL never need to be generated or billed as output.
     for name, fields in (("PolicyOverview", ("title", "source_url")),
                          ("PolicyExtraction", ("policy_key",))):

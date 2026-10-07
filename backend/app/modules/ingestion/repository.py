@@ -58,8 +58,10 @@ class IngestionRepository:
         with self.engine.connect() as c:
             return c.scalar(select(m.state.c.payload).where(m.state.c.state_key == key)) or {}
 
-    def set_state(self, key, payload):
+    def set_state(self, key, payload, *, worker_token=None):
         with self.engine.begin() as c:
+            if worker_token:
+                self.assert_worker(c, worker_token, time.time())
             self._set_state(c, key, payload)
 
     def _set_state(self, c, key, payload):
@@ -80,11 +82,15 @@ class IngestionRepository:
         if row["lease_token"] != token or row["lease_until"] <= now:
             raise LeaseLost("Worker lease expired")
 
-    def renew_worker(self, token, now, seconds):
+    def renew_worker(self, token, now, seconds, *, renew_jobs=False):
         with self.engine.begin() as c:
             self.assert_worker(c, token, now)
             c.execute(update(m.state).where(m.state.c.state_key == "worker").values(
                 lease_until=now + seconds))
+            if renew_jobs:
+                c.execute(update(m.jobs).where(m.jobs.c.lease_token == token,
+                    m.jobs.c.status == "running", m.jobs.c.lease_until > now).values(
+                        lease_until=now + seconds))
 
     def seed_all_existing(self, policies, signature, *, limit=100, worker_token,
                           progress=None, adopt_legacy=False):
@@ -109,6 +115,12 @@ class IngestionRepository:
             c.execute(update(m.state).where(m.state.c.state_key == "worker",
                 m.state.c.lease_token == token).values(lease_token=None, lease_until=0))
 
+    def worker_owned(self, token, now):
+        with self.engine.connect() as c:
+            return bool(c.scalar(select(func.count()).select_from(m.state).where(
+                m.state.c.state_key == "worker", m.state.c.lease_token == token,
+                m.state.c.lease_until > now)))
+
     def reserve_call(self, provider, now, limit, *, timezone="Asia/Seoul"):
         day = datetime.fromtimestamp(now, ZoneInfo(timezone)).date().isoformat()
         with self.engine.begin() as c:
@@ -122,7 +134,7 @@ class IngestionRepository:
                 except IntegrityError:
                     pass
                 row = c.execute(query).mappings().one()
-            if row["calls"] >= limit:
+            if limit is not None and row["calls"] >= limit:
                 return False
             c.execute(update(m.usage).where(m.usage.c.provider == provider,
                 m.usage.c.day == day).values(calls=m.usage.c.calls + 1))
@@ -135,6 +147,11 @@ class IngestionRepository:
             if kinds:
                 query = query.where(m.jobs.c.kind.in_(kinds))
             return c.scalar(query)
+
+    def next_pending_at(self, kinds):
+        with self.engine.connect() as c:
+            return c.scalar(select(func.min(m.jobs.c.next_attempt_at)).where(
+                m.jobs.c.status == "pending", m.jobs.c.kind.in_(kinds)))
 
     def requeue_version(self, job, signature, now):
         """A configuration upgrade gets a fresh work identity without losing the original source."""

@@ -7,13 +7,15 @@ import sys
 import time
 from copy import deepcopy
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT, Settings
+from app.modules.ingestion.analysis import analysis_settings, run_analysis
 from app.modules.ingestion.profiles import PROFILES, apply_profile
 from app.modules.ingestion.public import run_tick
 from app.modules.ingestion.repository import IngestionRepository
@@ -39,8 +41,9 @@ class OperationError(RuntimeError):
 
 class RunInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    action: Literal["check", "tick", "seed", "schedule-enable", "schedule-remove"]
+    action: Literal["check", "tick", "seed", "analyze-all", "schedule-enable", "schedule-remove"]
     mode: Literal["raw", "analysis", "custom", "bootstrap", "steady"] = "raw"
+    analysis_mode: Literal["standard", "bulk"] = "standard"
     page_size: int = Field(default=5, ge=1, le=100)
     max_pages: int = Field(default=1, ge=0, le=30)
     max_jobs: int = Field(default=0, ge=0, le=100)
@@ -82,6 +85,8 @@ def prepare_settings(state, data: RunInput) -> Settings:
         return settings
     if not settings.db_enabled or state.database_engine is None:
         raise OperationError("database_disabled")
+    if data.action == "analyze-all":
+        return analysis_settings(settings, data.analysis_mode)
     if data.action != "tick":
         return settings
     if not settings.ingestion_enabled:
@@ -133,7 +138,8 @@ def scheduler(action: Literal["Status", "Install", "Remove"]) -> dict:
     }
 
 
-def execute(state, data: RunInput, settings: Settings, progress=None) -> dict:
+def execute(state, data: RunInput, settings: Settings, progress=None, stop=None,
+            operation_id=None) -> dict:
     if data.action.startswith("schedule-"):
         result = scheduler("Install" if data.action == "schedule-enable" else "Remove")
         return {"status": "completed", "schedule": result}
@@ -146,6 +152,9 @@ def execute(state, data: RunInput, settings: Settings, progress=None) -> dict:
             settings.bokjiro_api_key.get_secret_value()), "codex_login_verified": False}
     if data.action == "tick":
         return run_tick(settings, store, policies)
+    if data.action == "analyze-all":
+        return run_analysis(settings, store, policies, progress=progress, stop=stop,
+                            run_id=operation_id, mode=data.analysis_mode)
     signature, token = processing_signature(settings), str(uuid4())
     if not store.acquire_worker(token, time.time(), settings.ingestion_max_seconds + 60):
         return {"status": "busy", "reason": "another_worker"}
@@ -162,12 +171,14 @@ def safe_result(result: dict) -> dict:
               "http_calls", "model_calls", "tokens", "elapsed_seconds", "indexed", "reused",
               "scanned", "batches", "complete", "batch_calls", "profile", "phase",
               "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens",
-              "failed_jobs",
+              "failed_jobs", "jobs_remaining", "waiting_until", "unlimited", "model",
+              "analysis_mode", "batch_size", "batch_input_chars",
               "gov24_key_configured", "bokjiro_key_configured",
               "codex_login_verified"}
     output = {key: value for key, value in result.items() if key in fields
               and (isinstance(value, (int, float, bool)) or value is None
-                   or key in {"status", "reason", "profile", "phase"} and isinstance(value, str)
+                   or key in {"status", "reason", "profile", "phase", "model", "analysis_mode"}
+                   and isinstance(value, str)
                    and len(value) <= 80)}
     # Older ticks also put normal quota deferrals in errors; classify them on read.
     deferred = list(result.get("deferrals", []))
@@ -192,21 +203,47 @@ class Operations:
         self.latest = None
         self.worker = None
         self.closed = False
+        self.stop_event = Event()
 
     def close(self):
         with self.lock:
             self.closed = True
+            self.stop_event.set()
             worker = self.worker
         if worker is not None and worker.ident is not None:
             worker.join()
 
-    def snapshot(self) -> dict:
+    def snapshot(self, state=None) -> dict:
         with self.lock:
-            return {"operation": deepcopy(self.latest), "presets": deepcopy(PRESETS),
-                    "profiles": deepcopy(PROFILES)}
+            operation = deepcopy(self.latest)
+        saved = analysis_snapshot(state) if state is not None else None
+        if saved and (saved["status"] == "running" or not operation
+                      or saved["started_at"] > operation["started_at"]):
+            operation = saved
+        return {"operation": operation, "presets": deepcopy(PRESETS),
+                "profiles": deepcopy(PROFILES)}
+
+    def stop(self, state, operation_id):
+        operation = self.snapshot(state)["operation"]
+        if not operation or operation["id"] != operation_id:
+            raise OperationError("operation_missing")
+        if operation["action"] != "analyze-all":
+            raise OperationError("operation_not_stoppable")
+        if operation["status"] == "running":
+            with self.lock:
+                if self.latest and self.latest["id"] == operation_id:
+                    self.stop_event.set()
+                    self.latest["stop_requested"] = True
+            if getattr(state.database_engine, "dialect", None):
+                IngestionRepository(state.database_engine).set_state(
+                    "analysis_stop:" + operation_id, {"requested": True})
+        return self.snapshot(state)
 
     def start(self, state, data: RunInput) -> dict:
         with state.server_config_lock:
+            current = self.snapshot(state)["operation"]
+            if current and current["status"] == "running":
+                raise OperationError("operation_busy")
             refresh_pending(state)
             if getattr(state, "server_control_pending", False):
                 raise OperationError("operation_busy")
@@ -218,7 +255,10 @@ class Operations:
                     raise OperationError("operation_busy")
                 self.latest = {"id": str(uuid4()), "action": data.action, "status": "running",
                                "started_at": time.time(), "finished_at": None, "result": None}
+                if data.action == "analyze-all":
+                    self.latest["analysis_mode"] = data.analysis_mode
                 snapshot = deepcopy(self.latest)
+                self.stop_event.clear()
                 worker = Thread(target=self._work, args=(state, data, settings), daemon=True)
                 self.worker = worker
                 try:
@@ -233,8 +273,14 @@ class Operations:
             with self.lock:
                 self.latest["result"] = safe_result(result)
         try:
-            result = safe_result(execute(state, data, settings, progress=progress)
-                                 if data.action == "seed" else execute(state, data, settings))
+            if data.action == "analyze-all":
+                raw = execute(state, data, settings, progress=progress, stop=self.stop_event,
+                              operation_id=self.latest["id"])
+            elif data.action == "seed":
+                raw = execute(state, data, settings, progress=progress)
+            else:
+                raw = execute(state, data, settings)
+            result = safe_result(raw)
             failed = result.get("status") == "failed"
         except Exception:
             # Operational failures may include secrets in their original exception messages.
@@ -242,3 +288,24 @@ class Operations:
         with self.lock:
             self.latest.update(status="failed" if failed else "finished",
                                finished_at=time.time(), result=result)
+
+
+def analysis_snapshot(state):
+    engine = getattr(state, "database_engine", None)
+    if not getattr(engine, "dialect", None):
+        return None
+    try:
+        store = IngestionRepository(engine)
+        operation = store.get_state("analysis_run")
+        if not operation:
+            return None
+        operation["result"] = safe_result(operation["result"])
+        if operation["status"] == "running":
+            if not store.worker_owned(operation["id"], time.time()):
+                operation["status"] = "finished"
+                operation["result"].update(status="paused", reason="worker_interrupted")
+            operation["stop_requested"] = store.get_state(
+                "analysis_stop:" + operation["id"]).get("requested", False)
+        return operation
+    except (ValueError, RuntimeError, SQLAlchemyError):
+        return None

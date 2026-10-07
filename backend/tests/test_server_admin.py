@@ -538,6 +538,39 @@ def test_operations_reads_never_start_work(console, monkeypatch):
     assert response.json()["presets"]["raw"]["max_model_calls"] == 0
 
 
+def test_ai_stop_requires_auth_and_same_origin(console):
+    client, _, _, _ = console
+    path = OPERATIONS + "/00000000-0000-0000-0000-000000000000/stop"
+    assert client.post(path, json={}).status_code == 401
+    assert login(client).status_code == 200
+    assert client.post(path, json={}, headers={
+        "Origin": "https://foreign.invalid"}).status_code == 403
+    assert client.post(path, json={}).status_code == 409
+
+
+@pytest.mark.parametrize("mode,batch_size", [("standard", 4), ("bulk", 16)])
+def test_ai_only_background_start_progress_and_stop(console, monkeypatch, mode, batch_size):
+    entered, released = Event(), Event()
+    def execute(_state, data, settings, *, progress, stop, operation_id):
+        assert data.action == "analyze-all" and settings.ingestion_ai_batch_size == batch_size
+        assert data.analysis_mode == mode
+        progress({"status": "running", "jobs_completed": 4, "jobs_remaining": 755})
+        entered.set()
+        assert stop.wait(3)
+        released.set()
+        return {"status": "cancelled", "jobs_completed": 4}
+    client = fake_collection(console, monkeypatch, execute)
+    config_before = console[3].read_bytes()
+    response = client.post(OPERATIONS, json={"action": "analyze-all", "analysis_mode": mode})
+    assert response.status_code == 202 and entered.wait(2)
+    operation = client.get(OPERATIONS).json()["operation"]
+    assert operation["result"]["jobs_remaining"] == 755
+    assert client.post(OPERATIONS + "/" + operation["id"] + "/stop", json={}).status_code == 202
+    assert released.wait(2)
+    assert finished_operation(client)["result"]["status"] == "cancelled"
+    assert console[3].read_bytes() == config_before
+
+
 @pytest.mark.parametrize("headers", [{"Origin": "https://foreign.invalid"},
                                     {"X-Auth-Request": ""}])
 def test_operations_require_admin_and_same_origin(console, headers):

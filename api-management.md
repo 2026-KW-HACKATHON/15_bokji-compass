@@ -21,8 +21,9 @@
 | GET | `/collection/status` | `limit=1~100`(기본 20) → 저장된 cursor·작업·호출 사용량·실패 기록 |
 | GET | `/collection/changes` | 같은 limit → `{items:[변경 snapshot]}` |
 | GET | `/collection/candidates` | 같은 limit → `{items:[미검증 검색 후보]}` |
-| GET | `/operations` | `{operation,presets}`. 현재 API 프로세스에서 버튼으로 실행한 최근 작업과 원문/분석 시작값 |
-| POST | `/operations` | `action=check/tick/seed/schedule-enable/schedule-remove`와 제한된 실행 입력 → 202 `{operation}`. 백그라운드 실행 |
+| GET | `/operations` | `{operation,presets,profiles}`. 최근 작업·수집 프리셋·DB에 저장된 별도 AI 프로세스의 상태 |
+| POST | `/operations` | `action=check/tick/seed/analyze-all/schedule-enable/schedule-remove`와 실행 입력 → 202 `{operation}`. 백그라운드 실행 |
+| POST | `/operations/{operation_id}/stop` | UUID 분석 작업 ID → 202 상태. 해당 AI 작업의 진행 결과 저장 후 중지 요청 |
 | GET | `/schedule` | Windows 작업의 등록·활성 상태·실행 결과 코드 조회. 등록/해제하지 않음 |
 | GET | `/processes` | 관리 가능한 개발/운영 모드, 백엔드·프론트 상태, 최근 제어 결과 조회 |
 | POST | `/processes` | `{target:backend/frontend/all,action:stop/restart}` → 202 `{operation}`. 고정 관리 스크립트를 별도 숨김 프로세스로 실행 |
@@ -43,13 +44,19 @@ POST/PATCH는 같은 출처, JSON과 `X-Auth-Request: 1`이 필요하며 요청 
 항목은 읽기 전용이고, 설정 파일 경로·HTTP 서버 포트·인증·CORS·실행파일·SQL·임의 명령은
 허용하지 않습니다.
 
-2026-10-06 **수집 실행** 메뉴: `tick`의 `mode=raw/analysis/custom`과 `page_size=1~100`,
+2026-10-07 **수집 실행** 메뉴: `tick`의 `mode=raw/analysis/custom/bootstrap/steady`와 `page_size=1~100`,
 `max_pages=0~30`, `max_jobs=0~100`, `max_seconds=15~600`, `max_http_calls=0~100`,
 `max_model_calls=0~100`, `max_tokens=0~1000000`을 받습니다. 숫자는 정수만 허용합니다.
 원문 모드는 대기 작업·모델·검색을 강제로 끄고, 분석 모드도 외부 검색은 끕니다.
-`seed`의 `limit=1~100`(기본 100)은 기존 공고 인덱싱이며 이전 결과 무조건 채택은 하지 않습니다.
+`seed`의 `limit=1~100`(기본 100)은 반복 묶음 크기이며 전체 기존 공고를 끝까지 인덱싱합니다.
+이전 결과를 무조건 채택하지 않습니다. `analyze-all`은 `analysis_mode=standard/bulk`를 받으며
+생략하면 standard입니다. bulk는 호출당 최대 16건·입력 100,000글자·개별 요청 최소 900초로
+분석 대기열을 처리하고 완료 작업을 건너뜁니다. 실행 전용 설정으로 `.env`와 평상시 프리셋은
+변경하지 않습니다. 두 AI 모드 모두 앱의 회차/일일 호출·토큰·총시간 한도를 적용하지 않으며
+공공 API를 호출하지 않습니다. Codex 계정 제한·모델 요청 timeout·검증·DB lease는 유지합니다.
 같은 API의 중복 실행과 DB 재시작 대기는 409입니다. 실제 worker의 DB lease와 일일 예산도
-유지합니다. 결과에는 처리 수와 호출 사용량만 표시하고 원문·예외·CLI stderr를 반환하지 않습니다.
+수집 회차에 적용합니다. 결과에는 처리 수·모드·묶음 크기와 호출 사용량만 표시하고
+원문·예외·CLI stderr를 반환하지 않습니다.
 자동 등록은 Windows·기본 .env·프로세스 환경변수 불일치 없음·회차 600초 이하를 요구합니다.
 기존 예약 작업을 덮어쓰지 않으며 해제해도 진행 중인 회차를 강제 종료하지 않습니다.
 

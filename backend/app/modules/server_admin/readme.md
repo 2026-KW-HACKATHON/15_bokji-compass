@@ -55,7 +55,7 @@ DB 필드는 `RESTART_FIELDS`로 분리해 저장만 하고 현재 API·인증 �
 `ingestion_enabled=false`는 다음 수집 회차를 막습니다. 자동 공개 설정은 앞으로 저장할 개정에
 적용하며 기존 공개 상태를 일괄 변경하지 않습니다. 환경변수로 지정한 필드는 읽기 전용입니다.
 HTTP 서버 주소·포트·인증·CORS·실행파일·설정 파일 경로·SQL 입력은 허용하지 않습니다.
-작업 API는 `check/tick/seed/schedule-enable/schedule-remove`만 허용하고 임의 명령이나
+작업 API는 `check/tick/seed/analyze-all/schedule-enable/schedule-remove`만 허용하고 임의 명령이나
 실행 파일을 받지 않습니다. `tick`은 기존 제한 worker와 DB lease를 사용합니다.
 
 파일의 기존 항목·주석을 보존하고 수정한 중복 키만 정리합니다. 타입·범위·전체 Settings
@@ -70,6 +70,10 @@ HTTP 서버 주소·포트·인증·CORS·실행파일·설정 파일 경로·SQ
 설정/상태는 최고 관리자 전용이며 POST/PATCH는 같은 출처와 `X-Auth-Request: 1`을 요구합니다.
 `GET /operations`는 앱별 최근 작업과 시작용 프리셋을 조회합니다. `POST /operations`는
 `RunInput`의 정수 범위와 저장 설정을 검증한 뒤 202로 백그라운드 작업을 접수합니다.
+`analyze-all`의 `analysis_mode=standard/bulk`는 기본/최초 일괄 모드입니다. bulk는
+16건·입력 100,000글자·요청 최소 900초의 실행 전용 설정이며 저장 설정을 변경하지 않습니다.
+두 모드 모두 공공 API 없이 분석 대기열만 앱 예산 한도 없이 처리합니다. 별도 CLI 상태도
+DB에서 읽으며 `POST /operations/{UUID}/stop`은 해당 분석 작업만 중지합니다.
 진행 중인 앱 작업·DB 재시작 대기는 409이며 원문 모드는 모델/검색/대기 작업을 강제로 끕니다.
 `GET /schedule`은 기존 Windows 작업의 상태만 조회합니다. 등록/해제는 고정 경로의 기존
 `ingestion-schedule.ps1 -Json`을 인수 배열로 호출하며 셸 명령이나 사용자 경로를 받지 않습니다.

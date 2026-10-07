@@ -311,29 +311,37 @@
     catch (error) { if (state.user) { message("settings-message", errorMessage(error), "error"); if (error.status === 409) { const reload = element("button", "button button-secondary", "최신 설정 불러오기"); reload.type = "button"; reload.addEventListener("click", loadSettings); $("settings-message").append(reload); } } }
     finally { setSaving(false); }
   }
-  const operationNames = { check: "DB 준비 확인", tick: "공고 수집", seed: "기존 공고 연결", "schedule-enable": "자동 수집 등록", "schedule-remove": "자동 수집 해제" };
+  const operationNames = { check: "DB 준비 확인", tick: "공고 수집", seed: "기존 공고 연결", "analyze-all": "AI 전체 분석 · 한도 없음", "schedule-enable": "자동 수집 등록", "schedule-remove": "자동 수집 해제" };
   const operationReasons = { collection_disabled: "새 수집 회차가 꺼져 있습니다.", another_worker: "다른 수집 작업이 실행 중입니다. 완료 후 다시 실행하세요.", operation_failed: "작업을 완료하지 못했습니다. DB 연결, 모델 로그인 또는 Windows 작업 권한을 확인하세요.", http_calls: "데이터 요청 최대 횟수에 도달했습니다.", model_calls: "AI 분석 최대 횟수에 도달했습니다.", tokens: "토큰 한도에 도달했습니다.", deadline: "이번 회차의 제한 시간이 지났습니다.", memory: "사용 가능한 메모리가 부족합니다.", disk: "저장 공간이 부족합니다." };
   function updateOperationButtons() {
     for (const button of document.querySelectorAll("[data-operation], #run-submit, #save-collection-profile")) button.disabled = operationActive || operationSubmitting || state.saving;
   }
+  Object.assign(operationReasons, { cancelled: "중지했습니다. 완료된 결과는 보존하며 남은 대기열은 다시 시작하면 이어집니다.", codex_unavailable: "Codex 연결·로그인·모델 접근 또는 계정 사용 제한으로 일시 정지했습니다. 설정과 Codex 로그인을 확인한 뒤 다시 시작하면 이어집니다.", analysis_failed: "분석 결과를 처리하는 중 일시 정지했습니다. 저장된 결과는 보존했습니다. 실패 목록을 확인하세요.", worker_interrupted: "분석 작업이 중단됐습니다. 다시 시작하면 저장된 위치에서 이어집니다." });
   function renderOperation(operation) {
+    state.operation = operation;
     const container = $("operation-result"); container.replaceChildren(); operationActive = operation?.status === "running";
+    $("stop-analysis").hidden = !operationActive || operation.action !== "analyze-all";
+    $("stop-analysis").disabled = !!operation?.stop_requested;
+    $("stop-analysis").textContent = operation?.stop_requested ? "중지 요청됨 · 현재 묶음 저장 중" : "AI 분석 중지";
     updateOperationButtons();
     if (!operation) { empty(container, "첫 수집을 시작해 보세요", "DB 준비를 확인하고 원문 수집부터 실행하세요. 실행 결과는 이곳에 표시됩니다."); return; }
     const result = operation.result || {}, running = operationActive;
-    const header = element("div", "operation-result-heading"); header.append(element("strong", "", operationNames[operation.action] || "수집 작업"), badge(running ? "실행 중" : statusLabels[result.status] || ({ database_ready: "DB 준비 완료" }[result.status]) || "작업 종료", operation.status === "failed" || result.error_count ? "warn" : "")); container.append(header);
+    const bulk = (result.analysis_mode || operation.analysis_mode) === "bulk";
+    const header = element("div", "operation-result-heading"); header.append(element("strong", "", bulk ? "최초 일괄 분석 · 한도 없음" : operationNames[operation.action] || "수집 작업"), badge(running ? "실행 중" : statusLabels[result.status] || ({ database_ready: "DB 준비 완료" }[result.status]) || "작업 종료", operation.status === "failed" || result.error_count ? "warn" : "")); container.append(header);
     container.append(element("p", "operation-caption", `${date(operation.started_at)} 시작${operation.finished_at ? ` · ${date(operation.finished_at)} 종료` : " · 완료될 때까지 자동으로 상태를 확인합니다."}`));
-    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode(operation.action === "seed" ? `기존 공고 ${number(result.scanned || 0)}건 확인 · ${number(result.indexed || 0)}건 연결. 끝까지 자동으로 이어서 처리합니다.` : "서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); return; }
+    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode(operation.action === "seed" ? `기존 공고 ${number(result.scanned || 0)}건 확인 · ${number(result.indexed || 0)}건 연결. 끝까지 자동으로 이어서 처리합니다.` : operation.action === "analyze-all" ? `분석 완료 ${number(result.jobs_completed || 0)}건 · 남은 분석 ${number(result.jobs_remaining || 0)}건. 화면을 닫아도 분석은 계속됩니다.` : "서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); if (operation.action !== "analyze-all") return; }
     const metrics = element("div", "operation-result-grid");
-    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["http_calls", "데이터 요청 횟수"], ["model_calls", "AI 사용 횟수"], ["tokens", "보고된 토큰"], ["error_count", "실제 오류"], ["deferred_count", "한도 보류 작업"], ["indexed", "연결 공고"]]) {
+    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["jobs_remaining", "남은 분석 작업"], ["http_calls", "데이터 요청 횟수"], ["model_calls", "AI 사용 횟수"], ["tokens", "보고된 토큰"], ["error_count", "실제 오류"], ["deferred_count", "한도 보류 작업"], ["indexed", "연결 공고"]]) {
       if (result[key] != null && (!["error_count", "deferred_count"].includes(key) || result[key])) { const item = element("div"); item.append(element("span", "", label), element("strong", "", number(result[key]))); metrics.append(item); }
     }
     if (metrics.childNodes.length) container.append(metrics);
+    if (operation.action === "analyze-all") container.append(element("p", "operation-caption", `앱 한도 없이 분석 · 모델 ${result.model || state.settings?.values?.codex_model || "서버 설정"}. 공급자 계정의 사용 제한은 적용됩니다.`));
+    if (operation.action === "analyze-all" && result.batch_size) container.append(element("p", "operation-caption", `${bulk ? "최초 일괄" : "기본"} 모드 · 호출당 최대 ${number(result.batch_size)}건 · 입력 ${number(result.batch_input_chars)}글자. 완료된 공고는 재분석하지 않습니다.`));
     if (result.input_tokens != null) container.append(element("p", "operation-caption", `입력 ${number(result.input_tokens)} · 캐시 입력 ${number(result.cached_input_tokens || 0)} · 출력 ${number(result.output_tokens || 0)} · 추론 ${number(result.reasoning_tokens || 0)}토큰. 캐시 입력은 입력에, 추론은 출력에 포함됩니다.`));
     if (result.reason) container.append(element("p", "operation-caption", operationReasons[result.reason] || "이번 회차가 제한 또는 준비 상태에 따라 종료되었습니다. 수집 현황에서 세부 상태를 확인하세요."));
     for (const code of result.limit_reasons || []) if (limitReason(code)) container.append(element("p", "operation-caption", limitReason(code)));
     if (result.status === "database_ready") container.append(element("p", "operation-caption", `MySQL과 수집 테이블 연결을 확인했습니다. 복지로 키 ${result.bokjiro_key_configured ? "등록" : "미등록"} · 정부24 키 ${result.gov24_key_configured ? "등록" : "미등록"}. 실제 API 응답과 Codex 로그인은 수집 실행에서 확인합니다.`));
-    if (result.phase) container.append(element("p", "operation-caption", ({ collect: "최초 수집: 원문·상세를 먼저 확보하고 있습니다.", analyze: "최초 수집: 확보한 공고를 묶어서 AI 분석합니다.", complete: "최초 수집 완료: 다음 자동 회차부터 평상시 예산으로 전환합니다." })[result.phase] || result.phase));
+    if (result.phase) container.append(element("p", "operation-caption", operation.action === "analyze-all" ? (result.phase === "complete" ? "분석 대기열 처리가 끝났습니다. 평상시 자동 수집 설정은 그대로 적용됩니다." : "확보한 공고의 분석 대기열을 처리하고 있습니다.") : ({ collect: "최초 수집: 원문·상세를 먼저 확보하고 있습니다.", analyze: "최초 수집: 확보한 공고를 묶어서 AI 분석합니다.", complete: "최초 수집 완료: 다음 자동 회차부터 평상시 예산으로 전환합니다." })[result.phase] || result.phase));
     if (result.failed_jobs) container.append(element("p", "operation-caption", `재확인이 필요한 작업 ${number(result.failed_jobs)}건이 남아 있습니다. 데이터 수집의 실패 목록에서 확인하세요.`));
     if (operation.action === "tick" && !result.model_calls) container.append(element("p", "operation-caption", "원문 수집과 AI 분석은 단계별로 진행됩니다. 대기 작업은 다음 분석 회차에서 이어서 처리합니다."));
     if (result.schedule) renderSchedule(result.schedule);
@@ -375,6 +383,13 @@
     } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
     finally { operationLoading = false; $("refresh-operations").disabled = false; if (state.user && state.view === "operations") operationTimer = window.setTimeout(loadOperations, operationActive ? 2000 : 10000); }
   }
+  async function stopAnalysis() {
+    const operation = state.operation;
+    if (!state.user || !operation || operation.action !== "analyze-all" || !operationActive) return;
+    $("stop-analysis").disabled = true;
+    try { const data = await api(`/operations/${operation.id}/stop`, { method: "POST", body: {} }); if (state.user) { renderOperation(data.operation); message("operation-message", "중지를 요청했습니다. 현재 묶음의 결과를 저장한 뒤 멈춥니다."); } }
+    catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); $("stop-analysis").disabled = false; } }
+  }
   function renderSchedule(data) {
     const labels = { NotInstalled: "자동 수집이 등록되지 않았습니다", Ready: "자동 수집 대기 중", Running: "자동 수집 실행 중", Disabled: "자동 수집 비활성", unsupported: "Windows 서버에서 사용할 수 있습니다" };
     $("schedule-status").textContent = labels[data.state] || "자동 수집 상태를 확인하세요";
@@ -388,10 +403,11 @@
     catch (error) { if (state.user) { $("schedule-status").textContent = "자동 수집 상태를 확인하지 못했습니다"; $("schedule-detail").textContent = errorMessage(error); $("schedule-enable").hidden = true; $("schedule-remove").hidden = true; } }
     finally { $("refresh-schedule").disabled = false; }
   }
-  async function startOperation(action) {
+  async function startOperation(action, analysisMode) {
     if (!state.user || operationSubmitting || operationActive) return;
     if (Object.keys(changes()).length) { message("operation-message", "서버 설정에 저장하지 않은 변경이 있습니다. 설정을 저장하거나 취소한 뒤 실행하세요.", "warn"); return; }
     const body = { action };
+    if (action === "analyze-all" && analysisMode === "bulk") body.analysis_mode = "bulk";
     if (action === "tick") {
       if (!$("run-form").reportValidity()) return;
       body.mode = $("run-mode").value;
@@ -399,7 +415,7 @@
       if (body.mode === "raw") body.max_jobs = body.max_model_calls = body.max_tokens = 0;
     }
     operationSubmitting = true; updateOperationButtons(); message("operation-message", "");
-    try { const data = await api("/operations", { method: "POST", body }); if (!state.user) return; renderOperation(data.operation); message("operation-message", `${operationNames[action]}을 시작했습니다.`); loadOperations(); }
+    try { const data = await api("/operations", { method: "POST", body }); if (!state.user) return; renderOperation(data.operation); message("operation-message", `${analysisMode === "bulk" ? "최초 일괄 분석" : operationNames[action]}을 시작했습니다.`); loadOperations(); }
     catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); loadOperations(); } }
     finally { operationSubmitting = false; updateOperationButtons(); }
   }
@@ -515,11 +531,12 @@
   for (const button of document.querySelectorAll("[data-process-target]")) button.addEventListener("click", () => startProcessControl(button.dataset.processTarget, button.dataset.processAction));
   $("refresh-processes").addEventListener("click", loadProcesses);
   $("run-mode").addEventListener("change", () => applyRunPreset($("run-mode").value));
+  $("stop-analysis").addEventListener("click", stopAnalysis);
   $("collection-profile").addEventListener("change", renderCollectionProfile);
   $("save-collection-profile").addEventListener("click", saveCollectionProfile);
   $("run-form").addEventListener("input", refreshRunSummary);
   $("run-form").addEventListener("submit", (event) => { event.preventDefault(); startOperation("tick"); });
-  for (const button of document.querySelectorAll("[data-operation]")) button.addEventListener("click", () => startOperation(button.dataset.operation));
+  for (const button of document.querySelectorAll("[data-operation]")) button.addEventListener("click", () => startOperation(button.dataset.operation, button.dataset.analysisMode));
   $("refresh-operations").addEventListener("click", loadOperations);
   $("refresh-schedule").addEventListener("click", loadSchedule);
   $("open-run-settings").addEventListener("click", () => selectView("settings"));

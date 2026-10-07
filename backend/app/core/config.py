@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
     ingestion_enabled: bool = True
     ingestion_profile: Literal["custom", "bootstrap", "steady"] = "custom"
-    ingestion_ai_batch_size: int = Field(default=1, ge=1, le=8)
+    ingestion_ai_batch_size: int = Field(default=1, ge=1, le=16)
     ingestion_ai_batch_input_chars: int = Field(default=24000, ge=4000, le=100000)
     ingestion_page_size: int = Field(default=50, ge=1, le=100)
     ingestion_max_pages: int = Field(default=3, ge=0, le=30)

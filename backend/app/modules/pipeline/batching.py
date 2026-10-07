@@ -31,7 +31,7 @@ def _code_result(source):
 
 
 def parse_policy_batch(sources, settings, output: Path, *, budget, checkpoints=None,
-                       save_checkpoint=None):
+                       save_checkpoint=None, stop_on_transport_error=False):
     """Yield each committed draft. Successful items never participate in fallback calls.
 
     The outer CLI JSON schema describes each item, but validation is performed per
@@ -82,6 +82,8 @@ def parse_policy_batch(sources, settings, output: Path, *, budget, checkpoints=N
             budget.record(error.metadata)
             rows, meta = [], error.metadata
         except (CodexRunError, OSError):
+            if stop_on_transport_error:
+                raise
             # Auth, network and timeout failures are never reasons to escalate cost.
             transport_failed, rows, meta = True, [], {}
         shared = {key: value for key, value in meta.items() if key != "usage"}
