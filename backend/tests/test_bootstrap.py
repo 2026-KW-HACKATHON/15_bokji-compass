@@ -66,6 +66,7 @@ def test_liveness_is_not_database_readiness():
             "/v1/server-admin/settings",
             "/v1/server-admin/collection/{kind}",
             "/v1/server-admin/operations",
+            "/v1/server-admin/operations/{operation_id}/stop",
             "/v1/server-admin/schedule",
             "/v1/server-admin/processes",
             "/v1/server-admin/processes/{job_id}",
