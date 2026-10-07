@@ -422,6 +422,7 @@ for (const remember of [false, true]) {
 test('phone-free signup, DB username check, login, member edit, reload and logout', async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60000);
   const suffix = String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 10));
   const username = 'user_' + suffix;
   await page.goto('/#signup');

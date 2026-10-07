@@ -65,6 +65,8 @@ def test_liveness_is_not_database_readiness():
             "/v1/server-admin/session",
             "/v1/server-admin/logout",
             "/v1/server-admin/overview",
+            "/v1/server-admin/policies",
+            "/v1/server-admin/policies/{policy_key}",
             "/v1/server-admin/settings",
             "/v1/server-admin/collection/{kind}",
             "/v1/server-admin/operations",

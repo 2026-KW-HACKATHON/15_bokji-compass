@@ -51,13 +51,14 @@ export default function ResultView({ calculation, onRecommend, easy }) {
           </div>
         </dl>
         <p className="finance-help">
-          중위소득 비율은 입력한 월 소득의 단순 비교입니다. 사업별 소득인정액이나 최종 신청 자격과
+          중위소득 비율은 입력한 금액을 기준 중위소득과 나눈 단순 참고값입니다. 입력한 소득이 세후
+          금액이면 세전 소득 기준과 다를 수 있으며, 사업별 소득인정액이나 최종 신청 자격과는
           다릅니다.
         </p>
       </section>
       <div className="finance-result-summary">
         <div>
-          <span>월 소득 합계</span>
+          <span>입력한 월 소득 합계</span>
           <strong>{formatMoney(median.monthly_income)}</strong>
         </div>
         <div>
@@ -67,6 +68,18 @@ export default function ResultView({ calculation, onRecommend, easy }) {
           </strong>
         </div>
       </div>
+      {median.monthly_income === null && (
+        <p className="finance-help">
+          소득 합계와 비율은 가구원별 금액이 모두 확인될 때 표시합니다. 모르는 소득은 0원으로
+          계산하지 않으므로 전체 합계가 확인 필요로 표시될 수 있어요.
+        </p>
+      )}
+      {median.monthly_income !== null && median.ratio_percent === null && (
+        <p className="finance-help">
+          입력한 금액의 합계는 표시했지만, 해당 연도의 기준 중위소득이 등록되지 않아 비율을 계산하지
+          않았어요.
+        </p>
+      )}
       <details className="finance-details">
         <summary>중위소득 금액과 재산 합계 보기</summary>
         <p className="finance-help">

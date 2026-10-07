@@ -219,16 +219,35 @@ test('all money fields use manwon only for UI drafts and API normalization stays
 test('money validation handles editable invalid text and keeps income basis conditional', () => {
   const draft = emptyFinancialProfile();
   const question = financeQuestions(draft).find((item) => item.id === 'member-0-earned');
+  draft.members[0].earned_income = moneyInput('');
+  assert.match(validateQuestion(question, draft).message, /입력하거나 없음·모름을 선택/);
+  assert.equal(validateQuestion(question, draft).field, 'finance-earned-0');
+  draft.members[0].earned_income = null;
+  assert.equal(validateQuestion(question, draft), null);
   draft.members[0].earned_income = moneyInput('0.00001');
   assert.equal(visibleFields(question, draft).length, 1);
   assert.match(validateQuestion(question, draft).message, /넷째 자리/);
   assert.equal(validateQuestion(question, draft).field, 'finance-earned-0');
   draft.members[0].earned_income = moneyInput('0.0001');
   assert.equal(visibleFields(question, draft).length, 2);
+  assert.equal(validateQuestion(question, draft).field, 'finance-earned-basis-0');
+  draft.members[0].earned_income_basis = 'gross';
   assert.equal(validateQuestion(question, draft), null);
   draft.members[0].earned_income = moneyInput('0');
   assert.equal(visibleFields(question, draft).length, 1);
   assert.equal(validateQuestion(question, draft), null);
+  draft.members[0].earned_income = moneyInput('200');
+  draft.members[0].earned_income_basis = 'unknown';
+  const basisQuestion = financeQuestions(draft).find((item) => item.id === 'member-0-earned');
+  assert.equal(validateQuestion(basisQuestion, draft).field, 'finance-earned-basis-0');
+  draft.members[0].earned_income_basis = 'gross';
+  assert.equal(validateQuestion(basisQuestion, draft), null);
+
+  draft.members[0].business_income = moneyInput('500');
+  const businessQuestion = financeQuestions(draft).find((item) => item.id === 'member-0-business');
+  assert.equal(validateQuestion(businessQuestion, draft).field, 'finance-business-basis-0');
+  draft.members[0].business_income_basis = 'net_expenses';
+  assert.equal(validateQuestion(businessQuestion, draft), null);
 });
 test('income and vehicle facts stay separate and older drafts need basis confirmation', () => {
   const draft = emptyFinancialProfile();

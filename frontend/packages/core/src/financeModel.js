@@ -140,10 +140,13 @@ export function parseInteger(value, label, { min = 0, max = MAX_MONEY, required 
 // Only UI edits carry a unit. API profiles and existing drafts remain integer won.
 export const moneyInput = (value) => ({ unit: 'manwon', value });
 const isMoneyInput = (value) => value?.unit === 'manwon' && typeof value.value === 'string';
-export function parseMoney(value, label) {
-  if (!isMoneyInput(value)) return parseInteger(value, label);
+export function parseMoney(value, label, { required = false } = {}) {
+  if (!isMoneyInput(value)) return parseInteger(value, label, { required });
   const text = value.value.trim();
-  if (!text) return null;
+  if (!text) {
+    if (required) throw new Error(`${label}을(를) 입력하거나 없음·모름을 선택해 주세요.`);
+    return null;
+  }
   if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{0,4})?$/.test(text))
     throw new Error(
       label + '은(는) 만원 단위 숫자로 입력해 주세요. 소수점은 넷째 자리까지 가능해요.',

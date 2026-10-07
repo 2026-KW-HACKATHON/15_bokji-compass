@@ -208,6 +208,21 @@ test('loading a large household shows the actual count in review and editing', a
   await expect(page.getByLabel('실제 가구원 수 직접 입력', { exact: true })).toHaveValue('100');
 });
 
+test('income marked as present requires an amount before continuing', async ({ page }) => {
+  await start(page);
+  await advanceTo(page, '월급이 있나요');
+  await moneyState(page, '근로소득 (월·세전 기준)', 'yes');
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('입력하거나 없음·모름을 선택');
+  await expect(page.locator('.finance-screen-title')).toHaveText('소득 정보');
+  await page.getByLabel('근로소득 (월·세전 기준)', { exact: true }).fill('200');
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('양수 소득의 입력 기준을 선택해 주세요');
+  await page.getByLabel('입력한 근로소득의 기준', { exact: true }).selectOption('gross');
+  await next(page);
+  await expect(page.locator('.finance-screen-title')).toHaveText('재산 정보');
+});
+
 test('entry stays in six stages with multiple household members and vehicles', async ({ page }) => {
   await start(page);
   const title = page.locator('.finance-screen-title');
@@ -353,8 +368,8 @@ test('positive income basis survives backward navigation and display mode change
   await page.route('**/v1/finance/calculate', (route) => {
     submitted = route.request().postDataJSON();
     const result = calculation();
-    result.median.monthly_income = null;
-    result.median.ratio_percent = null;
+    result.median.monthly_income = 7000000;
+    result.median.ratio_percent = 273;
     return route.fulfill({ json: result });
   });
   await start(page);
@@ -392,7 +407,9 @@ test('positive income basis survives backward navigation and display mode change
   });
   await expect(
     page.locator('.finance-result-summary').getByText('확인 필요', { exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(0);
+  await expect(page.locator('.finance-result-summary')).toContainText('7,000,000원');
+  await expect(page.locator('.finance-result')).toContainText('입력한 소득이 세후');
 });
 
 test('money input preserves decimal editing and rejects amounts smaller than one won', async ({
@@ -601,6 +618,7 @@ test('question and grouped-section validation focus invalid fields, including re
   await expect(page.getByRole('alert')).toContainText('넷째 자리');
   await expect(page.getByLabel('사업소득 (월·경비 차감 후)', { exact: true })).toBeFocused();
   await page.getByLabel('사업소득 (월·경비 차감 후)', { exact: true }).fill('1');
+  await page.getByLabel('입력한 사업소득의 기준', { exact: true }).selectOption('net_expenses');
   await review(page);
   await page.getByRole('button', { name: '전체 정보 수정', exact: true }).click();
   await page.getByLabel('가구원 수', { exact: true }).selectOption('2');

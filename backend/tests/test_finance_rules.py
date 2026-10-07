@@ -362,18 +362,23 @@ def test_money_and_age_reject_coercion(change):
         {"business_income": 1_000_000, "business_income_basis": "unknown"},
     ],
 )
-def test_unconfirmed_income_basis_is_not_summed_or_compared(change):
+def test_unconfirmed_income_basis_is_summed_and_ratio_uses_entered_amount(change):
     member = facts().members[0].model_dump()
     member.update(change)
     profile = facts(members=[member])
     result = calculate(profile)
-    assert result["median"]["monthly_income"] is None
-    assert result["median"]["ratio_percent"] is None
+    assert result["median"]["monthly_income"] == 1_000_000
+    assert result["median"]["ratio_percent"] == 39.0
     for item in result["assessments"]:
         assert item["status"] == "needs_review"
-        assert item["checks"][0]["value"] is None
-        assert item["checks"][0]["state"] == "unknown"
         assert any("차감하기 전" in reason or "차감 전" in reason for reason in item["missing"])
+    assert result["assessments"][0]["checks"][0]["value"] is None
+    assert result["assessments"][0]["checks"][0]["state"] == "unknown"
+    assert result["assessments"][1]["checks"][0]["value"] is None
+    assert result["assessments"][1]["checks"][0]["state"] == "unknown"
+    assert result["assessments"][2]["checks"][0]["value"] == 1_000_000
+    assert result["assessments"][2]["checks"][0]["state"] == "unknown"
+    assert result["assessments"][2]["checks"][0]["value"] == 1_000_000
     reviewed = evaluate_policy(profile, criteria())
     assert reviewed["status"] == "needs_review"
     assert reviewed["checks"][0]["value"] is None
@@ -385,8 +390,28 @@ def test_confirmed_income_bases_use_salary_and_business_profit_before_personal_t
     member.update(earned_income=2_000_000, business_income=1_000_000)
     result = calculate(facts(members=[member]))
     assert result["median"]["monthly_income"] == 3_000_000
+    assert result["median"]["ratio_percent"] is not None
     assert result["assessments"][0]["checks"][0]["value"] == 2_100_000
     assert result["assessments"][2]["checks"][0]["value"] == 3_000_000
+
+
+def test_calculable_comparisons_are_shown_even_when_overall_context_needs_review():
+    member = facts().members[0].model_dump()
+    member.update(earned_income=500_000, deduction="ordinary")
+    result = calculate(
+        facts(
+            household_scope_confirmed=False,
+            members=[member],
+            assets={"housing": 0, "rental_deposit": 0, "general": 0, "financial": 0},
+            debts={"bank": 0, "public": 0, "other": 0},
+        )
+    )
+    assert result["assessments"][0]["status"] == "needs_review"
+    assert result["assessments"][0]["checks"][0]["value"] == 350_000
+    assert result["assessments"][0]["checks"][0]["state"] == "within"
+    assert result["assessments"][2]["status"] == "needs_review"
+    assert result["assessments"][2]["checks"][0]["value"] == 500_000
+    assert result["assessments"][2]["checks"][0]["state"] == "within"
 
 
 @pytest.mark.parametrize(
@@ -399,6 +424,14 @@ def test_zero_income_does_not_require_basis_confirmation(earned_basis, business_
     assert result["median"]["monthly_income"] == 0
     assert result["assessments"][0]["status"] == "estimated"
     assert result["assessments"][0]["checks"][0]["state"] == "within"
+
+
+def test_unknown_income_amount_keeps_the_reported_total_unavailable():
+    member = facts().members[0].model_dump()
+    member.update(earned_income=1_000_000, earned_income_basis="net", other_income=None)
+    result = calculate(facts(members=[member]))
+    assert result["median"]["monthly_income"] is None
+    assert result["median"]["ratio_percent"] is None
 
 
 def test_old_profile_defaults_new_evidence_to_unknown_without_losing_original_values():
@@ -415,7 +448,8 @@ def test_old_profile_defaults_new_evidence_to_unknown_without_losing_original_va
     assert loaded.vehicles[0].value == 4_999_999
     assert loaded.vehicles[0].ownership == "unknown"
     result = calculate(loaded)
-    assert result["median"]["monthly_income"] is None
+    assert result["median"]["monthly_income"] == 1_000_000
+    assert result["median"]["ratio_percent"] == 39.0
     assert result["assets"]["vehicle_total"] == 4_999_999
     assert all(item["status"] == "needs_review" for item in result["assessments"])
 
@@ -439,10 +473,13 @@ def test_unconfirmed_vehicle_evidence_preserves_raw_sum_but_stops_rule_compariso
     result = calculate(profile)
     assert result["assets"]["vehicle_total"] == 10_000_000
     assert result["assets"]["net_total"] == 10_000_000
-    for item in result["assessments"]:
-        assert item["status"] == "needs_review"
-        assert all(check["state"] == "unknown" for check in item["checks"])
+    assert all(item["status"] == "needs_review" for item in result["assessments"])
     assert result["assessments"][0]["checks"][0]["value"] is None
+    assert all(check["state"] == "unknown" for check in result["assessments"][0]["checks"])
+    assert all(check["state"] == "unknown" for check in result["assessments"][1]["checks"])
+    assert result["assessments"][2]["checks"][0]["state"] == "within"
+    assert result["assessments"][2]["checks"][1]["state"] == "within"
+    assert result["assessments"][2]["checks"][2]["state"] == "unknown"
     assert result["assessments"][2]["checks"][2]["value"] is None
     reviewed = evaluate_policy(
         profile,
@@ -482,7 +519,8 @@ def test_livelihood_use_does_not_exclude_a_car_from_rental_assets():
     profile = facts(vehicle_status="owned", vehicles=[car(value=50_000_000, use="livelihood")])
     result = assessment(profile, 2)
     assert result["checks"][1]["value"] == 50_000_000
-    assert result["checks"][1]["state"] == "unknown"
+    assert result["checks"][1]["state"] == "within"
+    assert result["checks"][2]["state"] == "unknown"
     assert result["status"] == "needs_review"
 
 
