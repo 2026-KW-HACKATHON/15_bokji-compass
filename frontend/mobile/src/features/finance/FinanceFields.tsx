@@ -1,7 +1,8 @@
-import { Switch, Text, View } from "react-native";
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
+import { Switch, View } from "react-native";
 import { fieldValue, visibleFields } from "@bokji/core/finance-flow";
 import {
-  formatMoney,
   moneyInput,
   moneyInputValue,
   parseMoney,
@@ -50,10 +51,11 @@ function FinanceField({
   edit,
   busy,
 }: Props & { field: FormField }) {
+  const { t, formatMoney } = useI18n();
   const { easy } = useRuntime();
   const value = fieldValue(draft, field.path);
   const hint = field.hint && (
-    <Details collapsible label={`${field.label} 도움말`}>
+    <Details collapsible label={t("{label} 도움말", { label: t(field.label) })}>
       <Copy muted>{field.hint}</Copy>
     </Details>
   );
@@ -81,7 +83,7 @@ function FinanceField({
             {field.optional && <Copy muted>선택 · 필수 아님</Copy>}
           </View>
           <Switch
-            accessibilityLabel={field.label}
+            accessibilityLabel={t(field.label)}
             disabled={busy}
             value={value === true}
             onValueChange={(next) => edit(field.path, next)}
@@ -133,7 +135,7 @@ function FinanceField({
             <Choice
               key={key}
               label={label}
-              accessibilityLabel={`${field.label} ${label}`}
+              accessibilityLabel={`${t(field.label)} ${t(label)}`}
               selected={presence === key}
               disabled={busy}
               onPress={() =>
@@ -157,9 +159,9 @@ function FinanceField({
           label={
             money
               ? "금액 (만원)"
-              : `${field.label}${field.unit ? ` (${field.unit})` : ""}`
+              : `${t(field.label)}${field.unit ? ` (${t(field.unit)})` : ""}`
           }
-          accessibilityLabel={`${field.label}${money ? " 만원" : ""}`}
+          accessibilityLabel={`${t(field.label)}${money ? ` ${t("만원")}` : ""}`}
           value={
             money ? moneyInputValue(value) : value == null ? "" : String(value)
           }
@@ -184,7 +186,7 @@ function FinanceField({
           {presence === "yes"
             ? converted === null
               ? "만원 단위로 입력해요. 예: 300 = 300만 원"
-              : `입력한 금액: ${formatMoney(converted)}`
+              : t("입력한 금액: {amount}", { amount: formatMoney(converted) })
             : presence === "none"
               ? "0원으로 계산해요."
               : "확인할 항목으로 남겨두고 다음으로 갈 수 있어요."}

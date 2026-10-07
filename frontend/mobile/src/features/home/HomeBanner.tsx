@@ -1,12 +1,7 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useRef, useState } from "react";
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
@@ -44,6 +39,7 @@ const banners = [
 
 // User-controlled paging keeps the copy still while reading (including easy mode).
 export function HomeBanner() {
+  const { t } = useI18n();
   const { easy } = useRuntime();
   const scroll = useRef<ScrollView>(null);
   const selected = useRef(0);
@@ -91,7 +87,7 @@ export function HomeBanner() {
               <Pressable
                 key={banner.route}
                 accessibilityRole="button"
-                accessibilityLabel={banner.action}
+                accessibilityLabel={t(banner.action)}
                 accessibilityElementsHidden={position !== index}
                 importantForAccessibility={
                   position === index ? "yes" : "no-hide-descendants"
@@ -156,7 +152,7 @@ export function HomeBanner() {
         <View style={styles.paging}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="이전 배너"
+            accessibilityLabel={t("이전 배너")}
             onPress={() => select(index - 1)}
             style={styles.arrow}
           >
@@ -167,7 +163,10 @@ export function HomeBanner() {
             )}
           </Pressable>
           <Text
-            accessibilityLabel={`배너 ${index + 1} / ${banners.length}`}
+            accessibilityLabel={t("배너 {current} / {total}", {
+              current: index + 1,
+              total: banners.length,
+            })}
             style={[
               styles.counter,
               easy && { fontSize: 17, marginHorizontal: 16 },
@@ -177,7 +176,7 @@ export function HomeBanner() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="다음 배너"
+            accessibilityLabel={t("다음 배너")}
             onPress={() => select(index + 1)}
             style={styles.arrow}
           >

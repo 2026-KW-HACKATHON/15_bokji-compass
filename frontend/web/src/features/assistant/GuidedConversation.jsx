@@ -1,9 +1,12 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
+import { TranslatedPolicyTitle } from '../../shared/i18n/PolicyTranslation.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { request } from '../../shared/api/client.js';
 import { safeSourceUrl } from '../policies/policyModel.js';
 import { todayInSeoul } from '../monitoring/monitoringModel.js';
 import { createDialogueApi } from './dialogueApi.js';
 import { confirmedFacts, dialogueError } from './dialogueModel.js';
+import ContentLanguageNotice from '../../shared/i18n/ContentLanguageNotice.jsx';
 import './guided-conversation.css';
 
 const api = createDialogueApi(request);
@@ -14,6 +17,8 @@ const examples = [
 ];
 
 export default function GuidedConversation({ user, policy, onProfile }) {
+  const { t, intlLocale } = useI18n();
+
   const id = useId();
   const owner = user?.id || null;
   const currentOwner = useRef(owner);
@@ -132,26 +137,27 @@ export default function GuidedConversation({ user, policy, onProfile }) {
   }
   const follow = dialogue?.follow_up;
   return (
-    <section className="guided-conversation" aria-label="생활 상황 상담">
+    <section className="guided-conversation" aria-label={t('생활 상황 상담')}>
       {!user ? (
         <p>
-          <a href="#login">로그인</a>하면 생활 상황을 알려주고 필요한 지원을 함께 찾아볼 수 있어요.
+          <a href="#login">{t('로그인')}</a>
+          {t('하면 생활 상황을 알려주고 필요한 지원을 함께 찾아볼 수 있어요.')}{' '}
         </p>
       ) : (
         <>
           {policy && (
             <div className="guided-policy-context">
-              <span>함께 확인할 공고</span>
-              <strong>{policy.title}</strong>
+              <span>{t('함께 확인할 공고')}</span>
+              <TranslatedPolicyTitle policy={policy} as="strong" />
             </div>
           )}
           {!dialogue && (
             <>
-              <p>지금 겪는 일을 알려 주세요. 부족한 정보는 한 가지씩 여쭤볼게요.</p>
-              <div className="guided-examples" role="group" aria-label="생활 상담 질문 예시">
+              <p>{t('지금 겪는 일을 알려 주세요. 부족한 정보는 한 가지씩 여쭤볼게요.')}</p>
+              <div className="guided-examples" role="group" aria-label={t('생활 상담 질문 예시')}>
                 {examples.map((example) => (
                   <button
-                    key={example}
+                    key={t(example)}
                     className="button secondary"
                     disabled={!!busy}
                     onClick={() => {
@@ -159,12 +165,12 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                       questionInput.current?.focus();
                     }}
                   >
-                    {example}
+                    {t(example)}
                   </button>
                 ))}
               </div>
               <form onSubmit={start}>
-                <label htmlFor={`${id}-question`}>어떤 도움이 필요하세요?</label>
+                <label htmlFor={`${id}-question`}>{t('어떤 도움이 필요하세요?')}</label>
                 <textarea
                   id={`${id}-question`}
                   ref={questionInput}
@@ -174,18 +180,21 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                   maxLength={2000}
                   disabled={!!busy}
                   required
-                  placeholder="예: 집수리 비용을 지원받을 수 있을까요?"
+                  placeholder={t('예: 집수리 비용을 지원받을 수 있을까요?')}
                 />
                 <p className="guided-note">
-                  이름·전화번호·정확한 주소는 적지 마세요. 답한 정보는 상담에 사용하고, 계정 저장은
-                  나중에 선택할 수 있어요.
+                  {' '}
+                  {t(
+                    '이름·전화번호·정확한 주소는 적지 마세요. 답한 정보는 상담에 사용하고, 계정 저장은 나중에 선택할 수 있어요.',
+                  )}{' '}
                 </p>
                 <button
                   type="submit"
                   className="button primary"
                   disabled={!!busy || !question.trim()}
                 >
-                  상담 시작하기
+                  {' '}
+                  {t('상담 시작하기')}{' '}
                 </button>
               </form>
             </>
@@ -194,7 +203,10 @@ export default function GuidedConversation({ user, policy, onProfile }) {
             <>
               {exchanges.length > 1 && (
                 <details className="guided-history">
-                  <summary>이번 상담에서 확인한 대화 ({exchanges.length - 1})</summary>
+                  <summary>
+                    {t('이번 상담에서 확인한 대화 (')}
+                    {exchanges.length - 1})
+                  </summary>
                   {exchanges.slice(0, -1).map((entry, index) => (
                     <div key={index}>
                       <strong>{entry.question}</strong>
@@ -207,13 +219,13 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                 ref={answerPanel}
                 tabIndex={-1}
                 role="region"
-                aria-label="생활 상담 안내"
+                aria-label={t('생활 상담 안내')}
                 className="guided-answer"
               >
                 <p className="guided-user-reply">{exchanges.at(-1)?.question}</p>
                 {dialogue.practical_steps.length > 0 && (
                   <div className="guided-practical">
-                    <h4>먼저 이렇게 대처해 주세요</h4>
+                    <h4>{t('먼저 이렇게 대처해 주세요')}</h4>
                     <ol>
                       {dialogue.practical_steps.map((step, index) => (
                         <li key={index}>{step}</li>
@@ -221,16 +233,19 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                     </ol>
                   </div>
                 )}
+                <ContentLanguageNotice />
                 <p className="guided-answer-text">{dialogue.answer}</p>
                 {dialogue.catalog_status === 'unavailable' && (
                   <p className="guided-unavailable" role="status">
-                    현재 공고 정보를 확인하지 못했어요. 아래 생활 대응과 추가 질문을 먼저 확인해
-                    주세요.
+                    {' '}
+                    {t(
+                      '현재 공고 정보를 확인하지 못했어요. 아래 생활 대응과 추가 질문을 먼저 확인해 주세요.',
+                    )}{' '}
                   </p>
                 )}
                 {dialogue.missing_fields.length > 0 && (
                   <div className="guided-missing">
-                    <h4>추가로 확인할 정보</h4>
+                    <h4>{t('추가로 확인할 정보')}</h4>
                     <ul>
                       {dialogue.missing_fields.map((field) => (
                         <li key={field.slot}>{field.label}</li>
@@ -247,18 +262,21 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                           });
                         }}
                       >
-                        정보 추가하기
+                        {' '}
+                        {t('정보 추가하기')}{' '}
                       </button>
                     )}
                   </div>
                 )}
                 {dialogue.selected_policy && (
                   <div className="guided-selected">
-                    <h4>선택한 공고의 조건 비교</h4>
+                    <h4>{t('선택한 공고의 조건 비교')}</h4>
                     <p>
                       {dialogue.selected_policy.comparison.status === 'not_matched'
-                        ? '현재 알려준 정보와 맞지 않는 공고 조건이 있어요.'
-                        : '현재 확인한 정보로 비교했어요. 남은 조건과 원문을 함께 확인해 주세요.'}
+                        ? t('현재 알려준 정보와 맞지 않는 공고 조건이 있어요.')
+                        : t(
+                            '현재 확인한 정보로 비교했어요. 남은 조건과 원문을 함께 확인해 주세요.',
+                          )}
                     </p>
                     <ul>
                       {dialogue.selected_policy.comparison.notes.map((note, index) => (
@@ -266,15 +284,17 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                       ))}
                     </ul>
                     <details>
-                      <summary>공고 조건과 비교 근거 보기</summary>
+                      <summary>{t('공고 조건과 비교 근거 보기')}</summary>
                       {dialogue.selected_policy.comparison.checks.map((check, index) => (
                         <div className="guided-condition" key={index}>
                           <strong>
                             {check.label} ·{' '}
                             {
-                              { match: '조건 일치', mismatch: '조건 불일치', unknown: '추가 확인' }[
-                                check.state
-                              ]
+                              {
+                                match: t('조건 일치'),
+                                mismatch: t('조건 불일치'),
+                                unknown: t('추가 확인'),
+                              }[check.state]
                             }
                           </strong>
                           <p>{check.note}</p>
@@ -286,15 +306,15 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                 )}
                 {dialogue.candidates.length > 0 && (
                   <div className="guided-candidates">
-                    <h4>함께 확인할 지원 공고</h4>
+                    <h4>{t('함께 확인할 지원 공고')}</h4>
                     {dialogue.candidates.slice(0, candidateLimit).map((candidate) => (
                       <article key={`${candidate.need_id}:${candidate.policy_id}`}>
                         <span className="guided-candidate-status">
                           {candidate.schedule_status === 'upcoming'
-                            ? '접수 시작 전 · 조건 확인 필요'
-                            : '지원 후보 · 조건 확인 필요'}
+                            ? t('접수 시작 전 · 조건 확인 필요')
+                            : t('지원 후보 · 조건 확인 필요')}
                         </span>
-                        <h5>{candidate.policy.title}</h5>
+                        <TranslatedPolicyTitle policy={candidate.policy} as="h5" />
                         <p>{candidate.reason}</p>
                         {candidate.questions.length > 0 && (
                           <ul>
@@ -310,7 +330,9 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            공식 공고 확인<span className="sr-only"> 새 창</span>
+                            {' '}
+                            {t('공식 공고 확인')}
+                            <span className="sr-only"> {t('새 창')}</span>
                           </a>
                         )}
                       </article>
@@ -320,14 +342,15 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                         className="button secondary"
                         onClick={() => setCandidateLimit((value) => value + 3)}
                       >
-                        지원 후보 더 보기
+                        {' '}
+                        {t('지원 후보 더 보기')}{' '}
                       </button>
                     )}
                   </div>
                 )}
                 {dialogue.source_links.length > 0 && (
                   <div className="guided-sources">
-                    <h4>공식 안내</h4>
+                    <h4>{t('공식 안내')}</h4>
                     {dialogue.source_links.map((link, index) => (
                       <a
                         key={index}
@@ -336,7 +359,7 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                         rel="noopener noreferrer"
                       >
                         {link.label}
-                        <span className="sr-only"> 새 창</span>
+                        <span className="sr-only"> {t('새 창')}</span>
                       </a>
                     ))}
                   </div>
@@ -371,7 +394,7 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                         onChange={(event) => setInput(event.target.value)}
                         disabled={!!busy}
                         placeholder={
-                          follow.slot === 'building_year' ? '예: 1920년 건축' : undefined
+                          follow.slot === 'building_year' ? t('예: 1920년 건축') : undefined
                         }
                         required
                       />
@@ -380,7 +403,8 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                         className="button primary"
                         disabled={!!busy || !input.trim()}
                       >
-                        답변하고 다시 확인하기
+                        {' '}
+                        {t('답변하고 다시 확인하기')}{' '}
                       </button>
                     </form>
                   )}
@@ -389,30 +413,43 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                     disabled={!!busy}
                     onClick={() => respond(null, '모르겠어요 / 건너뛰기')}
                   >
-                    모르겠어요 / 건너뛰기
+                    {' '}
+                    {t('모르겠어요 / 건너뛰기')}{' '}
                   </button>
                 </div>
               )}
               {dialogue.can_save_profile && (
                 <div className="guided-save">
-                  <h4>확인한 정보를 다음 안내에도 사용할까요?</h4>
+                  <h4>{t('확인한 정보를 다음 안내에도 사용할까요?')}</h4>
                   <p>
-                    아래 정보를 계정에 저장하면 지속 복지 안내에서 사용할 수 있어요. 저장하지 않고
-                    상담을 이어가도 돼요.
+                    {' '}
+                    {t(
+                      '아래 정보를 계정에 저장하면 지속 복지 안내에서 사용할 수 있어요. 저장하지 않고 상담을 이어가도 돼요.',
+                    )}{' '}
                   </p>
                   <dl>
                     {confirmedFacts(dialogue).map((fact) => (
                       <div key={fact.field}>
-                        <dt>{fact.label}</dt>
-                        <dd>{fact.value}</dd>
+                        <dt>{t(fact.label)}</dt>
+                        <dd>
+                          {fact.field === 'building_year' &&
+                          dialogue.profile_draft[fact.field] != null
+                            ? t('건축 연도 {year}년', { year: dialogue.profile_draft[fact.field] })
+                            : fact.field === 'interests'
+                              ? dialogue.profile_draft.interests
+                                  ?.map((value) => t(value))
+                                  .join(', ') || t('없음')
+                              : t(fact.value)}
+                        </dd>
                       </div>
                     ))}
                   </dl>
                   {saved ? (
                     <>
-                      <p role="status">{saved}</p>
+                      <p role="status">{t(saved)}</p>
                       <button className="button secondary" onClick={onProfile}>
-                        내 정보에서 확인하기
+                        {' '}
+                        {t('내 정보에서 확인하기')}{' '}
                       </button>
                     </>
                   ) : (
@@ -425,8 +462,10 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                           onChange={(event) => setConsent(event.target.checked)}
                         />
                         <span>
-                          표시된 정보가 본인 정보임을 확인했고, 계정 저장과 지속 복지 안내 활용에
-                          동의해요.
+                          {' '}
+                          {t(
+                            '표시된 정보가 본인 정보임을 확인했고, 계정 저장과 지속 복지 안내 활용에 동의해요.',
+                          )}{' '}
                         </span>
                       </label>
                       <button
@@ -434,7 +473,8 @@ export default function GuidedConversation({ user, policy, onProfile }) {
                         disabled={!!busy || !consent}
                         onClick={save}
                       >
-                        확인한 정보 저장하기
+                        {' '}
+                        {t('확인한 정보 저장하기')}{' '}
                       </button>
                     </>
                   )}
@@ -442,10 +482,14 @@ export default function GuidedConversation({ user, policy, onProfile }) {
               )}
               <div className="guided-restart">
                 <button className="button secondary guided-reset" onClick={reset}>
-                  새 상담 시작하기
+                  {' '}
+                  {t('새 상담 시작하기')}{' '}
                 </button>
                 <p className="guided-note">
-                  건너뛴 답변이나 이번 상담에서 입력한 내용을 바꾸려면 새 상담을 시작해 주세요.
+                  {' '}
+                  {t(
+                    '건너뛴 답변이나 이번 상담에서 입력한 내용을 바꾸려면 새 상담을 시작해 주세요.',
+                  )}{' '}
                 </p>
               </div>
             </>
@@ -454,27 +498,33 @@ export default function GuidedConversation({ user, policy, onProfile }) {
             <div className="guided-busy" role="status">
               <span>
                 {busy === 'save'
-                  ? '확인한 정보를 저장하고 있어요.'
-                  : '입력한 상황과 공고를 확인하고 있어요.'}
+                  ? t('확인한 정보를 저장하고 있어요.')
+                  : t('입력한 상황과 공고를 확인하고 있어요.')}
               </span>
               <button className="button secondary" onClick={cancel}>
-                요청 취소하기
+                {' '}
+                {t('요청 취소하기')}{' '}
               </button>
             </div>
           )}
-          {error && <p role="alert">{error}</p>}
+          {error && <p role="alert">{t(error)}</p>}
           <div className="guided-profile-action">
             <p className="guided-note">
-              본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 내 정보에서 수정할 수
-              있어요.
+              {' '}
+              {t(
+                '본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 내 정보에서 수정할 수 있어요.',
+              )}{' '}
             </p>
             <button className="button secondary" onClick={onProfile}>
-              저장한 생활정보 수정하기
+              {' '}
+              {t('저장한 생활정보 수정하기')}{' '}
             </button>
           </div>
           <p className="guided-note">
-            대화 화면은 창을 닫으면 초기화돼요. 입력한 상담 정보는 서버에서 최대 30분간 임시로
-            사용하고, 저장을 선택한 생활정보만 계정에 남아요.
+            {' '}
+            {t(
+              '대화 화면은 창을 닫으면 초기화돼요. 입력한 상담 정보는 서버에서 최대 30분간 임시로 사용하고, 저장을 선택한 생활정보만 계정에 남아요.',
+            )}{' '}
           </p>
         </>
       )}

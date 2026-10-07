@@ -1,5 +1,9 @@
 # 공고 저장소
 
+2026-10-07: 명시적 초기화는 011의 표시용 `policy_translations`와 UTC 일일 예산
+`policy_translation_usage`를 추가한다. 조회/파싱 요청에서는 생성하지 않으며 원문·조건·
+회원 행을 바꾸지 않는다. [공고 번역 모듈](../policy_translation/readme.md).
+
 2026-10-07 관리자 편집: `editor.list_editable_policies`, `read_policy_edit`,
 `save_policy_edit`는 수집 기록과 분석 개정의 통합 검색·전체 편집·저장을 제공합니다.
 새 개정의 processing_json에 변경자·사유·부모 개정을 기록하고 version 확인과 공개 전환을

@@ -1,3 +1,5 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import React, { useEffect, useRef } from "react";
 import {
   AppState,
@@ -7,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +20,7 @@ import { AssistantChat } from "./AssistantChat";
 import { Icon } from "../../components/Icon";
 
 export function AppShell({ children }: React.PropsWithChildren) {
+  const { t } = useI18n();
   const chat = useAssistant();
   const { easy, setEasy } = useRuntime();
   const overlayRef = useRef<View>(null);
@@ -120,15 +122,15 @@ export function AppShell({ children }: React.PropsWithChildren) {
           accessibilityViewIsModal
           role="dialog"
           aria-modal
-          aria-label={
+          aria-label={t(
             chat.confirm
               ? "챗봇 종료 확인"
               : chat.disabledNotice
                 ? "챗봇 다시 켜기 안내"
                 : chat.panel === "menu"
                   ? "전체 메뉴"
-                  : "챗봇 상담"
-          }
+                  : "챗봇 상담",
+          )}
         >
           <View
             style={{ flex: 1 }}
@@ -156,7 +158,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="상담창 접기"
+                    accessibilityLabel={t("상담창 접기")}
                     onPress={chat.closePanel}
                     style={styles.headerButton}
                   >
@@ -164,7 +166,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="챗봇 기능 끄기"
+                    accessibilityLabel={t("챗봇 기능 끄기")}
                     onPress={chat.requestDisable}
                     style={styles.headerButton}
                   >
@@ -183,7 +185,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
               <View style={styles.backdrop}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="메뉴 바깥을 눌러 닫기"
+                  accessibilityLabel={t("메뉴 바깥을 눌러 닫기")}
                   onPress={chat.closePanel}
                   style={StyleSheet.absoluteFill}
                 />
@@ -194,7 +196,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                     </Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="전체 메뉴 닫기"
+                      accessibilityLabel={t("전체 메뉴 닫기")}
                       onPress={chat.closePanel}
                       style={styles.headerButton}
                     >

@@ -1,7 +1,9 @@
+import { useI18n } from '../i18n/I18nProvider.jsx';
 import { useEffect, useRef } from 'react';
 import Icon from './Icon.jsx';
 
 export default function Modal({ title, onClose, children, dismissible = true }) {
+  const { t } = useI18n();
   const ref = useRef(null);
   useEffect(() => {
     const element = ref.current;
@@ -35,7 +37,7 @@ export default function Modal({ title, onClose, children, dismissible = true }) 
             className="icon-button"
             disabled={!dismissible}
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={t('닫기')}
             autoFocus
           >
             <Icon name="x" />

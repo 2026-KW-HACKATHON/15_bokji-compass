@@ -1,5 +1,7 @@
 # 웹·모바일 공통 금융 모델
 
+2026-10-07: `@bokji/core/i18n`에 다섯 언어 UI 사전, 언어 감지·fallback·변수 처리를 제공합니다. `src/i18n/policyTranslation.js`는 표시 전용 공고 번역의 HTTP 요청·캐시·취소·응답 검증을 공유합니다. 함수 계약과 사용법은 [공통 번역](src/i18n/readme.md), 범위는 [다국어 UI와 공고 번역](../../docs/internationalization.md)를 참고하세요.
+
 담당: 프론트엔드. 기존 웹의 `financeModel.js`, `financeFlow.js`를 옮긴 플랫폼 독립 JavaScript입니다. DOM·기기 저장·네트워크 호출·서버 계산 산식이 없습니다. 웹의 기존 경로는 재내보내기로 호환하며 모바일은 `@bokji/core/finance-model`, `@bokji/core/finance-flow`를 사용합니다.
 
 - `emptyFinancialProfile()` → 미확인 값으로 시작하는 원입력 초안.

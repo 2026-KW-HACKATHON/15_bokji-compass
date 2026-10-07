@@ -1,0 +1,23 @@
+.policy-translation-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted, #53677a);
+  overflow-wrap: anywhere;
+  margin-block: 0.5rem;
+}
+.policy-translation-status p {
+  margin: 0;
+}
+.policy-translation-status.is-error {
+  color: var(--danger, #9b3434);
+}
+.policy-translation-status .text-button {
+  font-size: inherit;
+}
+.easy-mode .policy-translation-status {
+  font-size: 1rem;
+}

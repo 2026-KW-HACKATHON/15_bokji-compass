@@ -9,23 +9,27 @@ import { tabBarHeight } from "../components/theme";
 import { AssistantProvider, useAssistant } from "../features/assistant/context";
 import { AppShell } from "../features/assistant/AppShell";
 import { NotificationProvider } from "../features/notifications/context";
+import { I18nProvider, useI18n } from "../i18n/context";
 
 export default function Layout() {
   return (
-    <RuntimeProvider>
-      <AssistantProvider>
-        <NotificationProvider>
-          <StatusBar style="dark" />
-          <AppShell>
-            <Navigation />
-          </AppShell>
-        </NotificationProvider>
-      </AssistantProvider>
-    </RuntimeProvider>
+    <I18nProvider>
+      <RuntimeProvider>
+        <AssistantProvider>
+          <NotificationProvider>
+            <StatusBar style="dark" />
+            <AppShell>
+              <Navigation />
+            </AppShell>
+          </NotificationProvider>
+        </AssistantProvider>
+      </RuntimeProvider>
+    </I18nProvider>
   );
 }
 
 function Navigation() {
+  const { t } = useI18n();
   const { easy } = useRuntime();
   const chat = useAssistant();
   const { bottom } = useSafeAreaInsets();
@@ -72,14 +76,14 @@ function Navigation() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "홈",
+          title: t("홈"),
           tabBarIcon: ({ color, focused }) => tabIcon("home", color, focused),
         }}
       />
       <Tabs.Screen
         name="policies"
         options={{
-          title: "공고",
+          title: t("공고"),
           tabBarIcon: ({ color, focused }) =>
             tabIcon("policies", color, focused),
         }}
@@ -87,7 +91,7 @@ function Navigation() {
       <Tabs.Screen
         name="finance"
         options={{
-          title: "계산기",
+          title: t("계산기"),
           tabBarIcon: ({ color, focused }) =>
             tabIcon("finance", color, focused),
         }}
@@ -95,7 +99,7 @@ function Navigation() {
       <Tabs.Screen
         name="support"
         options={{
-          title: "상담",
+          title: t("상담"),
           tabBarIcon: ({ color, focused }) =>
             tabIcon("assistant", color, focused),
         }}
@@ -109,7 +113,7 @@ function Navigation() {
       <Tabs.Screen
         name="account"
         options={{
-          title: "내 계정",
+          title: t("내 계정"),
           tabBarIcon: ({ color, focused }) =>
             tabIcon("account", color, focused),
         }}

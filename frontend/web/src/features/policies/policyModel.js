@@ -1,5 +1,6 @@
 import { ApiError } from '../../shared/api/httpClient.js';
 import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
+import { emptyTranslationFields } from './policyTranslationModel.js';
 export const categories = [
   '전체',
   '생활·금융',
@@ -115,18 +116,20 @@ export function parsePolicy(item) {
   const category = categories.includes(item.category) ? item.category : '기타';
   const [icon, tone] = presentation[category] || ['compass', 'sage'];
   const text = (key, fallback) => (typeof item[key] === 'string' ? item[key] : fallback);
+  const translationSourceEmptyFields = emptyTranslationFields(item);
   return {
     id: item.id,
     revisionId: typeof item.revisionId === 'string' ? item.revisionId : null,
     title: item.title,
     summary: item.summary,
+    ...(translationSourceEmptyFields.length ? { translationSourceEmptyFields } : {}),
     searchMatch: parseSearchMatch(item.searchMatch),
     tags: [...new Set(item.tags)],
     category,
     icon,
     tone,
     region: text('region', '지역 확인 필요'),
-    audience: text('audience', '전체'),
+    audience: text('audience', '지원 대상 확인 필요'),
     organization: text('organization', '기관 확인 필요'),
     benefit: text('benefit', '상세 안내 확인'),
     date: text('date', ''),

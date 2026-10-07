@@ -5,6 +5,8 @@ import {
 import { ApiError } from "./client.js";
 import { createAssistantApi } from "../features/assistant/model.js";
 import { createNotificationApi } from "../features/notifications/model.js";
+import { createPolicyTranslationClient } from "../../../packages/core/src/i18n/policyTranslation.js";
+import { translate } from "../../../packages/core/src/i18n/index.js";
 import {
   parsePolicy,
   parsePolicyPage,
@@ -21,13 +23,20 @@ export function parseUser(value) {
   )
     throw new ApiError("계정 정보를 읽을 수 없습니다.", 0, "invalid_response");
   return {
-    id: value.id, username: value.username, name: value.name,
-    ...(Number.isInteger(value.age) && value.age >= 0 && value.age <= 120 ? { age: value.age } : {}),
-    ...(typeof value.region === "string" && value.region.length <= 30 ? { region: value.region } : {}),
+    id: value.id,
+    username: value.username,
+    name: value.name,
+    ...(Number.isInteger(value.age) && value.age >= 0 && value.age <= 120
+      ? { age: value.age }
+      : {}),
+    ...(typeof value.region === "string" && value.region.length <= 30
+      ? { region: value.region }
+      : {}),
   };
 }
 
 export function createApi(request) {
+  const policyTranslations = createPolicyTranslationClient({ request });
   const stored = (data) => {
     if (
       data.profile === null &&
@@ -44,6 +53,39 @@ export function createApi(request) {
     };
   };
   return {
+    policyTranslations: {
+      /**
+       * @param {ReturnType<typeof parsePolicy>} policy
+       * @param {string} language
+       * @param {{signal?: AbortSignal, priority?: number}} [options]
+       */
+      async translate(policy, language, options = {}) {
+        if (language === "ko") return policy;
+        // Parser fallback labels are UI copy, never canonical notice text.
+        const missing = policy.translationSourceEmptyFields || [];
+        const source = missing.length
+          ? {
+              ...policy,
+              ...Object.fromEntries(missing.map((field) => [field, ""])),
+            }
+          : policy;
+        const display = await policyTranslations.translate(
+          source,
+          language,
+          options,
+        );
+        return {
+          ...display,
+          ...Object.fromEntries(
+            missing.map((field) => [
+              field,
+              display[field] || translate(language, policy[field]),
+            ]),
+          ),
+        };
+      },
+      clear: policyTranslations.clear,
+    },
     notifications: createNotificationApi(request),
     assistant: createAssistantApi(request),
     listPolicies: async (filters, signal) =>

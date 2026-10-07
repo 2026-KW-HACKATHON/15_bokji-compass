@@ -12,8 +12,11 @@ import {
 } from "../components/ui";
 import { useRuntime, useSession } from "../services/runtime";
 import { NotificationSettings } from "../features/notifications/NotificationSettings";
+import { LanguageSelector } from "../i18n/LanguageSelector";
+import { useI18n } from "../i18n/context";
 
 export default function Account() {
+  const { t } = useI18n();
   const { session, configError, easy } = useRuntime();
   const state = useSession();
   const [username, setUsername] = useState("");
@@ -30,11 +33,18 @@ export default function Account() {
         eyebrow="나의 복지나침반"
         description={easy ? undefined : "저장한 정보와 알림을 관리해요."}
       />
+      <Card>
+        <LanguageSelector />
+      </Card>
       {configError ? (
         <Notice>{configError}</Notice>
       ) : state.status === "signedIn" ? (
         <Card>
-          <Copy title>{state.user?.name || state.user?.username}님</Copy>
+          <Copy original title>
+            {t("{name}님", {
+              name: state.user?.name || state.user?.username || "",
+            })}
+          </Copy>
           <Copy>웹과 같은 계정으로 연결됐어요.</Copy>
           <Button
             label="금융정보 불러오러 가기"

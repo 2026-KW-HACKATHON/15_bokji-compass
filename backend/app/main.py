@@ -81,6 +81,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.policy_repository = None
     application.state.policy_lock = Lock()
     application.state.assistant_slots = BoundedSemaphore(2)
+    application.state.policy_translation_slots = BoundedSemaphore(1)
     application.state.dialogue_store = DialogueStore()
     application.add_middleware(
         CORSMiddleware,
@@ -103,6 +104,12 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(SQLAlchemyError)
     async def safe_database_error(request, exc):
+        if (request.url.path.startswith("/v1/policies/")
+                and request.url.path.endswith("/translation")):
+            return JSONResponse(
+                status_code=503, content={"detail": {"code": "translation_unavailable"}},
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith(
             ("/v1/policies", "/v1/assistant/", "/v1/admin/policies", "/v1/recommendations")
         ):
@@ -132,6 +139,12 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
+        if (request.url.path.startswith("/v1/policies/")
+                and request.url.path.endswith("/translation")):
+            return JSONResponse(
+                status_code=422, content={"detail": {"code": "translation_invalid_request"}},
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/monitoring"):
             return JSONResponse(
                 status_code=422,

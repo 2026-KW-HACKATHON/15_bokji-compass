@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     )
     codex_timeout_seconds: int = Field(default=300, ge=10, le=1800)
     parsing_max_input_chars: int = Field(default=60000, ge=1000, le=200000)
+    policy_translation_enabled: bool = True
+    policy_translation_max_input_chars: int = Field(default=120000, ge=1000, le=180000)
+    policy_translation_daily_calls: int = Field(default=100, ge=0, le=10000)
     ingestion_enabled: bool = True
     ingestion_kwangwoon_enabled: bool = True
     ingestion_profile: Literal["custom", "bootstrap", "steady"] = "custom"

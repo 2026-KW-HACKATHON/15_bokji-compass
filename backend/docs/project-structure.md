@@ -8,6 +8,7 @@
 - `app/api/`: health·readiness 라우터.
 - `app/contracts/`: `RawDocument`, `SourcePolicy`, `PolicyExtraction`과 자료형·상태 검증 계약.
 - `app/contracts/conditions.py`: v2 표준 필드·CanonicalPolicy·조건 AST.
+- `app/contracts/translation.py`, `app/modules/policy_translation/`: 공개 공고 표시 번역·원문 대조·정책 DB 캐시·일일 생성 예산. [계약](policy-translation.md).
 - `reference/regions/`: Git 포함 공식 행정동/법정동 코드·출처·해시. 개인정보·사용자 주소 없음.
 - `schemas/`: Pydantic에서 생성한 조건 JSON Schema.
 - `app/modules/`: 수집·원문 저장, 공급자별 입력 변환, CLI 모델 호출, 근거 검증, 파일 초안 파이프라인. [모듈 책임](../app/modules/readme.md).

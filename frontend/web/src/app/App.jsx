@@ -1,3 +1,6 @@
+import { useI18n } from '../shared/i18n/I18nProvider.jsx';
+import LanguageSelector from '../shared/i18n/LanguageSelector.jsx';
+import ContentLanguageNotice from '../shared/i18n/ContentLanguageNotice.jsx';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import FloatingAssistant from '../features/assistant/FloatingAssistant.jsx';
@@ -96,6 +99,7 @@ function validSaved(value) {
   }
 }
 export default function App() {
+  const { t } = useI18n();
   const [route, setRoute] = useState(readRoute);
   const [user, setUser] = useState(null);
   const financeOwner = useRef(null);
@@ -474,17 +478,20 @@ export default function App() {
           main.current?.focus();
         }}
       >
-        본문으로 바로가기
+        {' '}
+        {t('본문으로 바로가기')}{' '}
       </a>
       <div className="main-shell">
         <header className="topbar portal-header" ref={header}>
-          <a className="brand" href="#home" aria-label="복지나침반 홈">
+          <a className="brand" href="#home" aria-label={t('복지나침반 홈')}>
             <img className="brand-image" src="/brand-logo.png" alt="" />
             <span>
-              복지나침반<small>나를 위한 복지 비서</small>
+              {' '}
+              {t('복지나침반')}
+              <small>{t('나를 위한 복지 비서')}</small>
             </span>
           </a>
-          <nav className="portal-nav" aria-label="주 메뉴">
+          <nav className="portal-nav" aria-label={t('주 메뉴')}>
             {navigation.map((item) => (
               <a
                 key={item.id}
@@ -496,7 +503,7 @@ export default function App() {
                     : undefined
                 }
               >
-                {item.label}
+                {t(item.label)}
                 {item.id === 'saved' && saved.length > 0 && (
                   <span className="nav-count">{saved.length}</span>
                 )}
@@ -504,39 +511,48 @@ export default function App() {
             ))}
           </nav>
           <div className="header-actions">
+            <LanguageSelector />
             <button className="mode-switch" role="switch" aria-checked={easy} onClick={toggleEasy}>
               <span className="switch-track" aria-hidden="true">
                 <span />
-              </span>
-              쉬운 화면<span className="mode-state">{easy ? '켜짐' : '꺼짐'}</span>
+              </span>{' '}
+              {t('쉬운 화면')}
+              <span className="mode-state">{easy ? t('켜짐') : t('꺼짐')}</span>
             </button>
             {user ? (
               <div className="account-actions">
                 {user.admin_role === 'superadmin' && (
                   <a className="text-button" href="#admin">
-                    관리자 관리
+                    {' '}
+                    {t('관리자 관리')}{' '}
                   </a>
                 )}
                 {user.is_admin === true && (
                   <a className="text-button" href="/admin/exhibition/">
-                    전시 QR 관리
+                    {' '}
+                    {t('전시 QR 관리')}{' '}
                   </a>
                 )}
-                <span className="auth-username" title={(user.name || '회원') + '님'}>
-                  {user.name || '회원'}님
+                <span
+                  className="auth-username"
+                  title={t('{name}님', { name: user.name || t('회원') })}
+                >
+                  {t('{name}님', { name: user.name || t('회원') })}
                 </span>
                 <button className="text-button" onClick={logout} disabled={loggingOut}>
-                  {loggingOut ? '로그아웃 중…' : '로그아웃'}
+                  {loggingOut ? t('로그아웃 중…') : t('로그아웃')}
                 </button>
               </div>
             ) : (
               <div className="account-actions">
                 <a className="login-link" href="#login">
-                  로그인
+                  {' '}
+                  {t('로그인')}{' '}
                 </a>
                 {!easy && (
                   <a className="signup-link" href="#signup">
-                    회원가입
+                    {' '}
+                    {t('회원가입')}{' '}
                   </a>
                 )}
               </div>
@@ -549,6 +565,9 @@ export default function App() {
           tabIndex={-1}
           className={'main-content' + (route.page === 'guide' ? ' guide-layout' : '')}
         >
+          {['home', 'explore', 'calendar', 'saved'].includes(route.page) && (
+            <ContentLanguageNotice />
+          )}
           {route.page === 'admin' && <AdminPage key={user?.id || 'guest'} user={user} />}
           {route.page === 'home' && (
             <AssistantHome
@@ -582,7 +601,8 @@ export default function App() {
             <Suspense
               fallback={
                 <p className="guide-loading" role="status">
-                  이용 안내를 불러오고 있어요.
+                  {' '}
+                  {t('이용 안내를 불러오고 있어요.')}{' '}
                 </p>
               }
             >
@@ -660,21 +680,23 @@ export default function App() {
             <section className="profile-page">
               <div className="page-heading">
                 {!easy && (
-                  <span className="eyebrow">{user ? '회원·추천 정보' : '맞춤 추천 설정'}</span>
+                  <span className="eyebrow">
+                    {user ? t('회원·추천 정보') : t('맞춤 추천 설정')}
+                  </span>
                 )}
-                <h1>{route.setup ? '가입이 완료됐어요' : '내 정보'}</h1>
+                <h1>{route.setup ? t('가입이 완료됐어요') : t('내 정보')}</h1>
                 <p>
                   {route.setup
-                    ? '맞춤 정보는 지금 설정하거나 나중에 내 정보에서 입력할 수 있어요.'
+                    ? t('맞춤 정보는 지금 설정하거나 나중에 내 정보에서 입력할 수 있어요.')
                     : user
-                      ? '회원 정보와 공고 추천에 사용할 정보를 관리해요.'
+                      ? t('회원 정보와 공고 추천에 사용할 정보를 관리해요.')
                       : easy
-                        ? '공고 추천에 사용할 정보를 관리합니다.'
-                        : '나에게 맞는 공고를 추천하는 데 사용해요.'}
+                        ? t('공고 추천에 사용할 정보를 관리합니다.')
+                        : t('나에게 맞는 공고를 추천하는 데 사용해요.')}
                 </p>
                 {!route.setup && (
                   <a className="text-button calculator-entry" href="#calculator">
-                    <Icon name="calculator" /> 중위소득 빠르게 확인하기
+                    <Icon name="calculator" /> {t('중위소득 빠르게 확인하기')}{' '}
                   </a>
                 )}
               </div>
@@ -699,8 +721,9 @@ export default function App() {
               )}
               {route.setup && !user && (
                 <p className="notice-box">
-                  맞춤 정보를 저장하려면 <a href="#login">로그인</a>해 주세요.{' '}
-                  <a href="#home">나중에 하기</a>
+                  {' '}
+                  {t('맞춤 정보를 저장하려면')} <a href="#login">{t('로그인')}</a>
+                  {t('해 주세요.')} <a href="#home">{t('나중에 하기')}</a>
                 </p>
               )}
             </section>
@@ -720,7 +743,8 @@ export default function App() {
               !calculatorSession.current.value ? (
                 <section className="calculator-page">
                   <p className="finance-intro" role="status">
-                    회원의 소득·재산 정보를 불러오고 있어요…
+                    {' '}
+                    {t('회원의 소득·재산 정보를 불러오고 있어요…')}{' '}
                   </p>
                 </section>
               ) : (
@@ -765,9 +789,9 @@ export default function App() {
           {route.page === 'saved' && (
             <section>
               <div className="page-heading">
-                {!easy && <span className="eyebrow">다시 보고 싶은 공고</span>}
-                <h1>저장한 공고</h1>
-                <p>이 브라우저에 저장한 공고예요. 최신 내용은 공식 공고를 확인하세요.</p>
+                {!easy && <span className="eyebrow">{t('다시 보고 싶은 공고')}</span>}
+                <h1>{t('저장한 공고')}</h1>
+                <p>{t('이 브라우저에 저장한 공고예요. 최신 내용은 공식 공고를 확인하세요.')}</p>
               </div>
               {saved.length ? (
                 <>
@@ -777,23 +801,29 @@ export default function App() {
                     ))}
                   </div>
                   {easy && saved.length > 3 && (
-                    <nav className="pagination" aria-label="저장 공고 넘기기">
+                    <nav className="pagination" aria-label={t('저장 공고 넘기기')}>
                       <button
                         className="button secondary"
                         disabled={savedIndex === 0}
                         onClick={() => setSavedIndex(Math.max(0, savedIndex - 3))}
                       >
-                        이전 목록
+                        {' '}
+                        {t('이전 목록')}{' '}
                       </button>
                       <span>
-                        {savedIndex + 1}–{Math.min(savedIndex + 3, saved.length)} / {saved.length}개
+                        {t('{start}–{end} / {total}개', {
+                          start: savedIndex + 1,
+                          end: Math.min(savedIndex + 3, saved.length),
+                          total: saved.length,
+                        })}
                       </span>
                       <button
                         className="button secondary"
                         disabled={savedIndex + 3 >= saved.length}
                         onClick={() => setSavedIndex(savedIndex + 3)}
                       >
-                        다음 목록
+                        {' '}
+                        {t('다음 목록')}{' '}
                       </button>
                     </nav>
                   )}
@@ -801,10 +831,11 @@ export default function App() {
               ) : (
                 <div className="empty-state">
                   <Icon name="bookmark" size={34} />
-                  <h2>아직 저장한 공고가 없어요</h2>
-                  <p>마음에 드는 공고의 저장 버튼을 눌러주세요.</p>
+                  <h2>{t('아직 저장한 공고가 없어요')}</h2>
+                  <p>{t('마음에 드는 공고의 저장 버튼을 눌러주세요.')}</p>
                   <button className="button primary" onClick={() => navigate('explore')}>
-                    공고 찾아보기
+                    {' '}
+                    {t('공고 찾아보기')}{' '}
                   </button>
                 </div>
               )}
@@ -833,8 +864,8 @@ export default function App() {
       />
       {notice && (
         <div className="toast" role="status">
-          <span>{notice}</span>
-          <button aria-label="안내 닫기" onClick={() => setNotice('')}>
+          <span>{t(notice)}</span>
+          <button aria-label={t('안내 닫기')} onClick={() => setNotice('')}>
             <Icon name="x" size={18} />
           </button>
         </div>

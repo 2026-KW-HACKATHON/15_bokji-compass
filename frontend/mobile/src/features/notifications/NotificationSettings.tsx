@@ -1,3 +1,4 @@
+import { useI18n } from "../../i18n/context";
 import { Switch, View } from "react-native";
 import { Button, Card, Copy, Notice, colors } from "../../components/ui";
 import { useSession } from "../../services/runtime";
@@ -5,6 +6,7 @@ import { useNotifications } from "./context";
 import { notificationTypes } from "./model";
 
 export function NotificationSettings() {
+  const { t } = useI18n();
   const auth = useSession();
   const settings = useNotifications();
   const { permission, preferences, loading, saving } = settings;
@@ -21,7 +23,9 @@ export function NotificationSettings() {
       ) : permission ? (
         <>
           <Copy>
-            기기 알림 권한: {permission.granted ? "허용됨" : "허용 안 됨"}
+            {t("기기 알림 권한: {status}", {
+              status: t(permission.granted ? "허용됨" : "허용 안 됨"),
+            })}
           </Copy>
           {!permission.granted && (
             <Button
@@ -85,7 +89,9 @@ export function NotificationSettings() {
         </>
       ) : null}
       {settings.error ? <Notice>{settings.error}</Notice> : null}
-      {settings.deliveryWarning ? <Notice>{settings.deliveryWarning}</Notice> : null}
+      {settings.deliveryWarning ? (
+        <Notice>{settings.deliveryWarning}</Notice>
+      ) : null}
       {auth.status === "signedIn" &&
         !!(settings.error || settings.deliveryWarning) && (
           <Button
@@ -112,6 +118,7 @@ function SettingRow({
   disabled: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const { t } = useI18n();
   return (
     <View
       style={{
@@ -129,8 +136,8 @@ function SettingRow({
         <Copy muted>{description}</Copy>
       </View>
       <Switch
-        accessibilityLabel={title}
-        accessibilityHint={description}
+        accessibilityLabel={t(title)}
+        accessibilityHint={t(description)}
         value={value}
         disabled={disabled}
         onValueChange={onChange}

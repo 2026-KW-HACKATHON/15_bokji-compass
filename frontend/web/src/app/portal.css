@@ -19,10 +19,14 @@ body {
   margin-left: 0;
 }
 .portal-shell .portal-header {
+  /* Reserve space for the longest translations; only viewport width changes rows. */
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 500px;
   position: sticky;
   top: 0;
   z-index: 40;
   min-height: 76px;
+  height: 76px;
   padding: 0 max(28px, calc((100vw - 1344px) / 2));
   gap: 28px;
   background: #ffffffed;
@@ -51,10 +55,13 @@ body {
   display: flex;
   align-self: stretch;
   align-items: stretch;
-  justify-content: center;
+  justify-content: safe center;
+  flex-wrap: nowrap;
   gap: 22px;
-  margin: 0 auto;
+  margin: 0;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .portal-nav a {
   display: flex;
@@ -63,6 +70,7 @@ body {
   gap: 5px;
   min-height: 48px;
   white-space: nowrap;
+  flex-shrink: 0;
   font-size: 0.86rem;
   font-weight: 550;
   color: #4e6276;
@@ -91,6 +99,7 @@ body {
 .portal-header .header-actions {
   gap: 18px;
   flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 .portal-header .mode-switch {
   font-size: 0.76rem;
@@ -107,6 +116,12 @@ body {
 }
 .portal-header .account-actions {
   gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.portal-header .account-actions > * {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .portal-header .login-link,
 .portal-header .signup-link {
@@ -119,6 +134,9 @@ body {
 }
 .portal-header .auth-username {
   max-width: 78px;
+}
+.portal-shell.easy-mode .portal-header {
+  padding-block: 0;
 }
 .portal-shell .main-content {
   max-width: 1240px;
@@ -637,9 +655,14 @@ body {
   }
   .portal-shell .portal-header {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 46px;
     min-height: 116px;
+    height: 116px;
     row-gap: 0;
+    padding-top: 10px;
+  }
+  .portal-shell.easy-mode .portal-header {
     padding-top: 10px;
   }
   .portal-header .brand {
@@ -691,6 +714,22 @@ body {
   }
 }
 @media (max-width: 760px) {
+  .portal-shell .portal-header {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 48px 48px 46px;
+    row-gap: 4px;
+    height: auto;
+    min-height: 0;
+  }
+  .portal-header .header-actions {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  .portal-header .portal-nav {
+    grid-row: 3;
+  }
   .portal-shell .main-content {
     padding: 32px 22px 0;
   }
@@ -815,6 +854,7 @@ body {
   .portal-shell .portal-header {
     padding-inline: 18px;
     column-gap: 12px;
+    grid-template-rows: 32px 48px 46px;
   }
   .portal-header .brand {
     font-size: 0.96rem;
@@ -941,6 +981,21 @@ body {
   }
   .portal-shell .toast {
     bottom: 14px;
+  }
+}
+@media (max-width: 380px) {
+  .portal-shell .portal-header {
+    grid-template-rows: 32px 102px 46px;
+  }
+  .portal-shell .portal-header .header-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 48px 48px;
+    gap: 6px 10px;
+  }
+  .portal-header .account-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -13,6 +13,7 @@ MIGRATIONS = (
     "004_condition_schema.sql", "005_policy_ingestion.sql",
     "006_policy_publication.sql", "007_policy_collection.sql",
     "008_legacy_policy_projection.sql", "010_legacy_policy_capacity.sql",
+    "011_policy_translations.sql",
 )
 
 

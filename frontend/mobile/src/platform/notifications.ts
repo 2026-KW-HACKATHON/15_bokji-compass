@@ -27,13 +27,15 @@ export const notificationPlatform = {
   supported: true,
   platform: Platform.OS as "android" | "ios",
   readPermission,
-  async requestPermission(): Promise<Permission> {
+  async requestPermission(
+    t: (source: string) => string = (source) => source,
+  ): Promise<Permission> {
     const notifications = await getModule();
     // Android 13 requires a channel before displaying the notification prompt.
     if (Platform.OS === "android") {
       for (const type of notificationTypes) {
         await notifications.setNotificationChannelAsync(type.key, {
-          name: type.title,
+          name: t(type.title),
           importance: notifications.AndroidImportance.DEFAULT,
         });
       }

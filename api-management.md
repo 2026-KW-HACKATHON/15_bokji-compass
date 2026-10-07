@@ -1,5 +1,27 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 공개 공고 다국어 번역 (2026-10-07)
+
+GET `/v1/policies/{policy_id}/translation?language=ko|en|zh|vi|ja`는 현재 공개된 공고의
+표시 필드만 반환합니다. 응답은 `policy_id`, `revision_id`, `language`, `source_language:ko`,
+`source_hash`, `translation`, `cached`입니다. `translation`은 title/summary/audience/
+organization/benefit/applicationPeriod/paymentSchedule/content/gender/contact/
+applicationMethod/otherConditions/sourceFields/budgetNotice이며, ID·링크·분야·지역·
+필터 날짜는 원본을 유지합니다. 한국어 요청은 모델을 호출하지 않습니다.
+
+다른 언어는 기존 서버 Codex CLI 설정을 사용하며 개정·원문 해시·언어·프롬프트 버전별로
+DB에 저장합니다. 캐시 조회 전과 생성 후 공개 상태·원문 개정을 확인하고 숫자·날짜·URL·
+이메일 및 JSON 구조를 검증합니다. 클라이언트의 임의 본문·개인정보는 입력으로 받지 않습니다.
+추가/중복 쿼리나 요청 본문·미지원 언어는 422, 비공개/없는 공고 404, 생성 중/일일 한도 429
+(`Retry-After`), 공급자·캐시·출력 검증 실패 503을 반환합니다.
+
+`011_policy_translations.sql`은 명시적 저장 초기화에서 적용하며 HTTP 요청에서 DDL을
+실행하지 않습니다. 서버 프로세스당 생성 1개·호출 최대 60초·DB 기록 UTC 하루 기본 100회
+제한(실패도 포함)이며 캐시는 생성 한도와 무관합니다. 웹·앱은 다섯 언어 선택·저장, 번역
+대기/실패 시 원문 유지·재시도, 상세 원문 전환을 제공합니다. AI 자유 답변은 한국어입니다.
+[서버 모듈·설정·초기화](backend/app/modules/policy_translation/readme.md),
+[웹·앱 동작](frontend/docs/internationalization.md).
+
 ## 생활 상황 상담 (2026-10-07)
 
 POST `/v1/assistant/dialogue`: 시작 `{question, revision_id?}` 또는 후속

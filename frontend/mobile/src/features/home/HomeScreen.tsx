@@ -1,5 +1,7 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import {
   Button,
@@ -24,6 +26,7 @@ const topics: { label: string; category: string; icon: IconName }[] = [
 ];
 
 export default function HomeScreen() {
+  const { t } = useI18n();
   const { api, easy, configError } = useRuntime();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<ReturnType<typeof parsePolicyPage> | null>(
@@ -37,7 +40,10 @@ export default function HomeScreen() {
     api
       .listPolicies({ limit: 3, sort: "popular" }, controller.signal)
       .then((value) => {
-        if (!controller.signal.aborted) { setPage(value); setError(""); }
+        if (!controller.signal.aborted) {
+          setPage(value);
+          setError("");
+        }
       })
       .catch((err) => {
         if (!controller.signal.aborted) setError(err.message);
@@ -87,7 +93,9 @@ export default function HomeScreen() {
             <Pressable
               key={topic.category}
               accessibilityRole="button"
-              accessibilityLabel={`${topic.label} 공고 찾기`}
+              accessibilityLabel={t("{category} 공고 찾기", {
+                category: t(topic.label),
+              })}
               onPress={() => search(topic.category)}
               style={({ pressed }) => [
                 styles.topic,
@@ -109,7 +117,7 @@ export default function HomeScreen() {
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="중위소득 빠르게 확인하기"
+        accessibilityLabel={t("중위소득 빠르게 확인하기")}
         onPress={() => router.navigate("/finance")}
         style={({ pressed }) => [
           styles.calculator,

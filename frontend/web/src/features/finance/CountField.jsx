@@ -1,3 +1,4 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { countChoices, readCount } from '../../../../packages/core/src/countChoices.js';
 
@@ -23,6 +24,8 @@ export default function CountField({
   hint,
   className = 'finance-field',
 }) {
+  const { t, intlLocale } = useI18n();
+
   const [inputMode, setInputMode] = useState(null);
   const lastEdited = useRef(value);
   const choices = countChoices({ min, max, groupFrom, manualFrom });
@@ -69,7 +72,7 @@ export default function CountField({
 
   return (
     <div className={className}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(label)}</label>
       <select
         id={id}
         value={primaryValue}
@@ -78,27 +81,29 @@ export default function CountField({
         onChange={(event) => selectPrimary(event.target.value)}
       >
         <option value="unknown" disabled={!allowUnknown}>
-          {allowUnknown ? unknownLabel : '선택해 주세요'}
+          {allowUnknown ? t(unknownLabel) : t('선택해 주세요')}
         </option>
         {choices.common.map((number) => (
           <option key={number} value={number}>
-            {number === 0 ? zeroLabel : `${number}명`}
+            {number === 0 ? t(zeroLabel) : t('{value1}명', { value1: number })}
           </option>
         ))}
         {unavailableCommon && (
           <option value={count} disabled>
-            {count}명 (입력 범위 확인)
+            {count}
+            {t('명 (입력 범위 확인)')}{' '}
           </option>
         )}
         {(choices.grouped || grouped) && (
           <option value="group" disabled={!choices.grouped}>
-            {groupFrom}명 이상
+            {groupFrom}
+            {t('명 이상')}{' '}
           </option>
         )}
       </select>
       {grouped && (
         <>
-          <label htmlFor={`${id}-exact`}>{exactLabel}</label>
+          <label htmlFor={`${id}-exact`}>{t(exactLabel)}</label>
           <select
             id={`${id}-exact`}
             value={exactValue}
@@ -112,31 +117,37 @@ export default function CountField({
               } else change(key === '' ? null : Number(key));
             }}
           >
-            <option value="">정확한 인원을 선택해 주세요</option>
+            <option value="">{t('정확한 인원을 선택해 주세요')}</option>
             {choices.exact.map((number) => (
               <option key={number} value={number}>
-                {number}명
+                {number}
+                {t('명')}{' '}
               </option>
             ))}
             {unavailableExact && (
               <option value={count} disabled>
-                {count}명 (가구원 수 확인)
+                {count}
+                {t('명 (가구원 수 확인)')}{' '}
               </option>
             )}
             {(choices.manual || manual) && (
               <option value="manual" disabled={!choices.manual}>
-                {manualFrom}명 이상 · 직접 입력
+                {manualFrom}
+                {t('명 이상 · 직접 입력')}{' '}
               </option>
             )}
           </select>
           <small id={exactHintId}>
-            계산에는 실제 인원을 사용해요. 정확한 인원을 선택해 주세요.
+            {' '}
+            {t('계산에는 실제 인원을 사용해요. 정확한 인원을 선택해 주세요.')}{' '}
           </small>
         </>
       )}
       {manual && (
         <>
-          <label htmlFor={`${id}-count`}>{exactLabel} 직접 입력</label>
+          <label htmlFor={`${id}-count`}>
+            {t(exactLabel)} {t('직접 입력')}
+          </label>
           <div className="finance-number">
             <input
               id={`${id}-count`}
@@ -154,12 +165,15 @@ export default function CountField({
                 if (count !== null && count >= min && count < manualFrom) setInputMode(null);
               }}
             />
-            <span aria-hidden="true">명</span>
+            <span aria-hidden="true">{t('명')}</span>
           </div>
-          <small id={manualHintId}>최대 {choices.max}명까지 실제 인원을 입력해 주세요.</small>
+          <small id={manualHintId}>
+            {t('최대')} {choices.max}
+            {t('명까지 실제 인원을 입력해 주세요.')}
+          </small>
         </>
       )}
-      {hint && <small id={hintId}>{hint}</small>}
+      {hint && <small id={hintId}>{t(hint)}</small>}
     </div>
   );
 }

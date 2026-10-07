@@ -1,5 +1,7 @@
-import { Linking, Text, View } from "react-native";
-import { formatMoney, officialSourceUrl } from "@bokji/core/finance-model";
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
+import { Linking, View } from "react-native";
+import { officialSourceUrl } from "@bokji/core/finance-model";
 import { Button, Card, Copy, Details, colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
 
@@ -31,6 +33,7 @@ export function FinanceResult({
   result: Calculation;
   onMessage: (message: string) => void;
 }) {
+  const { t, formatMoney } = useI18n();
   const { easy } = useRuntime();
   return (
     <>
@@ -42,7 +45,11 @@ export function FinanceResult({
           gap: 12,
         }}
       >
-        <Copy>{result.reference_year}년 기준 · 입력한 월소득 합계</Copy>
+        <Copy>
+          {t("{year}년 기준 · 입력한 월소득 합계", {
+            year: result.reference_year,
+          })}
+        </Copy>
         <Text
           style={{
             color: colors.ink,
@@ -63,7 +70,9 @@ export function FinanceResult({
         >
           {result.median.ratio_percent === null
             ? "중위소득 비율은 확인이 필요해요"
-            : `기준 중위소득의 ${result.median.ratio_percent}%`}
+            : t("기준 중위소득의 {percent}%", {
+                percent: result.median.ratio_percent,
+              })}
         </Text>
         <Copy muted>
           {result.median.monthly_income === null
@@ -73,7 +82,11 @@ export function FinanceResult({
       </View>
       <Card>
         <Copy title>재산 합계</Copy>
-        <Copy>차량 포함 {formatMoney(result.assets.gross_total)}</Copy>
+        <Copy>
+          {t("차량 포함 {amount}", {
+            amount: formatMoney(result.assets.gross_total),
+          })}
+        </Copy>
       </Card>
       <Copy title>사업별 참고 결과</Copy>
       {result.assessments.map((item) => (
@@ -87,7 +100,9 @@ export function FinanceResult({
           >
             {item.status === "estimated" ? "입력값으로 추정" : "추가 확인 필요"}
           </Text>
-          <Copy title>{item.label}</Copy>
+          <Copy original title>
+            {item.label}
+          </Copy>
           {item.checks.map((check, i) => (
             <View
               key={i}
@@ -98,7 +113,7 @@ export function FinanceResult({
                 paddingTop: 12,
               }}
             >
-              <Copy>{check.label}</Copy>
+              <Copy original>{check.label}</Copy>
               <Copy>
                 {check.state === "within"
                   ? "입력값은 기준 이내"
@@ -107,23 +122,25 @@ export function FinanceResult({
                     : "확인 필요"}
               </Copy>
               <Copy muted>
-                계산값 {formatMoney(check.value)}
-                {`\n`}기준 {formatMoney(check.limit)}
+                {t("계산값 {value} · 기준 {limit}", {
+                  value: formatMoney(check.value),
+                  limit: formatMoney(check.limit),
+                })}
               </Copy>
             </View>
           ))}
           {[...item.missing, ...item.notes].map((note, i) => (
-            <Copy key={i} muted>
+            <Copy original key={i} muted>
               {note}
             </Copy>
           ))}
           <Details
             collapsible
             label="계산 내역 보기"
-            accessibilityLabel={`${item.label} 계산 내역`}
+            accessibilityLabel={t("{label} 계산 내역", { label: item.label })}
           >
             {item.breakdown.map((part, i) => (
-              <Copy key={i}>
+              <Copy original key={i}>
                 {part.label}: {formatMoney(part.amount)}
               </Copy>
             ))}
@@ -132,13 +149,16 @@ export function FinanceResult({
       ))}
       <Card>
         {result.notes.map((note, i) => (
-          <Copy key={i}>{note}</Copy>
+          <Copy original key={i}>
+            {note}
+          </Copy>
         ))}
         <Details collapsible label="공식 출처 보기">
           {result.sources.map((source, i) => {
             const url = officialSourceUrl(source.url);
             return url ? (
               <Button
+                original
                 key={i}
                 secondary
                 label={source.title}
@@ -149,7 +169,9 @@ export function FinanceResult({
                 }}
               />
             ) : (
-              <Copy key={i}>{source.title}</Copy>
+              <Copy original key={i}>
+                {source.title}
+              </Copy>
             );
           })}
         </Details>

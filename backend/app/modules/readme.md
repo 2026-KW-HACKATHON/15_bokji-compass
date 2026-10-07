@@ -8,6 +8,7 @@
 | normalization | 공급자별 입력 변환·기존 SQL 행 변환·v2 표준 조건·공식 지역코드 정규화 | 정책 DB 저장·검색 인덱스 |
 | regions | 공식 ADMIN/LEGAL 스냅샷·해시·활성/폐지·이름 조회·계층 포함 | 체계 간 관할 관계·과거 정책 이관 |
 | llm | .env 모델 설정으로 Codex CLI 실행·구조화 응답 | Gemini·제한 Windows 계정·Job Object |
+| [policy_translation](policy_translation/readme.md) | 공개 공고 표시용 4개 외국어 번역·원문 보존 검증·정책 DB 캐시·일일 생성 한도 | 번역 의미 전체의 자동 검증·AI 개인 대화 번역 |
 | validation | 상태/자료형 계약과 원문 인용·ID·그룹 참조 검증 | 모든 의미·단위·논리의 자동 검증 |
 | pipeline | 원문 처리·MySQL 작업/개정 저장·실패 재개 | 자동 스케줄링·공개 승인 |
 | storage | 수집 원본 파일·MySQL 공고/조건/개정/작업 저장·조회 | 공개 검토·현재 개정 선택 |

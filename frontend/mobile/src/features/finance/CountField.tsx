@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { countChoices, readCount } from "@bokji/core/count-choices";
 import { Choice, Copy, Field } from "../../components/ui";
+import { useI18n } from "../../i18n/context";
 
 export function CountField({
   label,
@@ -26,6 +27,7 @@ export function CountField({
   exactLabel?: string;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const count = readCount(value);
   const choices = countChoices({ min, max, groupFrom, manualFrom });
   const [expanded, setExpanded] = useState(false);
@@ -52,7 +54,7 @@ export function CountField({
         {choices.common.map((n: number) => (
           <Choice
             key={n}
-            label={n === 0 ? "없음" : `${n}명`}
+            label={n === 0 ? "없음" : t("{count}명", { count: n })}
             selected={!grouped && count === n}
             onPress={() => pick(n)}
             disabled={disabled}
@@ -60,7 +62,7 @@ export function CountField({
         ))}
         {choices.grouped && (
           <Choice
-            label={`${groupFrom}명 이상`}
+            label={t("{count}명 이상", { count: groupFrom })}
             selected={grouped}
             onPress={() => {
               setExpanded(true);
@@ -72,12 +74,14 @@ export function CountField({
       </View>
       {grouped && (
         <View style={{ gap: 10 }}>
-          <Copy muted>{exactLabel}를 선택해 주세요.</Copy>
+          <Copy muted>
+            {t("{label}를 선택해 주세요.", { label: t(exactLabel) })}
+          </Copy>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {choices.exact.map((n: number) => (
               <Choice
                 key={n}
-                label={`${n}명`}
+                label={t("{count}명", { count: n })}
                 selected={!direct && count === n}
                 onPress={() => {
                   setManual(false);
@@ -88,7 +92,7 @@ export function CountField({
             ))}
             {choices.manual && (
               <Choice
-                label={`${manualFrom}명 이상 직접 입력`}
+                label={t("{count}명 이상 직접 입력", { count: manualFrom })}
                 selected={direct}
                 onPress={() => {
                   setManual(true);
@@ -100,10 +104,13 @@ export function CountField({
           </View>
           {direct && (
             <Field
-              label={`${exactLabel} (명)`}
+              label={t("{label} (명)", { label: t(exactLabel) })}
               value={value == null ? "" : String(value)}
               keyboardType="number-pad"
-              placeholder={`${manualFrom}~${choices.max}명`}
+              placeholder={t("{min}~{max}명", {
+                min: manualFrom,
+                max: choices.max,
+              })}
               onChangeText={onChange}
               editable={!disabled}
             />

@@ -15,7 +15,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   reporter: 'list',
-  use: { baseURL: webUrl, channel: 'msedge', trace: 'retain-on-failure' },
+  use: { baseURL: webUrl, channel: 'msedge', locale: 'ko-KR', trace: 'retain-on-failure' },
   projects: [
     {
       name: 'desktop',

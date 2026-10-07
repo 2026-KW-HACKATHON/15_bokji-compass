@@ -84,6 +84,7 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 지원합니다. 마우스를 올리거나 탭이 숨겨지면 자동 전환이 잠시 멈추고, 키보드로 배너에
 진입하거나 직접 넘기면 멈춘 상태를 유지합니다. 동작 줄이기 설정은 자동 전환을 기본 중지합니다.
 캘린더 보기 버튼은 `onCalendar`로 이동합니다. 배너의 달력 그림은 장식이며 실제 공고 일정이 아닙니다.
+
 # 2026-10-06 공고 조건 비교 추천 연결
 
 추천 API는 현재 서버에 구현되어 있습니다. `.recommend(profile,{signal?,financialProfile?})`는
@@ -123,3 +124,9 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 검증: `tests/recommendation-context.test.js`, `tests/e2e/recommendations.spec.js`에
 무정보 방문자·저장된 일부 정보·일반/인기 공고·정보 추가·안전 후보 없음·선택 지표 표시 회귀를
 추가했습니다. 실행 결과와 확인 범위는 [정보 부족 추천 개선](../../../../docs/recommendation-fallback.md)에 기록합니다.
+
+## 다국어 화면
+
+`useI18n()`의 `t(source, values)`로 한국어·영어·중국어 간체·베트남어·일본어의 버튼, 입력 안내, FAQ 선택지와 자체 이용 안내를 표시합니다. 번역 문구는 `frontend/packages/core/src/i18n/featureMessages.js`에 있습니다. 언어 변경은 질문 초안·상담 상태와 API 요청값을 바꾸지 않습니다. 예시 질문은 화면의 설명만 번역하며 서버에 전달하는 기존 한국어 질문은 유지합니다.
+
+추천 공고와 챗봇의 공고 선택·선택 중인 공고·질문 이력·생활 상담 공고 제목은 공유 공고 번역 API를 사용합니다. 공고 ID/revision과 상담에 전달하는 원본 공고는 보존합니다. 사용자 질문, AI 답변, 후보 추천 이유와 근거 인용은 원문 그대로 표시하며 `ContentLanguageNotice`로 현재 AI 상담은 한국어임을 안내합니다. 이력 날짜는 선택 언어와 한국 시간으로 표시합니다. 검증은 웹 단위 테스트, 운영 빌드 및 다국어 E2E에서 언어 변경·질문·쉬운 화면·내용 보존을 확인합니다.

@@ -9,6 +9,7 @@
 - [Android·iOS 이식 기록](mobile-migration.md)
 - [구조와 Android/iOS 확장](architecture.md)
 - [실제 API 연결 범위](api-integration.md)
+- [한국어·영어·중국어·베트남어·일본어 UI와 공고 번역](internationalization.md)
 - [공고·개인비서 HTTP 계약 제안](service-contract.md)
 - [운영 배포·설정](deployment.md)
 - [전시용 Android·웹·고정 주소·QR 관리](exhibition.md)

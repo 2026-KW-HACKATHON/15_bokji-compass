@@ -71,7 +71,28 @@ export function parsePolicy(item) {
   }
   const text = (key, fallback) =>
     typeof item[key] === "string" && item[key].trim() ? item[key] : fallback;
+  const sourceFields =
+    item.sourceFields &&
+    typeof item.sourceFields === "object" &&
+    !Array.isArray(item.sourceFields)
+      ? Object.fromEntries(
+          Object.entries(item.sourceFields).filter(
+            ([key, value]) =>
+              !!key.trim() &&
+              key.length <= 255 &&
+              !/[\u0000-\u001f\u007f]/.test(key) &&
+              !key.startsWith("_editor_") &&
+              typeof value === "string",
+          ),
+        )
+      : {};
   return {
+    translationSourceEmptyFields: [
+      "audience",
+      "organization",
+      "benefit",
+      "applicationPeriod",
+    ].filter((key) => typeof item[key] !== "string" || !item[key].trim()),
     id: item.id,
     revisionId:
       typeof item.revisionId === "string" &&
@@ -88,7 +109,20 @@ export function parsePolicy(item) {
     organization: text("organization", "기관 확인 필요"),
     benefit: text("benefit", "공식 공고에서 확인"),
     applicationPeriod: text("applicationPeriod", "공식 공고에서 확인"),
+    paymentSchedule: text("paymentSchedule", ""),
+    content: text("content", ""),
+    gender: text("gender", ""),
+    contact: text("contact", ""),
+    applicationMethod: text("applicationMethod", ""),
+    publishedDate: text("publishedDate", ""),
+    modifiedDate: text("modifiedDate", ""),
+    budgetNotice: text("budgetNotice", ""),
+    otherConditions: Array.isArray(item.otherConditions)
+      ? item.otherConditions.filter((value) => typeof value === "string")
+      : [],
+    sourceFields,
     sourceUrl: safeSourceUrl(item.sourceUrl),
+    applicationUrl: safeSourceUrl(item.applicationUrl),
   };
 }
 /** @returns {{items: ReturnType<typeof parsePolicy>[], total: number, nextCursor: string | null, search?: NonNullable<ReturnType<typeof parseSearchMetadata>>}} */
