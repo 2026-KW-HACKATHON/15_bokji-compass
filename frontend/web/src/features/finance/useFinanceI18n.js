@@ -1,5 +1,9 @@
 import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
-import { translateFinanceError } from '../../../../packages/core/src/i18n/index.js';
+import {
+  translateFinanceError,
+  translateFinanceLabel,
+  translateFinanceHint,
+} from '../../../../packages/core/src/i18n/index.js';
 
 export function translateFinanceTitle(title, t) {
   const entry = title.match(/^(가구원|차량) (\d+)(?: \/ (\d+))?(?: · (.+))?$/);
@@ -37,6 +41,8 @@ export default function useFinanceI18n() {
     locale,
     formatNumber,
     formatMoney,
+    translateHint: (hint) => translateFinanceHint(hint, t),
+    translateLabel: (label) => translateFinanceLabel(label, t),
     translateTitle: (title) => translateFinanceTitle(title, t),
     translateError: (message) => translateFinanceError(message, t),
   };

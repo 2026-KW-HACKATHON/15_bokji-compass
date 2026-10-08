@@ -185,6 +185,22 @@ AI 복지비서 상세 항목|AI welfare assistant sections|AI福利助手详细
 {year}년 준공|Built in {year}|{year}年竣工|Hoàn thành năm {year}|{year}年竣工
 주택 수리 필요|Home repairs needed|需要维修房屋|Cần sửa nhà|住宅修理が必要
 재난 피해 있음|Affected by a disaster|遭受灾害损失|Bị ảnh hưởng bởi thiên tai|災害被害あり
+보내기|Send|发送|Gửi|送信
+AI 복지비서 열기|Open AI welfare assistant|打开AI福利助手|Mở trợ lý phúc lợi AI|AI福祉アシスタントを開く
+나에게 발견된 지원, 필요한 정보와 신청 현황|Your support options, required details, and application progress|适合您的支持、所需信息与申请进度|Hỗ trợ phù hợp, thông tin cần thiết và tiến độ đăng ký|見つかった支援、必要な情報と申請状況
+AI 복지비서 안내|AI welfare assistant guide|AI福利助手指南|Hướng dẫn trợ lý phúc lợi AI|AI福祉アシスタントの案内
+내 상황에 맞는 지원을 계속 살펴보세요|Keep exploring support that fits your circumstances|持续查看适合您情况的支持|Tiếp tục tìm hỗ trợ phù hợp với hoàn cảnh|今の状況に合った支援を継続して確認しましょう
+AI 복지비서에서 새 안내와 신청 준비 상황을 한곳에서 확인하세요.|See new guidance and your application preparations together in the AI welfare assistant.|在AI福利助手中集中查看新指南和申请准备情况。|Xem hướng dẫn mới và tiến độ chuẩn bị đăng ký tại trợ lý phúc lợi AI.|AI福祉アシスタントで、新しい案内と申請準備の状況をまとめて確認できます。
+세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요.|Check the official notice for detailed eligibility and exclusions.|请查看官方公告中的支持对象及申请排除对象，确认详细条件。|Hãy xem thông báo chính thức để kiểm tra điều kiện và đối tượng không được đăng ký.|詳しい申請条件は、公式公示の対象者・申請対象外の案内を確認してください。
+신청 제외 대상|Excluded applicants|申请排除对象|Đối tượng không được đăng ký|申請対象外
+우대사항|Preferences|优先条件|Điều kiện ưu tiên|優遇事項
+참고사항|Notes|参考事项|Thông tin tham khảo|参考事項
+접수 기간|Application period|申请期间|Thời gian đăng ký|受付期間
+광운대|Kwangwoon University|光云大学|Đại học Kwangwoon|光云大学
+생활서비스 응답을 확인하지 못했어요.|Unable to read the local services response.|无法读取生活服务响应。|Không đọc được phản hồi dịch vụ địa phương.|地域サービスの応答を確認できませんでした。
+생활지역을 확인해 주세요.|Please check your local area.|请确认您的生活地区。|Vui lòng kiểm tra khu vực sinh sống.|生活地域を確認してください。
+추천에서 제외할 이유를 선택해 주세요.|Select a reason to exclude this recommendation.|请选择排除此推荐的原因。|Chọn lý do loại khỏi đề xuất.|おすすめから除外する理由を選んでください。
+검색 범위를 불러오지 못했어요.|Unable to load search options.|无法加载搜索范围。|Không tải được phạm vi tìm kiếm.|検索範囲を読み込めませんでした。
 `;
 export const assistantMessages = Object.freeze(
   Object.fromEntries(

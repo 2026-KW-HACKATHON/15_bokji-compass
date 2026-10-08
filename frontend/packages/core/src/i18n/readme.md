@@ -1,5 +1,7 @@
 # 웹·모바일 공통 번역
 
+2026-10-09: 웹 갱신 뒤 누락된 UI 문구 91개의 영어·중국어·베트남어·일본어 번역을 추가했습니다. `guideMessages.js`는 새 AI 대화 소개와 예시·접근성 문구를 제공합니다. `translateFinanceLabel(label, t) -> string`은 로컬 금융 입력의 `YYYY년 M월 지원금 합계/받은 횟수`를 월·문장 템플릿으로 번역합니다. `translateFinanceHint(hint, t) -> string`은 월별 지원 기록의 시작·종료 월이 포함된 안내를 번역합니다. `translateFinanceError`도 같은 표시 함수를 사용하며 원자료·API 값은 변경하지 않습니다. 사전에 없는 원문은 그대로 반환합니다.
+
 2026-10-08: `navigationMessages.js`에 추천 제외 저장 중 안내와 실패 후 카드 복원
 안내의 5개 언어 문구를 추가했습니다.
 

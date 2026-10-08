@@ -399,16 +399,16 @@ export default function AssistantHome({
           {t('이용 방법 알아보기')} <Icon name="arrow" size={17} />
         </button>
       </div>
-      <section className="home-assistant-entry" aria-label="AI 복지비서 안내">
+      <section className="home-assistant-entry" aria-label={t('AI 복지비서 안내')}>
         <span className="home-row-icon">
           <Icon name="compass" size={24} />
         </span>
         <div>
-          <h2>내 상황에 맞는 지원을 계속 살펴보세요</h2>
-          <p>AI 복지비서에서 새 안내와 신청 준비 상황을 한곳에서 확인하세요.</p>
+          <h2>{t('내 상황에 맞는 지원을 계속 살펴보세요')}</h2>
+          <p>{t('AI 복지비서에서 새 안내와 신청 준비 상황을 한곳에서 확인하세요.')}</p>
         </div>
         <button className="button primary" onClick={onAssistant}>
-          AI 복지비서 열기 <Icon name="arrow" size={18} />
+          {t('AI 복지비서 열기')} <Icon name="arrow" size={18} />
         </button>
       </section>
       <div className="home-all-link">

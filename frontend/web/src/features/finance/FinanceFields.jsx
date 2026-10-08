@@ -20,7 +20,15 @@ function renderHint(text) {
 }
 
 function FinanceField({ field, draft, onChange, easy }) {
-  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+  const {
+    t,
+    intlLocale,
+    formatMoney,
+    formatNumber,
+    translateTitle,
+    translateLabel,
+    translateHint,
+  } = useFinanceI18n();
 
   const numericValue = (value) => (typeof value === 'number' ? formatNumber(value) : (value ?? ''));
   const value = fieldValue(draft, field.path);
@@ -30,12 +38,12 @@ function FinanceField({ field, draft, onChange, easy }) {
     return (
       <CountField
         id={field.id}
-        label={t(field.label)}
+        label={translateLabel(field.label)}
         value={value}
         onChange={(next) => onChange(field.path, next)}
         min={field.min}
         max={field.max}
-        hint={t(field.hint)}
+        hint={translateHint(field.hint)}
         {...field.countChoices}
       />
     );
@@ -51,13 +59,13 @@ function FinanceField({ field, draft, onChange, easy }) {
             onChange={(event) => onChange(field.path, event.target.checked)}
           />
           <span>
-            {t(field.label)}
-            {field.optional && <small className="finance-optional">(선택)</small>}
+            {translateLabel(field.label)}
+            {field.optional && <small className="finance-optional">{t('(선택)')}</small>}
           </span>
         </label>
         {field.hint && (
           <p className="finance-help" id={hintId}>
-            {t(field.hint)}
+            {translateHint(field.hint)}
           </p>
         )}
       </div>
@@ -65,7 +73,7 @@ function FinanceField({ field, draft, onChange, easy }) {
   if (field.type === 'select')
     return (
       <div className="finance-field">
-        <label htmlFor={field.id}>{t(field.label)}</label>
+        <label htmlFor={field.id}>{translateLabel(field.label)}</label>
         <select
           id={field.id}
           value={value ?? (field.required ? '' : 'unknown')}
@@ -74,7 +82,7 @@ function FinanceField({ field, draft, onChange, easy }) {
         >
           {field.required && (
             <option value="" disabled>
-              선택해 주세요
+              {t('선택해 주세요')}
             </option>
           )}
           {field.options.map(([key, label]) => (
@@ -83,7 +91,7 @@ function FinanceField({ field, draft, onChange, easy }) {
             </option>
           ))}
         </select>
-        {field.hint && <small id={hintId}>{t(field.hint)}</small>}
+        {field.hint && <small id={hintId}>{translateHint(field.hint)}</small>}
       </div>
     );
   const money = field.type === 'money';
@@ -110,14 +118,14 @@ function FinanceField({ field, draft, onChange, easy }) {
       <div className="finance-field-heading">
         {money && easy ? (
           <label id={`${field.id}-label`} htmlFor={presence === 'yes' ? field.id : presenceId}>
-            {t(field.label)}
+            {translateLabel(field.label)}
           </label>
         ) : money ? (
           <span id={`${field.id}-label`} className="finance-field-label">
-            {t(field.label)}
+            {translateLabel(field.label)}
           </span>
         ) : (
-          <label htmlFor={field.id}>{t(field.label)}</label>
+          <label htmlFor={field.id}>{translateLabel(field.label)}</label>
         )}
         {field.example && <small id={exampleId}>{t(field.example)}</small>}
       </div>
@@ -125,7 +133,7 @@ function FinanceField({ field, draft, onChange, easy }) {
         <select
           id={presenceId}
           className="finance-presence-select"
-          aria-label={t('{value1} 입력 상태', { value1: t(field.label) })}
+          aria-label={t('{value1} 입력 상태', { value1: translateLabel(field.label) })}
           aria-describedby={
             [
               presence === 'yes' ? unitHintId : presence === 'none' ? presenceHintId : null,
@@ -147,7 +155,7 @@ function FinanceField({ field, draft, onChange, easy }) {
         <div
           className="finance-presence"
           role="group"
-          aria-label={t('{value1} 여부', { value1: t(field.label) })}
+          aria-label={t('{value1} 여부', { value1: translateLabel(field.label) })}
           aria-describedby={exampleId}
         >
           {[
@@ -204,13 +212,21 @@ function FinanceField({ field, draft, onChange, easy }) {
               : t('확인 필요로 남겨두고 다음으로 갈 수 있어요.')}
         </small>
       )}
-      {field.hint && <small id={hintId}>{renderHint(t(field.hint))}</small>}
+      {field.hint && <small id={hintId}>{renderHint(translateHint(field.hint))}</small>}
     </div>
   );
 }
 
 export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemoveVehicle, easy }) {
-  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+  const {
+    t,
+    intlLocale,
+    formatMoney,
+    formatNumber,
+    translateTitle,
+    translateLabel,
+    translateHint,
+  } = useFinanceI18n();
 
   const basicMember = question.id.match(/^member-(\d+)-basic$/);
   const memberIndex = basicMember ? Number(basicMember[1]) : null;
@@ -248,21 +264,25 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
         draft.private_transfer_history.as_of_month !== currentTransferMonth() && (
           <div className="finance-approximation-notice">
             <p>
-              저장된 지원 내역의 기간이 지났어요. 이번 달 기준 최근 12개월로 다시 입력해 주세요.
+              {t(
+                '저장된 지원 내역의 기간이 지났어요. 이번 달 기준 최근 12개월로 다시 입력해 주세요.',
+              )}
             </p>
             <button
               type="button"
               className="button secondary"
               onClick={() => onChange('private_transfer_history', emptyPrivateTransferHistory())}
             >
-              이번 달 기준으로 다시 입력
+              {t('이번 달 기준으로 다시 입력')}
             </button>
           </div>
         )}
       {question.id === 'private-transfer-months' && (
         <div className="finance-help">
           <p>
-            12개월 내내 같은 지원을 받았다면 첫 달의 금액·횟수를 입력한 뒤 아래 버튼을 누르세요.
+            {t(
+              '12개월 내내 같은 지원을 받았다면 첫 달의 금액·횟수를 입력한 뒤 아래 버튼을 누르세요.',
+            )}
           </p>
           <button
             type="button"
@@ -275,7 +295,7 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
               )
             }
           >
-            첫 달 금액·횟수를 12개월에 동일하게 적용
+            {t('첫 달 금액·횟수를 12개월에 동일하게 적용')}
           </button>
         </div>
       )}
@@ -345,7 +365,15 @@ function displayValue(field, draft, t, formatMoney, formatNumber) {
 }
 
 export function FinanceReview({ questions, sections, draft, onEdit }) {
-  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+  const {
+    t,
+    intlLocale,
+    formatMoney,
+    formatNumber,
+    translateTitle,
+    translateLabel,
+    translateHint,
+  } = useFinanceI18n();
 
   const reviewSections =
     sections ?? questions.map((question) => ({ ...question, questions: [question] }));
@@ -373,8 +401,8 @@ export function FinanceReview({ questions, sections, draft, onEdit }) {
                 <div key={field.path}>
                   <dt>
                     {sections && /^(member|vehicle)-\d+-/.test(question.id)
-                      ? `${translateTitle(question.title.split(' · ')[0])} · ${t(field.label)}`
-                      : t(field.label)}
+                      ? `${translateTitle(question.title.split(' · ')[0])} · ${translateLabel(field.label)}`
+                      : translateLabel(field.label)}
                   </dt>
                   <dd>{displayValue(field, draft, t, formatMoney, formatNumber)}</dd>
                 </div>

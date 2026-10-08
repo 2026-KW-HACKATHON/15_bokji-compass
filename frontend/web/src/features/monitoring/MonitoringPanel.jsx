@@ -1214,7 +1214,7 @@ export default function MonitoringPanel({
                                 <button
                                   className="text-button"
                                   disabled={!!busy}
-                                  aria-label={t(`${alert.title} 읽음 표시`)}
+                                  aria-label={t('{title} 읽음 표시', { title: alert.title })}
                                   onClick={() =>
                                     void change(
                                       'read',

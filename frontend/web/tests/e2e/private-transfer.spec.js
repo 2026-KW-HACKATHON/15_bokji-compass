@@ -94,3 +94,25 @@ test('regular small support is assessed after entering history and the repeat sh
   await expect(assessment).toContainText('가족·지인 지원금 월 소득 반영액');
   await expect(assessment.getByRole('status')).toHaveCount(0);
 });
+
+test('support history fields translate in every language while keeping entered money', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: '전체 정보 수정', exact: true }).click();
+  await page.getByLabel('가구 전체의 지원 여부', { exact: true }).selectOption('received');
+  await page.getByLabel('누구에게 받았나요?', { exact: true }).selectOption('family_friends');
+  await page.getByLabel('받은 돈을 어떻게 사용했나요?', { exact: true }).selectOption('living');
+  const month = transferMonthLabels(currentTransferMonth())[0];
+  await page
+    .getByRole('group', { name: month + ' 지원금 합계 여부', exact: true })
+    .getByRole('button', { name: '있어요', exact: true })
+    .click();
+  const amount = page.locator('#finance-transfer-month-0');
+  await amount.fill('20');
+  for (const locale of ['en', 'zh', 'vi', 'ja']) {
+    await page.locator('.language-selector select').selectOption(locale);
+    await expect(page.locator('.finance-form-fields')).not.toContainText(/[가-힣]/);
+    await expect(amount).toHaveValue('20');
+    await expect(page.locator('#finance-transfer-count-0')).toBeVisible();
+  }
+});

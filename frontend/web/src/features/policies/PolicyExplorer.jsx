@@ -78,10 +78,13 @@ export default function PolicyExplorer({
     sortLabels[effectivePolicySort(filters)],
     searchScopeLabels[filters.searchScope],
     ...(filters.ageBands.length
-      ? filters.ageBands.map((band) => band.replace('-', '~') + '세')
+      ? filters.ageBands.map((band) => {
+          const [min, max] = band.split('-');
+          return t('{min}~{max}세', { min, max });
+        })
       : []),
     ...(filters.ageMin !== '' || filters.ageMax !== ''
-      ? [`${filters.ageMin || 0}~${filters.ageMax || 120}세`]
+      ? [t('{min}~{max}세', { min: filters.ageMin || 0, max: filters.ageMax || 120 })]
       : []),
     ...(filters.eligibleOnly ? ['현재 신청 가능한 공고만'] : []),
   ]

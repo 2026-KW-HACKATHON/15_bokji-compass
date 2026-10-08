@@ -10,6 +10,8 @@ import {
   parseStoredLocale,
   translate,
   translateFinanceError,
+  translateFinanceLabel,
+  translateFinanceHint,
 } from '../../packages/core/src/i18n/index.js';
 import { emptyFinancialProfile, toFinancialProfile } from '../../packages/core/src/financeModel.js';
 
@@ -90,4 +92,32 @@ test('new assistant and introduction routes keep translated navigation after int
   assert.equal(translate('ja', '질문할 공고'), '質問する公示');
   assert.equal(translate('ko', 'AI 복지비서'), 'AI 복지비서');
   assert.equal(translate('en', '새로운 상담 입력 2026'), '새로운 상담 입력 2026');
+});
+
+test('monthly support labels and validation errors follow the selected language', () => {
+  for (const locale of ['en', 'zh', 'vi', 'ja']) {
+    const t = (source, values) => translate(locale, source, values);
+    for (const suffix of ['지원금 합계', '받은 횟수']) {
+      const label = '2026년 10월 ' + suffix;
+      const displayed = translateFinanceLabel(label, t);
+      assert.doesNotMatch(displayed, /[가-힣]/);
+      assert.match(displayed, /2026/);
+      assert.match(displayed, /10/);
+      const error = translateFinanceError(label + '은(는) 0 이상의 정수로 입력해 주세요.', t);
+      assert.doesNotMatch(error, /[가-힣]/);
+      assert.ok(error.includes(displayed));
+    }
+    const hint = translateFinanceHint(
+      '2025년 11월부터 2026년 10월까지 가구원 모두가 받은 돈을 합산해 주세요. 가구원 사이에 주고받은 돈은 중복 입력하지 않아요.',
+      t,
+    );
+    assert.doesNotMatch(hint, /[가-힣]/);
+    assert.match(hint, /2025/);
+    assert.match(hint, /2026/);
+    assert.equal(translateFinanceLabel('사용자 입력 원문', t), '사용자 입력 원문');
+  }
+  assert.equal(
+    translateFinanceLabel('2026년 10월 지원금 합계', (s, v) => translate('ko', s, v)),
+    '2026년 10월 지원금 합계',
+  );
 });

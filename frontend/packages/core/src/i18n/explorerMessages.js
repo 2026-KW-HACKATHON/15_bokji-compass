@@ -1,4 +1,10 @@
 export const explorerMessages = {
+  "{min}~{max}세": {
+    en: "Ages {min}–{max}",
+    zh: "{min}~{max}岁",
+    vi: "{min}–{max} tuổi",
+    ja: "{min}～{max}歳",
+  },
   "공고 상태": {
     en: "Notice status",
     zh: "公告状态",
