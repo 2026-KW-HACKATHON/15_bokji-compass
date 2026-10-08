@@ -1,3 +1,4 @@
+import { assistantMessages } from "./assistantMessages.js";
 import { commonMessages } from "./commonMessages.js";
 import { accountMessages } from "./accountMessages.js";
 import { featureMessages } from "./featureMessages.js";
@@ -18,6 +19,7 @@ export const locales = Object.freeze(
 );
 
 export const messageCatalogs = Object.freeze({
+  assistantMessages,
   commonMessages,
   accountMessages,
   featureMessages,
@@ -34,6 +36,7 @@ export const messages = Object.freeze(
     financeMessages,
     policyMessages,
     commonMessages,
+    assistantMessages,
   ),
 );
 

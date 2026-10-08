@@ -81,3 +81,13 @@ test('local finance validation translates the complete message without changing 
   assert.equal(profile.region, 'unknown');
   assert.equal(translateFinanceError('Unknown server error', t), 'Unknown server error');
 });
+
+test('new assistant and introduction routes keep translated navigation after integration', () => {
+  assert.equal(translate('en', 'AI 복지비서'), 'AI welfare assistant');
+  assert.equal(translate('en', '서비스 소개'), 'About this service');
+  assert.equal(translate('zh', 'AI 비서'), 'AI助手');
+  assert.equal(translate('vi', '한눈에 보기'), 'Tổng quan');
+  assert.equal(translate('ja', '질문할 공고'), '質問する公示');
+  assert.equal(translate('ko', 'AI 복지비서'), 'AI 복지비서');
+  assert.equal(translate('en', '새로운 상담 입력 2026'), '새로운 상담 입력 2026');
+});
