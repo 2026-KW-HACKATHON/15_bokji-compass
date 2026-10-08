@@ -34,6 +34,7 @@ from app.contracts.parsing import (
 )
 from app.modules.normalization.public import normalize_conditions
 from app.modules.storage.application_dates import application_date_columns
+from app.modules.storage.catalog_cache import PublicCatalogCache
 from app.modules.storage.schedule_rules import build_calendar_rule, resolve_calendar_schedule
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
@@ -156,6 +157,7 @@ class PolicyRepository:
         self.auto_publish = auto_publish
         metadata = MetaData()
         self.tables = {name: Table(name, metadata, autoload_with=engine) for name in TABLES}
+        self.catalog_cache = PublicCatalogCache()
 
     def start_run(self, sources: list[SourcePolicy], processing: dict) -> str:
         if not sources or len({s.policy_key for s in sources}) != len(sources):

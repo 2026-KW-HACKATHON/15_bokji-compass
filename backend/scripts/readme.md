@@ -40,6 +40,7 @@ MySQL 시작에 실패하면 서버 시작·재시작을 중단합니다. `stop`
 | `mysql.ps1` | start / stop / restart / status / inspect | 프로젝트 DB 실행·정상 종료·재시작·상태 확인. inspect는 JSON 읽기 전용 소유권·준비 조회 |
 | `tunnel.ps1` | start / stop / restart / status, 선택 PublicUrl/TunnelTokenFile | 고정 도메인 터널만 제어. 소유권·로컬 웹·터널 준비 확인, 토큰은 파일로 전달 |
 | `test.ps1` | 없음 | pytest·Ruff·패키지 충돌 검사 |
+| `load-test.py` | base-url, users, seconds, think-seconds, output, 선택 api-prefix/scenario/pid | 실행 중인 공개 공고 HTTP 조회에 단계별 부하를 가하고 상태 코드·응답 시간·처리량·선택 CPU/메모리를 JSON으로 저장 |
 | `lock.ps1` | 없음 | `.in`에서 고정 의존성 `.txt` 생성 |
 | `parse-raw.ps1` | InputPath 배열, 선택 PrepareOnly/Storage | 원문 파싱·설정 모델 추출·검증·MySQL 기본 저장. Storage=json만 파일 내보내기 |
 | `ingestion-schedule.ps1` | Action=Install/Remove/Status, 선택 TaskName/PythonExecutable/EnableLiveCollection | Windows 제한 수집 작업 관리. 기본 비활성 등록, 실제 수집은 활성 선택과 worker --live 필요 |
@@ -49,6 +50,49 @@ MySQL 시작에 실패하면 서버 시작·재시작을 중단합니다. `stop`
 | `test.sh` | 없음 | macOS pytest·Ruff·패키지 충돌 검사 |
 
 `common.sh`는 backend 경로·Python 3.13 환경 검사 공유. `.sh`는 실패 종료 코드 전파 및 LF 줄바꿈 유지. 독립 MySQL 자동 구성·lock 갱신은 기존 Windows 도구 사용.
+
+## 조회 API 부하 테스트
+
+`load-test.py`는 실제 실행 중인 본인 프로젝트 서버를 대상으로 사용하는 읽기 전용 도구입니다.
+프로젝트 개발 의존성의 `httpx`가 필요합니다(`requirements-dev.txt`에 포함).
+공개 공고 목록 30%·스마트 검색 30%·상세 30%·필터 옵션 10%를 요청합니다.
+가상 이용자 한 명은 이전 요청을 완료한 뒤 기본 2초(±25%) 쉬고 다음 요청을 보냅니다.
+`--search-set varied`는 기본 4개에 지역·지원 분야 조합 32개를 더해 다양한 검색 미스도 측정합니다.
+`--scenario static`은 첫 HTML 문서만 조회하며 JS·이미지 다운로드나 브라우저 렌더링은 포함하지 않습니다.
+회원가입·메일 발송·로그인·개인정보·AI 모델·번역·첨부 다운로드는 실행하지 않습니다.
+
+저장소 루트에서 실행 예시:
+
+```powershell
+backend\.venv\Scripts\python.exe backend\scripts\load-test.py `
+  --base-url https://bokji.commitnaru.com `
+  --users 1 5 10 20 40 --seconds 30 --think-seconds 2 `
+  --output output\load-test\public-browse.json
+```
+
+로컬 API 직접 측정은 `--base-url http://127.0.0.1:8001 --api-prefix /`로 지정합니다.
+로컬 프록시는 `--base-url http://127.0.0.1:8080`입니다. 루프백 HTTP에서만 신뢰 프록시의
+`X-Forwarded-Proto: https`를 재현합니다. HTTP 클라이언트는 환경변수의 프록시를 사용하지 않습니다.
+선택 `--pid api=1234 --pid mysql=5678`은 Windows 프로세스의 CPU·작업 메모리를 1초 간격으로
+읽으며 테스트 프로세스도 함께 기록합니다. CPU는 논리 CPU 하나의 100%를 기준으로 합니다.
+
+기본 통과 기준은 p95 2초 이하·오류율 1% 미만·준비 상태 정상입니다. p95 5초 초과,
+오류율 2% 이상이면 다음 단계로 진행하지 않습니다. 최근 20건 중 오류 5건 또는 준비 상태
+연속 2회 실패 시 현재 단계의 신규 요청도 중단합니다. 진행 중 요청은 제한 시간 안에 마칩니다.
+최대 10단계·동시 이용자 200명·단계 60초·응답 제한 15초·부하 요청 5,000건으로 CLI 입력을 제한합니다.
+기본 부하 요청 예산은 4,000건이며 준비 조회·상태 점검은 별도입니다. 재시도는 없습니다.
+대상을 추가로 지정하려면 본인 소유와
+테스트 권한을 확인해야 합니다.
+
+JSON에는 실행 설정·공개 공고 수·단독 기준 응답 시간·단계별/경로별 요청 수와 오류 수·
+상태 코드·평균/p50/p95/p99/최대 응답 시간(ms)·성공 처리량·준비 상태·리소스 표본·
+중단 원인이 있습니다. 각 단계가 끝나면 저장합니다. 응답 본문과 회원 정보는 저장하지 않습니다.
+처리량 분모는 단계 시작부터 마지막 요청 완료까지의 실제 시간입니다. 이 방식은 이용자 수를
+고정하는 closed-loop 모델로, 느린 응답에서는 신규 요청률도 줄어듭니다. 열린 연결의 최대 수,
+외부 여러 지역의 접속 성능, 장시간 운영 용량을 증명하지 않습니다.
+
+정적 검사와 도움말 확인: `python -m ruff check scripts/load-test.py`,
+`python scripts/load-test.py --help`. 부하 측정 결과는 `output/`에 보관합니다.
 
 `common.ps1`은 경로·명령 검사를 공유하며 `mysql_dev.py`는 소유 데이터 경로를 검증합니다. 설치/lock은 네트워크를 사용할 수 있습니다. MySQL 실패 시 데이터를 삭제하거나 기존 서비스를 수정하지 않습니다. 스크립트는 업무 데이터를 반환하지 않고 상태·종료 코드만 제공합니다.
 

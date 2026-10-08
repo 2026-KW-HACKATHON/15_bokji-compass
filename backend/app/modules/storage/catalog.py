@@ -24,6 +24,7 @@ from app.modules.storage.application_dates import (
     resolved_application_period,
 )
 from app.modules.storage.audience import audience_text, other_conditions
+from app.modules.storage.catalog_cache import cache_public_read
 from app.modules.storage.categories import effective_category, effective_category_expression
 from app.modules.storage.notice_series import (
     annotate_records,
@@ -266,8 +267,31 @@ def filtered_catalog(
     return catalog, query
 
 
-def _notice_snapshot(connection, catalog, query):
+def _shared_snapshot(repository, connection, catalog):
+    """Read JSON and resolve original history once per public version/TTL."""
+    cache = repository.catalog_cache
+
+    def load():
+        records = list(connection.execute(select(catalog)).mappings())
+        vocabulary = institution_names(records)
+        resolved = annotate_records(deduplicate_notice_records(records))
+        return {record["revision_id"]: record for record in resolved}, vocabulary
+
+    version = cache.publication_token(repository, connection)
+    return cache.get_or_compute(version, "public-snapshot", load, snapshot=True)
+
+
+def _notice_snapshot(connection, catalog, query, repository=None):
     """Keep query ordering while resolving notice history from all public originals."""
+    if repository is not None and getattr(repository, "catalog_cache", None) is not None:
+        current, _ = _shared_snapshot(repository, connection, catalog)
+        extras = [column for column in query.selected_columns
+                  if column.key in {"canonical_json", "matching_enabled", "review_status"}]
+        # Keep every SQL predicate/order, but transfer IDs rather than original JSON.
+        rows = connection.execute(query.with_only_columns(
+            catalog.c.revision_id, *extras, maintain_column_froms=True)).mappings()
+        return [{**current[row["revision_id"]], **dict(row)} for row in rows
+                if row["revision_id"] in current]
     records = list(connection.execution_options(yield_per=100).execute(query).mappings())
     if not records:
         return []
@@ -293,6 +317,7 @@ def _notice_snapshot(connection, catalog, query):
     return result
 
 
+@cache_public_read
 def list_policies(
     repository,
     *,
@@ -346,86 +371,46 @@ def list_policies(
                     documents.c.matching_enabled,
                     documents.c.review_status,
                 ).join(documents, documents.c.revision_id == catalog.c.revision_id)
-        if advanced:
-            from app.modules.storage.explorer_filters import filter_records
-
-            vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
-            recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
-            order = (catalog.c.title, catalog.c.policy_key) if sort == "name" else recent
-            if sort == "popular":
-                order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
-            records = filter_records(
-                _notice_snapshot(connection, catalog, query.order_by(*order)),
-                status=status,
-                age_bands=age_bands,
-                age_min=age_min,
-                age_max=age_max,
-                eligible_only=eligible_only,
-                member=member,
-            )
-            if smart:
-                matches, metadata = search_records(
-                    records, q, sort=sort, institutions=vocabulary, relation=search_relation
-                )
-                total = len(matches)
-                page = matches[offset : offset + limit]
-            else:
-                matches = group_matches((record, None) for record in records)
-                total = len(matches)
-                page, metadata = matches[offset : offset + limit], None
-            return {
-                "items": [
-                    {**card(record), **({"searchMatch": match} if match else {})}
-                    for record, match in page
-                ],
-                "total": total,
-                "nextCursor": str(offset + limit) if offset + limit < total else None,
-                **(
-                    {"search": metadata or literal_search_metadata(q, search_scope)}
-                    if q.strip()
-                    else {}
-                ),
-            }
-        if smart:
-            # No popular/recent shortlist: every filtered published revision is
-            # interpreted before count, ordering and pagination.
-            vocabulary = search_institution_vocabulary(repository, connection)
-            records = _notice_snapshot(connection, catalog, query)
-            matches, metadata = search_records(
-                records, q, sort=sort, institutions=vocabulary, relation=search_relation
-            )
-            total = len(matches)
-            return {
-                "items": [
-                    {**card(record), "searchMatch": match}
-                    for record, match in matches[offset : offset + limit]
-                ],
-                "total": total,
-                "nextCursor": str(offset + limit) if offset + limit < total else None,
-                "search": metadata,
-            }
+        vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
         recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
         order = (catalog.c.title, catalog.c.policy_key) if sort == "name" else recent
         if sort == "popular":
             # A measured zero precedes an unknown count. Deterministic ties keep
             # offset pagination stable while the underlying catalog is unchanged.
             order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
-        # Group the complete ordered snapshot before counting or pagination, so
-        # follow-up notices cannot repeat across pages or inflate the result count.
-        records = _notice_snapshot(connection, catalog, query.order_by(*order))
-        grouped = group_records(records)
-        total = len(grouped)
-        items = [card(row) for row in grouped[offset : offset + limit]]
+        if advanced or not smart:
+            query = query.order_by(*order)
+        records = _notice_snapshot(connection, catalog, query, repository)
+    # Return the DB connection before Python filtering, ranking and presentation.
+    if advanced:
+        from app.modules.storage.explorer_filters import filter_records
+
+        records = filter_records(records, status=status, age_bands=age_bands,
+                                 age_min=age_min, age_max=age_max,
+                                 eligible_only=eligible_only, member=member)
+    metadata = None
+    if smart:
+        # Every filtered public revision is still ranked before count/pagination.
+        matches, metadata = search_records(
+            records, q, sort=sort, institutions=vocabulary, relation=search_relation
+        )
+    elif advanced:
+        matches = group_matches((record, None) for record in records)
+    else:
+        matches = [(record, None) for record in group_records(records)]
+    total = len(matches)
     result = {
-        "items": items,
+        "items": [{**card(record), **({"searchMatch": match} if match else {})}
+                  for record, match in matches[offset : offset + limit]],
         "total": total,
         "nextCursor": str(offset + limit) if offset + limit < total else None,
     }
     if q.strip():
-        result["search"] = literal_search_metadata(q, search_scope)
+        result["search"] = metadata or literal_search_metadata(q, search_scope)
     return result
 
 
+@cache_public_read
 def list_calendar(
     repository,
     *,
@@ -461,8 +446,9 @@ def list_calendar(
             connection=connection,
         )
         vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
-        records = _notice_snapshot(connection, catalog,
-                                   query.order_by(catalog.c.title, catalog.c.policy_key))
+        records = _notice_snapshot(
+            connection, catalog, query.order_by(catalog.c.title, catalog.c.policy_key), repository
+        )
         if smart:
             matches, metadata = search_records(records, q, institutions=vocabulary)
         else:
@@ -546,11 +532,16 @@ def literal_search_metadata(query, scope):
 
 def search_institution_vocabulary(repository, connection):
     """Filters must not erase the known entity vocabulary used to interpret q."""
+    if getattr(repository, "catalog_cache", None) is not None:
+        published = with_popularity(published_catalog(repository), connection)
+        _, vocabulary = _shared_snapshot(repository, connection, published)
+        return vocabulary
     published = published_catalog(repository)
     records = connection.execute(select(published.c.source_json, published.c.title)).mappings()
     return institution_names(records)
 
 
+@cache_public_read
 def get_policy(repository, policy_key):
     with repository.engine.connect() as connection:
         catalog = with_popularity(published_catalog(repository), connection)
@@ -575,6 +566,7 @@ def get_policy(repository, policy_key):
         return card(row, full=True)
 
 
+@cache_public_read
 def explorer_options(repository):
     """Only distinct publishers of latest public revisions; no raw body or private rows."""
     published = published_catalog(repository)

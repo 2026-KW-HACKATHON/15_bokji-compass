@@ -1,5 +1,31 @@
 # 공고 저장소
 
+2026-10-09 동시 조회 개선: `PolicyRepository(engine)`는 인스턴스마다
+`catalog_cache.PublicCatalogCache`를 생성합니다. 기존 `catalog.list_policies`,
+`list_calendar`, `get_policy`, `explorer_options`의 입력·반환 계약은 유지합니다.
+공개 목록/검색/상세/필터 옵션/캘린더 응답은 30초 재사용하며 결과마다 JSON 복사본을
+반환합니다. 최대 256개·응답 JSON 합계 16MiB의 LRU와 공개 원문 스냅샷 1개를 보관합니다.
+동일 키의 동시 미스는 Future로 한 번만 계산합니다. 회원이나 `eligible_only=True`가
+전달된 결과는 공용 응답 캐시에 넣지 않습니다.
+
+매 요청에서 실제 DB의 공개 revision ID·원문 해시·분석 fingerprint·공급자 listing JSON
+SHA-256을 확인합니다. 철회·새 승인·수동 수정으로 생긴 새 개정·조회수 변경은 즉시
+캐시를 무효화하고, DB 확인 실패 시 기존 응답을 반환하지 않고 원래 DB 오류를 전파합니다.
+기존 저장 계약대로 원문·draft는 불변 개정이며, 직접 SQL로 기존 JSON만 덮어쓰는 행위는
+지원하지 않습니다. 날짜 기준 응답 키는 한국 시간 날짜도 포함합니다.
+
+`_shared_snapshot(repository, connection, catalog)`는 전체 공개 원문·기관 어휘·공고 묶음
+판정을 한 번 읽어 재사용합니다. `_notice_snapshot(..., repository)`의 후속 필터 쿼리는
+동일한 SQL 조건·정렬로 개정 ID와 필요한 자격 열만 읽습니다. 목록은 DB 연결을 반납한 뒤
+Python 필터·순위·페이지·카드를 만듭니다. 검색 전체 건수·최신 공개 개정·묶음·근거는 유지합니다.
+가상 저장소에 캐시가 없으면 기존 조회 경로를 사용합니다. DB 쓰기나 새 의존성은 없습니다.
+
+검증: `tests/test_catalog_cache.py`는 결과 동등성, 철회·개정·조회수 즉시 갱신, DB 장애,
+회원 결과 분리, 원문 재사용, DB 연결 반납, 동시 미스, 반환값 독립성, TTL/LRU를 검사합니다.
+공개 서버 부하 도구는 `scripts/load-test.py`이며 측정 결과는 저장소 `output/load-test-20261009/`입니다.
+[최소 50명 개선·측정 기록](../../../docs/catalog-capacity-2026-10-09.txt):
+50명 3분 동안 3,914건 모두 성공, 구간별 p95 0.64~0.78초. 목록·검색·상세 기준입니다.
+
 2026-10-08 단계별 공고: `notice_series.py`는 같은 기관·사업·명시된 연도/기간/차수를
 읽기 모델에서 묶는다. `annotate_records`는 원본 ID마다 전체 묶음 메타데이터를 붙이고
 `group_records`/`group_matches`는 대표 원문을 선택한다. 공개 목록은 묶음 이후 건수와
