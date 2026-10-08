@@ -58,7 +58,7 @@ function CalendarPolicyRow({
     <article ref={translation.ref} className="calendar-policy-row">
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
-          {(labels.length ? labels : ['접수 기간 중']).map((label) => (
+          {(labels.length ? labels : ['접수 기간']).map((label) => (
             <span
               key={label}
               className={label === '신청 마감' ? 'calendar-chip end' : 'calendar-chip'}
