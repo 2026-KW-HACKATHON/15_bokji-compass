@@ -1,5 +1,7 @@
 # 복지나침반 모바일
 
+**2026-10-08 QA:** 공유 core 변경 후에는 `npm ci`로 복사 설치본을 갱신합니다. 린트는 Expo가 생성한 `.cache/`·`.expo/`를 제외하고 실제 소스를 검사합니다. [프로젝트 QA 결과](../docs/qa-2026-10-08.md).
+
 **2026-10-08 쉬운 화면 접근성:** [Apple HIG 접근성](https://developer.apple.com/design/human-interface-guidelines/accessibility)을 기준으로 앱 전반의 글자·선택·탐색·입력·아이콘을 개선했습니다. [구현 기준과 기기 확인 항목](docs/accessibility.md).
 
 **2026-10-08 AI 복지비서:** 웹 AI 페이지의 생활정보·지원 후보·추가 확인·신청 현황·새 안내와 대화형 정보 입력을 하단 ‘AI 비서’에서 제공합니다. ‘상담’ 탭은 제거하고 ‘챗봇’은 화면을 일부만 차지하는 별도 패널로 변경했습니다. [AI 화면과 API](src/features/ai/README.md) · [챗봇 동작](src/features/assistant/README.md).

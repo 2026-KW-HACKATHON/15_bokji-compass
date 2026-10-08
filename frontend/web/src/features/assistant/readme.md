@@ -211,7 +211,6 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 
 추천 공고와 챗봇의 공고 선택·선택 중인 공고·질문 이력·생활 상담 공고 제목은 공유 공고 번역 API를 사용합니다. 공고 ID/revision과 상담에 전달하는 원본 공고는 보존합니다. 사용자 질문, AI 답변, 후보 추천 이유와 근거 인용은 원문 그대로 표시하며 `ContentLanguageNotice`로 현재 AI 상담은 한국어임을 안내합니다. 이력 날짜는 선택 언어와 한국 시간으로 표시합니다. 검증은 웹 단위 테스트, 운영 빌드 및 다국어 E2E에서 언어 변경·질문·쉬운 화면·내용 보존을 확인합니다.
 
-
 ## 2026-10-08 첫 방문 서비스 소개
 
 `AssistantPage`는 최초 `#assistant` 방문에서 기능 소개를 먼저 표시합니다. 시작 버튼은 생활정보가 없으면 선택 입력 폼을 열고, 기존 정보가 있으면 현황을 표시합니다. 이어온 상담은 소개를 생략합니다. 서비스 소개 메뉴는 `#assistant-intro`, 현황은 `#assistant-overview`이며 명시적 소개의 시작은 `?setup=1`로 입력을 연결합니다.

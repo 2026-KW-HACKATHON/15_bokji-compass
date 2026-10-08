@@ -103,6 +103,15 @@ test('sketch layout keeps search above two quick filters and advanced filters pr
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(source).toHaveValue(JSON.stringify(['notice', '광운대학교']));
   await expect(page.getByRole('spinbutton', { name: '최대 나이' })).toHaveValue('30');
+  for (const width of [681, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const spacing = await page.locator('.explorer-advanced > summary').evaluate((summary) => {
+      const label = summary.querySelector('.filter-summary-label').getBoundingClientRect();
+      const value = summary.querySelector('.filter-summary-value').getBoundingClientRect();
+      return value.top >= label.bottom - 1 ? value.top - label.bottom : value.left - label.right;
+    });
+    expect(spacing).toBeGreaterThanOrEqual(7);
+  }
   await page.setViewportSize({ width: 320, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('explorer-easy-320.png'), fullPage: true });

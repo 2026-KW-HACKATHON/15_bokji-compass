@@ -133,6 +133,29 @@ test('hover switches between sections and keeps the panel open while entering it
   await expect(panel).toBeHidden();
 });
 
+test('screen mode changes do not open a menu under a stationary pointer', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'Stationary mouse hover is desktop-only.');
+  await page.goto('/#profile');
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await expect(page.locator('.easy-menu-toggle')).toBeVisible();
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
+  const panel = nav.locator('.portal-mega-menu');
+  await expect(panel).toBeHidden();
+  await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
+  await expect(page.getByRole('tabpanel', { name: '관심 분야', exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('mode-switch-profile.png') });
+
+  const toggle = nav.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true });
+  await toggle.hover();
+  await expect(panel).toBeVisible();
+  await toggle.click();
+  await toggle.click();
+  await expect(panel).toBeHidden();
+});
+
 test('service introduction and current workspace have independent URLs and preserve a conversation draft', async ({
   page,
 }, info) => {

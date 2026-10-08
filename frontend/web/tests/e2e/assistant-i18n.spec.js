@@ -25,11 +25,17 @@ for (const [language, assistant, introduction, menu] of variants) {
     await expect(page.locator('#assistant-page-title')).toBeHidden();
     // No server or user content is present in this guest view: all page copy is UI.
     await expect(page.locator('.assistant-page')).not.toContainText(/[가-힣]/);
-    await nav.locator('.portal-submenu-toggle').first().click();
+    const assistantToggle = nav
+      .locator('.portal-nav-group')
+      .filter({
+        has: page.getByRole('link', { name: assistant, exact: true }),
+      })
+      .getByRole('button');
+    await assistantToggle.click();
     await nav.getByRole('link', { name: introduction, exact: true }).click();
     await expect(page).toHaveURL(/#assistant-intro$/);
     await page.reload();
-    await nav.locator('.portal-submenu-toggle').first().click();
+    await assistantToggle.click();
     await expect(nav.getByRole('link', { name: introduction, exact: true })).toHaveAttribute(
       'aria-current',
       'page',
