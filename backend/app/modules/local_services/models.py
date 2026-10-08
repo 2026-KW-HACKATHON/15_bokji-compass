@@ -93,6 +93,7 @@ class LocalService(CatalogModel):
     sourceUrl: Annotated[str, Field(min_length=1, max_length=2000)]
     checkedAt: str
     sourcePublishedAt: str | None
+    availableUntil: str | None = None
     evidence: Text
 
     @field_validator("sourceUrl")
@@ -106,15 +107,9 @@ class LocalService(CatalogModel):
             port = parts.port
         except ValueError as exc:
             raise ValueError("Invalid source URL") from exc
-        if (
-            parts.scheme not in {"https", "http"}
-            or not host
-            or "." not in host
-            or parts.username
-            or parts.password
-            or port not in {None, 80, 443}
-            or host.endswith((".local", ".localhost", ".internal", ".test", ".invalid"))
-        ):
+        if (parts.scheme not in {"https", "http"} or not host or "." not in host
+                or parts.username or parts.password or port not in {None, 80, 443}
+                or host.endswith((".local", ".localhost", ".internal", ".test", ".invalid"))):
             raise ValueError("Source URL must be a public HTTP(S) agency link")
         try:
             ipaddress.ip_address(host)
@@ -136,6 +131,15 @@ class LocalService(CatalogModel):
             raise ValueError("Evidence dates cannot be in the future")
         return value
 
+    @field_validator("availableUntil")
+    @classmethod
+    def valid_end_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                raise ValueError("Service end date must use YYYY-MM-DD")
+            date.fromisoformat(value)
+        return value
+
     @model_validator(mode="after")
     def provenance_and_duplicates(self):
         if self.sourcePublishedAt and self.sourcePublishedAt > self.checkedAt:
@@ -147,22 +151,14 @@ class LocalService(CatalogModel):
         for area in self.focusAreas:
             covered = any(
                 candidate.scope == "national"
-                or (
-                    candidate.region == area.region
-                    and (
-                        candidate.scope == "province"
-                        or (
-                            district_contains(candidate.district, area.district)
-                            and (
-                                candidate.scope == "district"
-                                or (
-                                    area.neighborhood in candidate.neighborhoods
-                                    and area.neighborhoodType == candidate.neighborhoodType
-                                )
-                            )
-                        )
-                    )
-                )
+                or (candidate.region == area.region and (
+                    candidate.scope == "province"
+                    or (district_contains(candidate.district, area.district) and (
+                        candidate.scope == "district"
+                        or (area.neighborhood in candidate.neighborhoods
+                            and area.neighborhoodType == candidate.neighborhoodType)
+                    ))
+                ))
                 for candidate in self.coverage
             )
             if not covered:

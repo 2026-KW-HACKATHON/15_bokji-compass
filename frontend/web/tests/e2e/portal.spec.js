@@ -85,8 +85,8 @@ test('the guide opens directly and its discovery and recommendation actions reac
   await expect(guideHeading).toBeVisible();
   const introduction = page
     .getByRole('navigation', { name: '주 메뉴', exact: true })
-    .getByRole('link', { name: '이용 안내', exact: true });
-  await page.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
+    .getByRole('link', { name: '서비스 안내', exact: true });
+  await page.getByRole('button', { name: '홈 하위 메뉴', exact: true }).click();
   await expect(introduction).toHaveAttribute('aria-current', 'page');
   await expect(introduction).toBeInViewport({ ratio: 0.99 });
   await page.getByRole('button', { name: '메뉴 닫기', exact: true }).click();
@@ -116,7 +116,7 @@ test('mobile navigation and easy mode keep the home, guide and list within a 320
 
   const menu = page.getByRole('navigation', { name: '주 메뉴', exact: true });
   await menu.getByRole('button', { name: '전체 메뉴', exact: true }).click();
-  await menu.getByRole('link', { name: '이용 안내', exact: true }).click();
+  await menu.getByRole('link', { name: '서비스 안내', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: /필요한 복지를/ })).toBeVisible();
   await expectNoPageOverflow(page);
   await page.getByRole('button', { name: '쉬운 화면으로 시작하기', exact: true }).click();

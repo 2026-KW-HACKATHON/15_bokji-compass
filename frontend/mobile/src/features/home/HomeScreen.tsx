@@ -11,7 +11,7 @@ import {
   Screen,
   colors,
 } from "../../components/ui";
-import { Icon, IconName } from "../../components/Icon";
+import { EasyIconTile, Icon, IconName } from "../../components/Icon";
 import { useRuntime } from "../../services/runtime";
 import { parsePolicyPage } from "../policies/model";
 import { PolicyCard, policyAppearance } from "../policies/PolicyCard";
@@ -72,7 +72,7 @@ export default function HomeScreen() {
       </View>
       <View style={[styles.search, easy && styles.easyBox]}>
         <View style={styles.searchHeading}>
-          <Icon name="search" color={colors.green} />
+          {easy ? <EasyIconTile name="search" /> : <Icon name="search" color={colors.green} />}
           <Text style={[styles.sectionTitle, easy && { fontSize: 22 }]}>
             복지 공고 찾기
           </Text>
@@ -102,16 +102,25 @@ export default function HomeScreen() {
               style={({ pressed }) => [
                 styles.topic,
                 easy && styles.easyTopic,
-                singleColumn && { width: "100%", flexDirection: "row", justifyContent: "flex-start", gap: 16 },
-                { opacity: pressed ? 0.6 : 1 },
+                singleColumn && {
+                  width: "100%",
+                  flexDirection: "row",
+                  justifyContent: "flex-start",
+                  gap: 16,
+                },
+                easy
+                  ? { backgroundColor: pressed ? colors.easyIconBackground : colors.surface }
+                  : { opacity: pressed ? 0.6 : 1 },
               ]}
             >
-              <View
-                style={[styles.topicIcon, { backgroundColor: tone.background }]}
-              >
-                <Icon name={topic.icon} color={tone.color} size={25} />
-              </View>
-              <Text style={[styles.topicLabel, easy && { fontSize: 18 }]}>
+              {easy ? (
+                <EasyIconTile name={topic.icon} />
+              ) : (
+                <View style={[styles.topicIcon, { backgroundColor: tone.background }]}>
+                  <Icon name={topic.icon} color={tone.color} size={25} />
+                </View>
+              )}
+              <Text style={[styles.topicLabel, easy && { fontSize: 22, lineHeight: 33, fontWeight: "800", color: colors.ink }, singleColumn && { textAlign: "left" }]}>
                 {topic.label}
               </Text>
             </Pressable>
@@ -140,12 +149,23 @@ export default function HomeScreen() {
             가구원 수로 바로 확인
           </Text>
         </View>
-        {!easy && <View style={styles.calcIcon}>
-          <Icon name="finance" size={42} color={easy ? colors.green : "#FFF"} />
-        </View>}
+        {!easy && (
+          <View style={styles.calcIcon}>
+            <Icon
+              name="finance"
+              size={42}
+              color={easy ? colors.green : "#FFF"}
+            />
+          </View>
+        )}
         <Icon name="next" size={20} color={easy ? colors.green : "#FFF"} />
       </Pressable>
-      <View style={[styles.sectionRow, easy && { alignItems: "flex-start", flexDirection: "column" }]}>
+      <View
+        style={[
+          styles.sectionRow,
+          easy && { alignItems: "flex-start", flexDirection: "column" },
+        ]}
+      >
         <View style={{ flex: 1, gap: 4 }}>
           <Text
             accessibilityRole="header"
@@ -217,6 +237,7 @@ const styles = StyleSheet.create({
   },
   searchHeading: { flexDirection: "row", gap: 10, alignItems: "center" },
   sectionTitle: {
+    flexShrink: 1,
     color: colors.ink,
     fontSize: 20,
     lineHeight: 30,
@@ -239,10 +260,11 @@ const styles = StyleSheet.create({
   easyTopic: {
     width: "47%",
     backgroundColor: "#FFF",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.easyLine,
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
+    gap: 12,
   },
   topicIcon: {
     width: 52,
@@ -252,6 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   topicLabel: {
+    flexShrink: 1,
     color: colors.ink,
     fontSize: 14,
     lineHeight: 23,

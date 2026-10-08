@@ -149,7 +149,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
       >
         {children}
       </View>
-      {chat.enabled && !blocking && keyboardTop === null && (
+      {chat.enabled && !easy && !blocking && keyboardTop === null && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("챗봇 열기")}
@@ -161,7 +161,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
               bottom: barHeight + insets.bottom + 12,
               right: insets.right + 14,
             },
-            easy && { minHeight: 60, borderRadius: 10 },
+            easy && { minHeight: 60, borderRadius: 10, elevation: 0 },
           ]}
         >
           <Icon name="assistant" color="#FFF" size={23} />
@@ -185,7 +185,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                 ? "챗봇 다시 켜기 안내"
                 : chat.panel === "menu"
                   ? "전체 메뉴"
-                  : "챗봇"
+                  : "챗봇",
           )}
         >
           <View
@@ -207,12 +207,15 @@ export function AppShell({ children }: React.PropsWithChildren) {
                     borderRadius: 10,
                     borderColor: colors.easyLine,
                     borderWidth: 1.5,
+                    elevation: 0,
+                    boxShadow: "none",
                   },
                 ]}
               >
                 <View style={styles.header}>
                   <View style={styles.headerText}>
                     <Text
+                      accessibilityRole="header"
                       style={[styles.headerTitle, easy && { fontSize: 24 }]}
                     >
                       챗봇
@@ -248,7 +251,11 @@ export function AppShell({ children }: React.PropsWithChildren) {
                       easy && { minWidth: 60, minHeight: 60 },
                     ]}
                   >
-                    <Text style={styles.x}>×</Text>
+                    {easy ? (
+                      <Text style={styles.headerAction}>끄기</Text>
+                    ) : (
+                      <Icon name="close" />
+                    )}
                   </Pressable>
                 </View>
                 <AssistantChat />
@@ -262,9 +269,17 @@ export function AppShell({ children }: React.PropsWithChildren) {
                   onPress={chat.closePanel}
                   style={StyleSheet.absoluteFill}
                 />
-                <SafeAreaView style={styles.drawer}>
+                <SafeAreaView
+                  style={[
+                    styles.drawer,
+                    easy && { width: "100%", maxWidth: 480 },
+                  ]}
+                >
                   <View style={styles.header}>
-                    <Text style={[styles.headerTitle, { flex: 1 }]}>
+                    <Text
+                      accessibilityRole="header"
+                      style={[styles.headerTitle, { flex: 1 }]}
+                    >
                       전체 메뉴
                     </Text>
                     <Pressable
@@ -276,7 +291,11 @@ export function AppShell({ children }: React.PropsWithChildren) {
                         easy && { minWidth: 60, minHeight: 60 },
                       ]}
                     >
-                      <Icon name="close" />
+                      {easy ? (
+                        <Text style={styles.headerAction}>닫기</Text>
+                      ) : (
+                        <Icon name="close" />
+                      )}
                     </Pressable>
                   </View>
                   <ScrollView contentContainerStyle={styles.menuContent}>

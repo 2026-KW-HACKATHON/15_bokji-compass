@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from app.modules.storage.schedule_rules import resolve_calendar_schedule
+
 AGE_BANDS = {
     "0-18": (0, 18),
     "19-24": (19, 24),
@@ -20,15 +22,23 @@ def notice_status(policy, record, today):
     explicit = record["source_json"].get("fields", {}).get("notice_status")
     if explicit in NOTICE_STATUSES:
         return explicit
-    start, end = policy.get("applicationStart"), policy.get("applicationEnd")
     current = today.isoformat()
-    if start and current < start:
-        return "upcoming"
-    if end and current > end:
-        return "closed"
-    if policy.get("scheduleStatus") == "ongoing" or (start and end and start <= current <= end):
-        return "open"
-    return "unknown"
+    statuses = set()
+    # The envelope can include gaps between application rounds. Only an actual
+    # window can be open; a later round keeps a gap in the upcoming category.
+    for window in policy.get("applicationWindows") or [policy]:
+        start, end = window.get("applicationStart"), window.get("applicationEnd")
+        if start and current < start:
+            statuses.add("upcoming")
+        elif end and current > end:
+            statuses.add("closed")
+        elif policy.get("scheduleStatus") == "ongoing" or (
+            start and end and start <= current <= end
+        ):
+            return "open"
+        else:
+            statuses.add("unknown")
+    return next(status for status in ("upcoming", "unknown", "closed") if status in statuses)
 
 
 def matches_age(record, bands, minimum=None, maximum=None):
@@ -109,14 +119,21 @@ def filter_records(
     member=None,
     today=None,
 ):
-    from app.modules.storage.catalog import card
-
     today = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
     for record in records:
-        if status and notice_status(card(record), record, today) != status:
-            continue
         if not matches_age(record, age_bands, age_min, age_max):
             continue
+        if status:
+            draft = record["draft_json"]
+            schedule = resolve_calendar_schedule(
+                record["source_json"]["fields"],
+                draft.get("overview") or {},
+                draft.get("application_calendar"),
+                reference_year=today.year,
+                reference_month=today.month,
+            )
+            if notice_status(schedule, record, today) != status:
+                continue
         if eligible_only and not matches_eligibility(record, member, today):
             continue
         yield record

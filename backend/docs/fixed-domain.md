@@ -14,11 +14,13 @@
 
 ## 실행
 
-Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론트 빌드 후 고정 도메인 서버를 실행합니다.
+Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론트 빌드 후 프로젝트 MySQL을 먼저 켜고 연결 준비를 확인한 뒤 고정 도메인 서버를 실행합니다.
+이미 실행 중인 MySQL은 재사용하며 DB 시작에 실패하면 서버 시작·재시작을 중단합니다. 최초 DB 구성은 `backend/scripts/setup-mysql.ps1`로 수행합니다.
 같은 고정 주소의 터널이 이미 실행 중이면 터널을 유지하면서 API·QR·웹을 다시 실행합니다.
 관리자 콘솔에서 서버를 중지하여 터널만 남은 경우에도 같은 실행 파일로 복구할 수 있습니다.
 창을 닫아도 실행을 유지합니다. 종료는 루트에서 `start-server-prod.bat stop`, 상태 확인은
-`start-server-prod.bat status`를 실행합니다. 로컬 API만 실행할 때는 `start-server-dev.bat`를 사용합니다.
+`start-server-prod.bat status`를 실행합니다. 종료·상태 확인 명령은 MySQL을 제어하지 않습니다.
+로컬 API만 실행할 때는 `start-server-dev.bat`를 사용하며 이 파일도 MySQL을 먼저 켭니다.
 
 저장소 루트에서:
 

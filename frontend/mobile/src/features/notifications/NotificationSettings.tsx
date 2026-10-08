@@ -1,6 +1,13 @@
 import { useI18n } from "../../i18n/context";
 import { View } from "react-native";
-import { Button, Card, Copy, Notice, Toggle, colors } from "../../components/ui";
+import {
+  Button,
+  Card,
+  Copy,
+  Notice,
+  Toggle,
+  colors,
+} from "../../components/ui";
 import { useSession } from "../../services/runtime";
 import { useNotifications } from "./context";
 import { notificationTypes } from "./model";

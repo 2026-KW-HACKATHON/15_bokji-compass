@@ -50,6 +50,14 @@ echo Building the public website...
 call npm.cmd --prefix "frontend\web" run build
 if errorlevel 1 goto :failed
 
+echo Starting the project MySQL database...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" start
+if errorlevel 1 (
+    echo [ERROR] MySQL startup failed. Public server startup was cancelled.
+    goto :failed
+)
+echo.
+
 echo Starting the public servers; an existing fixed-domain tunnel will be reused...
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" start -TunnelMode fixed -ReloadIfRunning
 set "server_exit_code=%errorlevel%"
@@ -63,7 +71,7 @@ echo.
 echo Public address: https://bokji.commitnaru.com
 echo The servers keep running after this window closes.
 echo To stop them: start-server-prod.bat stop
-echo MySQL must be running separately.
+echo MySQL is running and will remain running when the public servers stop.
 goto :finished
 
 :stop

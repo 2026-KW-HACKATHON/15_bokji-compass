@@ -173,9 +173,51 @@ def write_application_env(state: dict) -> None:
     print("Project DB settings saved to ignored backend/.env; passwords were not printed.")
 
 
+def inspect_instance() -> dict:
+    """Read ownership and readiness without creating files or changing configuration."""
+    result = {"configured": STATE.is_file(), "controllable": False,
+              "running": False, "ready": False}
+    if not result["configured"]:
+        return result
+    state = json.loads(STATE.read_text(encoding="utf-8"))
+    from app.core.config import load_settings
+
+    settings = load_settings()
+    result["controllable"] = bool(
+        settings.db_enabled and settings.db_host in {"127.0.0.1", "localhost"}
+        and settings.db_port == state["port"]
+    )
+    if not result["controllable"]:
+        return result
+    result["running"] = port_open(state["port"])
+    if result["running"]:
+        try:
+            with connect(state) as connection:
+                verify_instance(connection)
+            result["ready"] = True
+        except (RuntimeError, pymysql.MySQLError):
+            result["controllable"] = False
+    return result
+
+
+def stop(state: dict) -> None:
+    if port_open(state["port"]):
+        with connect(state) as connection:
+            verify_instance(connection)
+            with connection.cursor() as cursor:
+                cursor.execute("SHUTDOWN")
+        print("Project MySQL shutdown requested.")
+        deadline = time.monotonic() + 20
+        while port_open(state["port"]):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Shutdown is still pending; no process was force-killed.")
+            time.sleep(0.25)
+    print("Project MySQL is stopped.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["setup", "start", "stop", "status"])
+    parser.add_argument("action", choices=["setup", "start", "stop", "restart", "status", "inspect"])
     parser.add_argument("--mysqld")
     parser.add_argument("--port", type=int, default=3307)
     arguments = parser.parse_args()
@@ -183,6 +225,13 @@ def main() -> None:
         parser.error("This helper is for native Windows only")
     if not 1024 <= arguments.port <= 65535:
         parser.error("Use an unprivileged TCP port from 1024 to 65535")
+    if arguments.action == "inspect":
+        try:
+            print(json.dumps(inspect_instance()))
+        except (RuntimeError, OSError, ValueError, pymysql.MySQLError):
+            print(json.dumps({"configured": STATE.is_file(), "controllable": False,
+                              "running": False, "ready": False, "error": "inspection_failed"}))
+        return
     INSTANCE.mkdir(parents=True, exist_ok=True)
     lock = INSTANCE / "operation.lock"
     try:
@@ -196,28 +245,18 @@ def main() -> None:
             state = initialize(find_mysqld(arguments.mysqld), arguments.port)
         else:
             raise RuntimeError("Run setup-mysql.ps1 first.")
-        if arguments.action in {"setup", "start"}:
+        if arguments.action in {"setup", "start", "restart"}:
+            if arguments.action == "restart":
+                stop(state)
             start(state)
             if arguments.action == "setup":
                 write_application_env(state)
+        elif arguments.action == "stop":
+            stop(state)
         elif port_open(state["port"]):
             with connect(state) as connection:
                 verify_instance(connection)
-                if arguments.action == "stop":
-                    with connection.cursor() as cursor:
-                        cursor.execute("SHUTDOWN")
-                    print("Project MySQL shutdown requested.")
-                else:
-                    print(f"Project MySQL running on 127.0.0.1:{state['port']}.")
-            if arguments.action == "stop":
-                deadline = time.monotonic() + 20
-                while port_open(state["port"]):
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError(
-                            "Shutdown is still pending; no process was force-killed."
-                        )
-                    time.sleep(0.25)
-                print("Project MySQL is stopped.")
+                print(f"Project MySQL running on 127.0.0.1:{state['port']}.")
         else:
             print("Project MySQL is stopped.")
     except (RuntimeError, OSError, pymysql.MySQLError, subprocess.SubprocessError) as exc:

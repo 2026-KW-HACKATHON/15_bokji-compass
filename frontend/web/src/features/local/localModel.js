@@ -70,6 +70,8 @@ export function parseLocalArea(text, fallbackRegion = '') {
   if (typeof text !== 'string' || !text.trim() || text.length > 200) return null;
   if (/[\u0000-\u001f\u007f]/.test(text)) return null;
   const tokens = text.trim().split(/\s+/);
+  if (tokens[0] === '전국')
+    return tokens.length === 1 ? { region: '전국', district: '', neighborhood: '' } : null;
   const explicitRegion = normalizedRegion(tokens[0]);
   const region = explicitRegion || normalizedRegion(fallbackRegion);
   if (!region) return null;

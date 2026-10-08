@@ -7,11 +7,12 @@ macOS 팀원은 [Mac 사용법](../docs/macos-development.md) 참고. 운영 서
 현재 상태: 구현. 담당자: 미정. 작업 폴더와 무관하게 backend 경로를 계산하며 외부 명령 실패는 비정상 종료로 처리합니다.
 
 Windows에서는 저장소 루트의 [`start-server-dev.bat`](../../start-server-dev.bat)를 더블클릭하면
-기존 `start.ps1`로 API 서버를 실행합니다. 실행 주소는 `backend/.env`의 설정을 사용하며
+`mysql.ps1 start`로 프로젝트 MySQL의 연결 준비를 확인한 뒤 기존 `start.ps1`로 API 서버를 실행합니다. 실행 주소는 `backend/.env`의 설정을 사용하며
 `Ctrl+C`로 종료합니다. 종료·오류 후에는 창을 유지하여 메시지를 확인할 수 있습니다.
-MySQL과 수집 worker는 별도로 실행하며, 자동 수집은 아래 스케줄 안내를 따릅니다.
+MySQL이 이미 실행 중이면 재사용하며, 시작 실패 시 API를 실행하지 않습니다. 최초 DB 구성은 `setup-mysql.ps1`로 별도 수행합니다.
+수집 worker는 별도로 실행하며, 자동 수집은 아래 스케줄 안내를 따릅니다.
 
-[`start-server-prod.bat`](../../start-server-prod.bat)는 프론트를 빌드한 뒤 `share.ps1 start -TunnelMode fixed -ReloadIfRunning`으로
+[`start-server-prod.bat`](../../start-server-prod.bat)는 프론트를 빌드하고 `mysql.ps1 start`로 프로젝트 MySQL의 연결 준비를 확인한 뒤 `share.ps1 start -TunnelMode fixed -ReloadIfRunning`으로
 8001 API·8080 웹·QR 게이트웨이·고정 도메인 터널을 실행합니다. 주소는 `https://bokji.commitnaru.com`입니다.
 빌드·터널 설정·포트·Caddy 설정 검사 후, 이 프로젝트의 `backend/server.py`로 실행한 개발 API를
 프로세스 경로와 시작 시각으로 확인하여 하위 프로세스와 함께 종료합니다. 종료에 실패하면 운영 시작을 중단합니다.
@@ -20,8 +21,10 @@ MySQL과 수집 worker는 별도로 실행하며, 자동 수집은 아래 스케
 `start-server-prod.bat status`로 상태를 확인합니다. 같은 고정 주소의 터널이 실행 중이면 터널을 유지하고
 API·QR·웹을 다시 실행합니다. 관리자 콘솔에서 서버를 중지해 터널만 남은 경우에도 같은 BAT로 복구합니다.
 다른 주소·터널 모드이거나 터널 없이 일부 서버만 남아 있으면 상태 확인 후 `stop`으로 종료하고 다시 실행합니다.
-Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰을 준비해야 하며 MySQL은 별도로 실행합니다.
+Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰과 최초 프로젝트 MySQL 구성을 준비해야 합니다.
+MySQL 시작에 실패하면 서버 시작·재시작을 중단하며, `stop`·`status`에서는 MySQL을 시작하거나 종료하지 않습니다.
 두 실행 파일 모두 `backend/.env`와 해당 DB 설정을 공유합니다. 운영용 BAT는 별도의 DB나 수집 스케줄을 만들지 않습니다.
+`start.ps1`·`share.ps1`을 직접 실행하거나 원격·별도 MySQL을 사용하면 DB 가동은 직접 관리합니다.
 
 | 진입점 | 입력 | 결과·부작용 |
 | --- | --- | --- |

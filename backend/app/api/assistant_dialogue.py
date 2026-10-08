@@ -1,16 +1,20 @@
 """Guided, deterministic conversations; only explicitly confirmed facts can be saved."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import re
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import Field, StrictBool, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api.auth import Service, guard
+from app.api.auth import Service, guard, ip
 from app.api.members import Member
 from app.api.monitoring import Store, refresh_snapshot, snapshot
 from app.api.policies import get_repository
 from app.contracts.parsing import StrictModel
 from app.modules.assistant.dialogue import respond
 from app.modules.assistant.dialogue_models import DialogueError, DialogueInput
+from app.modules.auth.service import digest
 from app.modules.monitoring.models import MonitoringProfile
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"],
@@ -28,6 +32,36 @@ class SaveDialogueProfile(StrictModel):
         if value is not True:
             raise ValueError("확인한 생활 정보의 저장에 동의해 주세요.")
         return value
+
+
+@router.post("/chat/dialogue")
+def guest_chat(data: DialogueInput, request: Request, response: Response, service: Service):
+    """Ordinary guest chatbot: deterministic guidance, no AI or account/profile access.
+
+    The authenticated AI-assistant dialogue and profile-save routes stay unchanged.
+    A separate opaque guest cookie isolates temporary facts between browsers.
+    """
+    guest = request.cookies.get("bokji_chat", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", guest):
+        guest = secrets.token_urlsafe(32)
+    service.throttle("assistant-dialogue:guest:" + ip(request), 60, 60)
+    try:
+        repository = get_repository(request)
+    except HTTPException as exc:
+        if exc.status_code != 503:
+            raise
+        repository = None
+    except SQLAlchemyError:
+        repository = None
+    try:
+        result = respond(repository, {"id": "guest:" + digest(guest), "age": None, "region": None},
+                         data, request.app.state.dialogue_store)
+    except DialogueError as exc:
+        raise HTTPException(exc.status_code, exc.message) from None
+    result["can_save_profile"] = False
+    response.set_cookie("bokji_chat", guest, max_age=1800, httponly=True,
+                        secure=request.url.scheme == "https", samesite="lax")
+    return result
 
 
 @router.post("/dialogue")

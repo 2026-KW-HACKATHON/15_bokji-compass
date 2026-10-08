@@ -21,6 +21,14 @@ if not exist "backend\.env" (
     goto :failed
 )
 
+echo Starting the project MySQL database...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" start
+if errorlevel 1 (
+    echo [ERROR] MySQL startup failed. The API server was not started.
+    goto :failed
+)
+echo.
+
 echo Starting the Bokji Compass development API server...
 echo The server address is configured in backend\.env.
 echo Start the frontend separately and open its address in your browser.

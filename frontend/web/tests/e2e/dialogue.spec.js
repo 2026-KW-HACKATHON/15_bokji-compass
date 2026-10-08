@@ -35,6 +35,29 @@ async function start(panel, question = '리모델링 지원금을 받을 수 있
   await panel.getByRole('button', { name: '상담 시작하기', exact: true }).click();
 }
 
+test('guests can start and continue chatbot guidance without account storage', async ({ page }) => {
+  await mockPolicyApi(page);
+  await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401, json: {} }));
+  let turns = 0;
+  await page.route('**/api/v1/assistant/chat/dialogue', (route) => {
+    turns++;
+    const body = route.request().postDataJSON();
+    return route.fulfill({ json: body.answer ? completeDialogue() : blankDialogue() });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'AI 챗봇 열기' }).click();
+  const panel = page.getByRole('dialog', { name: '복지나침반 AI 챗봇' });
+  await panel.getByRole('button', { name: /생활 상황으로 상담하고 싶어요/ }).click();
+  await expect(panel.getByRole('link', { name: '로그인', exact: true })).toHaveCount(0);
+  await start(panel);
+  await panel.getByRole('button', { name: '본인', exact: true }).click();
+  await expect(panel.getByText(/1920년 건축으로 확인/)).toBeVisible();
+  expect(turns).toBe(2);
+  await expect(
+    panel.getByRole('button', { name: '확인한 정보 저장하기', exact: true }),
+  ).toHaveCount(0);
+});
+
 test('missing facts are answered in the conversation and storing only confirmed facts is opt in', async ({
   page,
 }, testInfo) => {

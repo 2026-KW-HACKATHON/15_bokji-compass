@@ -39,13 +39,20 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('guest question entry requires login', async ({ page }) => {
+test('guest can choose FAQs and send questions without login', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401, json: {} }));
+  await page.route('**/api/v1/assistant/questions', (route) =>
+    route.fulfill({ json: { ...faqItems[0].response, answer: '비로그인 공고 답변입니다.' } }),
+  );
   await page.goto('/#explore');
   await page.getByRole('button', { name: policy.title, exact: true }).click();
   const section = page.getByRole('region', { name: '이 공고에 대해 질문하기' });
-  await expect(section.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
-  await expect(section.getByRole('textbox')).toHaveCount(0);
+  await expect(section.getByRole('link', { name: '로그인', exact: true })).toHaveCount(0);
+  await section.getByRole('group', { name: '자주 묻는 질문' }).getByRole('button').first().click();
+  await expect(section.getByText('준비된 지원 내용 안내입니다.', { exact: true })).toBeVisible();
+  await section.getByRole('textbox', { name: '궁금한 내용' }).fill('지원 내용은?');
+  await section.getByRole('button', { name: '질문 보내기' }).click();
+  await expect(section.getByText('비로그인 공고 답변입니다.', { exact: true })).toBeVisible();
 });
 
 test('member asks a grounded question and closing clears the conversation', async ({ page }) => {

@@ -1,3 +1,24 @@
+.monitoring-parent,
+.monitoring-page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.monitoring-parent {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.monitoring-page-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .monitoring-panel {
   margin: 28px 0;
   padding: 28px;

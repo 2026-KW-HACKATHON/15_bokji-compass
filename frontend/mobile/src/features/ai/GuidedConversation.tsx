@@ -267,7 +267,7 @@ export function GuidedConversation({
                 />
               </View>
             )}
-            {saved && <Notice>{saved}</Notice>}
+            {!!saved && <Notice>{saved}</Notice>}
             <Button
               secondary
               label="새 대화 시작"
@@ -284,7 +284,7 @@ export function GuidedConversation({
             />
           </>
         )}
-        {error && <Notice>{error}</Notice>}
+        {!!error && <Notice>{error}</Notice>}
         {busy && (
           <>
             <Notice>내용을 확인하고 있어요.</Notice>

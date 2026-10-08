@@ -1,5 +1,13 @@
 # 공고 저장소
 
+2026-10-08 조회 성능·상태 보완: `catalog.list_policies(repository, ...)`는 자연어
+순위 계산이 없는 상세 필터 조회에서 전체 건수를 끝까지 계산하되 요청한 페이지의 행만
+보관합니다. 반환값 `{items,total,nextCursor,search?}`와 정렬은 유지합니다.
+`explorer_filters.filter_records(records, ..., today=None)`는 나이 조건을 먼저 확인하고
+상태 필터에 필요한 일정만 계산하는 iterator입니다. `notice_status(policy,record,today)`는
+실제 신청 회차별로 판단하며, 다음 회차를 기다리는 공백은 upcoming을 반환합니다.
+DB 쓰기·외부 호출은 없습니다. [측정·검증 기록](../../../docs/catalog-performance.md).
+
 2026-10-08 일정 보완: `application_schedule(value,reference_year=None,reference_month=None)`는
 매년/매월 월말·연도 없는 월일·분기/반기·복수 회차를 계산합니다. `applicationWindows`는
 회차 사이 공백을 유지합니다. `schedule_rules.build_calendar_rule(period,expression,fields)`는
@@ -30,6 +38,11 @@ other 요건으로 보완합니다. `audience.audience_text(fields,overview,edit
 수동 개정이 있는 공고는 이후 AI 자동 저장·자동 승인이 공개 개정이나 호환 공고를 덮어쓰지
 않습니다. 명시적 관리자 공개는 가능합니다. 새 스키마 마이그레이션·LLM 호출은 필요 없습니다.
 공개 상세는 본문·원문 항목과 신청 방법·문의처·성별·기타 조건·게시/수정일을 반환합니다.
+2026-10-08 `catalog.card(record, full=False)`는 표시 계층의 `format_source_fields`를 사용해
+법령·문의처·신청 방법·첨부 파일·관련 링크의 JSON 객체/배열을 줄별 안내로 반환합니다.
+`full=True`의 `sourceFields`도 정제된 `dict[str,str]`이며 원문 필드 키는 유지합니다.
+검증된 개요에 JSON 문자열이 남아 있으면 같은 처리를 적용합니다. 저장된 원문·개요·인용과
+신청 캘린더/지급일 해석은 보존합니다. [변환 계약·검증](../../../docs/notice-source-fields.md).
 목록·캘린더에는 긴 원문을 포함하지 않습니다. 관리자 요약은 표시 문체 변환보다 우선합니다.
 
 2026-10-06 공고 표시: `catalog.card(record)`는 원천 `purpose_summary`를 목록 설명(`summary`)에

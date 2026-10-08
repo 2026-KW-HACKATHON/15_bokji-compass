@@ -10,7 +10,6 @@ const loadFaqs = createFaqApi({ baseUrl: appConfig.apiBaseUrl });
 
 export default function PolicyQuestion({
   revisionId,
-  user,
   variant,
   initialFaqId,
   historyEntry,
@@ -39,7 +38,7 @@ export default function PolicyQuestion({
     }
   }, [answer]);
   useEffect(() => {
-    if (!user || !revisionId) return;
+    if (!revisionId) return;
     const controller = new AbortController();
     setFaqState('loading');
     setFaqs([]);
@@ -63,7 +62,7 @@ export default function PolicyQuestion({
         if (!controller.signal.aborted) setFaqState('error');
       });
     return () => controller.abort();
-  }, [revisionId, user?.id, faqRetry, initialFaqId]);
+  }, [revisionId, faqRetry, initialFaqId]);
 
   function selectFaq(item) {
     interacted.current = true;
@@ -106,12 +105,7 @@ export default function PolicyQuestion({
   return (
     <section className="policy-question" aria-labelledby={`${id}-heading`}>
       <h3 id={`${id}-heading`}>{t('이 공고에 대해 질문하기')}</h3>
-      {!user ? (
-        <p>
-          <a href="#login">{t('로그인')}</a>
-          {t('하면 공고 내용을 물어볼 수 있어요.')}{' '}
-        </p>
-      ) : !revisionId ? (
+      {!revisionId ? (
         <p>{t('전체 공고에서 최신 공고를 다시 열면 질문할 수 있어요.')}</p>
       ) : (
         <>

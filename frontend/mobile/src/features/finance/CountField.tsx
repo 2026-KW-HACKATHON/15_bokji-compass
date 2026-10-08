@@ -42,9 +42,14 @@ export function CountField({
   return (
     <View style={{ gap: 10 }}>
       <Copy>{label}</Copy>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t(label)}
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+      >
         {allowUnknown && (
           <Choice
+            compact
             label="모름"
             selected={count === null && !expanded && !manual}
             onPress={() => pick(null)}
@@ -53,6 +58,7 @@ export function CountField({
         )}
         {choices.common.map((n: number) => (
           <Choice
+            compact
             key={n}
             label={n === 0 ? "없음" : t("{count}명", { count: n })}
             selected={!grouped && count === n}
@@ -62,6 +68,7 @@ export function CountField({
         ))}
         {choices.grouped && (
           <Choice
+            compact
             label={t("{count}명 이상", { count: groupFrom })}
             selected={grouped}
             onPress={() => {
@@ -77,9 +84,14 @@ export function CountField({
           <Copy muted>
             {t("{label}를 선택해 주세요.", { label: t(exactLabel) })}
           </Copy>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t(exactLabel)}
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+          >
             {choices.exact.map((n: number) => (
               <Choice
+                compact
                 key={n}
                 label={t("{count}명", { count: n })}
                 selected={!direct && count === n}

@@ -1,16 +1,21 @@
 # 우리 동네 복지
 
-담당: 프론트엔드. `#local`에서 입력한 생활지역의 공식 생활서비스를 안내합니다.
-회원의 기본 주소에서 시·도/시·군·구를 우선 사용하며 다른 생활지역을 직접 검색할 수 있습니다.
+담당: 프론트엔드. `#local`에서 입력한 생활지역의 공식 생활서비스를 공개 API로 조회합니다.
+주소가 없으면 서울 노원구 월계1동을 중점 지역으로 시작합니다. 회원 주소나 추천 지역이 있으면 이를 우선하며 다른 생활지역도 직접 검색할 수 있습니다.
 상세 주소·위치 권한·브라우저 저장은 사용하지 않습니다.
 
-- `LocalWelfarePage({user, profile, onSearch, initialSelection?, onSelectionChange?})`: 지역 입력, 분야 선택, 공식 서비스 카드와 공고 검색 연결. 선택한 지역·분야는 App의 계정별 메모리로 페이지 왕복 동안 유지하고 계정 전환 시 비웁니다.
+- `LocalWelfarePage({user, profile, repository, onSearch, initialSelection?, onSelectionChange?})`: 지역·분야·동 중심 범위·등록 지역 선택, 로딩/빈 목록/오류/재시도와 공식 서비스 카드. 선택은 App 계정별 메모리로 왕복 중 유지하고 계정 전환 시 비웁니다.
+- `createLocalServiceRepository({request}).list(filters,{signal})` → 검증한 `{items,total,coverage,focus,checkedAt}`. `/v1/local-services`에 지역·분야·범위만 전달하며 상세주소·우편번호·임의 필드는 보내지 않습니다.
+- `parseLocalServicePage(value)` → URL·날짜·개수·범위를 검사한 응답. 잘못된 응답은 `invalid_response` 오류입니다. 장애를 예시 서비스로 대체하지 않습니다.
 - `parseLocalArea(text, fallbackRegion)` → `{region,district,neighborhood}` 또는 `null`. 명시한 행정구역만 추출합니다.
-- `initialLocalArea(user, profile)` → 저장 주소 우선, 불완전한 주소는 시·도까지만 사용.
-- `filterLocalServices(services, area, category='all')` → 시·도와 시·군·구 정확 일치 목록. 동 입력은 구 전체 서비스를 숨기지 않습니다.
+- `initialLocalArea(user, profile)` → 저장 주소 우선, 불완전한 주소는 시·도까지만 사용. `startingLocalArea()`는 지역 미입력 때만 `priorityLocalArea`(서울 노원구 월계1동)를 사용합니다.
 - `localPolicySearch(area)` → 기존 공고 탐색용 `{query,region}` 또는 `null`. 지역명이 언급된 공고 검색이며 이용 자격 판정이 아닙니다.
-- `localServices.js`: 공식 기관 안내를 확인해 등록한 소규모 카탈로그. 실제 운영 여부를 실시간 조회하지 않습니다.
+- 지역별 매칭·정렬·기한 지난 사업 제외는 서버 책임입니다. 프론트 고정 `localServices.js`를 제거했습니다.
 
-외부 호출: 이 페이지 자체는 API를 호출하지 않습니다. 공식 링크는 기관 사이트를 열고, 공고 찾기는 기존 공개 API 기반 `#explore`로 이동합니다. 입력 전체나 상세 주소를 URL/API/저장소로 전달하지 않습니다.
+외부 호출: 공개 `/v1/local-services`로 검증된 서버 카탈로그를 조회합니다. 공식 링크는 기관 사이트를 열고 공고 찾기는 `#explore`로 이동합니다. 입력 전체나 상세 주소를 URL/API/저장소로 전달하지 않습니다.
+
+`scope=all`은 선택 지역의 동·구·광역·전국 범위를 합치고, `scope=neighborhood`는 공식 자료로 해당 동과의 관계를 확인한 안내만 표시합니다. 행정동·법정동과 시설 위치·거주지 자격을 구분합니다. 전국·세종도 처리합니다. 새 지역은 서버의 검증된 JSON을 추가하고 화면을 수정하지 않습니다.
+
+E2E 지역서비스는 실제 테스트 서버 카탈로그를 조회하며 다른 공고 API만 테스트 대역입니다. [백엔드 계약](../../../../../backend/docs/local-services.md).
 
 검증: `npm.cmd test`, `npm.cmd run build`, `npx.cmd playwright test tests/e2e/local-welfare.spec.js tests/e2e/portal-navigation.spec.js`. [기능 기록](../../../../docs/local-welfare.md), [출처 기록](../../../../docs/local-welfare-sources.md).

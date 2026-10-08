@@ -169,7 +169,7 @@ export function ProfileEditor({
         disabled={busy}
         onChange={setConsent}
       />
-      {error && <Notice>{error}</Notice>}
+      {!!error && <Notice>{error}</Notice>}
       <Button
         label="생활정보와 안내 설정 저장"
         disabled={!consent || busy}

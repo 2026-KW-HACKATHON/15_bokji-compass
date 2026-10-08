@@ -8,7 +8,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { router } from "expo-router";
 import { Button, Card, Copy, Field, Notice, colors } from "../../components/ui";
 import { useRuntime, useSession } from "../../services/runtime";
 import { useAssistant } from "./context";
@@ -24,7 +23,7 @@ type Answer = ReturnType<typeof parseAnswer>;
 type Faqs = ReturnType<typeof parseFaqs>;
 
 export function AssistantChat() {
-  const { policy, choosePolicy, closePanel } = useAssistant();
+  const { policy, choosePolicy } = useAssistant();
   const { configError, easy } = useRuntime();
   const auth = useSession();
   const scroll = useRef<ScrollView>(null);
@@ -45,17 +44,6 @@ export function AssistantChat() {
       <OriginalContentNotice />
       {configError ? (
         <Notice>{configError}</Notice>
-      ) : auth.status !== "signedIn" || !auth.token ? (
-        <Card>
-          <Copy>로그인하면 웹과 같은 공고 챗봇을 이용할 수 있어요.</Copy>
-          <Button
-            label="로그인하러 가기"
-            onPress={() => {
-              closePanel();
-              router.navigate("/account");
-            }}
-          />
-        </Card>
       ) : !policy ? (
         <PolicyChooser />
       ) : (
@@ -224,7 +212,7 @@ function QuestionPanel({
   revisionId,
   onAnswer,
 }: {
-  token: string;
+  token: string | null;
   revisionId: string;
   onAnswer: () => void;
 }) {
@@ -254,7 +242,7 @@ function QuestionPanel({
       .catch((err) => {
         if (!controller.signal.aborted) {
           setFaqState("error");
-          if (err.status === 401) void session.invalidate(token);
+          if (err.status === 401 && token) void session.invalidate(token);
         }
       });
     return () => controller.abort();
@@ -306,7 +294,7 @@ function QuestionPanel({
                 ? "답변이 늦어지고 있어요. 잠시 후 다시 질문해 주세요."
                 : failure.message,
         );
-        if (failure.status === 401) void session.invalidate(token);
+        if (failure.status === 401 && token) void session.invalidate(token);
       }
     } finally {
       if (active.current === controller) {

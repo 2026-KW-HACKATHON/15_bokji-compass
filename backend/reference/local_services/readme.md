@@ -11,6 +11,10 @@
 - `area`, `audience`, `cost`, `usage`
 - `sourceName`, `sourceUrl`, `checkedAt`, `sourcePublishedAt`, `evidence`
 
+선택 필드 `availableUntil`은 공식 종료일(YYYY-MM-DD) 또는 null입니다. 날짜가 알려지면
+서버가 Asia/Seoul 기준 종료일 다음 날부터 공개 목록과 통계에서 제외합니다. 누락/null은
+종료일을 알 수 없다는 뜻이며 영구 운영을 보증하지 않습니다.
+
 `scope`는 national/province/district/neighborhood이며 전국은 region `전국`, 시도/전국 범위는
 district `""`입니다. 동네 범위는 동·읍·면 이름 배열과 administrative/legal 구분이 필수입니다.
 다른 범위에는 neighborhoods `[]`, neighborhoodType `null`을 씁니다. focusAreas가 없으면

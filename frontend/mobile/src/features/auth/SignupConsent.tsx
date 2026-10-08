@@ -59,6 +59,8 @@ export function SignupConsent({
         accessibilityRole="checkbox"
         accessibilityLabel={label}
         accessibilityState={{ checked: value, disabled: busy }}
+        aria-checked={value}
+        aria-disabled={busy}
         disabled={busy}
         onPress={() => change(!value)}
         style={{
@@ -72,7 +74,20 @@ export function SignupConsent({
           borderRadius: easy ? 8 : 14,
         }}
       >
-        <View accessible={false} aria-hidden style={{ width: 26, height: 26, borderRadius: 5, borderWidth: 2, borderColor: value ? colors.green : colors.easyLine, alignItems: "center", justifyContent: "center", backgroundColor: value ? colors.mint : colors.surface }}>
+        <View
+          accessible={false}
+          aria-hidden
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 5,
+            borderWidth: 2,
+            borderColor: value ? colors.green : colors.easyLine,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: value ? colors.mint : colors.surface,
+          }}
+        >
           {value && <Icon name="check" size={20} color={colors.green} />}
         </View>
         <View style={{ flex: 1 }}>

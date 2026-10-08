@@ -2,7 +2,7 @@ import { useI18n } from "../../i18n/context";
 import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { Icon, IconName } from "../../components/Icon";
+import { EasyIconTile, Icon, IconName } from "../../components/Icon";
 import { colors } from "../../components/theme";
 import { useRuntime } from "../../services/runtime";
 import { parsePolicy } from "./model";
@@ -49,13 +49,13 @@ export function PolicyCard({
   return (
     <View style={[styles.card, easy && styles.easyCard]}>
       <View style={styles.top}>
-        <View style={[styles.badge, { backgroundColor: tone.background }]}>
-          <Icon name={tone.icon} size={16} color={tone.color} />
+        <View style={[styles.badge, { backgroundColor: tone.background }, easy && { width: "100%", paddingHorizontal: 0, paddingVertical: 0, gap: 12, backgroundColor: "transparent" }]}>
+          {easy ? <EasyIconTile name={tone.icon} /> : <Icon name={tone.icon} size={16} color={tone.color} />}
           <Text
             style={[
               styles.badgeText,
               { color: tone.color },
-              easy && { fontSize: 20, color: colors.ink },
+              easy && { fontSize: 22, lineHeight: 33, color: colors.ink, fontWeight: "800" },
             ]}
           >
             {policy.category}
@@ -154,16 +154,24 @@ export function PolicyFact({
   const { easy } = useRuntime();
   return (
     <View style={[styles.fact, easy && { flexWrap: "wrap" }]}>
-      <Icon name={icon} size={18} color={colors.muted} />
+      <Icon name={icon} size={easy ? 26 : 18} color={easy ? colors.easyIcon : colors.muted} strokeWidth={easy ? 2.25 : 2} />
       <Text
-        style={[styles.factLabel, easy && { fontSize: 17, lineHeight: 27 }]}
+        style={[styles.factLabel, easy && { fontSize: 20, lineHeight: 30, fontWeight: "700", color: colors.ink }]}
       >
         {label}
       </Text>
       <Text
         original
         numberOfLines={easy ? undefined : lines}
-        style={[styles.factValue, easy && { fontSize: 20, lineHeight: 30, width: "100%", flex: undefined }]}
+        style={[
+          styles.factValue,
+          easy && {
+            fontSize: 20,
+            lineHeight: 30,
+            width: "100%",
+            flex: undefined,
+          },
+        ]}
       >
         {value}
       </Text>
@@ -188,6 +196,7 @@ const styles = StyleSheet.create({
   },
   top: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   badge: {
+    maxWidth: "100%",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -195,7 +204,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
   },
-  badgeText: { fontSize: 13, fontWeight: "700" },
+  badgeText: { fontSize: 13, fontWeight: "700", flexShrink: 1 },
   region: { color: colors.muted, fontSize: 13, flexShrink: 1 },
   title: {
     color: colors.ink,

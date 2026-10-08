@@ -76,6 +76,7 @@ export function Copy({
 }
 export function Screen({ children }: React.PropsWithChildren) {
   const { easy } = useRuntime();
+  const { enabled, openChat } = useAssistant();
   const scroll = useRef<ScrollView>(null);
   return (
     <SafeAreaView
@@ -95,13 +96,16 @@ export function Screen({ children }: React.PropsWithChildren) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.page,
-            easy && { padding: 16, gap: 24, paddingBottom: 120 },
+            easy && { padding: 16, gap: 24, paddingBottom: 40 },
           ]}
         >
           <ScreenScroll.Provider value={scroll}>
             <ServerConnectionNotice />
             <OriginalContentNotice />
             {children}
+            {easy && enabled && (
+              <Button secondary label="챗봇 열기" onPress={() => openChat()} />
+            )}
           </ScreenScroll.Provider>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -145,6 +149,28 @@ function EasyModeBar() {
   const { openMenu } = useAssistant();
   const { width, fontScale } = useWindowDimensions();
   const stacked = easy || locale !== "ko" || width < 350 || fontScale > 1.2;
+  const menu = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("전체 메뉴 열기")}
+      onPress={openMenu}
+      style={{
+        minWidth: easy ? 60 : 44,
+        minHeight: easy ? 60 : 48,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: easy ? 8 : 16,
+        paddingHorizontal: 8,
+        backgroundColor: easy ? colors.surface : colors.paper,
+        borderWidth: easy ? 1 : 0,
+        borderColor: colors.easyLine,
+      }}
+    >
+      {easy ? (
+        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>메뉴</Text>
+      ) : <Icon name="menu" size={22} />}
+    </Pressable>
+  );
   return (
     <View
       style={{
@@ -154,7 +180,6 @@ function EasyModeBar() {
       }}
     >
       <View
-        key={stacked ? "stacked-header" : "inline-header"}
         style={{
           width: "100%",
           maxWidth: 680,
@@ -172,7 +197,9 @@ function EasyModeBar() {
             flexDirection: "row",
             alignItems: "center",
             gap: 6,
-            flex: stacked ? 0 : 1,
+            flexGrow: stacked ? 0 : 1,
+            flexBasis: stacked ? "auto" : 0,
+            flexShrink: 0,
             width: stacked ? "100%" : "auto",
             paddingVertical: stacked ? 6 : 0,
           }}
@@ -188,16 +215,21 @@ function EasyModeBar() {
               fontSize: easy ? 18 : 16,
               fontWeight: "800",
               color: colors.ink,
+              flexGrow: stacked ? 1 : 0,
+              flexShrink: 1,
+              flexBasis: "auto",
             }}
           >
             복지나침반
           </Text>
+          {stacked && menu}
         </View>
         <LanguageSelector compact />
         <Pressable
           accessibilityRole="switch"
           accessibilityLabel={t("쉬운 화면")}
           accessibilityState={{ checked: easy }}
+          aria-checked={easy}
           onPress={() => setEasy(!easy)}
           style={{
             flexDirection: "row",
@@ -218,33 +250,7 @@ function EasyModeBar() {
           </Text>
           <ToggleMark value={easy} />
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("전체 메뉴 열기")}
-          onPress={openMenu}
-          style={{
-            minWidth: easy ? 52 : 44,
-            minHeight: easy ? 60 : 48,
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 5,
-            borderRadius: easy ? 8 : 16,
-            paddingHorizontal: 6,
-            backgroundColor: easy ? colors.surface : colors.paper,
-            borderWidth: easy ? 1 : 0,
-            borderColor: colors.easyLine,
-          }}
-        >
-          {easy ? (
-            <Text
-              style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}
-            >
-              메뉴
-            </Text>
-          ) : (
-            <Icon name="menu" size={22} />
-          )}
-        </Pressable>
+        {!stacked && menu}
       </View>
     </View>
   );
@@ -270,7 +276,16 @@ function ToggleMark({ value }: { value: boolean }) {
         flexShrink: 0,
       }}
     >
-      <View style={{ width: 22, height: 22, borderRadius: 12, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 12,
+          backgroundColor: colors.surface,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {value && <Icon name="check" size={16} color={colors.green} />}
       </View>
     </View>
@@ -278,7 +293,13 @@ function ToggleMark({ value }: { value: boolean }) {
 }
 
 // The label and control form one large target for touch and screen readers.
-export function Toggle({ label, accessibilityLabel = label, value, onValueChange, disabled = false }: {
+export function Toggle({
+  label,
+  accessibilityLabel = label,
+  value,
+  onValueChange,
+  disabled = false,
+}: {
   label: string;
   accessibilityLabel?: string;
   value: boolean;
@@ -292,11 +313,29 @@ export function Toggle({ label, accessibilityLabel = label, value, onValueChange
       accessibilityRole="switch"
       accessibilityLabel={t(accessibilityLabel)}
       accessibilityState={{ checked: value, disabled }}
+      aria-checked={value}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={() => onValueChange(!value)}
-      style={{ minHeight: easy ? 60 : 48, padding: 12, gap: 14, flexDirection: "row", alignItems: "center", borderWidth: easy ? 1.5 : 1, borderColor: value ? colors.green : easy ? colors.easyLine : colors.line, borderRadius: easy ? 8 : 14, backgroundColor: value ? colors.mint : colors.surface }}
+      style={{
+        minHeight: easy ? 60 : 48,
+        padding: 12,
+        gap: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: easy ? 1.5 : 1,
+        borderColor: value
+          ? colors.green
+          : easy
+            ? colors.easyLine
+            : colors.line,
+        borderRadius: easy ? 8 : 14,
+        backgroundColor: value ? colors.mint : colors.surface,
+      }}
     >
-      <View style={{ flex: 1 }}><Copy>{label}</Copy></View>
+      <View style={{ flex: 1 }}>
+        <Copy>{label}</Copy>
+      </View>
       <ToggleMark value={value} />
     </Pressable>
   );
@@ -348,13 +387,11 @@ export function Details({
         >
           {label}
         </Text>
-        <Text
-          importantForAccessibility="no"
-          aria-hidden
-          style={{ fontSize: 22, color: colors.green }}
-        >
-          {open ? "−" : "+"}
-        </Text>
+        <Icon
+          name={open ? "collapse" : "expand"}
+          size={24}
+          color={colors.green}
+        />
       </Pressable>
       {open && <View style={{ gap: 12 }}>{children}</View>}
     </View>
@@ -373,7 +410,7 @@ export function ReadableText({
   const { t } = useI18n();
   const { easy } = useRuntime();
   const [open, setOpen] = useState(false);
-  const lengthy = easy && text.length > (title ? 60 : 100);
+  const lengthy = easy && !title && text.length > 100;
   return (
     <View style={{ gap: 6 }}>
       <Copy
@@ -393,7 +430,15 @@ export function ReadableText({
             action: t(open ? "접기" : "전체 보기"),
           })}
           onPress={() => setOpen(!open)}
-          style={{ minHeight: 48, justifyContent: "center" }}
+          style={{
+            minHeight: 60,
+            justifyContent: "center",
+            flexDirection: "row",
+            alignItems: "center",
+            alignSelf: "flex-start",
+            gap: 8,
+            maxWidth: "100%",
+          }}
         >
           <Text
             style={{
@@ -403,8 +448,13 @@ export function ReadableText({
               fontWeight: "600",
             }}
           >
-            {open ? "접기 −" : "전체 보기 +"}
+            {open ? "접기" : "전체 보기"}
           </Text>
+          <Icon
+            name={open ? "collapse" : "expand"}
+            size={24}
+            color={colors.green}
+          />
         </Pressable>
       )}
     </View>
@@ -430,6 +480,8 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || busy, busy }}
+      aria-disabled={disabled || busy}
+      aria-busy={busy}
       disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
@@ -455,7 +507,8 @@ export function Button({
       <Text
         original={original}
         style={{
-          color: disabled || busy ? colors.muted : secondary ? colors.ink : "#FFF",
+          color:
+            disabled || busy ? colors.muted : secondary ? colors.ink : "#FFF",
           fontSize: easy ? 20 : 16,
           lineHeight: easy ? 30 : 24,
           fontWeight: "700",
@@ -493,7 +546,12 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         style={[
           styles.input,
           easy && styles.easyInput,
-          { minHeight: Math.max(easy ? 64 : 56, (easy ? 30 : 26) * fontScale + 32) },
+          {
+            minHeight: Math.max(
+              easy ? 64 : 56,
+              (easy ? 30 : 26) * fontScale + 32,
+            ),
+          },
           focused && {
             borderColor: colors.green,
             backgroundColor: colors.surface,
@@ -548,7 +606,7 @@ export function PageHeading({
         </Text>
       )}
       <Copy title>{title}</Copy>
-      {description && <Copy muted>{description}</Copy>}
+      {!!description && <Copy muted>{description}</Copy>}
     </View>
   );
 }
@@ -559,20 +617,25 @@ export function Choice({
   selected,
   onPress,
   disabled = false,
+  compact = false,
 }: {
   label: string;
   accessibilityLabel?: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const { easy } = useRuntime();
+  const { fontScale } = useWindowDimensions();
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={t(accessibilityLabel)}
       accessibilityState={{ checked: selected, disabled }}
+      aria-checked={selected}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -588,16 +651,29 @@ export function Choice({
               : colors.line,
           backgroundColor: selected ? colors.mint : colors.surface,
           opacity: pressed ? 0.7 : 1,
-          width: easy ? "100%" : undefined,
+          width: easy ? (compact && fontScale <= 1.3 ? "47%" : "100%") : undefined,
           justifyContent: easy ? "flex-start" : "center",
         },
       ]}
     >
       {easy ? (
-        <View style={{ width: 26, height: 26, borderRadius: 14, borderWidth: 2, borderColor: selected ? colors.green : colors.easyLine, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <View
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 14,
+            borderWidth: 2,
+            borderColor: selected ? colors.green : colors.easyLine,
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
           {selected && <Icon name="check" size={18} color={colors.green} />}
         </View>
-      ) : selected && <Icon name="check" size={18} color={colors.green} />}
+      ) : (
+        selected && <Icon name="check" size={18} color={colors.green} />
+      )}
       <Text
         style={{
           color: selected ? colors.green : colors.ink,

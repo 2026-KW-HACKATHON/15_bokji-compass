@@ -78,6 +78,8 @@ test('local repository transmits only locality fields and keeps request cancella
   assert.doesNotMatch(calls[0][0], /address|postal|01234|101/);
   await repository.list({ region: '세종', scope: 'neighborhood' });
   assert.equal(new URL(calls[1][0], 'https://example.test').searchParams.get('scope'), 'all');
+  await repository.list({ region: '전국' });
+  assert.equal(new URL(calls[2][0], 'https://example.test').searchParams.get('region'), '전국');
   await assert.rejects(repository.list({ region: 'invalid', address: '서울 노원구' }), {
     code: 'invalid_region',
   });
@@ -124,4 +126,18 @@ test('malformed and unsafe public service responses fail rather than displaying 
     assert.throws(() => parseLocalServicePage(value), { code: 'invalid_response' });
   }
   assert.equal(parseLocalServicePage(page()).items[0].id, 'fixture-bus');
+  const sejong = page();
+  sejong.items[0].coverage = [
+    {
+      region: '세종',
+      district: '',
+      scope: 'neighborhood',
+      neighborhoods: ['조치원읍'],
+      neighborhoodType: 'administrative',
+    },
+  ];
+  sejong.items[0].focusAreas = [
+    { region: '세종', district: '', neighborhood: '조치원읍', neighborhoodType: 'administrative' },
+  ];
+  assert.equal(parseLocalServicePage(sejong).items[0].focusAreas[0].district, '');
 });

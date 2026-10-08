@@ -66,6 +66,7 @@ def test_liveness_is_not_database_readiness():
             "/v1/policies/{policy_key}",
             "/v1/policies/{policy_key}/translation",
             "/v1/assistant/questions",
+            "/v1/assistant/chat/dialogue",
             "/v1/assistant/dialogue",
             "/v1/assistant/dialogue/profile",
             "/v1/auth/username/check",

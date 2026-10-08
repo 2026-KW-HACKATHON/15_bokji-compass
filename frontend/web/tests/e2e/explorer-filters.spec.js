@@ -1,5 +1,45 @@
 import { test, expect } from '@playwright/test';
 import { mockPolicyApi } from '../fixtures/api.js';
+import { demoPolicies } from '../fixtures/policies.js';
+
+test('eligible policy searches include the signed-in session and public searches omit it', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await mockPolicyApi(page);
+  await context.addCookies([{ name: 'test_session', value: 'member-session', url: baseURL }]);
+  await page.route('**/v1/auth/me', (route) =>
+    route.fulfill({ json: { user: { id: 'filter-member', username: 'member', name: '회원' } } }),
+  );
+  const requests = [];
+  await page.route('**/api/v1/policies?**', async (route) => {
+    const memberOnly = new URL(route.request().url()).searchParams.get('eligible_only') === 'true';
+    const headers = await route.request().allHeaders();
+    requests.push({ memberOnly, cookie: headers.cookie || '' });
+    if (memberOnly && !headers.cookie?.includes('test_session=member-session')) {
+      await route.fulfill({ status: 401, json: { detail: '로그인이 필요해요.' } });
+      return;
+    }
+    const items = memberOnly ? demoPolicies.slice(0, 1) : demoPolicies.slice(0, 6);
+    await route.fulfill({ json: { items, total: items.length, nextCursor: null } });
+  });
+  await page.goto('/#explore');
+  await expect(page.getByRole('article')).toHaveCount(6);
+  await page.locator('.explorer-advanced > summary').click();
+  const eligible = page.getByRole('checkbox', { name: '현재 신청 가능한 공고만' });
+  await expect(eligible).toBeEnabled();
+  await eligible.check();
+  await expect(page.getByRole('article')).toHaveCount(1);
+  await eligible.uncheck();
+  await expect(page.getByRole('article')).toHaveCount(6);
+  expect(
+    requests.some((request) => request.memberOnly && request.cookie.includes('test_session=')),
+  ).toBe(true);
+  expect(
+    requests.filter((request) => !request.memberOnly).every((request) => !request.cookie),
+  ).toBe(true);
+});
 
 test('sketch layout keeps search above two quick filters and advanced filters preserve committed input', async ({
   page,

@@ -1,6 +1,7 @@
 // UI copy added by the assistant and service-introduction merge.
 // Server dialogue, policy text, form values and user input remain original content.
 const rows = `
+공고 질문과 챗봇은 로그인 없이 이용할 수 있어요. AI 복지비서는 로그인이 필요해요.|You can use policy questions and the chatbot without signing in. The AI welfare assistant requires sign-in.|公告提问和聊天机器人无需登录即可使用。AI福利助手需要登录。|Bạn có thể hỏi về thông báo và dùng chatbot mà không cần đăng nhập. Trợ lý phúc lợi AI yêu cầu đăng nhập.|公示への質問とチャットボットはログインせずに利用できます。AI福祉アシスタントにはログインが必要です。
 맞춤 지원 탐색|Find relevant support|查找适合的支持|Tìm hỗ trợ phù hợp|自分に合う支援を探す
 거주 지역과 생활정보를 바탕으로 관련 지원 공고를 확인합니다.|Find relevant support notices based on your location and circumstances.|根据您的居住地区和生活信息，查找相关支持公告。|Tìm thông báo hỗ trợ liên quan dựa trên nơi cư trú và hoàn cảnh của bạn.|居住地域や生活情報を基に、関連する支援の公示を確認します。
 부족한 정보 확인|Fill in missing details|补充所需信息|Bổ sung thông tin còn thiếu|不足している情報を確認

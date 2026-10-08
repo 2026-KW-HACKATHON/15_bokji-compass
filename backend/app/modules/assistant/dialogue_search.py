@@ -55,19 +55,13 @@ def general_candidates(repository, plan, member, profile):
                                           today=today)
         if logical is False:
             continue
-        missing_targets = matching.missing_target_requirements(
-            canonical, SourcePolicy.model_validate(record["source_json"]))
+        source = SourcePolicy.model_validate(record["source_json"])
+        missing_targets = matching.missing_target_requirements(canonical, source)
         status = ("potential_match" if comparison["status"] == "potential_match"
                   and not missing_targets and logical is True and schedule != "unknown"
                   else "needs_review")
-        questions = [f"공고의 {check['label']} 조건에 필요한 정보를 확인해 주세요."
-                     for check in comparison["checks"] if check["state"] == "unknown"]
-        if missing_targets:
-            questions.append("원문에 기재된 추가 지원대상 조건을 확인해 주세요.")
-        if not comparison["matching_enabled"] or canonical.coverage != "complete":
-            questions.append("공고의 전체 조건·예외를 공식 안내와 함께 확인해 주세요.")
-        if schedule == "unknown":
-            questions.append("신청 기간과 현재 접수 가능 여부를 확인해 주세요.")
+        questions = matching.review_questions(
+            comparison, canonical, source, schedule_status=schedule)
         # Ranking is based on an immutable revision. Recheck access after evaluation.
         current = repository.get_revision(record["revision_id"])
         if current is None or current.get("review_status") != "published":

@@ -1,5 +1,21 @@
 # 콘솔 표시
 
+## 공고 상세 JSON 표시 정제 (2026-10-08)
+
+- `public.format_source_field(value: str, field='') -> str`은 JSON 객체·배열 문자열을
+  읽기 쉬운 줄별 안내로 변환합니다. 복지로 법령은 법령명, 문의처는 `기관명: 전화번호`,
+  신청 절차는 `신청/조사 및 심사/지원 결정/서비스 제공/사후 관리/이의 신청: 안내`로 표시합니다.
+  복지로 별칭 필드와 일반 `label/url`, `name/text` 구조, 중첩 객체·배열도 처리합니다.
+  첨부 파일명·URL·전화번호·수치·항목 순서는 보존하고 공급자 코드·ID는 제외합니다.
+  일반 문자열과 유효한 JSON이 아닌 대괄호 설명은 그대로 반환합니다.
+- `public.format_source_fields(fields: dict[str,str]) -> dict[str,str]`은 위 함수를 적용하고
+  비어 있는 항목·코드만 있는 객체와 내부 `_editor_` 항목을 공개 표시에서 제외합니다.
+- 원문·해시·인용·DB는 변경하지 않고 외부 호출도 없습니다. `storage.catalog.card`가
+  목록·상세·캘린더의 표시 문자열과 상세 `sourceFields`에 공통 적용합니다.
+  신청 캘린더와 지급일 해석에는 저장된 원천 필드를 그대로 사용합니다.
+- 검증: `python -m pytest tests/test_source_field_presentation.py tests/test_notice_presentation.py`.
+  [작업 범위·검증 기록](../../../docs/notice-source-fields.md).
+
 ## 추천용 출처 지표 (2026-10-07)
 
 `public.load_popularity(repository, policy_keys) -> dict`는 수집 목록의 실제 정부24

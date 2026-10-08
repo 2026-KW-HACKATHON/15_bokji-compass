@@ -1,6 +1,7 @@
 import { categories, parsePolicy } from '../policies/policyModel.js';
 import { occupations, households } from '../profile/profileModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
+import { userReviewQuestions } from '../assistant/reviewQuestions.js';
 
 export const housingTenures = [
   ['owner', '본인 소유 주택'],
@@ -165,7 +166,10 @@ export function parseMonitoringSnapshot(value) {
       policy,
       status: candidate.status,
       reason: candidate.reason,
-      questions: [...candidate.questions],
+      questions: userReviewQuestions(
+        candidate.questions,
+        needs.find((need) => need.id === candidate.need_id)?.questions,
+      ),
       state: candidate.state,
       active: candidate.active ?? true,
       schedule_status: ['open', 'upcoming', 'unknown'].includes(candidate.schedule_status)

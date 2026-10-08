@@ -5,13 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import Field, field_validator
 
-from app.api.auth import Service, guard
-from app.api.members import Member
+from app.api.auth import Service, guard, ip
+from app.api.members import OptionalMember
 from app.api.policies import get_repository
 from app.contracts.assistance import GuidanceProfile
 from app.contracts.parsing import StrictModel
 from app.modules.assistant import public
-from app.modules.assistant.faq import prepared_faqs
+from app.modules.assistant.faq import answer_public_question, prepared_faqs
 from app.modules.auth.ai_privacy import require_member_ai_consent
 from app.modules.llm.public import CodexRunError
 
@@ -31,7 +31,7 @@ class QuestionInput(StrictModel):
 
 
 @router.get("/faqs")
-def faqs(request: Request, member: Member, revision_id: Annotated[str, Query(
+def faqs(request: Request, revision_id: Annotated[str, Query(
         pattern=r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$")]):
     repository = get_repository(request)
     record = repository.get_revision(revision_id)
@@ -44,7 +44,16 @@ def faqs(request: Request, member: Member, revision_id: Annotated[str, Query(
 
 
 @router.post("/questions")
-def question(data: QuestionInput, request: Request, member: Member, service: Service):
+def question(data: QuestionInput, request: Request, member: OptionalMember, service: Service):
+    if member is None:
+        # Ordinary guest chat reads public source text only. External AI and member
+        # context still require the existing authenticated AI-consent check below.
+        repository = get_repository(request)
+        record = repository.get_revision(data.revision_id)
+        if record is None or record["review_status"] != "published":
+            raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
+        service.throttle("assistant:guest:" + ip(request), 6, 60)
+        return answer_public_question(record, data.revision_id, data.question)
     # Authenticate before even reflecting the policy database or invoking the model.
     require_member_ai_consent(service, member["id"], request.app.state.settings)
     repository = get_repository(request)

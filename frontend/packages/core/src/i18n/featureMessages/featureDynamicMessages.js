@@ -1,4 +1,40 @@
 export const featureDynamicMessages = {
+  "신청 시작까지 D-{count}": {
+    en: "Until applications open: D-{count}",
+    zh: "距申请开始 D-{count}",
+    vi: "Đến ngày mở đăng ký D-{count}",
+    ja: "申請開始まで D-{count}",
+  },
+  "신청 마감까지 D-{count}": {
+    en: "Until applications close: D-{count}",
+    zh: "距申请截止 D-{count}",
+    vi: "Đến hạn đăng ký D-{count}",
+    ja: "申請締切まで D-{count}",
+  },
+  "신청 시작 D-Day": {
+    en: "Applications open today · D-Day",
+    zh: "申请今天开始 · D-Day",
+    vi: "Hôm nay mở đăng ký · D-Day",
+    ja: "本日申請開始 · D-Day",
+  },
+  "신청 마감 D-Day": {
+    en: "Applications close today · D-Day",
+    zh: "申请今天截止 · D-Day",
+    vi: "Hôm nay hết hạn đăng ký · D-Day",
+    ja: "本日申請締切 · D-Day",
+  },
+  "신청 시작까지 {count}일 남음": {
+    en: "{count} days until applications open",
+    zh: "距申请开始还有{count}天",
+    vi: "Còn {count} ngày đến khi mở đăng ký",
+    ja: "申請開始まであと{count}日",
+  },
+  "오늘 신청 시작": {
+    en: "Applications open today",
+    zh: "申请今天开始",
+    vi: "Hôm nay mở đăng ký",
+    ja: "本日申請開始",
+  },
   "일정 확인 출처": {
     en: "Verified schedule source",
     zh: "日程核实来源",
@@ -794,6 +830,12 @@ export const featureDynamicMessages = {
     zh: "申请前需进一步确认的条件",
     vi: "Điều kiện cần kiểm tra trước khi đăng ký",
     ja: "申請前に確認する条件",
+  },
+  "신청 전 확인사항": {
+    en: "Before you apply",
+    zh: "申请前须知",
+    vi: "Lưu ý trước khi đăng ký",
+    ja: "申請前の確認事項",
   },
   제목: {
     en: "Title",

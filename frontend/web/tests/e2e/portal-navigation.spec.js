@@ -30,7 +30,8 @@ test('full menu groups the calculator and separates assistant destinations', asy
     'href',
     '#assistant-overview',
   );
-  await expect(ai.getByRole('link', { name: '이용 안내', exact: true })).toHaveAttribute(
+  const home = panel.getByRole('region', { name: '홈', exact: true });
+  await expect(home.getByRole('link', { name: '서비스 안내', exact: true })).toHaveAttribute(
     'href',
     '#guide',
   );
@@ -57,7 +58,7 @@ test('keyboard and touch controls close the menu and keep destinations accessibl
   await toggle.focus();
   await toggle.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  const guide = nav.getByRole('link', { name: '이용 안내', exact: true });
+  const guide = nav.getByRole('link', { name: '서비스 안내', exact: true });
   await guide.focus();
   await guide.press('Escape');
   await expect(nav.locator('.portal-mega-menu')).toBeHidden();
@@ -142,7 +143,9 @@ test('all languages and easy mode fit narrow viewports with a scrollable submenu
   const selector = page.locator('.language-selector select');
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch').click();
-    const toggle = page.locator(easy ? '.easy-menu-toggle' : '.portal-submenu-toggle').first();
+    const toggle = easy
+      ? page.locator('.easy-menu-toggle')
+      : page.locator('.portal-submenu-toggle').first();
     const panel = page.locator(easy ? '.easy-menu-panel' : '.portal-mega-menu');
     for (const language of ['ko', 'en', 'zh', 'vi', 'ja']) {
       await selector.selectOption(language);

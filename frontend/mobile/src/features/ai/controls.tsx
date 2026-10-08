@@ -3,10 +3,11 @@ import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { Button, Choice, Copy, Details, colors } from "../../components/ui";
-import { Icon } from "../../components/Icon";
+import { EasyIconTile, Icon } from "../../components/Icon";
 import { useRuntime } from "../../services/runtime";
 import { candidateStates } from "./monitoringModel";
 import { Candidate, Policy } from "./types";
+import { useI18n } from "../../i18n/context";
 
 export function Consent({
   label,
@@ -20,10 +21,14 @@ export function Consent({
   disabled?: boolean;
 }) {
   const { easy } = useRuntime();
+  const { t } = useI18n();
   return (
     <Pressable
       accessibilityRole="checkbox"
+      accessibilityLabel={t(label)}
       accessibilityState={{ checked: value, disabled }}
+      aria-checked={value}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={() => onChange(!value)}
       style={{
@@ -35,10 +40,13 @@ export function Consent({
         borderRadius: easy ? 8 : 14,
         minHeight: easy ? 60 : 52,
         padding: 14,
-        opacity: disabled ? 0.5 : 1,
+        backgroundColor: disabled ? "#E2E7EF" : colors.surface,
       }}
     >
       <View
+        accessible={false}
+        aria-hidden
+        importantForAccessibility="no-hide-descendants"
         style={{
           width: 24,
           height: 24,
@@ -48,6 +56,7 @@ export function Consent({
           backgroundColor: value ? colors.green : "#FFF",
           alignItems: "center",
           justifyContent: "center",
+          flexShrink: 0,
         }}
       >
         {value && <Icon name="check" size={18} color="#FFF" />}
@@ -78,10 +87,11 @@ export function Options({
   onChange: (value: unknown) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <View style={{ gap: 9 }}>
       <Copy>{label}</Copy>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t(label)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {options.map(([key, text]) => (
           <Choice
             key={String(key)}
@@ -121,6 +131,7 @@ export function CandidateCard({
         gap: 12,
       }}
     >
+      {easy && <EasyIconTile name="policies" />}
       <Text
         style={{
           color: colors.green,

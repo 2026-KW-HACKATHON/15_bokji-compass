@@ -401,9 +401,9 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
         known_slots = {"home_ownership": "housing_tenure", "employment_status": "occupation",
                        "employment_preparation_status": "job_seeking", "residence_region": "region"}
         for check in selected["comparison"]["checks"]:
-            slot = known_slots.get(check["field_key"], check["field_key"])
+            slot = known_slots.get(check["field_key"])
             if (check["state"] == "unknown" and check["role"] == "eligibility"
-                    and slot not in represented):
+                    and slot is not None and slot not in represented):
                 missing.append({"slot": slot, "label": check["label"]})
                 represented.add(slot)
     return {

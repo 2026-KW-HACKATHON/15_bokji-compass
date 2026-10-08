@@ -189,7 +189,9 @@ export default function AssistantHome({
       </section>
 
       <section className="home-local-entry" aria-labelledby="home-local-title">
-        <Icon name="pin" size={27} />
+        <span className="home-row-icon">
+          <Icon name="pin" size={24} />
+        </span>
         <div>
           <h2 id="home-local-title">{t('동네에서 이용할 수 있는 도움을 찾아보세요.')}</h2>
           <p>{t('무료버스·건강관리·동네 시설을 생활지역별로 살펴보세요.')}</p>
@@ -367,7 +369,7 @@ export default function AssistantHome({
       <div className="home-shortcuts">
         <button onClick={onCalendar}>
           <span className="home-row-icon">
-            <Icon name="calendar" size={27} />
+            <Icon name="calendar" size={24} />
           </span>
           <span>
             <small>{t('신청 일정을 확인하고 싶다면')}</small>
@@ -379,7 +381,7 @@ export default function AssistantHome({
         </button>
         <button onClick={onProfile}>
           <span className="home-row-icon">
-            <Icon name="user" size={27} />
+            <Icon name="user" size={24} />
           </span>
           <span>
             <small>{t('나에게 맞는 공고가 궁금하다면')}</small>
@@ -399,7 +401,7 @@ export default function AssistantHome({
       </div>
       <section className="home-assistant-entry" aria-label="AI 복지비서 안내">
         <span className="home-row-icon">
-          <Icon name="compass" size={28} />
+          <Icon name="compass" size={24} />
         </span>
         <div>
           <h2>내 상황에 맞는 지원을 계속 살펴보세요</h2>

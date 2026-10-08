@@ -55,7 +55,7 @@ function FinanceField({
   const { t, formatMoney } = useI18n();
   const { easy } = useRuntime();
   const value = fieldValue(draft, field.path);
-  const hint = field.hint && (
+  const hint = !!field.hint && (
     <Details collapsible label={t("{label} 도움말", { label: t(field.label) })}>
       <Copy muted>{field.hint}</Copy>
     </Details>
@@ -92,7 +92,11 @@ function FinanceField({
     return (
       <View style={{ gap: 10 }}>
         <Copy>{field.label}</Copy>
-        <View accessibilityRole="radiogroup" accessibilityLabel={t(field.label)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t(field.label)}
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}
+        >
           {field.options?.map(([key, label]) => (
             <Choice
               key={key}
@@ -119,9 +123,13 @@ function FinanceField({
   return (
     <View style={{ gap: 10 }}>
       {money && <Copy>{field.label}</Copy>}
-      {field.example && <Copy muted>{field.example}</Copy>}
+      {!!field.example && <Copy muted>{field.example}</Copy>}
       {money && (
-        <View accessibilityRole="radiogroup" accessibilityLabel={t(field.label)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t(field.label)}
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}
+        >
           {[
             ["yes", "있어요"],
             ["none", "없어요 (0원)"],

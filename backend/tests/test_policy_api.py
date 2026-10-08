@@ -124,10 +124,12 @@ def test_cookie_bearer_profiles_are_isolated_and_no_client_profile_override(clie
             client.post(
                 "/v1/assistant/questions", json=BODY, headers={"Authorization": authorization}
             ).status_code
-            == 401
+            == 200
         )
     client.post("/v1/mobile/auth/logout", headers=token, json={})
-    assert client.post("/v1/assistant/questions", json=BODY, headers=token).status_code == 401
+    response = client.post("/v1/assistant/questions", json=BODY, headers=token)
+    assert response.status_code == 200 and response.json()["response_type"] == "prepared"
+    assert len(seen) == 2  # Guest requests never send account context to external AI.
 
 
 @pytest.mark.parametrize("age,region", [(None, None), (None, "부산"), (0, None)])
@@ -156,11 +158,12 @@ def test_questions_work_with_incomplete_member_profile(client, monkeypatch, age,
     ]
 
 
-def test_unauthorized_drafts_guard_and_invalid_questions_never_invoke_model(client, monkeypatch):
+def test_guests_drafts_guard_and_invalid_questions_never_invoke_model(client, monkeypatch):
     model = Mock()
     monkeypatch.setattr(public, "answer_policy_question", model)
-    assert client.post("/v1/assistant/questions", json=BODY).status_code == 401
-    client.repository.get_revision.assert_not_called()
+    response = client.post("/v1/assistant/questions", json=BODY)
+    assert response.status_code == 200 and response.json()["response_type"] == "prepared"
+    model.assert_not_called()
     login(client)
     client.repository.get_revision.return_value = None
     assert client.post("/v1/assistant/questions", json=BODY).status_code == 404
@@ -217,10 +220,9 @@ def test_catalog_disabled_error_and_input_boundary():
             assert client.get("/v1/policies?" + query).status_code == 422
 
 
-def test_faq_authenticates_and_bypasses_llm_and_inference_limits(client, monkeypatch):
+def test_public_faq_bypasses_llm_and_inference_limits(client, monkeypatch):
     path = "/v1/assistant/faqs?revision_id=" + REVISION
-    assert client.get(path).status_code == 401
-    client.repository.get_revision.assert_not_called()
+    assert client.get(path).status_code == 200
     token = login(client, mobile=True)
     model = Mock()
     throttle = Mock()
@@ -244,7 +246,20 @@ def test_faq_authenticates_and_bypasses_llm_and_inference_limits(client, monkeyp
     for record in (None, {"review_status": "draft"}):
         client.repository.get_revision.return_value = record
         assert client.get(path, headers=token).status_code == 404
-    assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 401
+    assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 404
+
+
+def test_guest_question_limits_and_expired_cookie_never_invoke_ai(client, monkeypatch):
+    model = Mock()
+    monkeypatch.setattr(public, "answer_policy_question", model)
+    client.cookies.set("bokji_session", "expired-session")
+    for _ in range(6):
+        response = client.post("/v1/assistant/questions", json=BODY)
+        assert response.status_code == 200
+        assert "private-name" not in response.text and "private-id" not in response.text
+        assert response.headers["cache-control"] == "no-store"
+    assert client.post("/v1/assistant/questions", json=BODY).status_code == 429
+    model.assert_not_called()
 
 
 @pytest.mark.parametrize(

@@ -10,9 +10,6 @@
   border-radius: 16px;
   background: #f3f8fb;
 }
-.home-local-entry > svg {
-  color: #326784;
-}
 .home-local-entry > div {
   flex: 1 1 260px;
 }
@@ -490,22 +487,23 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #edf7fd;
+  background: var(--soft);
+  border: 1px solid #d6e8f6;
   color: var(--green);
   flex-shrink: 0;
 }
-.home-discovery-row:nth-child(2) .home-row-icon,
-.home-shortcuts button:nth-child(2) .home-row-icon {
-  background: #eef7ef;
-  color: #167052;
+.home-row-icon > svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2;
 }
 .home-row-heading {
   min-width: 0;
 }
 .home-row-heading > span {
   display: block;
-  font-size: 0.78rem;
-  color: #74879b;
+  font-size: 0.875rem;
+  color: #465e73;
   margin-bottom: 5px;
 }
 .home-row-heading strong,

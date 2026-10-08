@@ -17,14 +17,14 @@ export default function Layout() {
     <I18nProvider>
       <RuntimeProvider>
         <AuthProvider>
-        <AssistantProvider>
-          <NotificationProvider>
-            <StatusBar style="dark" />
-            <AppShell>
-              <Navigation />
-            </AppShell>
-          </NotificationProvider>
-        </AssistantProvider>
+          <AssistantProvider>
+            <NotificationProvider>
+              <StatusBar style="dark" />
+              <AppShell>
+                <Navigation />
+              </AppShell>
+            </NotificationProvider>
+          </AssistantProvider>
         </AuthProvider>
       </RuntimeProvider>
     </I18nProvider>
@@ -61,7 +61,19 @@ function Navigation() {
         tabBarActiveTintColor: colors.green,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabel: ({ children, color, focused }) => (
-          <Text allowFontScaling style={{ color, fontSize: easy ? 18 : 12, lineHeight: easy ? 25 : 18, fontWeight: focused ? "800" : "600", textAlign: "center", alignSelf: "stretch", flexShrink: 1, marginTop: 3 }}>
+          <Text
+            allowFontScaling
+            style={{
+              color,
+              fontSize: easy ? 18 : 12,
+              lineHeight: easy ? 25 : 18,
+              fontWeight: focused ? "800" : "600",
+              textAlign: "center",
+              alignSelf: "stretch",
+              flexShrink: 1,
+              marginTop: 3,
+            }}
+          >
             {children}
           </Text>
         ),

@@ -46,18 +46,27 @@ test('deadline badges appear on cards, details and saved notices in both display
   await installPolicies(page, policies);
   await page.goto('/#explore');
   const states = ['D-7', 'D-Day', '접수 마감 D+3', '상시 접수', '마감일 확인 필요'];
+  const easyStates = [
+    '신청 마감까지 7일 남음',
+    '오늘 신청 마감',
+    '신청 마감 후 3일 지남',
+    '상시 접수',
+    '마감일 확인 필요',
+  ];
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
     for (const [index, policy] of policies.entries()) {
       const article = page.getByRole('article').filter({ hasText: policy.title });
-      await expect(article.locator('.policy-deadline')).toHaveText(states[index]);
+      await expect(article.locator('.policy-deadline')).toHaveText(
+        (easy ? easyStates : states)[index],
+      );
     }
     const article = page.getByRole('article').filter({ hasText: policies[0].title });
     await article
       .getByRole('button', { name: policies[0].title + ' 자세히 보기', exact: true })
       .click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.locator('.policy-deadline')).toHaveText('D-7');
+    await expect(dialog.locator('.policy-deadline')).toHaveText(easy ? easyStates[0] : states[0]);
     await expect(dialog.locator('.policy-deadline')).toHaveAttribute(
       'aria-label',
       '신청 마감까지 7일 남음',
@@ -124,7 +133,7 @@ test('calendar today marker and closed status advance with deadline badges at Ko
   );
   await page.goto('/#calendar');
   const panel = page.locator('.calendar-day-panel');
-  await expect(panel.locator('.policy-deadline')).toHaveText('D-Day');
+  await expect(panel.locator('.policy-deadline')).toHaveText('신청 마감 D-Day');
   await expect(page.getByRole('button', { name: /10월 8일 오늘,/ })).toHaveAttribute(
     'aria-current',
     'date',
@@ -166,9 +175,9 @@ test('calendar deadline uses today rather than the selected day and includes exp
   );
   await page.goto('/#calendar');
   const panel = page.locator('.calendar-day-panel');
-  await expect(panel.locator('.policy-deadline')).toHaveText('D-28');
+  await expect(panel.locator('.policy-deadline')).toHaveText('신청 마감까지 D-28');
   await page.getByRole('button', { name: /4월 30일, 신청 시작 0건, 마감 1건/ }).click();
-  await expect(panel.locator('.policy-deadline')).toHaveText('D-28');
+  await expect(panel.locator('.policy-deadline')).toHaveText('신청 마감까지 D-28');
   await panel.getByRole('button', { name: policy.title, exact: true }).click();
   await expect(page.getByRole('dialog').locator('.policy-deadline')).toHaveText('D-28');
 });

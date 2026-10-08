@@ -5,12 +5,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import FloatingAssistant from '../features/assistant/FloatingAssistant.jsx';
 import GuidedConversation from '../features/assistant/GuidedConversation.jsx';
-import AuthPage from '../features/auth/AuthPage.jsx';
-import AdminPage from '../features/auth/AdminPage.jsx';
 import MemberProfileForm from '../features/auth/MemberProfileForm.jsx';
 import { authRequest } from '../features/auth/authApi.js';
-import CalculatorPage from '../features/finance/CalculatorPage.jsx';
-import DetailedCalculatorPage from '../features/finance/DetailedCalculatorPage.jsx';
 import useFinancePrefill from '../features/finance/useFinancePrefill.js';
 import {
   applyQuickDefaults,
@@ -19,12 +15,10 @@ import {
   financialDraftDefaults,
   knownHouseholdSize,
 } from '../features/finance/financePrefill.js';
-import CalendarPage from '../features/calendar/CalendarPage.jsx';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
 import { mergePolicyDetail, parsePolicy } from '../features/policies/policyModel.js';
-import ProfilePage from '../features/profile/ProfilePage.jsx';
 import {
   defaultProfile,
   isProfile,
@@ -38,13 +32,19 @@ import { localServiceRepository, policyRepository, recommendationRepository } fr
 import { recommendationFailure } from '../features/assistant/recommendationFeedback.js';
 import SourceFooter from './SourceFooter.jsx';
 import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
-import MonitoringPanel from '../features/monitoring/MonitoringPanel.jsx';
 import PortalNavigation from './PortalNavigation.jsx';
 import EasyNavigation from './EasyNavigation.jsx';
 import { portalRoutes } from './portalNavigation.js';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
 const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
 const LocalWelfarePage = lazy(() => import('../features/local/LocalWelfarePage.jsx'));
+const AuthPage = lazy(() => import('../features/auth/AuthPage.jsx'));
+const AdminPage = lazy(() => import('../features/auth/AdminPage.jsx'));
+const CalculatorPage = lazy(() => import('../features/finance/CalculatorPage.jsx'));
+const DetailedCalculatorPage = lazy(() => import('../features/finance/DetailedCalculatorPage.jsx'));
+const CalendarPage = lazy(() => import('../features/calendar/CalendarPage.jsx'));
+const ProfilePage = lazy(() => import('../features/profile/ProfilePage.jsx'));
+const MonitoringPage = lazy(() => import('../features/monitoring/MonitoringPage.jsx'));
 
 const profileKey = 'bokji.profile.v2';
 const savedKey = 'bokji.saved.v2.' + appConfig.dataMode;
@@ -565,11 +565,6 @@ export default function App() {
               <small>{t('나를 위한 복지 비서')}</small>
             </span>
           </a>
-          {easy ? (
-            <EasyNavigation page={route.page} savedCount={saved.length} />
-          ) : (
-            <PortalNavigation page={route.page} savedCount={saved.length} />
-          )}
           <div className="header-actions">
             <LanguageSelector />
             <button className="mode-switch" role="switch" aria-checked={easy} onClick={toggleEasy}>
@@ -618,6 +613,11 @@ export default function App() {
               </div>
             )}
           </div>
+          {easy ? (
+            <EasyNavigation page={route.page} savedCount={saved.length} />
+          ) : (
+            <PortalNavigation page={route.page} savedCount={saved.length} />
+          )}
         </header>
         <main
           id="main-content"
@@ -625,341 +625,347 @@ export default function App() {
           tabIndex={-1}
           className={'main-content' + (route.page === 'guide' ? ' guide-layout' : '')}
         >
-          {['home', 'explore', 'calendar', 'saved'].includes(route.page) && (
-            <ContentLanguageNotice />
-          )}
-          {route.page === 'admin' && <AdminPage key={user?.id || 'guest'} user={user} />}
-          {route.page === 'home' && (
-            <AssistantHome
-              {...shared}
-              profile={profile}
-              result={result}
-              state={state}
-              error={error}
-              onRetry={() => setRetry((value) => value + 1)}
-              onProfile={() => navigate('profile')}
-              onLogin={() => navigate('login')}
-              onExplore={() => navigate('explore')}
-              onSearch={searchPolicies}
-              onLocal={() => navigate('local')}
-              onGuide={() => navigate('guide')}
-              onCalendar={() => navigate('calendar')}
-              onAssistant={() => openAssistantPage()}
-              mode={appConfig.dataMode}
-            />
-          )}
-          {route.page === 'local' && (
-            <Suspense fallback={<p role="status">{t('동네 복지를 불러오고 있어요.')}</p>}>
-              <LocalWelfarePage
-                key={user?.id || 'guest'}
-                user={user}
+          <Suspense fallback={<p role="status">{t('불러오는 중')}</p>}>
+            {['home', 'explore', 'calendar', 'saved'].includes(route.page) && (
+              <ContentLanguageNotice />
+            )}
+            {route.page === 'admin' && <AdminPage key={user?.id || 'guest'} user={user} />}
+            {route.page === 'home' && (
+              <AssistantHome
+                {...shared}
                 profile={profile}
-                repository={localServiceRepository}
-                onSearch={searchPolicies}
-                initialSelection={localSelection.current.value}
-                onSelectionChange={(value) => {
-                  localSelection.current = { owner: user?.id || null, value };
-                }}
-              />
-            </Suspense>
-          )}
-          {['assistant', 'assistant-intro', 'assistant-overview'].includes(route.page) && (
-            <Suspense fallback={<p role="status">{t('AI 복지비서를 불러오고 있어요.')}</p>}>
-              <AssistantPage
-                key={`${user?.id || 'guest'}:${route.page}`}
-                initialView={
-                  route.page === 'assistant-intro'
-                    ? 'introduction'
-                    : route.page === 'assistant-overview'
-                      ? 'overview'
-                      : 'auto'
-                }
-                initialProfileEntry={route.page === 'assistant-overview' && route.setup}
-                onContinue={
-                  route.page === 'assistant-intro'
-                    ? () => {
-                        window.location.hash = 'assistant-overview?setup=1';
-                      }
-                    : undefined
-                }
-                user={user}
-                profile={profile}
-                mode={appConfig.dataMode}
-                onOpen={setSelected}
+                result={result}
+                state={state}
+                error={error}
+                onRetry={() => setRetry((value) => value + 1)}
                 onProfile={() => navigate('profile')}
-                onStartConversation={startGuidance}
-                refreshKey={monitoringRefresh}
-                onProfileDeleted={discardGuidance}
-                onProfileChanged={discardGuidance}
-                conversation={
-                  route.page !== 'assistant-intro' && guidance?.owner === (user?.id || null) ? (
-                    <GuidedConversation
-                      key={guidance.key}
-                      user={user}
-                      policy={guidance.policy}
-                      session={guidance.session}
-                      onSessionChange={rememberGuidance}
-                      onProfile={() => navigate('profile')}
-                      onSaved={refreshAssistant}
-                    />
-                  ) : null
-                }
-              />
-            </Suspense>
-          )}
-          {route.page === 'guide' && (
-            <Suspense
-              fallback={
-                <p className="guide-loading" role="status">
-                  {' '}
-                  {t('서비스 소개를 불러오고 있어요.')}{' '}
-                </p>
-              }
-            >
-              <GuidePage
+                onLogin={() => navigate('login')}
                 onExplore={() => navigate('explore')}
-                onProfile={() => navigate('profile')}
-                onAssistant={() => openAssistantPage()}
-                onChatbot={() => setAssistant({ topic: 'home' })}
+                onSearch={searchPolicies}
+                onLocal={() => navigate('local')}
+                onGuide={() => navigate('guide')}
                 onCalendar={() => navigate('calendar')}
-                onCalculator={() => navigate('calculator')}
-                onEasyMode={() => {
-                  setEasy(true);
-                  if (!writeStoredValue(easyKey, true))
-                    setNotice('화면 설정을 이 브라우저에 기억하지 못했어요.');
-                  navigate('home');
-                }}
+                onAssistant={() => openAssistantPage()}
+                mode={appConfig.dataMode}
               />
-            </Suspense>
-          )}
-          {route.page === 'calendar' && <CalendarPage {...shared} repository={policyRepository} />}
-          {route.page === 'explore' && (
-            <PolicyExplorer
-              user={user}
-              key={[route.tag, route.query, route.region, route.category].join('|')}
-              initialQuery={route.query}
-              initialRegion={route.region}
-              initialCategory={route.category}
-              {...shared}
-              repository={policyRepository}
-              tag={route.tag}
-              onClearTag={() => navigate('explore')}
-            />
-          )}
-          {route.page === 'profile' && !route.setup && (
-            <>
-              <ProfilePage
-                key={user?.id || 'guest'}
-                user={user}
-                profile={profile}
-                remembered={remembered}
-                easy={easy}
-                onSave={(value, remember) => saveProfile(value, remember, 'session', false)}
-                onMemberSaved={(current) => {
-                  discardGuidance();
-                  setUser((previous) => (previous?.id === current.id ? current : previous));
-                  const previousBasics = memberRecommendationProfile(user);
-                  const currentBasics = memberRecommendationProfile(current);
-                  const value = { ...(profile || defaultProfile) };
-                  if (!profile || value.region === previousBasics.region)
-                    value.region = currentBasics.region;
-                  if (!profile || value.ageBand === previousBasics.ageBand)
-                    value.ageBand = currentBasics.ageBand;
-                  saveProfile(value, remembered, recommendation.source || 'member', false);
-                }}
-                onClear={clearProfile}
-                financialProfile={financialProfile}
-                savedFinance={financePrefill}
-                financialSession={
-                  calculatorSession.current.owner === (user?.id || null)
-                    ? calculatorSession.current.value
-                    : null
-                }
-                onFinancialLoaded={(value) =>
-                  setFinancial({ owner: user?.id || null, profile: value })
-                }
-              />
-              {user && (
-                <MonitoringPanel
-                  key={`monitoring:${user.id}`}
+            )}
+            {route.page === 'local' && (
+              <Suspense fallback={<p role="status">{t('동네 복지를 불러오고 있어요.')}</p>}>
+                <LocalWelfarePage
+                  key={user?.id || 'guest'}
+                  user={user}
+                  profile={profile}
+                  repository={localServiceRepository}
+                  onSearch={searchPolicies}
+                  initialSelection={localSelection.current.value}
+                  onSelectionChange={(value) => {
+                    localSelection.current = { owner: user?.id || null, value };
+                  }}
+                />
+              </Suspense>
+            )}
+            {['assistant', 'assistant-intro', 'assistant-overview'].includes(route.page) && (
+              <Suspense fallback={<p role="status">{t('AI 복지비서를 불러오고 있어요.')}</p>}>
+                <AssistantPage
+                  key={`${user?.id || 'guest'}:${route.page}`}
+                  initialView={
+                    route.page === 'assistant-intro'
+                      ? 'introduction'
+                      : route.page === 'assistant-overview'
+                        ? 'overview'
+                        : 'auto'
+                  }
+                  initialProfileEntry={route.page === 'assistant-overview' && route.setup}
+                  onContinue={
+                    route.page === 'assistant-intro'
+                      ? () => {
+                          window.location.hash = 'assistant-overview?setup=1';
+                        }
+                      : undefined
+                  }
                   user={user}
                   profile={profile}
                   mode={appConfig.dataMode}
                   onOpen={setSelected}
+                  onProfile={() => navigate('profile')}
+                  onStartConversation={startGuidance}
+                  refreshKey={monitoringRefresh}
                   onProfileDeleted={discardGuidance}
                   onProfileChanged={discardGuidance}
+                  conversation={
+                    route.page !== 'assistant-intro' && guidance?.owner === (user?.id || null) ? (
+                      <GuidedConversation
+                        key={guidance.key}
+                        user={user}
+                        policy={guidance.policy}
+                        session={guidance.session}
+                        onSessionChange={rememberGuidance}
+                        onProfile={() => navigate('profile')}
+                        onSaved={refreshAssistant}
+                      />
+                    ) : null
+                  }
                 />
-              )}
-            </>
-          )}
-          {route.page === 'profile' && route.setup && (
-            <section className="profile-page">
-              <div className="page-heading">
-                {!easy && (
-                  <span className="eyebrow">
-                    {user ? t('회원·추천 정보') : t('맞춤 추천 설정')}
-                  </span>
-                )}
-                <h1>{route.setup ? t('가입이 완료됐어요') : t('내 정보')}</h1>
-                <p>
-                  {route.setup
-                    ? t('맞춤 정보는 지금 설정하거나 나중에 내 정보에서 입력할 수 있어요.')
-                    : user
-                      ? t('회원 정보와 공고 추천에 사용할 정보를 관리해요.')
-                      : easy
-                        ? t('공고 추천에 사용할 정보를 관리합니다.')
-                        : t('나에게 맞는 공고를 추천하는 데 사용해요.')}
-                </p>
-                {!route.setup && (
-                  <a className="text-button calculator-entry" href="#calculator">
-                    <Icon name="calculator" /> {t('중위소득 빠르게 확인하기')}{' '}
-                  </a>
-                )}
-              </div>
-              {user && (
-                <MemberProfileForm
-                  key={user.id + (route.setup ? '-setup' : '')}
-                  user={user}
-                  setup={route.setup}
-                  onSaved={(current) => {
-                    setUser((previous) => (previous?.id === current.id ? current : previous));
-                    if (route.setup) {
-                      if (current.region || current.age != null) {
-                        saveProfile(
-                          memberRecommendationProfile(current, profile || defaultProfile),
-                          remembered,
-                          'member',
-                        );
-                      } else navigate('home');
-                    }
+              </Suspense>
+            )}
+            {route.page === 'guide' && (
+              <Suspense
+                fallback={
+                  <p className="guide-loading" role="status">
+                    {' '}
+                    {t('서비스 소개를 불러오고 있어요.')}{' '}
+                  </p>
+                }
+              >
+                <GuidePage
+                  onExplore={() => navigate('explore')}
+                  onProfile={() => navigate('profile')}
+                  onAssistant={() => openAssistantPage()}
+                  onChatbot={() => setAssistant({ topic: 'home' })}
+                  onCalendar={() => navigate('calendar')}
+                  onCalculator={() => navigate('calculator')}
+                  onEasyMode={() => {
+                    setEasy(true);
+                    if (!writeStoredValue(easyKey, true))
+                      setNotice('화면 설정을 이 브라우저에 기억하지 못했어요.');
+                    navigate('home');
                   }}
                 />
-              )}
-              {route.setup && !user && (
-                <p className="notice-box">
-                  {' '}
-                  {t('맞춤 정보를 저장하려면')} <a href="#login">{t('로그인')}</a>
-                  {t('해 주세요.')} <a href="#home">{t('나중에 하기')}</a>
-                </p>
-              )}
-            </section>
-          )}
-          {route.page === 'calculator' && (
-            <CalculatorPage
-              draft={quickDraft}
-              onChange={changeQuickDraft}
-              prefill={financePrefill}
-              hasSavedProfile={Boolean(financialProfile || financePrefill.record?.profile)}
-            />
-          )}
-          {route.page === 'calculator-details' && (
-            <>
-              {user &&
-              ['idle', 'loading'].includes(financePrefill.status) &&
-              !calculatorSession.current.value ? (
-                <section className="calculator-page">
-                  <p className="finance-intro" role="status">
-                    {' '}
-                    {t('회원의 소득·재산 정보를 불러오고 있어요…')}{' '}
-                  </p>
-                </section>
-              ) : (
-                <DetailedCalculatorPage
-                  key={`${user?.id || 'guest'}-${financeReset.version}`}
-                  initialMessage={financeReset.message}
-                  accountWriting={Boolean(financeWriting && financeWriting.owner === user?.id)}
-                  easy={easy}
+              </Suspense>
+            )}
+            {route.page === 'calendar' && (
+              <CalendarPage {...shared} repository={policyRepository} />
+            )}
+            {route.page === 'explore' && (
+              <PolicyExplorer
+                user={user}
+                key={[route.tag, route.query, route.region, route.category].join('|')}
+                initialQuery={route.query}
+                initialRegion={route.region}
+                initialCategory={route.category}
+                {...shared}
+                repository={policyRepository}
+                tag={route.tag}
+                onClearTag={() => navigate('explore')}
+              />
+            )}
+            {route.page === 'profile' && !route.setup && (
+              <>
+                <ProfilePage
+                  key={user?.id || 'guest'}
                   user={user}
-                  profile={financialProfile ?? financePrefill.record?.profile}
-                  recommendation={profile}
-                  quickDraft={quickDraft}
-                  useQuickHousehold={quickEdited.current.has('householdSize')}
-                  prefill={financePrefill}
-                  session={
+                  profile={profile}
+                  remembered={remembered}
+                  easy={easy}
+                  onSave={(value, remember) => saveProfile(value, remember, 'session', false)}
+                  onMemberSaved={(current) => {
+                    discardGuidance();
+                    setUser((previous) => (previous?.id === current.id ? current : previous));
+                    const previousBasics = memberRecommendationProfile(user);
+                    const currentBasics = memberRecommendationProfile(current);
+                    const value = { ...(profile || defaultProfile) };
+                    if (!profile || value.region === previousBasics.region)
+                      value.region = currentBasics.region;
+                    if (!profile || value.ageBand === previousBasics.ageBand)
+                      value.ageBand = currentBasics.ageBand;
+                    saveProfile(value, remembered, recommendation.source || 'member', false);
+                  }}
+                  onClear={clearProfile}
+                  financialProfile={financialProfile}
+                  savedFinance={financePrefill}
+                  financialSession={
                     calculatorSession.current.owner === (user?.id || null)
                       ? calculatorSession.current.value
                       : null
                   }
-                  onSessionChange={rememberCalculator}
-                  onProfileChange={(value) => {
-                    setFinancial({ owner: user?.id || null, profile: value });
-                    setUseFinancial(false);
-                  }}
-                  onAccountMutation={beginFinanceMutation}
-                  onSavedRecord={financePrefill.update}
-                  onRecommend={() => {
-                    setUseFinancial(true);
-                    if (!profile)
-                      setRecommendation({
-                        value: { ...defaultProfile },
-                        source: 'session',
-                        owner: user?.id || null,
-                      });
-                    routeNotice.current = '';
-                    navigate('home');
-                  }}
+                  onFinancialLoaded={(value) =>
+                    setFinancial({ owner: user?.id || null, profile: value })
+                  }
                 />
-              )}
-            </>
-          )}
-          {route.page === 'saved' && (
-            <section>
-              <div className="page-heading">
-                {!easy && <span className="eyebrow">{t('다시 보고 싶은 공고')}</span>}
-                <h1>{t('저장한 공고')}</h1>
-                <p>{t('이 브라우저에 저장한 공고예요. 최신 내용은 공식 공고를 확인하세요.')}</p>
-              </div>
-              {saved.length ? (
-                <>
-                  <div className={'policy-grid' + (easy ? ' easy-policy-list' : '')}>
-                    {visibleSaved.map((policy) => (
-                      <PolicyCard key={policy.id} {...shared} policy={policy} saved />
-                    ))}
-                  </div>
-                  {easy && saved.length > 3 && (
-                    <nav className="pagination" aria-label={t('저장 공고 넘기기')}>
-                      <button
-                        className="button secondary"
-                        disabled={savedIndex === 0}
-                        onClick={() => setSavedIndex(Math.max(0, savedIndex - 3))}
-                      >
-                        {' '}
-                        {t('이전 목록')}{' '}
-                      </button>
-                      <span>
-                        {t('{start}–{end} / {total}개', {
-                          start: savedIndex + 1,
-                          end: Math.min(savedIndex + 3, saved.length),
-                          total: saved.length,
-                        })}
-                      </span>
-                      <button
-                        className="button secondary"
-                        disabled={savedIndex + 3 >= saved.length}
-                        onClick={() => setSavedIndex(savedIndex + 3)}
-                      >
-                        {' '}
-                        {t('다음 목록')}{' '}
-                      </button>
-                    </nav>
+              </>
+            )}
+            {['assistant-monitoring', 'new-notices'].includes(route.page) && (
+              <MonitoringPage
+                key={`${route.page}:${user?.id || 'guest'}`}
+                notices={route.page === 'new-notices'}
+                user={user}
+                profile={profile}
+                mode={appConfig.dataMode}
+                onOpen={setSelected}
+                onProfileDeleted={discardGuidance}
+                onProfileChanged={discardGuidance}
+                refreshKey={monitoringRefresh}
+              />
+            )}
+            {route.page === 'profile' && route.setup && (
+              <section className="profile-page">
+                <div className="page-heading">
+                  {!easy && (
+                    <span className="eyebrow">
+                      {user ? t('회원·추천 정보') : t('맞춤 추천 설정')}
+                    </span>
                   )}
-                </>
-              ) : (
-                <div className="empty-state">
-                  <Icon name="bookmark" size={34} />
-                  <h2>{t('아직 저장한 공고가 없어요')}</h2>
-                  <p>{t('마음에 드는 공고의 저장 버튼을 눌러주세요.')}</p>
-                  <button className="button primary" onClick={() => navigate('explore')}>
-                    {' '}
-                    {t('공고 찾아보기')}{' '}
-                  </button>
+                  <h1>{route.setup ? t('가입이 완료됐어요') : t('내 정보')}</h1>
+                  <p>
+                    {route.setup
+                      ? t('맞춤 정보는 지금 설정하거나 나중에 내 정보에서 입력할 수 있어요.')
+                      : user
+                        ? t('회원 정보와 공고 추천에 사용할 정보를 관리해요.')
+                        : easy
+                          ? t('공고 추천에 사용할 정보를 관리합니다.')
+                          : t('나에게 맞는 공고를 추천하는 데 사용해요.')}
+                  </p>
+                  {!route.setup && (
+                    <a className="text-button calculator-entry" href="#calculator">
+                      <Icon name="calculator" /> {t('중위소득 빠르게 확인하기')}{' '}
+                    </a>
+                  )}
                 </div>
-              )}
-            </section>
-          )}
-          {['login', 'signup'].includes(route.page) && (
-            <AuthPage key={route.page} type={route.page} onLogin={onLogin} easy={easy} />
-          )}
+                {user && (
+                  <MemberProfileForm
+                    key={user.id + (route.setup ? '-setup' : '')}
+                    user={user}
+                    setup={route.setup}
+                    onSaved={(current) => {
+                      setUser((previous) => (previous?.id === current.id ? current : previous));
+                      if (route.setup) {
+                        if (current.region || current.age != null) {
+                          saveProfile(
+                            memberRecommendationProfile(current, profile || defaultProfile),
+                            remembered,
+                            'member',
+                          );
+                        } else navigate('home');
+                      }
+                    }}
+                  />
+                )}
+                {route.setup && !user && (
+                  <p className="notice-box">
+                    {' '}
+                    {t('맞춤 정보를 저장하려면')} <a href="#login">{t('로그인')}</a>
+                    {t('해 주세요.')} <a href="#home">{t('나중에 하기')}</a>
+                  </p>
+                )}
+              </section>
+            )}
+            {route.page === 'calculator' && (
+              <CalculatorPage
+                draft={quickDraft}
+                onChange={changeQuickDraft}
+                prefill={financePrefill}
+                hasSavedProfile={Boolean(financialProfile || financePrefill.record?.profile)}
+              />
+            )}
+            {route.page === 'calculator-details' && (
+              <>
+                {user &&
+                ['idle', 'loading'].includes(financePrefill.status) &&
+                !calculatorSession.current.value ? (
+                  <section className="calculator-page">
+                    <p className="finance-intro" role="status">
+                      {' '}
+                      {t('회원의 소득·재산 정보를 불러오고 있어요…')}{' '}
+                    </p>
+                  </section>
+                ) : (
+                  <DetailedCalculatorPage
+                    key={`${user?.id || 'guest'}-${financeReset.version}`}
+                    initialMessage={financeReset.message}
+                    accountWriting={Boolean(financeWriting && financeWriting.owner === user?.id)}
+                    easy={easy}
+                    user={user}
+                    profile={financialProfile ?? financePrefill.record?.profile}
+                    recommendation={profile}
+                    quickDraft={quickDraft}
+                    useQuickHousehold={quickEdited.current.has('householdSize')}
+                    prefill={financePrefill}
+                    session={
+                      calculatorSession.current.owner === (user?.id || null)
+                        ? calculatorSession.current.value
+                        : null
+                    }
+                    onSessionChange={rememberCalculator}
+                    onProfileChange={(value) => {
+                      setFinancial({ owner: user?.id || null, profile: value });
+                      setUseFinancial(false);
+                    }}
+                    onAccountMutation={beginFinanceMutation}
+                    onSavedRecord={financePrefill.update}
+                    onRecommend={() => {
+                      setUseFinancial(true);
+                      if (!profile)
+                        setRecommendation({
+                          value: { ...defaultProfile },
+                          source: 'session',
+                          owner: user?.id || null,
+                        });
+                      routeNotice.current = '';
+                      navigate('home');
+                    }}
+                  />
+                )}
+              </>
+            )}
+            {route.page === 'saved' && (
+              <section>
+                <div className="page-heading">
+                  {!easy && <span className="eyebrow">{t('다시 보고 싶은 공고')}</span>}
+                  <h1>{t('저장한 공고')}</h1>
+                  <p>{t('이 브라우저에 저장한 공고예요. 최신 내용은 공식 공고를 확인하세요.')}</p>
+                </div>
+                {saved.length ? (
+                  <>
+                    <div className={'policy-grid' + (easy ? ' easy-policy-list' : '')}>
+                      {visibleSaved.map((policy) => (
+                        <PolicyCard key={policy.id} {...shared} policy={policy} saved />
+                      ))}
+                    </div>
+                    {easy && saved.length > 3 && (
+                      <nav className="pagination" aria-label={t('저장 공고 넘기기')}>
+                        <button
+                          className="button secondary"
+                          disabled={savedIndex === 0}
+                          onClick={() => setSavedIndex(Math.max(0, savedIndex - 3))}
+                        >
+                          {' '}
+                          {t('이전 목록')}{' '}
+                        </button>
+                        <span>
+                          {t('{start}–{end} / {total}개', {
+                            start: savedIndex + 1,
+                            end: Math.min(savedIndex + 3, saved.length),
+                            total: saved.length,
+                          })}
+                        </span>
+                        <button
+                          className="button secondary"
+                          disabled={savedIndex + 3 >= saved.length}
+                          onClick={() => setSavedIndex(savedIndex + 3)}
+                        >
+                          {' '}
+                          {t('다음 목록')}{' '}
+                        </button>
+                      </nav>
+                    )}
+                  </>
+                ) : (
+                  <div className="empty-state">
+                    <Icon name="bookmark" size={34} />
+                    <h2>{t('아직 저장한 공고가 없어요')}</h2>
+                    <p>{t('마음에 드는 공고의 저장 버튼을 눌러주세요.')}</p>
+                    <button className="button primary" onClick={() => navigate('explore')}>
+                      {' '}
+                      {t('공고 찾아보기')}{' '}
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+            {['login', 'signup'].includes(route.page) && (
+              <AuthPage key={route.page} type={route.page} onLogin={onLogin} easy={easy} />
+            )}
+          </Suspense>
           <SourceFooter easy={easy} showSources={route.page === 'home'} />
         </main>
       </div>

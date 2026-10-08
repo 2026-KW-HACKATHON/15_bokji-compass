@@ -24,6 +24,7 @@ export function shiftCalendarDay(day, amount) {
   if (!isCalendarDate(day) || !Number.isInteger(amount)) return null;
   const date = new Date(day + 'T00:00:00Z');
   date.setUTCDate(date.getUTCDate() + amount);
+  if (!Number.isFinite(date.getTime())) return null;
   const next = date.toISOString().slice(0, 10);
   return isCalendarDate(next) ? next : null;
 }

@@ -9,7 +9,13 @@ from sqlalchemy import update
 from app.api.policies import get_repository
 from app.core.config import Settings
 from app.main import create_app
-from app.modules.storage.explorer_filters import matches_age, matches_eligibility, notice_status
+from app.modules.storage import catalog
+from app.modules.storage.explorer_filters import (
+    filter_records,
+    matches_age,
+    matches_eligibility,
+    notice_status,
+)
 from tests.test_matching import record
 from tests.test_policy_search import add_policy, ids
 from tests.test_policy_search import repository as _search_repository
@@ -51,6 +57,48 @@ def test_age_multiple_bands_zero_boundaries_and_unknown():
     assert not matches_age(row, ["19-24"])
     row["draft_json"]["overview"]["age_conditions"]["status"] = "unrestricted"
     assert matches_age(row, [], 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("day", "expected"),
+    [(1, "upcoming"), (2, "open"), (4, "open"), (8, "upcoming"),
+     (10, "open"), (12, "open"), (13, "closed")],
+)
+def test_status_respects_gaps_between_application_windows(day, expected):
+    policy = {
+        "scheduleStatus": "dated",
+        "applicationStart": "2026-10-02",
+        "applicationEnd": "2026-10-12",
+        "applicationWindows": [
+            {"applicationStart": "2026-10-02", "applicationEnd": "2026-10-04"},
+            {"applicationStart": "2026-10-10", "applicationEnd": "2026-10-12"},
+        ],
+    }
+    assert notice_status(policy, {"source_json": {"fields": {}}}, date(2026, 10, day)) == expected
+
+
+def test_status_filter_resolves_schedule_without_formatting_cards(monkeypatch):
+    def unexpected_card(*args, **kwargs):
+        pytest.fail("Status-only scans must not format the complete policy card")
+
+    monkeypatch.setattr(catalog, "card", unexpected_card)
+    rows = [
+        {"source_json": {"fields": {"application_period": period}}, "draft_json": {}}
+        for period in ("상시", "2026-10-10 ~ 2026-10-12", "2026-10-01 ~ 2026-10-04")
+    ]
+    assert list(filter_records(rows, status="open", today=date(2026, 10, 8))) == [rows[0]]
+
+
+@pytest.mark.parametrize("offset", [0, 1, 4, 5, 100])
+def test_advanced_literal_pagination_counts_all_matches(repository, offset):
+    for index in range(5):
+        add_policy(repository, f"gov24:open{index}", fields={"application_period": "상시"})
+    add_policy(repository, "gov24:closed", fields={"application_period": "2001-01-01 ~ 2001-12-31"})
+    result = catalog.list_policies(repository, status="open", sort="name", limit=2, offset=offset)
+    expected = [f"gov24:open{index}" for index in range(5)][offset:offset + 2]
+    assert [item["id"] for item in result["items"]] == expected
+    assert result["total"] == 5
+    assert result["nextCursor"] == (str(offset + 2) if offset + 2 < 5 else None)
 
 
 def test_eligibility_reuses_validated_member_logic_and_rejects_unknown():

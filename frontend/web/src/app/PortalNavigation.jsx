@@ -5,28 +5,43 @@ import { isSectionActive, portalSections } from './portalNavigation.js';
 
 export default function PortalNavigation({ page, savedCount = 0 }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState(null);
   const root = useRef(null);
   const returnFocus = useRef(null);
-  const ignoreFocus = useRef(false);
+  const openedBy = useRef(null);
+  const closeTimer = useRef(null);
+  const panel = useRef(null);
   const panelId = useId();
+  const section = portalSections.find((item) => item.id === openSection);
+  const cancelClose = () => window.clearTimeout(closeTimer.current);
+  const dismiss = () => {
+    cancelClose();
+    setOpenSection(null);
+  };
+  const reveal = (id, trigger, source) => {
+    cancelClose();
+    returnFocus.current = trigger;
+    openedBy.current = source;
+    setOpenSection(id);
+  };
+  const focusFirstLink = () => window.requestAnimationFrame(() => panel.current?.querySelector('a')?.focus());
 
   useEffect(() => {
-    setOpen(false);
+    dismiss();
   }, [page]);
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
   useEffect(() => {
-    if (!open) return;
+    if (!openSection) return;
     const outside = (event) => {
-      if (!root.current?.contains(event.target)) setOpen(false);
+      if (!root.current?.contains(event.target)) dismiss();
     };
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
-  }, [open]);
+  }, [openSection]);
 
   const close = () => {
-    setOpen(false);
+    dismiss();
     if (returnFocus.current && document.activeElement !== returnFocus.current) {
-      ignoreFocus.current = true;
       returnFocus.current.focus({ preventScroll: true });
     }
   };
@@ -36,14 +51,19 @@ export default function PortalNavigation({ page, savedCount = 0 }) {
       ref={root}
       className="portal-navigation"
       aria-label={t('주 메뉴')}
-      onMouseLeave={() => {
-        if (!root.current?.contains(document.activeElement)) setOpen(false);
+      onPointerEnter={cancelClose}
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'mouse' && openedBy.current === 'hover') {
+          closeTimer.current = window.setTimeout(() => {
+            if (!panel.current?.contains(document.activeElement)) setOpenSection(null);
+          }, 160);
+        }
       }}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) dismiss();
       }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
+        if (openSection && event.key === 'Escape') {
           event.preventDefault();
           event.stopPropagation();
           close();
@@ -56,53 +76,65 @@ export default function PortalNavigation({ page, savedCount = 0 }) {
             key={section.id}
             className="portal-nav-group"
             data-active={isSectionActive(section, page)}
+            data-open={openSection === section.id}
+            onPointerEnter={(event) => {
+              if (event.pointerType === 'mouse' && window.matchMedia('(hover: hover)').matches) {
+                reveal(section.id, event.currentTarget.querySelector('button'), 'hover');
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                reveal(section.id, event.currentTarget.querySelector('button'), 'keyboard');
+                focusFirstLink();
+              } else if (event.key === 'Tab' && !event.shiftKey && openSection === section.id && event.target.tagName === 'BUTTON') {
+                event.preventDefault();
+                focusFirstLink();
+              }
+            }}
           >
             <a
               href={'#' + section.id}
               aria-current={
                 isSectionActive(section, page) ? (page === section.id ? 'page' : 'true') : undefined
               }
-              onClick={() => setOpen(false)}
-              onMouseEnter={(event) => {
-                if (window.matchMedia('(hover: hover)').matches) {
-                  returnFocus.current = event.currentTarget;
-                  setOpen(true);
-                }
-              }}
-              onFocus={(event) => {
-                returnFocus.current = event.currentTarget;
-                if (ignoreFocus.current) {
-                  ignoreFocus.current = false;
-                  return;
-                }
-                setOpen(true);
-              }}
+              onClick={dismiss}
             >
               {t(section.label)}
               {section.id === 'saved' && savedCount > 0 && (
                 <span className="nav-count">{savedCount}</span>
               )}
             </a>
-            {section.links.length > 1 && (
               <button
+                type="button"
                 className="portal-submenu-toggle"
                 aria-label={t('{menu} 하위 메뉴', { menu: t(section.label) })}
-                aria-expanded={open}
+                aria-expanded={openSection === section.id}
                 aria-controls={panelId}
                 onClick={(event) => {
-                  returnFocus.current = event.currentTarget;
-                  setOpen((value) => !value);
+                  if (openSection === section.id && openedBy.current !== 'hover') dismiss();
+                  else reveal(section.id, event.currentTarget, 'click');
                 }}
               >
                 <Icon name="down" size={16} />
               </button>
-            )}
           </div>
         ))}
       </div>
-      <div className="portal-mega-menu" id={panelId} hidden={!open}>
+      <div
+        ref={panel}
+        className="portal-mega-menu"
+        id={panelId}
+        hidden={!section}
+        onKeyDown={(event) => {
+          if (event.key === 'Tab' && event.shiftKey && event.target === panel.current?.querySelector('a')) {
+            event.preventDefault();
+            returnFocus.current?.focus();
+          }
+        }}
+      >
         <div className="portal-mega-inner">
-          {portalSections.map((section) => (
+          {section && (
             <section key={section.id} className="portal-menu-column" aria-label={t(section.label)}>
               <h2>{t(section.label)}</h2>
               <ul>
@@ -111,15 +143,16 @@ export default function PortalNavigation({ page, savedCount = 0 }) {
                     <a
                       href={'#' + link.id}
                       aria-current={page === link.id ? 'page' : undefined}
-                      onClick={() => setOpen(false)}
+                      onClick={dismiss}
                     >
-                      {t(link.label)}
+                      <span>{t(link.label)}</span>
+                      <Icon name="right" size={18} />
                     </a>
                   </li>
                 ))}
               </ul>
             </section>
-          ))}
+          )}
         </div>
         <div className="portal-menu-footer">
           <button className="text-button" onClick={close}>

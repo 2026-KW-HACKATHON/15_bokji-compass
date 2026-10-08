@@ -218,7 +218,10 @@ def compare_policy(record: dict, facts: MatchingFacts, *, catalog: RegionCatalog
         checks.append({
             "condition_id": condition.condition_id, "field_key": condition.field_key,
             "role": condition.role, "subject": condition.subject,
-            "label": LABELS.get(condition.field_key, condition.source_field_key),
+            "label": LABELS.get(condition.field_key, {
+                "eligibility": "지원 대상", "exclusion": "신청 제외 대상",
+                "priority": "우대사항", "application": "신청 안내", "reference": "참고사항",
+            }[condition.role]),
             "state": "unknown" if state is None else "match" if state else "mismatch",
             "note": note, "source_field": condition.source_field,
             "quote": condition.evidence_quote,
@@ -237,6 +240,58 @@ def compare_policy(record: dict, facts: MatchingFacts, *, catalog: RegionCatalog
         notes.append("아직 비교할 수 없는 조건이 있어요.")
     return {"status": status, "checks": checks, "notes": notes,
             "eligibility_decided": False, "matching_enabled": bool(record["matching_enabled"])}
+
+
+def review_questions(comparison: dict, canonical: CanonicalPolicy, source: SourcePolicy,
+                     *, schedule_status: str) -> list[str]:
+    """Explain unresolved source requirements without exposing extraction keys or priority rules."""
+    checks = {check["condition_id"]: check for check in comparison["checks"]}
+    states = {key: None if check["state"] == "unknown" else check["state"] == "match"
+              for key, check in checks.items()}
+
+    def unresolved(node):
+        if evaluate_logic(node, states) is not None or node.op == "unknown":
+            return set()
+        if node.op == "condition":
+            return {node.condition_id}
+        return set().union(*(unresolved(child) for child in node.children))
+
+    relevant = unresolved(canonical.logic)
+    questions, seen = [], set()
+    incomplete = (not comparison["matching_enabled"] or canonical.coverage != "complete"
+                  or canonical.logic.op == "unknown")
+
+    def add_source(text, label):
+        # Keep the whole requirement; never shorten away an exception or qualifier.
+        quote = re.sub(r"\s+", " ", text or "").strip()
+        if not quote or len(quote) > 300 or re.search(r"\b\w+_\w+\b", quote):
+            return False
+        if quote not in seen:
+            seen.add(quote)
+            questions.append(f"{label}: {quote}")
+        return True
+
+    for check in comparison["checks"]:
+        if (check["condition_id"] not in relevant or check["state"] != "unknown"
+                or check["role"] not in {"eligibility", "exclusion"}
+                or check["field_key"] == "application_period"):
+            continue
+        label = "신청 제외 대상 안내" if check["role"] == "exclusion" else "지원 대상 안내"
+        if not add_source(check["quote"], label):
+            incomplete = True
+    if missing_target_requirements(canonical, source):
+        # A missing extraction is a service limitation, not a request for a user's data.
+        audience = target_evidence(source)[1:]
+        if not audience:
+            incomplete = True
+        for statement in audience:
+            if not add_source(statement, "지원 대상 안내"):
+                incomplete = True
+    if incomplete:
+        questions.append("세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요.")
+    if schedule_status == "unknown":
+        questions.append("담당 기관에 현재 신청을 받고 있는지와 신청 마감일을 문의해 주세요.")
+    return list(dict.fromkeys(questions))
 
 
 def candidate_query(repository):

@@ -1,10 +1,15 @@
 # 앱 조립
 
+2026-10-08 초기 로딩 보완: 회원·관리자·간단/상세 계산기·캘린더·프로필 화면은
+`React.lazy`로 해당 화면을 방문할 때 불러옵니다. 본문의 `Suspense`가 번역된 로딩
+상태를 제공하고, App에서 관리하는 계정·금융 초안·탐색 상태는 유지합니다.
+[빌드 크기·회귀 검사 기록](../../../docs/performance-review.md).
+
 ## 2026-10-08 상단 메뉴의 계층 구조
 
 `PortalNavigation({page, savedCount?})`는 우리 동네 복지를 포함한 주요 메뉴 일곱 개와 전체 폭 하위 메뉴를 반환합니다. PC는 마우스 진입·키보드 포커스로 펼치며 화살표 버튼은 터치에서도 열고 닫습니다. Escape·닫기·바깥 클릭·탭 이탈·페이지 이동은 메뉴를 닫습니다. 모바일은 두 열과 내부 스크롤을 사용하고 펼친 메뉴는 챗봇 아이콘 위에 표시합니다.
 
-`portalNavigation.js`의 `portalSections`는 표시 그룹·대상 hash 배열, `portalRoutes`는 허용 페이지 목록이며 `isSectionActive(section,page)`는 상세 계산기를 포함한 선택 그룹 여부를 반환합니다. 계산기는 내 정보 아래에, 서비스 소개·내 복지 현황·이용 안내는 AI 비서 아래에 둡니다. `portal-navigation.css`가 기존 `portal.css` 이후 최종 배치를 적용합니다. 번역은 공통 `navigationMessages.js`를 사용하며 API에는 영향을 주지 않습니다.
+`portalNavigation.js`의 `portalSections`는 표시 그룹·대상 hash 배열, `portalRoutes`는 허용 페이지 목록이며 `isSectionActive(section,page)`는 상세 계산기를 포함한 선택 그룹 여부를 반환합니다. 계산기는 내 정보 아래에, 서비스 소개·내 복지 현황은 AI 비서 아래에, 서비스 안내(`#guide`)는 홈 아래에 둡니다. `portal-navigation.css`가 기존 `portal.css` 이후 최종 배치를 적용합니다. 번역은 공통 `navigationMessages.js`를 사용하며 API에는 영향을 주지 않습니다.
 
 `#assistant-intro`는 새 AI 소개, `#assistant-overview`는 기존 현황·정보 등록, `#guide`는 기존 서비스 이용 안내입니다. `#assistant`의 첫 방문 소개와 계산기 직접 주소는 유지합니다. `AssistantPage`의 `initialView`, `initialProfileEntry`, `onContinue`로 소개에서 현황의 정보 등록 화면으로 이동합니다. 대화는 App의 계정별 메모리에서 복원합니다. [메뉴 구조·검증 기록](../../../docs/portal-navigation.md). 아래 상단바 정렬 기록은 이 보조 줄·주 메뉴 구조로 대체됩니다.
 
@@ -54,4 +59,13 @@ styles.css는 기본·쉬운 화면에 공통 파랑·초록 테마·모바일 s
 브랜드는 두 모드에서 파랑 #0068b7·초록 #087b52를 공유합니다. 본문색 #17324d와 배경색 #f8fafc도 공통이며, 쉬운 화면 전용 팔레트는 정의하지 않습니다. public/brand-logo.png를 데스크톱/모바일 브랜드, 푸터, 탭 아이콘과 개인비서 메인에 사용합니다.
 ## 2026-10-08 우리 동네 복지
 
+일반 화면의 `PortalNavigation({ page, savedCount })`은 주 메뉴와 펼친 하위 메뉴를 반환합니다. `portal-navigation.css`의 공통 7열과 헤더 여백·로고 너비 변수로 각 대카테고리와 하위 메뉴의 가로 중심을 맞춥니다. 1000px 이하에서는 가로 스크롤 주 메뉴와 2열 하위 메뉴를 사용합니다. [메뉴 정렬 기록](../../../docs/portal-navigation.md).
+
 `#local`은 입력/저장 주소의 시·군·구를 기준으로 생활서비스를 안내합니다. 주 메뉴 7개 열과 홈 진입점을 추가했습니다. `LocalWelfarePage`를 지연 로드하며 계정 ID로 상태를 분리하고 `initialSelection`·`onSelectionChange`로 탐색 선택을 메모리에 유지합니다. [구현·검증 범위](../../../docs/local-welfare.md).
+# 2026-10-08 Apple 접근성 가이드 기반 쉬운 화면
+
+`App`은 `easy` 상태에서 `EasyNavigation({page, savedCount})`을 렌더링합니다. 반환값은 현재 위치와 전체 메뉴 disclosure이며 서버 호출은 없습니다. 메뉴는 클릭/Enter/Space로 열고 Escape로 닫으면 열기 버튼에 초점이 돌아갑니다. 경로 이동 시 접고 기존 App의 본문 초점 이동을 사용합니다. 원래 hash, 로그인, 사용자 입력과 저장 계약은 유지합니다.
+
+`main.jsx`는 포털 스타일 다음에 `easy-shell.css`와 `easy-features.css`를 로드합니다. 전자는 헤더·탐색·검색 홈·공통 초점과 조작 크기, 후자는 공고·캘린더·폼·비서·이용 안내의 쉬운 화면을 담당합니다. 루트 글자 크기는 `112.5%`로 브라우저 기본 글자 설정을 따르며 주요 제어는 56px 이상입니다. 높이를 고정하지 않고 텍스트와 메뉴가 늘어나게 합니다. 장식 아이콘은 보조기술에서 제외하고 언어·검색·닫기 동작에는 보이는 글자 레이블을 제공합니다.
+
+검증과 적용 기준은 [Apple 기반 쉬운 화면 개편](../../../docs/easy-mode-accessibility.md)을 참고합니다. 이전 기록의 쉬운 화면 헤더/가로 메뉴는 이 구현으로 대체됩니다.

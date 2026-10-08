@@ -143,7 +143,7 @@ export function QuickCalculator({
             </Text>
           </View>
         )}
-        {error && <Notice>{error}</Notice>}
+        {!!error && <Notice>{error}</Notice>}
       </Card>
       {base !== null && (
         <Card>

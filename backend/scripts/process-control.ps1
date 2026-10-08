@@ -1,6 +1,6 @@
 param(
-    [ValidateSet('Status', 'Stop', 'Restart')][string]$Action = 'Status',
-    [ValidateSet('backend', 'frontend', 'all')][string]$Target = 'backend',
+    [ValidateSet('Status', 'Start', 'Stop', 'Restart')][string]$Action = 'Status',
+    [ValidateSet('backend', 'frontend', 'mysql', 'tunnel', 'all')][string]$Target = 'backend',
     [int]$ServerProcessId,
     [ValidatePattern('^[a-f0-9-]{36}$')][string]$JobId = ''
 )
@@ -19,6 +19,8 @@ $viteScript = Join-Path $webRoot 'node_modules\vite\bin\vite.js'
 $qrScript = Join-Path $webRoot 'tools\exhibition\server.mjs'
 $caddy = Join-Path $repoRoot 'tmp\tunnel-tools\caddy\caddy.exe'
 $caddyConfig = Join-Path $runtime 'Caddyfile'
+$mysqlScript = Join-Path $PSScriptRoot 'mysql.ps1'
+$tunnelScript = Join-Path $PSScriptRoot 'tunnel.ps1'
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 
 function Test-ScriptProcess($process, $script, $kind) {
@@ -76,7 +78,13 @@ function Get-Status($profile) {
         $frontRunning = [bool]@($profile.saved.processes | Where-Object {
             $_.name -eq 'web' -and (Get-OwnedProcess $_) }).Count
     }
+    $mysql = (& $mysqlScript inspect | Out-String) | ConvertFrom-Json
+    $tunnel = @{ running = $false; connected = $false; controllable = $false; url = $null }
+    if ($profile.mode -eq 'shared') {
+        $tunnel = (& $tunnelScript status | Out-String) | ConvertFrom-Json
+    }
     return @{ supported = $true; mode = $profile.mode; current_pid = $ServerProcessId;
+        mysql = $mysql; tunnel = $tunnel;
         backend = @{ running = $true; controllable = ($profile.mode -ne 'unmanaged') };
         frontend = @{ running = $frontRunning; controllable = ($profile.mode -ne 'unmanaged') } }
 }
@@ -179,7 +187,7 @@ try {
     # Allow the initiating HTTP response to arrive before its API process is stopped.
     Start-Sleep -Seconds 2
     $node = $null
-    if ($Action -eq 'Restart') {
+    if ($Action -in @('Start', 'Restart')) {
         if (!(Test-Path -LiteralPath $python)) { throw 'runtime_missing' }
         if ($Target -in @('frontend', 'all')) {
             $node = (Get-Command node.exe -ErrorAction Stop).Source
@@ -194,42 +202,78 @@ try {
             }
         }
     }
-    if ($profile.mode -eq 'development') {
-        if ($Target -in @('frontend', 'all')) {
-            Stop-ScriptProcesses $profile.frontend $viteScript '^node\.exe$'
+    $mysql = $null
+    if ($Target -in @('mysql', 'all')) {
+        $mysql = (& $mysqlScript inspect | Out-String) | ConvertFrom-Json
+        if (!$mysql.controllable) { throw 'mysql_unmanaged' }
+    }
+    if ($Target -eq 'mysql') {
+        & $mysqlScript $Action.ToLowerInvariant() | Out-Null
+    } elseif ($Target -eq 'tunnel') {
+        if ($profile.mode -ne 'shared') { throw 'tunnel_unmanaged' }
+        & $tunnelScript $Action.ToLowerInvariant() | Out-Null
+    } else {
+        # Stop dependants first; keep this helper alive after the API has stopped.
+        if ($Action -in @('Stop', 'Restart')) {
+            if ($Target -eq 'all' -and $profile.mode -eq 'shared') {
+                & $tunnelScript stop | Out-Null
+                $profile.saved = Read-ShareState
+            }
+            if ($profile.mode -eq 'development') {
+                if ($Target -in @('frontend', 'all')) {
+                    Stop-ScriptProcesses $profile.frontend $viteScript '^node\.exe$'
+                }
+                if ($Target -in @('backend', 'all')) {
+                    Stop-ScriptProcesses $profile.backend $devScript '^python(?:w)?\.exe$'
+                }
+            } else {
+                $names = @()
+                if ($Target -in @('frontend', 'all')) { $names += @('web', 'qr') }
+                if ($Target -in @('backend', 'all')) { $names += 'backend' }
+                Stop-Shared $profile.saved $names
+            }
+            if ($Target -eq 'all') { & $mysqlScript stop | Out-Null }
         }
-        if ($Target -in @('backend', 'all')) {
-            Stop-ScriptProcesses $profile.backend $devScript '^python(?:w)?\.exe$'
-        }
-        if ($Action -eq 'Restart') {
+        if ($Action -in @('Start', 'Restart')) {
+            if ($Target -eq 'all') { & $mysqlScript start | Out-Null }
+            if ($profile.mode -eq 'development') {
             if ($Target -in @('backend', 'all')) {
+                if ($Action -ne 'Start' -or !$profile.backend.Count) {
                 $env:SERVER_HOST = [string]$job.host
                 $env:SERVER_PORT = [string]$job.port
                 $process = Start-Managed 'backend' $python ('"' + $devScript + '"') $backendRoot
                 $expectedPort = [int]$job.port
                 Wait-Local "http://127.0.0.1:$expectedPort/health" $process
+                }
             }
             if ($Target -in @('frontend', 'all')) {
+                if ($Action -ne 'Start' -or !$profile.frontend.Count) {
                 $process = Start-Managed 'frontend' $node ('"' + $viteScript + '" --host 127.0.0.1') $webRoot
                 Wait-Local 'http://127.0.0.1:5173/' $process
+                }
             }
-        }
-    } else {
-        $names = @()
-        if ($Target -in @('frontend', 'all')) { $names += @('web', 'qr') }
-        if ($Target -in @('backend', 'all')) { $names += 'backend' }
-        Stop-Shared $profile.saved $names
-        if ($Action -eq 'Restart') {
+            } else {
             if ($Target -in @('backend', 'all')) {
+                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
+                    $_.name -eq 'backend' -and (Get-OwnedProcess $_) }).Count) {
                 $process = Start-Managed 'backend' $python ('"' + $shareScript + '"') $repoRoot $profile.saved
                 Wait-Local 'http://127.0.0.1:8001/health' $process
+                }
             }
             if ($Target -in @('frontend', 'all')) {
+                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
+                    $_.name -eq 'qr' -and (Get-OwnedProcess $_) }).Count) {
                 $env:EXHIBITION_AUTH_API_URL = 'http://127.0.0.1:8001'
                 $qrProcess = Start-Managed 'qr' $node ('"' + $qrScript + '"') $repoRoot $profile.saved
                 Wait-QR $qrProcess
+                }
+                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
+                    $_.name -eq 'web' -and (Get-OwnedProcess $_) }).Count) {
                 $process = Start-Managed 'web' $caddy ('run --config "' + $caddyConfig + '" --adapter caddyfile') $repoRoot $profile.saved
                 Wait-Local 'http://127.0.0.1:8080/' $process
+                }
+            }
+            if ($Target -eq 'all') { & $tunnelScript start | Out-Null }
             }
         }
     }
@@ -237,7 +281,8 @@ try {
 } catch {
     $job.status = 'failed'
     $known = @('process_identity_changed', 'process_stop_failed', 'runtime_missing',
-        'configuration_invalid', 'startup_failed', 'unmanaged_runtime')
+        'configuration_invalid', 'startup_failed', 'unmanaged_runtime', 'mysql_unmanaged',
+        'tunnel_unmanaged', 'origin_unavailable')
     $job.error_code = if ($_.Exception.Message -in $known) { $_.Exception.Message } else { 'control_failed' }
 } finally {
     $job.finished_at = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()

@@ -27,6 +27,10 @@ export default function EasyNavigation({ page, savedCount = 0 }) {
     setOpen(false);
     toggle.current?.focus({ preventScroll: true });
   };
+  const selectDestination = (destination) => {
+    if (destination === page) close();
+    else setOpen(false);
+  };
   return (
     <nav
       className="easy-navigation"
@@ -64,7 +68,7 @@ export default function EasyNavigation({ page, savedCount = 0 }) {
             <a
               href={'#' + item.id}
               aria-current={page === item.id ? 'page' : undefined}
-              onClick={() => setOpen(false)}
+              onClick={() => selectDestination(item.id)}
             >
               <Icon name={sectionIcons[item.id]} size={24} />
               <span>
@@ -74,18 +78,20 @@ export default function EasyNavigation({ page, savedCount = 0 }) {
               {page === item.id && <Icon name="check" size={22} />}
             </a>
             {item.links.length > 1 &&
-              item.links.map((link) => (
-                <a
-                  className="easy-menu-child"
-                  key={link.id}
-                  href={'#' + link.id}
-                  aria-current={page === link.id ? 'page' : undefined}
-                  onClick={() => setOpen(false)}
-                >
-                  <span>{t(link.label)}</span>
-                  {page === link.id && <Icon name="check" size={20} />}
-                </a>
-              ))}
+              item.links
+                .filter((link) => link.id !== item.id)
+                .map((link) => (
+                  <a
+                    className="easy-menu-child"
+                    key={link.id}
+                    href={'#' + link.id}
+                    aria-current={page === link.id ? 'page' : undefined}
+                    onClick={() => selectDestination(link.id)}
+                  >
+                    <span>{t(link.label)}</span>
+                    {page === link.id && <Icon name="check" size={20} />}
+                  </a>
+                ))}
           </div>
         ))}
       </div>

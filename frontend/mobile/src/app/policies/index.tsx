@@ -171,10 +171,15 @@ function Policies({
     return (
       <View style={{ gap: 8 }}>
         <Copy>{label}</Copy>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t(label)}
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+        >
           {values.map((value) => (
             <Choice
               key={value}
+              compact={key === "region" || key === "category"}
               label={choiceLabels[value] ?? value}
               accessibilityLabel={t(
                 key === "searchScope"
@@ -217,7 +222,7 @@ function Policies({
             flexDirection: "row",
             alignItems: "center",
             gap: 8,
-            minHeight: 48,
+            minHeight: easy ? 60 : 48,
             justifyContent: "center",
           }}
         >
@@ -229,25 +234,35 @@ function Policies({
               fontWeight: "600",
             }}
           >
-            {showFilters ? "상세 조건 접기" : "지역·검색 범위·정렬"}
+            {showFilters
+              ? "상세 조건 접기"
+              : easy
+                ? "검색 범위·조건 직접 선택"
+                : "지역·검색 범위·정렬"}
           </Text>
         </Pressable>
       </Card>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
-        accessibilityLabel={t("공고 분야")}
-      >
-        {categories.map((category) => (
-          <Choice
-            key={category}
-            label={category}
-            selected={filters.category === category}
-            onPress={() => change("category", category)}
-          />
-        ))}
-      </ScrollView>
+      {easy ? (
+        <Copy muted>
+          {t(filters.category)} · {t(filters.region)}
+        </Copy>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+          accessibilityLabel={t("공고 분야")}
+        >
+          {categories.map((category) => (
+            <Choice
+              key={category}
+              label={category}
+              selected={filters.category === category}
+              onPress={() => change("category", category)}
+            />
+          ))}
+        </ScrollView>
+      )}
       {showFilters && (
         <Card>
           {choices("검색 범위", searchScopes, "searchScope")}

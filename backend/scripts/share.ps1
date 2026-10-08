@@ -209,9 +209,9 @@ try {
     Wait-Local 'http://127.0.0.1:8080/api/health'
     if ($TunnelMode -eq 'fixed') {
         # Only the ignored token-file path appears in the process command line.
-        Start-OwnedProcess 'tunnel' $cloudflared ('tunnel --no-autoupdate --protocol http2 run --token-file "' + $TunnelTokenFile + '"')
+        Start-OwnedProcess 'tunnel' $cloudflared ('tunnel --no-autoupdate --no-prechecks --protocol auto --edge-ip-version 4 run --token-file "' + $TunnelTokenFile + '"')
     } else {
-        Start-OwnedProcess 'tunnel' $cloudflared 'tunnel --no-autoupdate --url http://127.0.0.1:8080 --protocol http2'
+        Start-OwnedProcess 'tunnel' $cloudflared 'tunnel --no-autoupdate --no-prechecks --url http://127.0.0.1:8080 --protocol auto --edge-ip-version 4'
     }
     $tunnelLog = Join-Path $runtime "$runId.tunnel.stderr.log"
     for ($attempt = 0; $attempt -lt 90; $attempt++) {

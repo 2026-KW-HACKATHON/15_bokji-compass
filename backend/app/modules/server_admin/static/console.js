@@ -4,8 +4,8 @@
   const $ = (id) => document.getElementById(id);
   const state = { user: null, view: "overview", collectionTab: "status", settings: null, overview: null, generation: 0, saving: false };
   const controls = new Map();
-  const viewLabels = { overview: "서버 개요", processes: "서버·프론트 제어", operations: "수집 실행", collection: "데이터 수집", policies: "공고 DB 편집", settings: "서버 설정" };
-  let controlTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
+  const viewLabels = { overview: "서버 개요", processes: "서비스 관리", operations: "수집 실행", collection: "데이터 수집", policies: "공고 DB 편집", settings: "서버 설정" };
+  let controlTimer = null, processStatusTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
   let operationTimer = null, operationLoading = false, operationSubmitting = false, operationActive = false;
   const runFields = ["page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls", "max_model_calls", "max_tokens"];
   const providerLabels = { bokjiro: "복지로", gov24: "정부24", notice: "외부 공고 원문", model: "Codex 모델" };
@@ -131,7 +131,7 @@
   }
   function showLogin(text = "") {
     policyEditor.reset();
-    window.clearTimeout(controlTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
+    window.clearTimeout(controlTimer); window.clearTimeout(processStatusTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
     message("process-message", ""); $("process-job-result").replaceChildren();
     window.clearTimeout(operationTimer); operationTimer = null; operationActive = false; operationSubmitting = false;
     state.runInitialized = false; state.runPresets = null;
@@ -441,38 +441,45 @@
     } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
     finally { setSaving(false); updateOperationButtons(); }
   }
-  const processTargets = { backend: "백엔드", frontend: "프론트", all: "백엔드와 프론트" };
+  const processTargets = { backend: "백엔드", frontend: "프론트", mysql: "MySQL", tunnel: "공개 터널", all: "전체 서비스" };
+  const processActions = { start: "시작", restart: "재시작", stop: "중지" };
   function updateProcessButtons() {
     for (const button of document.querySelectorAll("[data-process-target]")) {
       const target = button.dataset.processTarget;
       const allowed = processState?.supported && processState.mode !== "unmanaged" && processState.mode !== "unsupported";
-      button.disabled = controlBusy || controlDisconnected || !allowed || target === "frontend" && button.dataset.processAction === "stop" && !processState?.frontend?.running;
+      const service = processState?.[target], action = button.dataset.processAction;
+      const controllable = target === "all" ? processState?.mysql?.controllable && (processState.mode !== "shared" || processState?.tunnel?.controllable) : service?.controllable;
+      const running = target === "all" ? processState?.backend?.running && processState?.frontend?.running && processState?.mysql?.ready && (processState.mode !== "shared" || processState?.tunnel?.connected) : service?.running;
+      button.disabled = controlBusy || controlDisconnected || !allowed || !controllable || action === "start" && running || action === "stop" && target !== "all" && !running;
     }
   }
   function renderProcessJob(job) {
     const container = $("process-job-result"); container.replaceChildren(); if (!job) return;
     const labels = { accepted: "접수 완료", running: "처리 중", completed: "완료", failed: "실패" };
-    container.append(element("strong", "", `${processTargets[job.target] || "서비스"} ${job.action === "restart" ? "재시작" : "종료"} · ${labels[job.status] || "상태 확인"}`), element("p", "operation-caption", `${date(job.started_at)} 요청${job.finished_at ? ` · ${date(job.finished_at)} 종료` : ""}`));
+    container.append(element("strong", "", `${processTargets[job.target] || "서비스"} ${processActions[job.action] || "제어"} · ${labels[job.status] || "상태 확인"}`), element("p", "operation-caption", `${date(job.started_at)} 요청${job.finished_at ? ` · ${date(job.finished_at)} 종료` : ""}`));
     if (job.status === "failed") {
       const errors = { process_identity_changed: "실행 프로세스가 바뀌어 작업을 중단했습니다. 상태를 새로 확인하세요.", startup_failed: "다시 실행한 서비스가 준비되지 않았습니다. 서버 실행 로그와 포트 사용 여부를 확인하세요.", runtime_missing: "실행 파일 또는 프론트 의존성이 없습니다. 서버 환경을 확인하세요.", configuration_invalid: "운영 프론트 설정을 확인해 주세요.", unmanaged_runtime: "프로젝트 실행 BAT로 서버를 시작한 뒤 사용하세요." };
       container.append(element("p", "operation-caption", errors[job.error_code] || "작업을 완료하지 못했습니다. 서버의 프로세스 제어 로그와 실행 권한을 확인하세요."));
     }
   }
   async function loadProcesses() {
-    if (!state.user) return; $("refresh-processes").disabled = true;
+    if (!state.user) return; window.clearTimeout(processStatusTimer); $("refresh-processes").disabled = true;
     try {
       const data = await api("/processes"); if (!state.user) return;
       processState = data; controlDisconnected = false;
       $("process-mode").textContent = { development: "개발 서버 · Vite 프론트", shared: "운영 서버 · 웹·QR 프론트", unmanaged: "프로젝트 실행기로 시작해 주세요", unsupported: "Windows 서버에서 사용 가능합니다" }[data.mode] || "실행 환경 확인 필요";
       $("process-backend-status").textContent = data.backend?.running ? "실행 중" : "상태 확인 필요";
       $("process-frontend-status").textContent = data.frontend?.running ? "실행 중" : "중지됨";
+      $("process-mysql-status").textContent = !data.mysql?.controllable ? "개별 관리 필요" : data.mysql?.ready ? "연결 준비 완료" : data.mysql?.running ? "연결 확인 필요" : "중지됨";
+      $("process-tunnel-status").textContent = !data.tunnel?.controllable ? "운영 터널 구성 필요" : data.tunnel?.connected ? "공개 연결 정상" : data.tunnel?.running ? "연결 끊김" : "중지됨";
+      $("process-tunnel-status").className = `badge ${data.tunnel?.running && !data.tunnel?.connected ? "warn" : ""}`;
       renderProcessJob(data.operation); updateProcessButtons(); refreshed();
       if (!controlBusy && ["accepted", "running"].includes(data.operation?.status)) {
         controlBusy = true; updateProcessButtons(); window.clearTimeout(controlTimer);
         pollProcessJob(data.operation, Date.now(), state.generation);
       }
     } catch (error) { if (state.user) message("process-message", errorMessage(error), "error"); }
-    finally { $("refresh-processes").disabled = false; }
+    finally { $("refresh-processes").disabled = false; if (state.user && state.view === "processes" && !controlBusy && !controlDisconnected) processStatusTimer = window.setTimeout(loadProcesses, 10000); }
   }
   async function pollProcessJob(job, started, generation) {
     if (!state.user || state.generation !== generation) return;
@@ -487,15 +494,15 @@
       retry = ["accepted", "running"].includes(data.operation.status);
       if (!retry) {
         controlBusy = false; controlDisconnected = false; updateProcessButtons();
-        message("process-message", data.operation.status === "completed" ? `${processTargets[job.target]} ${job.action === "restart" ? "재시작" : "종료"} 작업이 완료되었습니다.` : "작업을 완료하지 못했습니다. 아래 결과를 확인하세요.", data.operation.status === "failed" ? "error" : "");
+        message("process-message", data.operation.status === "completed" ? `${processTargets[job.target]} ${processActions[job.action]} 작업이 완료되었습니다.` : "작업을 완료하지 못했습니다. 아래 결과를 확인하세요.", data.operation.status === "failed" ? "error" : "");
         loadProcesses();
       }
     } catch {
       if (state.generation !== generation) return;
       controlDisconnected = true; updateProcessButtons();
-      if (job.action === "stop" && job.target !== "frontend") {
+      if (job.action === "stop" && ["backend", "mysql", "all"].includes(job.target)) {
         controlBusy = false;
-        message("process-message", "백엔드 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
+        message("process-message", job.target === "mysql" ? "DB 응답이 중단되어 관리자 인증도 사용할 수 없습니다. 서버 PC에서 start-server-prod.bat mysql-start로 DB를 켜 주세요." : "서버 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
       } else {
         retry = true; message("process-message", "서비스를 다시 실행하는 중입니다. 백엔드 연결 복구를 기다리고 있습니다.");
       }
@@ -510,12 +517,12 @@
   async function startProcessControl(target, action) {
     if (!state.user || controlBusy) return;
     if (Object.keys(changes()).length) { message("process-message", "서버 설정을 먼저 저장하거나 변경을 취소해 주세요.", "warn"); return; }
-    const effect = target === "frontend" ? "웹 서비스 연결이 잠시 끊길 수 있습니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
-    if (!window.confirm(`${processTargets[target]}를 ${action === "restart" ? "재시작" : "종료"}할까요?\n\n${effect}`)) return;
-    controlBusy = true; updateProcessButtons(); message("process-message", "명령을 전달하는 중입니다.");
+    const effect = target === "mysql" ? "로그인·저장·수집이 영향을 받습니다. DB 중지 후에는 관리자 인증도 중단되므로 서버 PC에서 start-server-prod.bat mysql-start로 복구해야 합니다." : target === "tunnel" ? "공개 사이트의 연결에 영향을 줍니다. 이 로컬 관리 페이지는 계속 사용할 수 있습니다." : target === "frontend" ? "웹·QR 서비스 연결에 영향을 줍니다." : target === "all" ? "API·웹·QR·터널·MySQL을 함께 제어합니다. 전체 중지 후에는 서버 PC에서 운영 BAT로 다시 시작해야 합니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
+    if (!window.confirm(`${processTargets[target]}를 ${processActions[action]}할까요?\n\n${effect}`)) return;
+    controlBusy = true; window.clearTimeout(processStatusTimer); updateProcessButtons(); message("process-message", "명령을 전달하는 중입니다.");
     try {
       const data = await api("/processes", { method: "POST", body: { target, action } }); if (!state.user) return;
-      renderProcessJob(data.operation); message("process-message", `${processTargets[target]} ${action === "restart" ? "재시작" : "종료"} 요청을 전달했습니다.`);
+      renderProcessJob(data.operation); message("process-message", `${processTargets[target]} ${processActions[action]} 요청을 전달했습니다.`);
       pollProcessJob(data.operation, Date.now(), state.generation);
     } catch (error) { controlBusy = false; updateProcessButtons(); if (state.user) message("process-message", errorMessage(error), "error"); }
   }

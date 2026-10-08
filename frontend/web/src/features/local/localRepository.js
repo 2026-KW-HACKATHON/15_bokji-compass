@@ -4,7 +4,7 @@ import { parseLocalArea } from './localModel.js';
 
 const categories = new Set(['transport', 'health', 'care', 'culture']);
 const scopes = new Set(['national', 'province', 'district', 'neighborhood']);
-const validText = (value, max = 2000) =>
+const validText = (value, max = 3000) =>
   typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const validCount = (value) => Number.isSafeInteger(value) && value >= 0;
 const fail = () => {
@@ -47,6 +47,7 @@ export function parseLocalServicePage(value) {
       !sourceUrl(item.sourceUrl) ||
       !isCalendarDate(item.checkedAt) ||
       (item.sourcePublishedAt !== null && !isCalendarDate(item.sourcePublishedAt)) ||
+      (item.availableUntil != null && !isCalendarDate(item.availableUntil)) ||
       !Array.isArray(item.coverage) ||
       !item.coverage.length ||
       !Array.isArray(item.focusAreas)
@@ -66,7 +67,7 @@ export function parseLocalServicePage(value) {
     for (const place of item.focusAreas) {
       if (
         !validText(place.region, 30) ||
-        !validText(place.district, 80) ||
+        !(validText(place.district, 80) || (place.region === '세종' && place.district === '')) ||
         !validText(place.neighborhood, 80) ||
         !['administrative', 'legal'].includes(place.neighborhoodType)
       )

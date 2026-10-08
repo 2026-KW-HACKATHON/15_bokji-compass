@@ -22,12 +22,14 @@ class RuntimeErrorCode(RuntimeError):
 
 class ControlInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    target: Literal["backend", "frontend", "all"]
-    action: Literal["stop", "restart"]
+    target: Literal["backend", "frontend", "mysql", "tunnel", "all"]
+    action: Literal["start", "stop", "restart"]
 
 
 def command(action, *, target="backend", job_id=None):
-    if action not in {"Status", "Stop", "Restart"} or target not in {"backend", "frontend", "all"}:
+    if action not in {"Status", "Start", "Stop", "Restart"} or target not in {
+        "backend", "frontend", "mysql", "tunnel", "all",
+    }:
         raise RuntimeErrorCode("invalid_command")
     if job_id is not None:
         try:
@@ -138,12 +140,20 @@ def start(state, data: ControlInput):
     if os.name != "nt":
         raise RuntimeErrorCode("windows_required")
     with state.server_config_lock:
-        operation = state.server_operations.snapshot()["operation"]
-        if data.target in {"backend", "all"} and operation and operation["status"] == "running":
+        operation = state.server_operations.snapshot(state)["operation"]
+        if data.target in {"backend", "mysql", "all"} and operation and (
+            operation["status"] == "running"
+        ):
             raise RuntimeErrorCode("collection_busy")
         view = status()
         if view["mode"] == "unmanaged":
             raise RuntimeErrorCode("unmanaged_runtime")
+        if data.target in {"mysql", "all"} and not view.get("mysql", {}).get("controllable"):
+            raise RuntimeErrorCode("mysql_unmanaged")
+        if data.target == "tunnel" and (
+            view["mode"] != "shared" or not view.get("tunnel", {}).get("controllable")
+        ):
+            raise RuntimeErrorCode("tunnel_unmanaged")
         CONTROL_ROOT.mkdir(parents=True, exist_ok=True)
         job_id = str(uuid4())
         lock_path = CONTROL_ROOT / "active.lock"
@@ -179,7 +189,7 @@ def start(state, data: ControlInput):
         try:
             path.write_text(json.dumps(job), encoding="utf-8")
             state.server_control_job = job_id
-            state.server_control_pending = data.target in {"backend", "all"}
+            state.server_control_pending = data.target in {"backend", "mysql", "all"}
             subprocess.Popen(
                 command(data.action.title(), target=data.target, job_id=job_id),
                 cwd=BACKEND_ROOT,

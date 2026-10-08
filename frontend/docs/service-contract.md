@@ -1,5 +1,10 @@
 # 공고·개인비서 HTTP 계약
 
+2026-10-08 `sourceFields`의 JSON 객체/배열 문자열은 서버가 법령명·기관과 전화번호·
+신청 단계·파일명과 주소를 줄별로 정제해 반환합니다. `dict[str,str]` 계약과 원천 키는
+유지하고 `contact`/`applicationMethod`도 정제합니다. 웹/모바일은 표시 문자열을 그대로
+사용하며 원문 근거와 신청 날짜는 변경하지 않습니다. [변환·검증](../../backend/docs/notice-source-fields.md).
+
 2026-10-07 공개 상세 `/v1/policies/{id}`는 content, sourceFields, gender, otherConditions,
 applicationMethod, applicationUrl, contact, publishedDate, modifiedDate를 선택 필드로 반환합니다.
 관리자 편집은 [전용 서버 콘솔 계약](../../api-management.md)을 사용합니다. 같은 공개 개정을

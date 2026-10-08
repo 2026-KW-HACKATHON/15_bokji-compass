@@ -1,5 +1,7 @@
 # 우리 동네 복지: 초기 서비스 출처
 
+2026-10-08 확장: 초기 프론트 3건을 검토한 뒤 서버의 20건 카탈로그로 이전했습니다. 최신 월계1동 직접 근거와 타 지역·기간 제한은 [노원 출처](../../backend/docs/local-services-nowon-sources.md), [타 지역 출처](../../backend/docs/local-services-other-sources.md), [저장·API 계약](../../backend/docs/local-services.md)을 기준으로 합니다. 아래는 초기 3건의 확인 기록입니다.
+
 확인일: 2026-10-08 (Asia/Seoul)
 
 `web/src/features/local/localServices.js`의 초기 목록은 아래 공식 안내를 사람이 확인해 작성했다. 현재 수집 범위는 서울 노원구의 생활 서비스 3개이며, 전국 서비스 목록이나 실시간 운영·예약 현황이 아니다. `checkedAt`은 공식 웹 안내를 조회한 날짜다. 이 날짜를 기관의 게시·수정일 또는 당일 운영 확인일로 표시하지 않는다.

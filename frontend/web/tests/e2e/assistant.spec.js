@@ -40,8 +40,10 @@ async function mock(page, member = false) {
     route.fulfill({ json: { revision_id: revision, items: faqItems } }),
   );
 }
-const open = async (page) => {
-  await page.getByRole('button', { name: 'AI 챗봇 열기' }).click();
+const open = async (page, easy = false) => {
+  await page
+    .getByRole('button', { name: easy ? '챗봇에 물어보기' : 'AI 챗봇 열기', exact: true })
+    .click();
   return page.getByRole('dialog', { name: '복지나침반 AI 챗봇' });
 };
 
@@ -253,14 +255,14 @@ test('easy mode uses the same topics, keeps the selected guide and fits 320px', 
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('assistant-easy-320.png') });
   await panel.getByRole('button', { name: '상담창 닫기' }).click();
-  await expect(page.getByText('챗봇에 물어보기', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '챗봇에 물어보기', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const desktop = await open(page);
+  const desktop = await open(page, true);
   expect((await desktop.boundingBox()).width).toBeGreaterThan(500);
   await page.screenshot({ path: testInfo.outputPath('assistant-easy-desktop.png') });
 });
 
-test('schedule entry selects the period FAQ and guests keep the login boundary', async ({
+test('schedule entry selects the period FAQ and guests can ask policy questions', async ({
   page,
 }) => {
   await mock(page, true);
@@ -278,8 +280,10 @@ test('schedule entry selects the period FAQ and guests keep the login boundary',
   const guest = await open(page);
   await guest.getByRole('button', { name: /공고 내용이 궁금해요/ }).click();
   await guest.getByRole('button', { name: new RegExp(policy.title) }).click();
-  await expect(guest.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
-  await expect(guest.getByRole('textbox', { name: '궁금한 내용' })).toHaveCount(0);
+  await expect(guest.getByRole('link', { name: '로그인', exact: true })).toHaveCount(0);
+  await expect(guest.getByRole('textbox', { name: '궁금한 내용' })).toBeVisible();
+  await guest.getByRole('group', { name: '자주 묻는 질문' }).getByRole('button').first().click();
+  await expect(guest.getByText(faqItems[0].response.answer, { exact: true })).toBeVisible();
 });
 
 test('policy loading can retry and searching starts a fresh cursor', async ({ page }) => {

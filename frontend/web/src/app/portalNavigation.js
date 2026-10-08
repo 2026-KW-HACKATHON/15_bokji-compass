@@ -1,6 +1,13 @@
 // Keep public hashes stable while grouping destinations in the header.
 export const portalSections = [
-  { id: 'home', label: '홈', links: [{ id: 'home', label: '홈으로 이동' }] },
+  {
+    id: 'home',
+    label: '홈',
+    links: [
+      { id: 'home', label: '홈으로 이동' },
+      { id: 'guide', label: '서비스 안내' },
+    ],
+  },
   { id: 'local', label: '우리 동네 복지', links: [{ id: 'local', label: '생활지역 서비스 보기' }] },
   {
     id: 'assistant',
@@ -8,7 +15,7 @@ export const portalSections = [
     links: [
       { id: 'assistant-intro', label: '서비스 소개' },
       { id: 'assistant-overview', label: '내 복지 현황' },
-      { id: 'guide', label: '이용 안내' },
+      { id: 'assistant-monitoring', label: '지속 복지 안내' },
     ],
   },
   { id: 'explore', label: '전체 공고', links: [{ id: 'explore', label: '공고 찾기' }] },
@@ -19,6 +26,7 @@ export const portalSections = [
     label: '내 정보',
     links: [
       { id: 'profile', label: '회원 정보' },
+      { id: 'new-notices', label: '신규공고 확인하기' },
       { id: 'calculator', label: '계산기' },
     ],
   },

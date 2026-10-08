@@ -18,7 +18,7 @@ import {
   colors,
   useScreenStep,
 } from "../../components/ui";
-import { Icon, IconName } from "../../components/Icon";
+import { EasyIconTile, Icon, IconName } from "../../components/Icon";
 import { useRuntime, useSession } from "../../services/runtime";
 import { CandidateCard, openPolicy } from "./controls";
 import { GuidedConversation } from "./GuidedConversation";
@@ -102,7 +102,7 @@ function Hero({
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Icon name="ai" color={colors.green} size={28} />
+        {easy ? <EasyIconTile name="ai" /> : <Icon name="ai" color={colors.green} size={28} />}
         <Text
           style={{
             color: colors.green,
@@ -122,6 +122,7 @@ function Hero({
   );
 }
 function Starters({ onStart }: { onStart: (question: string) => void }) {
+  const { easy } = useRuntime();
   return (
     <View style={{ gap: 10 }}>
       {starters.map(([icon, title, question]) => (
@@ -138,7 +139,7 @@ function Starters({ onStart }: { onStart: (question: string) => void }) {
             borderColor: colors.line,
           }}
         >
-          <Icon name={icon} color={colors.green} />
+          {easy ? <EasyIconTile name={icon} /> : <Icon name={icon} color={colors.green} />}
           <View style={{ flex: 1 }}>
             <Copy>{title}</Copy>
           </View>
@@ -227,7 +228,7 @@ function OverviewTiles({
             opacity: pressed ? 0.75 : 1,
           })}
         >
-          <Icon name={tile.icon} color={colors.green} />
+          {easy ? <EasyIconTile name={tile.icon} /> : <Icon name={tile.icon} color={colors.green} />}
           <Text
             style={{
               color: colors.ink,
@@ -646,8 +647,8 @@ function MemberAi({
               </Card>
             </>
           )}
-          {error && <Notice>{error}</Notice>}
-          {message && <Notice>{message}</Notice>}
+          {!!error && <Notice>{error}</Notice>}
+          {!!message && <Notice>{message}</Notice>}
         </>
       )}
     </View>

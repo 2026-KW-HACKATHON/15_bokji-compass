@@ -177,7 +177,15 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
           (key === 'region' && value === '전국');
         if (value && !unfiltered) params.set(key, value);
       }
-      return { ...parsePolicyPage(await request(path + '?' + params, { signal })), source: 'api' };
+      return {
+        ...parsePolicyPage(
+          await request(path + '?' + params, {
+            signal,
+            authenticated: Boolean(filters.eligibleOnly),
+          }),
+        ),
+        source: 'api',
+      };
     },
   };
 }

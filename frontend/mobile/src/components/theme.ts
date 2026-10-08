@@ -10,6 +10,8 @@ export const colors = {
   line: "#E5EAF2",
   easyLine: "#68788E",
   easyPaper: "#F7F8FA",
+  easyIcon: "#0068B7",
+  easyIconBackground: "#E0F2FE",
   danger: "#A12622",
 };
 

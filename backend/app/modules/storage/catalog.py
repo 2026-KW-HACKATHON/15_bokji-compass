@@ -8,7 +8,13 @@ from sqlalchemy import JSON, String, and_, func, inspect, literal, or_, select
 from app.modules.ingestion.models import records as collection_records
 from app.modules.ingestion.popularity import listing_popularity, view_count_expression
 from app.modules.normalization.source_urls import policy_source_url
-from app.modules.presentation.public import format_notice_text, payment_schedule, policy_description
+from app.modules.presentation.public import (
+    format_notice_text,
+    format_source_field,
+    format_source_fields,
+    payment_schedule,
+    policy_description,
+)
 from app.modules.search.public import search_records
 from app.modules.search.relations import institution_names
 from app.modules.storage.application_dates import (
@@ -115,26 +121,27 @@ def with_popularity(catalog, connection):
 
 def card(record, *, full=False, reference_year=None, reference_month=None):
     source = record["source_json"]
-    fields = source["fields"]
+    raw_fields = source["fields"]
+    fields = format_source_fields(raw_fields)
     overview = record["draft_json"].get("overview") or {}
     editorial = record["draft_json"].get("editorial") or {}
 
     def section(name, fallback):
         value = overview.get(name) or {}
         return (
-            value.get("text")
+            format_source_field(value["text"], field=name)
             if value.get("status") in {"specified", "unrestricted"} and value.get("text")
             else fallback
         )
 
     category = effective_category(record)
-    period = resolved_application_period(fields, overview)
+    period = resolved_application_period(raw_fields, overview)
     return {
         "id": record["policy_key"],
         "revisionId": record["revision_id"],
         "title": source["title"],
         "organization": source["organization"],
-        "summary": editorial.get("summary")
+        "summary": format_source_field(editorial.get("summary") or "", field="purpose_summary")
         or policy_description(
             source["title"],
             fields.get("purpose_summary"),
@@ -144,11 +151,13 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
             section("benefits", fields.get("benefits") or "지원 내용 확인 필요")
         ),
         "region": format_notice_text(section("region_conditions", "지역 확인 필요")),
-        "audience": format_notice_text(audience_text(fields, overview, editorial)),
-        "paymentSchedule": payment_schedule(fields),
+        "audience": format_notice_text(
+            format_source_field(audience_text(fields, overview, editorial), field="eligibility")
+        ),
+        "paymentSchedule": payment_schedule(raw_fields),
         "applicationPeriod": period or "공식 공고에서 확인",
         **resolve_calendar_schedule(
-            fields,
+            raw_fields,
             overview,
             record["draft_json"].get("application_calendar"),
             reference_year=reference_year,
@@ -166,18 +175,15 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
         "content": (fields.get("text") or fields.get("eligibility") or "") if full else "",
         "gender": format_notice_text(section("gender_conditions", "")),
         "otherConditions": [
-            format_notice_text(text) for text in other_conditions(fields, overview)
+            format_notice_text(format_source_field(text, field="eligibility"))
+            for text in other_conditions(fields, overview)
         ],
         **{
             name: format_notice_text(section(field, fields.get(field) or ""))
             for name, field in (("applicationMethod", "application_method"), ("contact", "contact"))
         },
         "applicationUrl": section("application_url", fields.get("application_url") or None),
-        "sourceFields": {
-            key: value for key, value in fields.items() if value and not key.startswith("_editor_")
-        }
-        if full
-        else {},
+        "sourceFields": fields if full else {},
         "publishedDate": section("published_date", fields.get("published_date") or ""),
         "modifiedDate": section("modified_date", fields.get("modified_date") or ""),
     }
@@ -315,13 +321,20 @@ def list_policies(
                 matches, metadata = search_records(
                     records, q, sort=sort, institutions=vocabulary, relation=search_relation
                 )
+                total = len(matches)
+                page = matches[offset : offset + limit]
             else:
-                matches, metadata = [(record, None) for record in records], None
-            total = len(matches)
+                # SQL already orders these rows. Count the complete filtered
+                # stream, but retain only the requested page's large JSON rows.
+                page, metadata, total = [], None, 0
+                for record in records:
+                    if offset <= total < offset + limit:
+                        page.append((record, None))
+                    total += 1
             return {
                 "items": [
                     {**card(record), **({"searchMatch": match} if match else {})}
-                    for record, match in matches[offset : offset + limit]
+                    for record, match in page
                 ],
                 "total": total,
                 "nextCursor": str(offset + limit) if offset + limit < total else None,

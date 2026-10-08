@@ -1,6 +1,6 @@
 # DB 기반 개인 안내 — 회원 API와 웹 질문
 
-선택형 기본 질문: `GET /v1/assistant/faqs?revision_id=UUID` (회원 쿠키/Bearer 필수).
+선택형 기본 질문: `GET /v1/assistant/faqs?revision_id=UUID` (로그인 없이 이용).
 지원 내용·지원 대상·신청 기간·신청 방법·준비 서류·자격 확인의 6개 질문과 준비된 답변을 반환한다.
 고정 질문/안내 문구는 faq.py의 FAQ_TOPICS와 prepared_faqs에서 관리한다. 공고별 사실은 DB
 원문에서만 채우며 미기재 항목은 확인 필요로 응답한다. LLM·개인 프로필·추론 제한을 사용하지 않는다.
@@ -18,15 +18,23 @@ GuidanceProfile은 region/age_band/interests만 허용하고 계정·비밀번�
 
 CLI: python -m app.modules.assistant <revision_id> "질문" --include-drafts.
 DB 오류는 SQLAlchemyError, 입력/근거 오류는 ValueError, 모델 오류는 CodexRunError로 실패한다.
-`POST /v1/assistant/questions`는 웹 쿠키 또는 모바일 Bearer 세션을 검증한다.
+`POST /v1/assistant/questions`는 로그인 없이 공개 공고 질문을 받는다. 비로그인·만료된
+세션은 원문의 지원 내용·조건·기간·방법·서류를 준비된 안내로 반환하며 외부 AI나 회원
+프로필을 사용하지 않는다. 로그인 회원의 외부 AI 답변은 기존 AI 개인정보 동의 검사를 유지한다.
 입력은 revision_id/question만 허용하며 프로필은 서버가 로그인 계정의 지역·연령대로 구성한다.
 웹 공고 상세의 질문 화면과 연결했다. 초안 접근 옵션은 HTTP에 노출하지 않는다.
-공고 원문 질문은 회원당 분당 6회, 서버 프로세스당 동시 2회, 모델 60초 제한이다.
+공고 원문 질문은 회원당 또는 비로그인 접속 IP당 분당 6회다. 외부 모델은 서버 프로세스당
+동시 2회, 60초 제한이다.
 금융 판정이나 신청 작업은 수행하지 않는다.
 테스트: python -m pytest tests/test_assistant.py.
 [전체 안내](../../../docs/policy-storage.md) · [실증 기록](../../../docs/worklog.md).
 
 ## 부족한 정보를 확인하는 생활 상담
+
+`POST /v1/assistant/chat/dialogue`는 로그인 없이 이용하는 일반 챗봇의 별도 경로다.
+외부 AI 호출과 계정 조회 없이 결정된 질문·공개 공고로 상담한다. 무작위 HttpOnly 쿠키로
+브라우저별 임시 사실을 구분하며 최대 30분만 유지한다. 계정 저장은 제공하지 않는다.
+AI 비서의 `/dialogue`와 `/dialogue/profile`은 기존 회원 인증과 저장 동의를 유지한다.
 
 `dialogue.respond(repository | None, member, DialogueInput, DialogueStore,
 saved_profile=MonitoringProfile | None)`은 모델 호출 없이 검토된 질문으로 필요한 정보를 모은다.

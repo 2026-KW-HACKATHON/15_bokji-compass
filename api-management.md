@@ -1,5 +1,14 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 공개 공고 JSON 표시 정제 (2026-10-08)
+
+공개 공고 상세 `GET /v1/policies/{id}`의 `sourceFields: dict[str,str]`은 법령·문의처·
+신청 절차·첨부 파일·관련 링크의 JSON 배열/객체를 읽기 쉬운 줄별 문자열로 반환합니다.
+원천 필드 키와 일반 문자열은 유지하고 공급자 코드/ID와 빈 항목을 제외합니다.
+목록·상세·캘린더의 `contact`, `applicationMethod` 등 표시 문구도 같은 정제를 적용합니다.
+저장 원문·인용·자격 모델·신청 날짜는 유지하며 번역 캐시는 정제된 표시 해시로 구분합니다.
+엔드포인트·응답 타입·인증은 기존과 같습니다. [변환 계약·검증](backend/docs/notice-source-fields.md).
+
 ## 생활반경 지역 복지 (2026-10-08)
 
 공개 `GET /v1/local-services?region=서울&district=노원구&neighborhood=월계1동`는

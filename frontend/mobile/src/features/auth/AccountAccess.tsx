@@ -125,7 +125,7 @@ export function AccountAccess() {
         {enabled === null && !statusError && (
           <Copy muted>카카오 연결을 확인하고 있어요.</Copy>
         )}
-        {statusError && (
+        {!!statusError && (
           <>
             <Notice>{statusError}</Notice>
             <Button
@@ -135,7 +135,7 @@ export function AccountAccess() {
             />
           </>
         )}
-        {kakao.message && <Notice>{kakao.message}</Notice>}
+        {!!kakao.message && <Notice>{kakao.message}</Notice>}
         <View style={{ gap: 14, marginTop: 12 }}>
           <Field
             label="아이디"

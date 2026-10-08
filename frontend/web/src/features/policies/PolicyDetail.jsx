@@ -70,7 +70,7 @@ export default function PolicyDetail({
       <div className="detail-badges">
         <span className="soft-badge">{t(policy.category)}</span>
         <span className="soft-badge">{t(policy.region)}</span>
-        <PolicyDeadline policy={original} />
+        <PolicyDeadline policy={original} easy={easy} />
       </div>
       <p className="modal-description">{policy.summary}</p>
       {source && (

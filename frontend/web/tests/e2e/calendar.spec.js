@@ -160,6 +160,7 @@ test('month navigation, all filters, mode switch and mobile layout preserve sele
   await page.getByRole('button', { name: /10월 15일,/ }).click();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(page.getByRole('heading', { name: '10월 15일 공고' })).toBeVisible();
+  await expect(page.getByLabel('날짜 선택', { exact: true })).toHaveValue('2026-10-15');
   await page.getByText('캘린더 검색 조건', { exact: true }).click();
   await expect(page.getByLabel('일정 구분')).toHaveValue('end');
   await expect(page.getByLabel('캘린더 공고 검색')).toHaveValue('청년');
@@ -175,8 +176,7 @@ test('month navigation, all filters, mode switch and mobile layout preserve sele
   await page.getByRole('button', { name: '오늘', exact: true }).click();
   await expect(page.getByRole('heading', { name: '2026년 10월' })).toBeVisible();
   await expect(page.getByLabel('날짜 선택', { exact: true })).toHaveValue('2026-10-02');
-  await expect(page.getByRole('heading', { name: '10월 2일 공고' })).toBeVisible();
-  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
+  await page.getByText('이달 날짜 모두 보기', { exact: true }).click();
   await expect(page.getByRole('button', { name: /10월 2일 오늘,/ })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -408,7 +408,9 @@ test('recurring end-only dates keep the selected calendar year after full detail
   await expect(page.getByRole('status')).toContainText('신청 시작 0건 · 마감 1건');
   await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
   await page.getByRole('button', { name: /4월 30일, 신청 시작 0건, 마감 1건/ }).click();
-  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText('D-28');
+  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText(
+    '신청 마감까지 D-28',
+  );
   await page
     .locator('.calendar-day-panel')
     .getByRole('button', { name: policy.title, exact: true })
@@ -480,11 +482,24 @@ test('separate recurring rounds show every marker, omit gaps and retain the open
   const panel = page.locator('.calendar-day-panel');
   await expect(panel.getByText('신청 시작', { exact: true })).toBeVisible();
   await expect(panel).toContainText('신청 시작 2027-04-20 · 마감 2027-04-30');
-  await expect(panel.locator('.policy-deadline')).toHaveText('D-28');
+  await expect(panel.locator('.policy-deadline')).toHaveText([
+    '신청 시작까지 D-18',
+    '신청 마감까지 D-28',
+  ]);
   await panel.getByRole('button', { name: policy.title, exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('상세 조회로 불러온 두 차례 접수 원문');
   await expect(dialog.locator('.policy-deadline')).toHaveText('D-28');
+  await page.keyboard.press('Escape');
+  await page.clock.setFixedTime(new Date('2027-04-20T03:00:00Z'));
+  await page.reload();
+  await expect(panel.locator('.policy-deadline')).toHaveText([
+    '신청 시작 D-Day',
+    '신청 마감까지 D-10',
+  ]);
+  await page.clock.setFixedTime(new Date('2027-04-21T03:00:00Z'));
+  await page.reload();
+  await expect(panel.locator('.policy-deadline')).toHaveText('신청 마감까지 D-9');
 });
 
 test('annual ongoing starts exclude earlier days, continue next month and keep calendar dates in refreshed details', async ({
@@ -532,7 +547,10 @@ test('annual ongoing starts exclude earlier days, continue next month and keep c
   await page.getByRole('button', { name: /1월 9일, 신청 시작 0건, 마감 0건/ }).click();
   await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
   await page.getByRole('button', { name: /1월 10일, 신청 시작 1건, 마감 0건/ }).click();
-  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText('상시 접수');
+  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText([
+    '신청 시작까지 D-2',
+    '상시 접수',
+  ]);
   await expect(page.locator('.calendar-day-panel')).toContainText(
     '신청 시작 2027-01-10 · 마감 확인 필요',
   );
@@ -540,7 +558,7 @@ test('annual ongoing starts exclude earlier days, continue next month and keep c
   await expect(page.getByRole('heading', { name: '2027년 2월' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('신청 시작 0건 · 마감 0건');
   const panel = page.locator('.calendar-day-panel');
-  await expect(panel.locator('.policy-deadline')).toHaveText('상시 접수');
+  await expect(panel.locator('.policy-deadline')).toHaveText(['신청 시작까지 D-2', '상시 접수']);
   await expect(panel).toContainText('신청 시작 2027-01-10 · 마감 확인 필요');
   await panel.getByRole('button', { name: policy.title, exact: true }).click();
   const dialog = page.getByRole('dialog');

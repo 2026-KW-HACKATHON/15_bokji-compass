@@ -2,7 +2,9 @@
 
 import json
 from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .models import LocalService
 from .regions import (
@@ -40,11 +42,9 @@ def load_catalog(directory: Path | None = None) -> tuple[LocalService, ...]:
                     if service.id in identities:
                         raise ValueError(f"Duplicate service ID: {service.id}")
                     # Identical titles in different regions are valid.
-                    name_key = (
-                        service.title,
-                        service.sourceUrl,
-                        tuple(sorted(area.model_dump_json() for area in service.coverage)),
-                    )
+                    name_key = (service.title, service.sourceUrl, tuple(sorted(
+                        area.model_dump_json() for area in service.coverage
+                    )))
                     if name_key in names:
                         raise ValueError(f"Duplicate service entry: {service.id}")
                     identities.add(service.id)
@@ -58,31 +58,21 @@ def load_catalog(directory: Path | None = None) -> tuple[LocalService, ...]:
 
 
 def _neighborhood_matches(name: str, kind: str | None, selected: str, selected_kind: str) -> bool:
-    return (
-        bool(selected)
-        and name == selected
-        and (selected_kind == "unknown" or kind == selected_kind)
+    return bool(selected) and name == selected and (
+        selected_kind == "unknown" or kind == selected_kind
     )
 
 
 def _exact_local_match(service, region, district, neighborhood, neighborhood_type):
     for area in service.focusAreas:
-        if (
-            area.region == region
-            and area.district == district
-            and _neighborhood_matches(
-                area.neighborhood, area.neighborhoodType, neighborhood, neighborhood_type
-            )
+        if area.region == region and area.district == district and _neighborhood_matches(
+            area.neighborhood, area.neighborhoodType, neighborhood, neighborhood_type
         ):
             return True
     return any(
-        area.scope == "neighborhood"
-        and area.region == region
-        and area.district == district
-        and any(
-            _neighborhood_matches(name, area.neighborhoodType, neighborhood, neighborhood_type)
-            for name in area.neighborhoods
-        )
+        area.scope == "neighborhood" and area.region == region and area.district == district
+        and any(_neighborhood_matches(name, area.neighborhoodType, neighborhood, neighborhood_type)
+                for name in area.neighborhoods)
         for area in service.coverage
     )
 
@@ -101,10 +91,8 @@ def _applies(service, region, district, neighborhood, neighborhood_type):
             continue
         if area.scope == "district" or not neighborhood:
             return True
-        if any(
-            _neighborhood_matches(name, area.neighborhoodType, neighborhood, neighborhood_type)
-            for name in area.neighborhoods
-        ):
+        if any(_neighborhood_matches(name, area.neighborhoodType, neighborhood, neighborhood_type)
+               for name in area.neighborhoods):
             return True
     return False
 
@@ -125,14 +113,9 @@ def catalog_coverage(services: tuple[LocalService, ...]) -> dict:
 
 
 def list_services(
-    *,
-    region: str = "서울",
-    district: str = "노원구",
-    neighborhood: str = "",
-    neighborhood_type: str = "unknown",
-    category: str = "all",
-    scope: str = "all",
-    directory: Path | None = None,
+    *, region: str = "서울", district: str = "노원구", neighborhood: str = "",
+    neighborhood_type: str = "unknown", category: str = "all", scope: str = "all",
+    directory: Path | None = None, as_of: date | None = None,
 ) -> dict:
     region = normalize_region(region)
     district = normalize_district(district)
@@ -148,8 +131,12 @@ def list_services(
     if neighborhood and not district and region != "세종":
         raise ValueError("A neighborhood requires an explicit district outside Sejong")
     services = load_catalog(directory)
+    today = as_of if as_of is not None else datetime.now(ZoneInfo("Asia/Seoul")).date()
+    current = tuple(service for service in services if (
+        service.availableUntil is None or service.availableUntil >= today.isoformat()
+    ))
     result = []
-    for service in services:
+    for service in current:
         if category != "all" and service.category != category:
             continue
         exact = _exact_local_match(service, region, district, neighborhood, neighborhood_type)
@@ -164,7 +151,7 @@ def list_services(
     return {
         "items": [service.model_dump() for _, service in result],
         "total": len(result),
-        "coverage": catalog_coverage(services),
+        "coverage": catalog_coverage(current),
         "focus": dict(FOCUS),
         "checkedAt": min(service.checkedAt for service in services),
     }

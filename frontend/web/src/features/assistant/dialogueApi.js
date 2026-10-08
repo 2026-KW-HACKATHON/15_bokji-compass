@@ -1,5 +1,6 @@
 import { ApiError } from '../../shared/api/httpClient.js';
 import { parsePolicy, safeSourceUrl } from '../policies/policyModel.js';
+import { userConditionLabel, userReviewQuestions } from './reviewQuestions.js';
 import {
   emptyMonitoringProfile,
   parseMonitoringProfile,
@@ -61,7 +62,7 @@ export function parseDialogue(value) {
       throw invalid();
     const policy = parsePolicy(candidate.policy);
     if (policy.id !== candidate.policy_id) throw invalid();
-    return { ...candidate, policy };
+    return { ...candidate, policy, questions: userReviewQuestions(candidate.questions) };
   });
   const profile = parseMonitoringProfile(value.profile_draft);
   if (value.can_save_profile && !value.confirmed_fields.length) throw invalid();
@@ -83,14 +84,24 @@ export function parseDialogue(value) {
       )
     )
       throw invalid();
-    selected = { ...value.selected_policy, policy: parsePolicy(value.selected_policy.policy) };
+    selected = {
+      ...value.selected_policy,
+      policy: parsePolicy(value.selected_policy.policy),
+      comparison: {
+        ...comparison,
+        checks: comparison.checks.map((check) => ({
+          ...check,
+          label: userConditionLabel(check.label, check.role),
+        })),
+      },
+    };
   }
   return { ...value, candidates, selected_policy: selected, profile_draft: profile };
 }
 
-export function createDialogueApi(request) {
+export function createDialogueApi(request, { guest = false } = {}) {
   const call = (path, body, { signal } = {}) =>
-    request('/v1/assistant/dialogue' + path, {
+    request('/v1/assistant/' + (guest && !path ? 'chat/dialogue' : 'dialogue' + path), {
       method: 'POST',
       body,
       signal,

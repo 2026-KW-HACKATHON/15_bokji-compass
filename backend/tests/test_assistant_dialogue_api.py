@@ -248,3 +248,23 @@ def test_auth_request_guard_and_validation_do_not_echo_private_input(client):
     response = client.post(PREFIX, json={"question": "누수"})
     assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_public_chat_is_temporary_isolated_and_cannot_save_member_information(client):
+    client.cookies.clear()
+    path = "/v1/assistant/chat/dialogue"
+    response = client.post(path, json={"question": "집에 누수가 생겼어"})
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert "HttpOnly" in response.headers["set-cookie"]
+    result = response.json()
+    assert result["practical_steps"] and not result["can_save_profile"]
+    turn = {"continuation": result["continuation"],
+            "answer": {"slot": result["follow_up"]["slot"], "value": True}}
+    assert client.post(path, json=turn).status_code == 200
+    assert save(client, result).status_code == 401
+    client.cookies.clear()
+    assert client.post(path, json=turn).status_code == 410
+    client.cookies.set("bokji_session", TOKENS[0])
+    assert save(client, result).status_code == 410
+    assert client.get("/v1/monitoring").json()["profile"] is None

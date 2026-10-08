@@ -28,6 +28,10 @@
   background: #edf7f0;
   color: #286143;
 }
+.policy-deadline.start {
+  background: #e4f2fc;
+  color: #07598c;
+}
 .detail-badges .policy-deadline,
 .calendar-row-labels .policy-deadline {
   margin: 0;

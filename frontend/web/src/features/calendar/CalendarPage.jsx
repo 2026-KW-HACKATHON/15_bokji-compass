@@ -72,7 +72,8 @@ function CalendarPolicyRow({
     <article ref={translation.ref} className="calendar-policy-row">
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
-          <PolicyDeadline policy={selectedPolicy} />
+          <PolicyDeadline policy={selectedPolicy} target="start" easy={easy} />
+          <PolicyDeadline policy={selectedPolicy} showContext easy={easy} />
           {(labels.length ? labels : ['접수 기간']).map((label) => (
             <span
               key={label}
@@ -114,7 +115,7 @@ function CalendarPolicyRow({
         onClick={() => onSave(original)}
       >
         <Icon name="bookmark" />
-        {easy && <span>{saved ? t('저장됨') : t('저장')}</span>}
+        {easy && <span>{saved ? t(' 저장 해제').trim() : t('저장')}</span>}
       </button>
     </article>
   );
@@ -217,8 +218,10 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
   }
   function chooseEasyDay(day) {
     if (!isCalendarDate(day)) return;
-    if (day.slice(0, 7) === displayedMonth && month === displayedMonth) chooseDay(day);
-    else changeMonth(day.slice(0, 7), day);
+    if (day.slice(0, 7) === displayedMonth && month === displayedMonth) {
+      pendingDay.current = day;
+      setSelected(day);
+    } else changeMonth(day.slice(0, 7), day);
   }
   function reset() {
     setFilters(initialFilters);
@@ -587,7 +590,12 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
             </div>
           )}
           <section className="calendar-day-panel" aria-labelledby="calendar-day-heading">
-            <h2 id="calendar-day-heading" ref={dayHeading} tabIndex={-1}>
+            <h2
+              id="calendar-day-heading"
+              ref={dayHeading}
+              tabIndex={-1}
+              aria-live={easy ? 'polite' : undefined}
+            >
               {dateText(selected)} {t('공고')}{' '}
             </h2>
             <p className="calendar-day-caption">

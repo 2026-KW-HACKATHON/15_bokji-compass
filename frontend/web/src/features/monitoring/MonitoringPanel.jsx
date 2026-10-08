@@ -76,6 +76,9 @@ export default function MonitoringPanel({
   const [candidateLimit, setCandidateLimit] = useState(3);
   const [view, setView] = useState('candidates');
   const assistant = variant === 'assistant';
+  const notices = variant === 'notices';
+  const standalone = notices || variant === 'guidance';
+  const loginHref = `#login?return=${notices ? 'new-notices' : assistant ? 'assistant' : 'assistant-monitoring'}`;
   const refreshVersion = useRef(refreshKey);
   const handledProfileEntry = useRef(0);
   const detail = useRef(null);
@@ -93,7 +96,11 @@ export default function MonitoringPanel({
   const id = (name) => `${prefix}-${name}`;
   const displayedCandidates =
     view === 'progress' && assistant ? overview?.progress || [] : activeCandidates;
-  const show = (section) => !assistant || (!!snapshot?.profile && !editing && view === section);
+  const show = (section) => notices
+    ? section === 'alerts'
+    : assistant
+      ? !!snapshot?.profile && !editing && view === section
+      : section !== 'alerts';
 
   function selectView(next) {
     setView(next);
@@ -163,7 +170,7 @@ export default function MonitoringPanel({
         setSnapshot(value);
         setDraft(value.profile || initial.current);
         setEnabled(value.enabled);
-        setEditing(!assistant && !value.profile);
+        setEditing(!assistant && !notices && !value.profile);
         setBusy('');
       })
       .catch((failure) => {
@@ -343,9 +350,9 @@ export default function MonitoringPanel({
       aria-labelledby={id('heading')}
       aria-busy={!!busy}
     >
-      {assistant ? (
+      {assistant || standalone ? (
         <h2 id={id('heading')} className="sr-only">
-          {t('나를 위한 지원 현황')}
+          {t(notices ? '새 안내' : assistant ? '나를 위한 지원 현황' : '지속 복지 안내')}
         </h2>
       ) : (
         <>
@@ -374,14 +381,14 @@ export default function MonitoringPanel({
           <p className="monitoring-service-note">
             {' '}
             {t(
-              '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요. 새 안내는 이 화면에서 확인할 수 있어요.',
+              '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요.',
             )}{' '}
           </p>
         </>
       )}
       {!owner ? (
         <p className="notice-box">
-          <a href={assistant ? '#login?return=assistant' : '#login?return=profile'}>
+          <a href={loginHref}>
             {t('로그인')}
           </a>
           {t('하면 내 계정에 정보를 저장하고 안내를 이어갈 수 있어요.')}{' '}
@@ -412,7 +419,7 @@ export default function MonitoringPanel({
               {error.includes('로그인 상태') && (
                 <a
                   className="text-button"
-                  href={assistant ? '#login?return=assistant' : '#login?return=profile'}
+                  href={loginHref}
                 >
                   {' '}
                   {t('로그인하기')}{' '}
@@ -425,7 +432,7 @@ export default function MonitoringPanel({
               <Icon name="check" size={18} /> {t(message)}
             </p>
           )}
-          {snapshot?.scan_status === 'unavailable' && (
+          {!notices && snapshot?.scan_status === 'unavailable' && (
             <p className="notice-box" role="status">
               {' '}
               {t(
@@ -435,6 +442,20 @@ export default function MonitoringPanel({
           )}
           {snapshot && (
             <>
+              {standalone && (
+                <div className="monitoring-page-status">
+                  <span className={'monitoring-status' + (snapshot.enabled ? ' is-on' : '')}>
+                    {snapshot.enabled ? t('지속 안내 켜짐') : t('지속 안내 꺼짐')}
+                  </span>
+                  {notices && <span>{t('최근 공고 확인')} · {monitoringDate(snapshot.last_checked_at)}</span>}
+                </div>
+              )}
+              {notices && !snapshot.enabled && (
+                <p className="monitoring-service-note">
+                  {t('새 공고 알림이 꺼져 있어요.')}{' '}
+                  <a className="text-button" href="#assistant-monitoring">{t('지속 복지 안내 설정')}</a>
+                </p>
+              )}
               {assistant && editing && (
                 <AssistantProfileForm
                   user={user}
@@ -786,7 +807,7 @@ export default function MonitoringPanel({
                   )}
                 </>
               )}
-              {(snapshot.profile || assistant) && (
+              {(snapshot.profile || assistant || notices) && (
                 <>
                   {show('questions') && (
                     <>
@@ -1170,7 +1191,7 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, actio
   );
 }
 
-function Questions({ questions, label = '신청 전에 더 확인할 조건' }) {
+function Questions({ questions, label = '신청 전 확인사항' }) {
   const { t } = useI18n();
   if (!questions.length) return null;
   return (

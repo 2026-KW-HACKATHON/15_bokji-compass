@@ -121,7 +121,7 @@ export default function FinanceScreen() {
               : "모르는 정보는 모름으로 남겨두어도 괜찮아요."
         }
       />
-      {configError && <Notice>{configError}</Notice>}
+      {!!configError && <Notice>{configError}</Notice>}
       <View
         style={{
           flexDirection: easy ? "column" : "row",
@@ -138,6 +138,7 @@ export default function FinanceScreen() {
           <Pressable
             key={view}
             accessibilityRole="button"
+            aria-pressed={view === "quick" ? state.view === "quick" : state.view !== "quick"}
             accessibilityState={{
               selected:
                 view === "quick"
@@ -165,7 +166,11 @@ export default function FinanceScreen() {
               borderRadius: easy ? 6 : 12,
             }}
           >
-            {(view === "quick" ? state.view === "quick" : state.view !== "quick") && <Icon name="check" size={22} color={colors.green} />}
+            {(view === "quick"
+              ? state.view === "quick"
+              : state.view !== "quick") && (
+              <Icon name="check" size={22} color={colors.green} />
+            )}
             <Text
               style={{
                 fontSize: easy ? 20 : 16,
@@ -181,7 +186,7 @@ export default function FinanceScreen() {
       {state.prefill === "loading" && (
         <Notice>저장한 소득·재산 정보를 불러오고 있어요.</Notice>
       )}
-      {state.message && <Notice>{state.message}</Notice>}
+      {!!state.message && <Notice>{state.message}</Notice>}
       {state.prefill === "error" && (
         <Button
           secondary
@@ -236,6 +241,9 @@ export default function FinanceScreen() {
               accessibilityRole="progressbar"
               accessibilityLabel={t("상세 계산 진행")}
               accessibilityValue={{ min: 1, max: 6, now: state.step + 1 }}
+              aria-valuemin={1}
+              aria-valuemax={6}
+              aria-valuenow={state.step + 1}
               style={{
                 height: 6,
                 borderRadius: 4,
@@ -254,12 +262,16 @@ export default function FinanceScreen() {
             <ScrollView
               horizontal={!easy}
               showsHorizontalScrollIndicator={!easy}
-              contentContainerStyle={{ gap: 8, ...(easy ? { flexDirection: "row", flexWrap: "wrap" } : {}) }}
+              contentContainerStyle={{
+                gap: 8,
+                ...(easy ? { flexDirection: "row", flexWrap: "wrap" } : {}),
+              }}
             >
               {financeGroups.map((group: string, i: number) => (
                 <Pressable
                   key={group}
                   accessibilityRole="button"
+                  aria-current={state.step === i ? "step" : undefined}
                   accessibilityLabel={t("{step}단계 {group}", {
                     step: i + 1,
                     group: t(group),
@@ -286,7 +298,9 @@ export default function FinanceScreen() {
                       i === state.step ? colors.mint : "transparent",
                   }}
                 >
-                  {easy && i < state.step && <Icon name="check" size={20} color={colors.green} />}
+                  {easy && i < state.step && (
+                    <Icon name="check" size={20} color={colors.green} />
+                  )}
                   <Text
                     style={{
                       color: i === state.step ? colors.green : colors.muted,

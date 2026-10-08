@@ -1198,6 +1198,9 @@ input[type='checkbox'] {
 }
 .policy-detail dd {
   margin: 0;
+  min-width: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 .detail-tags {
   margin: 24px 0;

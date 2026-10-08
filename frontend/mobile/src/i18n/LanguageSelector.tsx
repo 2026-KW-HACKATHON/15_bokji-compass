@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
 import { locales } from "../../../packages/core/src/i18n/index.js";
 import { useI18n } from "./context";
 import { LocalizedText } from "./LocalizedText";
@@ -10,12 +10,20 @@ import { useRuntime } from "../services/runtime";
 export function LanguageSelector({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale, t, storageError } = useI18n();
   const { easy } = useRuntime();
+  const { height } = useWindowDimensions();
   const [open, setOpen] = useState(!compact);
   const current = locales.find(
     (entry: { code: string }) => entry.code === locale,
   );
   return (
-    <View style={{ gap: 8, maxWidth: "100%", flexShrink: 1, width: !compact || open ? "100%" : undefined }}>
+    <View
+      style={{
+        gap: 8,
+        maxWidth: "100%",
+        flexShrink: 1,
+        width: !compact || open ? "100%" : undefined,
+      }}
+    >
       {compact ? (
         <Pressable
           accessibilityRole="button"
@@ -48,10 +56,11 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
         </LocalizedText>
       )}
       {open && (
-        <View
+        <ScrollView
           accessibilityRole="radiogroup"
           accessibilityLabel={t("언어 선택")}
-          style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+          style={{ maxHeight: compact ? Math.max(120, Math.min(300, height * 0.35)) : undefined }}
+          contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
         >
           {locales.map((entry: { code: string; nativeName: string }) => (
             <Pressable
@@ -76,12 +85,19 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
                 paddingHorizontal: 12,
                 borderWidth: 1,
                 borderRadius: 10,
-                borderColor: locale === entry.code ? colors.green : easy ? colors.easyLine : colors.line,
+                borderColor:
+                  locale === entry.code
+                    ? colors.green
+                    : easy
+                      ? colors.easyLine
+                      : colors.line,
                 backgroundColor:
                   locale === entry.code ? colors.mint : colors.surface,
               }}
             >
-              {locale === entry.code && <Icon name="check" size={20} color={colors.green} />}
+              {locale === entry.code && (
+                <Icon name="check" size={20} color={colors.green} />
+              )}
               <LocalizedText
                 original
                 style={{ color: colors.ink, fontSize: 15 }}
@@ -90,9 +106,9 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
               </LocalizedText>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       )}
-      {storageError && (
+      {!!storageError && (
         <LocalizedText
           style={{
             color: colors.danger,

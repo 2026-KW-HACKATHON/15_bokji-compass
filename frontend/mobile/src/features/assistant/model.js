@@ -75,7 +75,6 @@ export function parseFaqs(data, revisionId) {
 }
 export function createAssistantApi(request) {
   function validate(token, revisionId) {
-    if (!token) throw new ApiError("로그인한 뒤 질문해 주세요.", 401);
     if (!revisionPattern.test(revisionId || ""))
       throw new ApiError(
         "최신 공고를 다시 선택해 주세요.",

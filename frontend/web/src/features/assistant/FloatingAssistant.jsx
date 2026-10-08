@@ -110,16 +110,22 @@ export default function FloatingAssistant({
           <button
             ref={launcher}
             className="chat-launcher-open"
-            aria-label={t('AI 챗봇 열기')}
+            aria-label={t(easy ? '챗봇에 물어보기' : 'AI 챗봇 열기')}
             aria-haspopup="dialog"
             aria-expanded={Boolean(session)}
             onClick={() => onChange({ topic: 'home' })}
           >
-            {easy && <span className="chat-launcher-caption">{t('챗봇에 물어보기')}</span>}
-            <span className="chat-launcher-circle">
-              <AgentAvatar />
-              <span className="chat-launcher-label">{t('챗봇')}</span>
-            </span>
+            {easy ? (
+              <>
+                <Icon name="headset" size={26} />
+                <span className="chat-launcher-caption">{t('챗봇에 물어보기')}</span>
+              </>
+            ) : (
+              <span className="chat-launcher-circle">
+                <AgentAvatar />
+                <span className="chat-launcher-label">{t('챗봇')}</span>
+              </span>
+            )}
           </button>
           <button
             className="chat-launcher-dismiss"
@@ -249,7 +255,7 @@ function AssistantDialog({
         <button onClick={home}>
           <Icon name="house" size={17} /> {t('처음으로')}{' '}
         </button>
-        {user && topic !== 'history' && (
+        {topic !== 'history' && (
           <button onClick={() => onChange({ topic: 'history' })}>{t('질문 내역')}</button>
         )}
         {topic === 'history' && <span>{t('질문 내역')}</span>}
@@ -323,7 +329,9 @@ function AssistantDialog({
               ))}
             </div>
             <p className="chat-footnote">
-              {t('생활 상담과 공고 질문은 로그인 후 이용할 수 있어요.')}
+              {t(
+                '공고 질문과 챗봇은 로그인 없이 이용할 수 있어요. AI 복지비서는 로그인이 필요해요.',
+              )}
             </p>
           </>
         )}

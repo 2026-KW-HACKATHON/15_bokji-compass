@@ -97,19 +97,34 @@ test("FAQ answers match the requested published revision and prepared contract",
     );
   }
 });
-test("no requests for guest, missing revision or invalid free text", async () => {
+test("no requests for missing revision or invalid free text", async () => {
   let calls = 0;
   const api = createAssistantApi(async () => {
     calls++;
     return answer;
   });
-  await assert.rejects(api.faqs(null, revision), { status: 401 });
   await assert.rejects(api.faqs("token", "invalid"), {
     code: "invalid_revision",
   });
   await assert.rejects(api.ask("token", revision, " "));
   await assert.rejects(api.ask("token", revision, "x".repeat(2001)));
   assert.equal(calls, 0);
+});
+
+test("guests can load FAQs and ask questions without a bearer token", async () => {
+  const calls = [];
+  const api = createAssistantApi(createClient({
+    baseUrl: "https://example.test",
+    fetchImpl: async (url, options) => {
+      calls.push(options);
+      return new Response(JSON.stringify(url.includes("faqs")
+        ? { revision_id: revision, items: [faq] } : faq.response));
+    },
+  }));
+  assert.equal((await api.faqs(null, revision)).length, 1);
+  assert.equal((await api.ask(null, revision, "지원 내용은?")).response_type, "prepared");
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((call) => !call.headers.Authorization));
 });
 test("free text gets web-equivalent 70s timeout while FAQ keeps normal timeout", async () => {
   const options = [];

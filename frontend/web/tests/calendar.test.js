@@ -44,6 +44,7 @@ test('easy calendar day navigation preserves dates across leap years and allowed
   assert.equal(shiftCalendarDay('2099-12-31', 1), null);
   assert.equal(shiftCalendarDay('2026-02-30', 1), null);
   assert.equal(shiftCalendarDay('2026-10-08', 0.5), null);
+  assert.equal(shiftCalendarDay('2026-10-08', Number.MAX_SAFE_INTEGER), null);
 });
 
 test('start/end markers and inclusive application windows do not invent dates for undated policies', () => {

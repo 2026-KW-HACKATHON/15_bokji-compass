@@ -31,7 +31,6 @@ export function LocalizedText({
           fontSize,
           lineHeight: Math.max(fontSize * 1.5, style?.lineHeight ?? 0),
           letterSpacing: Math.max(0, style?.letterSpacing ?? 0),
-          flexShrink: 1,
         },
       ]}
       accessibilityLabel={

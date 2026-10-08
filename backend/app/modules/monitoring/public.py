@@ -443,21 +443,14 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
                         continue
                 except (ValueError, KeyError, TypeError) as exc:
                     raise MonitoringScanIncomplete("Public policy validation failed") from exc
-                missing_targets = matching.missing_target_requirements(
-                    canonical, SourcePolicy.model_validate(record["source_json"]))
+                source = SourcePolicy.model_validate(record["source_json"])
+                missing_targets = matching.missing_target_requirements(canonical, source)
                 status = ("needs_review" if missing_targets or logical is None
                           else comparisons["status"])
                 if schedule == "unknown":
                     status = "needs_review"
-                questions = list(dict.fromkeys(
-                    f"공고의 {check['label']} 조건에 필요한 정보를 확인해 주세요."
-                    for check in comparisons["checks"] if check["state"] == "unknown"))
-                if missing_targets:
-                    questions.append("원문에 기재된 추가 지원대상 조건을 확인해 주세요.")
-                if not comparisons["matching_enabled"] or canonical.coverage != "complete":
-                    questions.append("공고의 전체 조건·예외를 공식 안내와 함께 확인해 주세요.")
-                if schedule == "unknown":
-                    questions.append("신청 기간과 현재 접수 가능 여부를 확인해 주세요.")
+                questions = matching.review_questions(
+                    comparisons, canonical, source, schedule_status=schedule)
                 for need, evidence in linked:
                     candidate_status = status
                     candidate_questions = questions.copy()
@@ -485,8 +478,7 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
                                                schedule, comparisons["checks"])
                     results.append({"need_id": need["id"], "policy_id": record["policy_key"],
                                     "policy": policy, "status": candidate_status, "reason": reason,
-                                    "questions": list(dict.fromkeys(
-                                        need["questions"] + candidate_questions)),
+                                    "questions": list(dict.fromkeys(candidate_questions)),
                                     "fingerprint": fingerprint,
                                     "schedule_status": schedule, "eligibility_decided": False,
                                     "matched_keywords": keywords, "evidence": evidence})

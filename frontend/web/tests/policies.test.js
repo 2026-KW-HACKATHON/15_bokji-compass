@@ -52,6 +52,30 @@ test('runtime demo data is no longer available', async () => {
     (e) => e.code === 'configuration',
   );
 });
+test('member-only policy filters send the session while public searches omit credentials', async () => {
+  const calls = [];
+  const repository = createPolicyRepository({
+    mode: 'api',
+    request: createHttpClient({
+      fetchImpl: async (url, options) => {
+        calls.push({ url, ...options });
+        return { ok: true, json: async () => ({ items: [], total: 0, nextCursor: null }) };
+      },
+    }),
+  });
+  await repository.list({ eligibleOnly: true });
+  await repository.list({ eligibleOnly: false });
+  await repository.list();
+  assert.equal(
+    new URL(calls[0].url, 'https://example.com').searchParams.get('eligible_only'),
+    'true',
+  );
+  assert.deepEqual(
+    calls.map((call) => call.credentials),
+    ['include', 'omit', 'omit'],
+  );
+  assert.equal(calls[0].headers['X-Auth-Request'], '1');
+});
 test('API serializes exact tags and cursor, preserving words that are also filter defaults', async () => {
   let captured;
   const api = createPolicyRepository({
