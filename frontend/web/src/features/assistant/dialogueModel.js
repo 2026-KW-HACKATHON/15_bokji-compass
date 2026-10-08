@@ -50,3 +50,24 @@ export function dialogueError(error) {
   if (error.status === 429) return '질문이 잠시 몰렸어요. 조금 뒤에 다시 시도해 주세요.';
   return error.message || '상담을 불러오지 못했어요. 다시 시도해 주세요.';
 }
+
+// Navigation state stays in React memory and is scoped to the signed-in account
+// and selected policy. Consent and pending requests must never travel with it.
+export function restoreDialogueSession(session, owner, revisionId = null) {
+  const sameContext =
+    Boolean(owner) && session?.owner === owner && session?.revisionId === revisionId;
+  const source = sameContext ? session : {};
+  return {
+    owner,
+    revisionId,
+    question: typeof source.question === 'string' ? source.question : '',
+    dialogue: source.dialogue || null,
+    exchanges: Array.isArray(source.exchanges) ? source.exchanges : [],
+    input: typeof source.input === 'string' ? source.input : '',
+    saved: typeof source.saved === 'string' ? source.saved : '',
+    candidateLimit:
+      Number.isInteger(source.candidateLimit) && source.candidateLimit >= 3
+        ? source.candidateLimit
+        : 3,
+  };
+}

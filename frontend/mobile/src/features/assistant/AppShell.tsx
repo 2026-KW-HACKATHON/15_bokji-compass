@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AppState,
   BackHandler,
-  KeyboardAvoidingView,
+  Keyboard,
+  useWindowDimensions,
   Platform,
   Pressable,
   ScrollView,
@@ -10,17 +11,45 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Button, Copy, colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
 import { useAssistant } from "./context";
 import { AssistantChat } from "./AssistantChat";
 import { Icon } from "../../components/Icon";
+import { tabBarHeight } from "../../components/theme";
+import { chatPanelLayout } from "./panelLayout";
 
 export function AppShell({ children }: React.PropsWithChildren) {
   const chat = useAssistant();
   const { easy, setEasy } = useRuntime();
+  const dimensions = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+  const barHeight = tabBarHeight(easy, dimensions.fontScale);
+  const panel = chatPanelLayout({
+    ...dimensions,
+    ...insets,
+    keyboardTop,
+    tabHeight: barHeight,
+    easy,
+  });
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (event) =>
+      setKeyboardTop(event.endCoordinates.screenY),
+    );
+    const hide = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardTop(null),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const overlayRef = useRef<View>(null);
   const blocking = !!chat.panel || chat.confirm || chat.disabledNotice;
   const { closePanel, cancelDisable } = chat;
@@ -36,6 +65,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
   useEffect(() => {
     if (!blocking) return;
     const back = () => {
+      Keyboard.dismiss();
       if (chat.confirm) chat.cancelDisable();
       else if (chat.disabledNotice) chat.dismissNotice();
       else chat.closePanel();
@@ -63,7 +93,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
         event.preventDefault();
         back();
       }
-      if (event.key === "Tab") {
+      if (event.key === "Tab" && chat.panel === "menu") {
         const list = focusable();
         const first = list[0];
         const last = list[list.length - 1];
@@ -100,7 +130,9 @@ export function AppShell({ children }: React.PropsWithChildren) {
     chat.closePanel,
     chat.dismissNotice,
   ]);
-  function go(path: "/" | "/policies" | "/finance" | "/account") {
+  function go(
+    path: "/" | "/policies" | "/finance" | "/assistant" | "/account",
+  ) {
     chat.closePanel();
     router.navigate(path);
   }
@@ -108,18 +140,42 @@ export function AppShell({ children }: React.PropsWithChildren) {
     <View style={{ flex: 1 }}>
       <View
         style={{ flex: 1 }}
-        aria-hidden={blocking}
-        importantForAccessibility={blocking ? "no-hide-descendants" : "auto"}
+        aria-hidden={chat.panel === "menu"}
+        importantForAccessibility={
+          chat.panel === "menu" ? "no-hide-descendants" : "auto"
+        }
       >
         {children}
       </View>
+      {chat.enabled && !blocking && keyboardTop === null && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="챗봇 열기"
+          onPress={() => chat.openChat()}
+          style={[
+            styles.launcher,
+            styles.bubble,
+            {
+              bottom: barHeight + insets.bottom + 12,
+              right: insets.right + 14,
+            },
+            easy && { minHeight: 60, borderRadius: 10 },
+          ]}
+        >
+          <Icon name="assistant" color="#FFF" size={23} />
+          <Text style={[styles.bubbleLabel, easy && { fontSize: 20 }]}>
+            챗봇
+          </Text>
+        </Pressable>
+      )}
       {blocking && (
         <View
           ref={overlayRef}
+          pointerEvents="box-none"
           style={StyleSheet.absoluteFill}
-          accessibilityViewIsModal
+          accessibilityViewIsModal={chat.panel === "menu"}
           role="dialog"
-          aria-modal
+          aria-modal={chat.panel === "menu"}
           aria-label={
             chat.confirm
               ? "챗봇 종료 확인"
@@ -127,10 +183,11 @@ export function AppShell({ children }: React.PropsWithChildren) {
                 ? "챗봇 다시 켜기 안내"
                 : chat.panel === "menu"
                   ? "전체 메뉴"
-                  : "챗봇 상담"
+                  : "챗봇"
           }
         >
           <View
+            pointerEvents="box-none"
             style={{ flex: 1 }}
             aria-hidden={chat.confirm || chat.disabledNotice}
             importantForAccessibility={
@@ -140,44 +197,60 @@ export function AppShell({ children }: React.PropsWithChildren) {
             }
           >
             {chat.panel === "chat" && (
-              <SafeAreaView style={styles.chat}>
+              <View
+                style={[
+                  styles.chat,
+                  panel,
+                  easy && {
+                    borderRadius: 10,
+                    borderColor: colors.easyLine,
+                    borderWidth: 1.5,
+                  },
+                ]}
+              >
                 <View style={styles.header}>
                   <View style={styles.headerText}>
                     <Text
                       style={[styles.headerTitle, easy && { fontSize: 24 }]}
                     >
-                      복지나침반 챗봇
-                    </Text>
-                    <Text
-                      style={[styles.headerCaption, easy && { fontSize: 17 }]}
-                    >
-                      공고 원문에 따른 안내
+                      챗봇
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="상담창 접기"
-                    onPress={chat.closePanel}
-                    style={styles.headerButton}
+                    accessibilityLabel="챗봇 접기"
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      chat.closePanel();
+                    }}
+                    style={[
+                      styles.headerButton,
+                      easy && { minWidth: 60, minHeight: 60 },
+                    ]}
                   >
-                    <Text style={styles.headerAction}>접기</Text>
+                    <Text
+                      style={[styles.headerAction, easy && { fontSize: 20 }]}
+                    >
+                      접기
+                    </Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="챗봇 기능 끄기"
-                    onPress={chat.requestDisable}
-                    style={styles.headerButton}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      chat.requestDisable();
+                    }}
+                    style={[
+                      styles.headerButton,
+                      easy && { minWidth: 60, minHeight: 60 },
+                    ]}
                   >
                     <Text style={styles.x}>×</Text>
                   </Pressable>
                 </View>
-                <KeyboardAvoidingView
-                  style={{ flex: 1 }}
-                  behavior={Platform.OS === "ios" ? "padding" : "height"}
-                >
-                  <AssistantChat />
-                </KeyboardAvoidingView>
-              </SafeAreaView>
+                <AssistantChat />
+              </View>
             )}
             {chat.panel === "menu" && (
               <View style={styles.backdrop}>
@@ -196,7 +269,10 @@ export function AppShell({ children }: React.PropsWithChildren) {
                       accessibilityRole="button"
                       accessibilityLabel="전체 메뉴 닫기"
                       onPress={chat.closePanel}
-                      style={styles.headerButton}
+                      style={[
+                        styles.headerButton,
+                        easy && { minWidth: 60, minHeight: 60 },
+                      ]}
                     >
                       <Icon name="close" />
                     </Pressable>
@@ -219,11 +295,16 @@ export function AppShell({ children }: React.PropsWithChildren) {
                           : "여기서 챗봇을 다시 켤 수 있어요."}
                       </Copy>
                       <Button
-                        label={chat.enabled ? "챗봇 상담" : "챗봇 다시 켜기"}
+                        label={chat.enabled ? "챗봇 열기" : "챗봇 다시 켜기"}
                         onPress={() => chat.openChat()}
                       />
                     </View>
                     <Button secondary label="홈으로" onPress={() => go("/")} />
+                    <Button
+                      secondary
+                      label="AI 복지비서"
+                      onPress={() => go("/assistant")}
+                    />
                     <Button
                       secondary
                       label="복지 공고 찾기"
@@ -245,7 +326,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                       onPress={() => setEasy(!easy)}
                     />
                     <Copy muted>
-                      상담창을 접거나 챗봇을 끄면 질문과 답변은 지워져요.
+                      챗봇을 접거나 챗봇을 끄면 질문과 답변은 지워져요.
                     </Copy>
                   </ScrollView>
                 </SafeAreaView>
@@ -253,8 +334,18 @@ export function AppShell({ children }: React.PropsWithChildren) {
             )}
           </View>
           {(chat.confirm || chat.disabledNotice) && (
-            <View style={[StyleSheet.absoluteFill, styles.dialogBackdrop]}>
-              <SafeAreaView style={styles.dialogSafe}>
+            <View
+              style={[
+                styles.chat,
+                panel,
+                easy && {
+                  borderRadius: 10,
+                  borderColor: colors.easyLine,
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <View style={styles.dialogSafe}>
                 <ScrollView contentContainerStyle={styles.dialogScroll}>
                   <View
                     style={[
@@ -271,7 +362,10 @@ export function AppShell({ children }: React.PropsWithChildren) {
                         ? "챗봇 기능을 끄시겠습니까?"
                         : "챗봇을 껐어요"}
                     </Copy>
-                    <Copy>하단의 ‘상담’을 누르면 다시 이용할 수 있어요.</Copy>
+                    <Copy>
+                      전체 메뉴에서 ‘챗봇 다시 켜기’를 누르면 다시 이용할 수
+                      있어요.
+                    </Copy>
                     {chat.confirm ? (
                       <>
                         <Copy muted>현재 질문과 답변은 지워져요.</Copy>
@@ -287,7 +381,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                     )}
                   </View>
                 </ScrollView>
-              </SafeAreaView>
+              </View>
             </View>
           )}
         </View>
@@ -329,12 +423,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   x: { fontSize: 29, color: colors.ink },
-  chat: { flex: 1, backgroundColor: colors.paper },
+  chat: {
+    position: "absolute",
+    backgroundColor: colors.paper,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: "hidden",
+    elevation: 12,
+    boxShadow: "0 8px 30px rgba(23,35,59,0.2)",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 4,
     gap: 4,
     borderBottomWidth: 1,
     borderColor: colors.line,

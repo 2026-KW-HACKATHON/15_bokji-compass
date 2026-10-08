@@ -38,9 +38,14 @@ export function AssistantProvider({ children }: React.PropsWithChildren) {
           if (next) choosePolicy(next);
           setEnabled(true);
           setPanel("chat");
+          setConfirm(false);
           setDisabledNotice(false);
         },
-        openMenu: () => setPanel("menu"),
+        openMenu: () => {
+          setPanel("menu");
+          setConfirm(false);
+          setDisabledNotice(false);
+        },
         closePanel: () => setPanel(null),
         requestDisable: () => setConfirm(true),
         cancelDisable: () => setConfirm(false),

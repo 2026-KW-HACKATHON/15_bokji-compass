@@ -40,7 +40,7 @@ export function AssistantChat() {
         <Notice>{configError}</Notice>
       ) : auth.status !== "signedIn" || !auth.token ? (
         <Card>
-          <Copy>로그인하면 웹과 같은 공고 상담을 이용할 수 있어요.</Copy>
+          <Copy>로그인하면 웹과 같은 공고 챗봇을 이용할 수 있어요.</Copy>
           <Button
             label="로그인하러 가기"
             onPress={() => {
@@ -54,7 +54,7 @@ export function AssistantChat() {
       ) : (
         <>
           <View style={styles.selected}>
-            <Text style={styles.tag}>상담 중인 공고</Text>
+            <Text style={styles.tag}>질문할 공고</Text>
             <Copy>{policy.title}</Copy>
             <Button
               secondary
@@ -121,7 +121,7 @@ function PolicyChooser() {
   return (
     <View style={{ gap: 12 }}>
       <Field
-        label="상담할 공고 검색"
+        label="질문할 공고 검색"
         placeholder="공고 이름이나 관심 단어"
         value={query}
         onChangeText={setQuery}
@@ -145,7 +145,7 @@ function PolicyChooser() {
         <>
           {!current.page?.items.length && (
             <Notice>
-              상담할 수 있는 공개 공고가 없어요. 다른 검색어로 찾아보거나 나중에
+              질문할 수 있는 공개 공고가 없어요. 다른 검색어로 찾아보거나 나중에
               다시 확인해 주세요.
             </Notice>
           )}

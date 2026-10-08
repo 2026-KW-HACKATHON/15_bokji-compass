@@ -52,3 +52,19 @@ All files are under `C:/15_bokji-compass/output/design-review-2026-10-07/`.
 - No actionable P0/P1/P2 findings remain for this implementation scope.
 
 final result: passed
+
+## 2026-10-08 introduction menu and motion follow-up
+
+- Renamed the main navigation item and inner title to `복지나침반 소개`. The active navigation item stays in view within the mobile horizontal menu, including direct entry and viewport resizing.
+- Added one-time search and matching sequences (2.8s / 3.6s), replay controls and category-result transitions. Focus and pointer interaction finish the sequence immediately. Replay preserves the chosen category; reduced-motion changes cancel motion and reveal all content immediately.
+- Captured and visually reviewed eight normal-motion frames at 1440px and 390px: `output/design-review-2026-10-08/{desktop,mobile}-guide-{search,match}-{sequence,complete}.png`. Checked stage spacing, text/button alignment, replay controls, sticky header clearance, and settled positions. No overlap found.
+- Browser checks: 12 passed across desktop and mobile (11 initially; one passed after allowing subpixel rounding in the active-link viewport assertion). Coverage includes replay, user selection, keyboard operation, reduced-motion changes during playback, real CTA destinations and 320px easy mode. Additional smoke checks reported no page errors or overflow at 768px and 390px.
+- Production build passed; the introduction remains a separate chunk. The overall app currently emits a main-chunk size warning above 500kB. This follow-up adds no runtime dependency.
+
+## 2026-10-08 AI conversation and chatbot introduction
+
+- Final navigation and inner title: `서비스 소개`. Added an `AI 대화` contents item, navy product section with a staged conversation preview, and a companion chatbot introduction with working CTAs.
+- Copy was checked against AssistantPage, GuidedConversation and FloatingAssistant. The example is labeled; conversation/login, consent-based saving, user-recorded application status and provided source evidence are described without promising unsupported capabilities.
+- Screenshots: `output/design-review-2026-10-08/{desktop,mobile,narrow}-service-ai-{viewport,section}.png`, at 1440/390/320px. Desktop and mobile sections were opened for visual review. Headings, conversation bubbles, summary rows and chatbot button fit; measurements report no page overflow or JavaScript errors at all three widths.
+- Browser verification: 18 guide/portal/motion tests and four existing chatbot regression cases passed. The real chatbot opens within the introduction, closes back to its trigger, and leaves the floating launcher hidden. The AI CTA reaches `#assistant`. The four-second example makes no assistant API call and responds to reduced-motion changes during replay.
+- Production build passed. No new runtime dependency; the existing main-bundle size warning remains.

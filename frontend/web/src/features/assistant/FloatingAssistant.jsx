@@ -21,8 +21,13 @@ export default function FloatingAssistant({
   user,
   repository,
   blocked,
+  hideLauncher = false,
   onNavigate,
   onToggleEasy,
+  guidedSession,
+  onGuidedSessionChange,
+  onOpenAssistant,
+  onSaved,
 }) {
   const launcher = useRef(null);
   const [dismissed, setDismissed] = useState(false);
@@ -42,7 +47,7 @@ export default function FloatingAssistant({
   if (blocked) return null;
   return (
     <>
-      {!dismissed && (
+      {!dismissed && !hideLauncher && (
         <div className="chat-launcher">
           <button
             ref={launcher}
@@ -83,6 +88,10 @@ export default function FloatingAssistant({
           onToggleEasy={onToggleEasy}
           history={history}
           onRecord={recordQuestion}
+          guidedSession={guidedSession}
+          onGuidedSessionChange={onGuidedSessionChange}
+          onOpenAssistant={onOpenAssistant}
+          onSaved={onSaved}
         />
       )}
     </>
@@ -100,6 +109,10 @@ function AssistantDialog({
   onToggleEasy,
   history,
   onRecord,
+  guidedSession,
+  onGuidedSessionChange,
+  onOpenAssistant,
+  onSaved,
 }) {
   const id = useId();
   const dialog = useRef(null);
@@ -112,6 +125,11 @@ function AssistantDialog({
   const go = (page) => {
     close();
     onNavigate(page);
+  };
+  const openAssistant = (context = {}) => {
+    close();
+    if (onOpenAssistant) onOpenAssistant(context);
+    else onNavigate('assistant');
   };
   const home = () => onChange({ topic: 'home' });
   useEffect(() => {
@@ -242,7 +260,9 @@ function AssistantDialog({
                 <button
                   key={item.id}
                   className="chat-menu-item"
-                  onClick={() => onChange({ topic: item.id })}
+                  onClick={() =>
+                    item.id === 'assistant' ? openAssistant() : onChange({ topic: item.id })
+                  }
                 >
                   <span className="chat-menu-icon">
                     <Icon name={item.icon} size={23} />
@@ -264,6 +284,10 @@ function AssistantDialog({
             user={user}
             policy={policy}
             onProfile={() => go('profile')}
+            session={guidedSession}
+            onSessionChange={onGuidedSessionChange}
+            onOpenAssistant={openAssistant}
+            onSaved={onSaved}
           />
         )}
         {topic === 'guides' &&
@@ -346,6 +370,9 @@ function AssistantDialog({
                 onRecord={(entry) => onRecord(policy, entry)}
               />
               <div className="chat-policy-actions">
+                <button className="button secondary" onClick={() => openAssistant({ policy })}>
+                  AI 복지비서에서 확인하기
+                </button>
                 <button
                   className="button secondary"
                   onClick={() => onChange({ topic: 'guidance', policy })}

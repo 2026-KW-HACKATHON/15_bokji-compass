@@ -21,6 +21,7 @@ from app.modules.auth.models import (
     kakao_flows,
     kakao_identities,
     limits,
+    mobile_oauth_flows,
     sessions,
 )
 from app.modules.auth.privacy import PrivacyError
@@ -257,6 +258,16 @@ class AuthService:
             if account_id is None:
                 raise HTTPException(401, "로그인이 필요해요.")
             account = require_active_account(connection, account_id)
+            connection.execute(
+                delete(mobile_oauth_flows).where(
+                    (mobile_oauth_flows.c.account_id == account_id)
+                    | mobile_oauth_flows.c.subject.in_(
+                        select(kakao_identities.c.subject).where(
+                            kakao_identities.c.account_id == account_id,
+                        )
+                    )
+                )
+            )
             connection.execute(
                 delete(kakao_flows).where(
                     kakao_flows.c.subject.in_(

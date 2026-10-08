@@ -26,7 +26,7 @@ if (release) {
 const config: ExpoConfig = {
   name: "복지나침반",
   slug: "bokji-compass-mobile",
-  version: "0.2.0",
+  version: "0.4.0",
   scheme: "bokji-compass",
   orientation: "default",
   userInterfaceStyle: "light",
@@ -38,7 +38,7 @@ const config: ExpoConfig = {
     infoPlist: { NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } },
   },
   android: {
-    versionCode: 2,
+    versionCode: 4,
     package: "com.bokjicompass.app",
     allowBackup: false,
     permissions: ["android.permission.POST_NOTIFICATIONS"],
@@ -80,6 +80,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-web-browser",
     ["expo-notifications", { color: "#047857" }],
     [
       "expo-secure-store",

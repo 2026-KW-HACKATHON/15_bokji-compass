@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import AssistantHome from '../features/assistant/AssistantHome.jsx';
 import FloatingAssistant from '../features/assistant/FloatingAssistant.jsx';
+import GuidedConversation from '../features/assistant/GuidedConversation.jsx';
 import AuthPage from '../features/auth/AuthPage.jsx';
 import AdminPage from '../features/auth/AdminPage.jsx';
 import MemberProfileForm from '../features/auth/MemberProfileForm.jsx';
@@ -36,15 +37,17 @@ import SourceFooter from './SourceFooter.jsx';
 import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 import MonitoringPanel from '../features/monitoring/MonitoringPanel.jsx';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
+const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
 
 const navigation = [
   { id: 'home', label: '홈', icon: 'house' },
+  { id: 'assistant', label: 'AI 복지비서', mobileLabel: 'AI 비서', icon: 'compass' },
   { id: 'explore', label: '전체 공고', mobileLabel: '공고', icon: 'search' },
   { id: 'calendar', label: '공고 캘린더', mobileLabel: '캘린더', icon: 'calendar' },
   { id: 'saved', label: '저장한 공고', mobileLabel: '저장', icon: 'bookmark' },
   { id: 'calculator', label: '계산기', icon: 'calculator' },
   { id: 'profile', label: '내 정보', icon: 'user' },
-  { id: 'guide', label: '이용 안내', icon: 'book' },
+  { id: 'guide', label: '서비스 소개', icon: 'book' },
 ];
 const profileKey = 'bokji.profile.v2';
 const savedKey = 'bokji.saved.v2.' + appConfig.dataMode;
@@ -273,6 +276,25 @@ export default function App() {
     return () => controller.abort();
   }, [selectedId, policyRefresh]);
   const [assistant, setAssistant] = useState(null);
+  // This account-bound context exists only in this tab's memory, never the URL or storage.
+  const [guidance, setGuidance] = useState(null);
+  const guidanceSequence = useRef(0);
+  const [monitoringRefresh, setMonitoringRefresh] = useState(0);
+  const rememberGuidance = useCallback(
+    (session) => {
+      if (session.owner !== financeOwner.current) return;
+      setGuidance((current) =>
+        current?.key === guidance?.key && current.owner === session.owner
+          ? { ...current, session }
+          : current,
+      );
+    },
+    [guidance?.key],
+  );
+  useEffect(() => {
+    setGuidance(null);
+    setMonitoringRefresh(0);
+  }, [user?.id]);
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(emptyResult);
   const [state, setState] = useState('idle');
@@ -280,6 +302,25 @@ export default function App() {
   const [retry, setRetry] = useState(0);
   const main = useRef(null);
   const header = useRef(null);
+  useEffect(() => {
+    const nav = header.current?.querySelector('.portal-nav');
+    if (!nav) return;
+    const revealActiveLink = () => {
+      const activeLink = nav.querySelector('[aria-current="page"]');
+      if (!activeLink || nav.scrollWidth <= nav.clientWidth) return;
+      const container = nav.getBoundingClientRect();
+      const link = activeLink.getBoundingClientRect();
+      const offset =
+        link.right > container.right
+          ? link.right - container.right
+          : Math.min(0, link.left - container.left);
+      nav.scrollBy({ left: offset, behavior: 'instant' });
+    };
+    const observer = new ResizeObserver(revealActiveLink);
+    observer.observe(nav);
+    revealActiveLink();
+    return () => observer.disconnect();
+  }, [route.page, easy]);
   useEffect(() => {
     if (!header.current) return;
     const updateHeight = () =>
@@ -404,6 +445,45 @@ export default function App() {
   }, [profile, retry, useFinancial, financialProfile, user?.id]);
   const navigate = (page, tag = '') => {
     window.location.hash = page + (tag ? '?tag=' + encodeURIComponent(tag) : '');
+  };
+  const openAssistantPage = ({ policy, session } = {}) => {
+    const owner = user?.id || null;
+    if (policy || (session && session.owner === owner)) {
+      setGuidance({
+        owner,
+        key: ++guidanceSequence.current,
+        policy: policy || null,
+        session: session?.owner === owner ? session : null,
+      });
+    }
+    setAssistant(null);
+    navigate('assistant');
+  };
+  const startGuidance = (question) => {
+    const owner = user?.id || null;
+    if (typeof question === 'string' || !guidance || guidance.owner !== owner) {
+      setGuidance({
+        owner,
+        key: ++guidanceSequence.current,
+        policy: null,
+        session: {
+          owner,
+          revisionId: null,
+          question: typeof question === 'string' ? question : '',
+        },
+      });
+    }
+    requestAnimationFrame(() => {
+      const region = document.querySelector('.assistant-page-conversation');
+      region?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      region?.querySelector('textarea, input, button')?.focus({ preventScroll: true });
+    });
+  };
+  const refreshAssistant = () => setMonitoringRefresh((value) => value + 1);
+  const discardGuidance = () => {
+    setGuidance(null);
+    setAssistant((current) => (current?.topic === 'guidance' ? null : current));
+    refreshAssistant();
   };
   const onTag = (tag) => navigate('explore', tag);
   const searchPolicies = ({ query = '', region = '전국', category = '전체' } = {}) => {
@@ -564,31 +644,52 @@ export default function App() {
               onSearch={searchPolicies}
               onGuide={() => navigate('guide')}
               onCalendar={() => navigate('calendar')}
+              onAssistant={() => openAssistantPage()}
               mode={appConfig.dataMode}
-              monitoringPanel={
-                user ? (
-                  <MonitoringPanel
-                    key={`monitoring:${user.id}`}
-                    user={user}
-                    profile={profile}
-                    mode={appConfig.dataMode}
-                    onOpen={setSelected}
-                  />
-                ) : null
-              }
             />
+          )}
+          {route.page === 'assistant' && (
+            <Suspense fallback={<p role="status">AI 복지비서를 불러오고 있어요.</p>}>
+              <AssistantPage
+                key={user?.id || 'guest'}
+                user={user}
+                profile={profile}
+                mode={appConfig.dataMode}
+                onOpen={setSelected}
+                onProfile={() => navigate('profile')}
+                onStartConversation={startGuidance}
+                refreshKey={monitoringRefresh}
+                onProfileDeleted={discardGuidance}
+                onProfileChanged={discardGuidance}
+                conversation={
+                  guidance?.owner === (user?.id || null) ? (
+                    <GuidedConversation
+                      key={guidance.key}
+                      user={user}
+                      policy={guidance.policy}
+                      session={guidance.session}
+                      onSessionChange={rememberGuidance}
+                      onProfile={() => navigate('profile')}
+                      onSaved={refreshAssistant}
+                    />
+                  ) : null
+                }
+              />
+            </Suspense>
           )}
           {route.page === 'guide' && (
             <Suspense
               fallback={
                 <p className="guide-loading" role="status">
-                  이용 안내를 불러오고 있어요.
+                  서비스 소개를 불러오고 있어요.
                 </p>
               }
             >
               <GuidePage
                 onExplore={() => navigate('explore')}
                 onProfile={() => navigate('profile')}
+                onAssistant={() => openAssistantPage()}
+                onChatbot={() => setAssistant({ topic: 'home' })}
                 onCalendar={() => navigate('calendar')}
                 onCalculator={() => navigate('calculator')}
                 onEasyMode={() => {
@@ -623,6 +724,7 @@ export default function App() {
                 easy={easy}
                 onSave={(value, remember) => saveProfile(value, remember, 'session', false)}
                 onMemberSaved={(current) => {
+                  discardGuidance();
                   setUser((previous) => (previous?.id === current.id ? current : previous));
                   const previousBasics = memberRecommendationProfile(user);
                   const currentBasics = memberRecommendationProfile(current);
@@ -652,6 +754,8 @@ export default function App() {
                   profile={profile}
                   mode={appConfig.dataMode}
                   onOpen={setSelected}
+                  onProfileDeleted={discardGuidance}
+                  onProfileChanged={discardGuidance}
                 />
               )}
             </>
@@ -823,12 +927,15 @@ export default function App() {
         easy={easy}
         user={user}
         repository={policyRepository}
+        hideLauncher={route.page === 'guide'}
         blocked={
           Boolean(selected) ||
-          ['login', 'signup', 'admin', 'guide'].includes(route.page) ||
+          ['login', 'signup', 'admin'].includes(route.page) ||
           (route.page === 'profile' && route.setup)
         }
         onNavigate={navigate}
+        onOpenAssistant={openAssistantPage}
+        onSaved={refreshAssistant}
         onToggleEasy={toggleEasy}
       />
       {notice && (

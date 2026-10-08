@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDialogueApi, parseDialogue } from '../src/features/assistant/dialogueApi.js';
-import { confirmedFacts, dialogueError } from '../src/features/assistant/dialogueModel.js';
+import {
+  confirmedFacts,
+  dialogueError,
+  restoreDialogueSession,
+} from '../src/features/assistant/dialogueModel.js';
 import { blankDialogue, completeDialogue } from './fixtures/dialogue.js';
 
 test('dialogue accepts unknown facts and never accepts an eligibility decision', () => {
@@ -65,4 +69,58 @@ test('dialogue requests authenticate, pass opaque continuation and only save aft
 test('expired dialogue prompts restart without rendering server details', () => {
   assert.match(dialogueError({ status: 410, message: 'private' }), /새 상담/);
   assert.doesNotMatch(dialogueError({ status: 422, message: 'private' }), /private/);
+});
+
+test('handoff restores the pending answer and confirmed facts, but never carries consent or a request', () => {
+  const dialogue = completeDialogue();
+  const session = restoreDialogueSession(
+    {
+      owner: 'member-one',
+      revisionId: 'selected-policy',
+      question: '리모델링 지원금을 받을 수 있어?',
+      dialogue,
+      exchanges: [{ question: '1920년 건축', answer: dialogue.answer }],
+      input: '단독주택',
+      saved: '',
+      candidateLimit: 6,
+      consent: true,
+      busy: 'save',
+      error: 'previous request error',
+    },
+    'member-one',
+    'selected-policy',
+  );
+  assert.equal(session.input, '단독주택');
+  assert.equal(session.question, '리모델링 지원금을 받을 수 있어?');
+  assert.equal(session.dialogue.continuation, dialogue.continuation);
+  assert.equal(session.dialogue.profile_draft.building_year, 1920);
+  assert.equal(session.exchanges.length, 1);
+  assert.equal(session.candidateLimit, 6);
+  assert.ok(!('consent' in session));
+  assert.ok(!('busy' in session));
+  assert.ok(!('error' in session));
+});
+
+test('handoff cannot restore another account or selected policy and never restores guest data', () => {
+  const source = {
+    owner: 'member-one',
+    revisionId: 'selected-policy',
+    question: '집에 누수가 있어요',
+    input: '1920년 건축',
+    dialogue: completeDialogue(),
+    exchanges: [{ question: 'private answer' }],
+  };
+  for (const [owner, revisionId] of [
+    ['member-two', 'selected-policy'],
+    ['member-one', 'different-policy'],
+    ['member-one', null],
+    [null, 'selected-policy'],
+  ]) {
+    const session = restoreDialogueSession(source, owner, revisionId);
+    assert.equal(session.dialogue, null);
+    assert.equal(session.question, '');
+    assert.equal(session.input, '');
+    assert.deepEqual(session.exchanges, []);
+  }
+  assert.equal(restoreDialogueSession({ ...source, owner: null }, null).dialogue, null);
 });

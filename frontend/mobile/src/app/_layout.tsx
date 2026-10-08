@@ -6,28 +6,30 @@ import { RuntimeProvider, useRuntime } from "../services/runtime";
 import { colors } from "../components/ui";
 import { Icon, IconName } from "../components/Icon";
 import { tabBarHeight } from "../components/theme";
-import { AssistantProvider, useAssistant } from "../features/assistant/context";
+import { AssistantProvider } from "../features/assistant/context";
 import { AppShell } from "../features/assistant/AppShell";
 import { NotificationProvider } from "../features/notifications/context";
+import { AuthProvider } from "../features/auth/context";
 
 export default function Layout() {
   return (
     <RuntimeProvider>
-      <AssistantProvider>
-        <NotificationProvider>
-          <StatusBar style="dark" />
-          <AppShell>
-            <Navigation />
-          </AppShell>
-        </NotificationProvider>
-      </AssistantProvider>
+      <AuthProvider>
+        <AssistantProvider>
+          <NotificationProvider>
+            <StatusBar style="dark" />
+            <AppShell>
+              <Navigation />
+            </AppShell>
+          </NotificationProvider>
+        </AssistantProvider>
+      </AuthProvider>
     </RuntimeProvider>
   );
 }
 
 function Navigation() {
   const { easy } = useRuntime();
-  const chat = useAssistant();
   const { bottom } = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
   function tabIcon(name: IconName, color: ColorValue, focused: boolean) {
@@ -93,19 +95,13 @@ function Navigation() {
         }}
       />
       <Tabs.Screen
-        name="support"
+        name="assistant"
         options={{
-          title: "상담",
-          tabBarIcon: ({ color, focused }) =>
-            tabIcon("assistant", color, focused),
-        }}
-        listeners={{
-          tabPress: (event) => {
-            event.preventDefault();
-            chat.openChat();
-          },
+          title: "AI 비서",
+          tabBarIcon: ({ color, focused }) => tabIcon("ai", color, focused),
         }}
       />
+      <Tabs.Screen name="support" options={{ href: null }} />
       <Tabs.Screen
         name="account"
         options={{

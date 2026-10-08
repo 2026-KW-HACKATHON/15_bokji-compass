@@ -1,9 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { request } from '../../shared/api/client.js';
 import { safeSourceUrl } from '../policies/policyModel.js';
 import { todayInSeoul } from '../monitoring/monitoringModel.js';
 import { createDialogueApi } from './dialogueApi.js';
-import { confirmedFacts, dialogueError } from './dialogueModel.js';
+import { confirmedFacts, dialogueError, restoreDialogueSession } from './dialogueModel.js';
 import './guided-conversation.css';
 
 const api = createDialogueApi(request);
@@ -13,26 +13,60 @@ const examples = [
   '취업 준비에 도움이 되는 지원이 있을까?',
 ];
 
-export default function GuidedConversation({ user, policy, onProfile }) {
+export default function GuidedConversation(props) {
+  return (
+    <GuidedSession
+      key={`${props.user?.id || 'guest'}:${props.policy?.revisionId || 'general'}`}
+      {...props}
+    />
+  );
+}
+
+function GuidedSession({
+  user,
+  policy,
+  onProfile,
+  session,
+  onSessionChange,
+  onOpenAssistant,
+  onSaved,
+}) {
   const id = useId();
   const owner = user?.id || null;
+  const revisionId = policy?.revisionId || null;
+  const [initial] = useState(() => restoreDialogueSession(session, owner, revisionId));
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
   const active = useRef(null);
   const answerPanel = useRef(null);
   const followPanel = useRef(null);
   const questionInput = useRef(null);
-  const [question, setQuestion] = useState('');
-  const [dialogue, setDialogue] = useState(null);
-  const [exchanges, setExchanges] = useState([]);
-  const [input, setInput] = useState('');
+  const [question, setQuestion] = useState(initial.question);
+  const [dialogue, setDialogue] = useState(initial.dialogue);
+  const [exchanges, setExchanges] = useState(initial.exchanges);
+  const [input, setInput] = useState(initial.input);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [consent, setConsent] = useState(false);
-  const [saved, setSaved] = useState('');
-  const [candidateLimit, setCandidateLimit] = useState(3);
+  const [saved, setSaved] = useState(initial.saved);
+  const [candidateLimit, setCandidateLimit] = useState(initial.candidateLimit);
+  const snapshot = useMemo(
+    () => ({ owner, revisionId, question, dialogue, exchanges, input, saved, candidateLimit }),
+    [owner, revisionId, question, dialogue, exchanges, input, saved, candidateLimit],
+  );
+  const sessionChange = useRef(onSessionChange);
+  sessionChange.current = onSessionChange;
 
-  useEffect(() => () => active.current?.abort(), []);
+  useEffect(() => {
+    sessionChange.current?.(snapshot);
+  }, [snapshot]);
+  useEffect(
+    () => () => {
+      active.current?.abort();
+      active.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     if (dialogue) {
       answerPanel.current?.focus({ preventScroll: true });
@@ -120,6 +154,7 @@ export default function GuidedConversation({ user, policy, onProfile }) {
             : '확인한 정보를 저장했어요. 내 정보에서 지속 복지 안내를 켜면 이후 공고도 살펴볼 수 있어요.',
       );
       setConsent(false);
+      onSaved?.(snapshot);
     } catch (failure) {
       if (!controller.signal.aborted && currentOwner.current === owner)
         setError(dialogueError(failure));
@@ -139,6 +174,15 @@ export default function GuidedConversation({ user, policy, onProfile }) {
         </p>
       ) : (
         <>
+          {onOpenAssistant && (
+            <button
+              className="button secondary"
+              disabled={!!busy}
+              onClick={() => onOpenAssistant({ policy, session: snapshot })}
+            >
+              AI 복지비서에서 이어보기
+            </button>
+          )}
           {policy && (
             <div className="guided-policy-context">
               <span>함께 확인할 공고</span>
@@ -473,8 +517,9 @@ export default function GuidedConversation({ user, policy, onProfile }) {
             </button>
           </div>
           <p className="guided-note">
-            대화 화면은 창을 닫으면 초기화돼요. 입력한 상담 정보는 서버에서 최대 30분간 임시로
-            사용하고, 저장을 선택한 생활정보만 계정에 남아요.
+            {onOpenAssistant && 'AI 복지비서로 이동하면 입력한 내용을 이어볼 수 있어요. '}
+            새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 입력한 상담 정보는 서버에서 최대
+            30분간 임시로 사용하고, 저장을 선택한 생활정보만 계정에 남아요.
           </p>
         </>
       )}

@@ -1,6 +1,7 @@
 """Browser-bound, one-use OAuth and short-lived new-member onboarding."""
 
 import hmac
+import re
 import secrets
 import time
 
@@ -133,6 +134,14 @@ def callback(
                 ).rowcount
                 == 1
             )
+    from app.api.mobile_oauth import complete_callback
+
+    if re.fullmatch(r"mobile\.[A-Za-z0-9_-]{43}", state):
+        response = complete_callback(
+            request, service, state.removeprefix("mobile."), code, error, valid
+        )
+        clear_cookie(response, request, FLOW_COOKIE)
+        return response
     if not valid:
         response = redirect(request, "login?kakao=expired")
     elif error:

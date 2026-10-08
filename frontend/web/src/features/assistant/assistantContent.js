@@ -1,6 +1,12 @@
 // Reviewed service guidance. Policy facts always come from the published policy API.
 export const assistantMenus = [
   {
+    id: 'assistant',
+    icon: 'sparkles',
+    label: 'AI 복지비서 열기',
+    description: '나에게 발견된 지원, 필요한 정보와 신청 현황',
+  },
+  {
     id: 'guidance',
     icon: 'house',
     label: '생활 상황으로 상담하고 싶어요',

@@ -1,4 +1,10 @@
-import React, { useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Image,
@@ -22,6 +28,15 @@ import { Icon } from "./Icon";
 import { colors, typography } from "./theme";
 
 export { colors } from "./theme";
+const ScreenScroll = createContext<React.RefObject<ScrollView | null> | null>(
+  null,
+);
+export function useScreenStep(key: string | number) {
+  const scroll = useContext(ScreenScroll);
+  useEffect(() => {
+    scroll?.current?.scrollTo({ y: 0, animated: false });
+  }, [scroll, key]);
+}
 export function Copy({
   children,
   title = false,
@@ -54,6 +69,7 @@ export function Copy({
 }
 export function Screen({ children }: React.PropsWithChildren) {
   const { easy } = useRuntime();
+  const scroll = useRef<ScrollView>(null);
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
@@ -68,14 +84,17 @@ export function Screen({ children }: React.PropsWithChildren) {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
+          ref={scroll}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.page,
-            easy && { padding: 16, gap: 14, paddingBottom: 28 },
+            easy && { padding: 16, gap: 14, paddingBottom: 100 },
           ]}
         >
-          <ServerConnectionNotice />
-          {children}
+          <ScreenScroll.Provider value={scroll}>
+            <ServerConnectionNotice />
+            {children}
+          </ScreenScroll.Provider>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -126,6 +145,7 @@ function EasyModeBar() {
       }}
     >
       <View
+        key={stacked ? "stacked-header" : "inline-header"}
         style={{
           width: "100%",
           maxWidth: 680,
@@ -143,8 +163,8 @@ function EasyModeBar() {
             flexDirection: "row",
             alignItems: "center",
             gap: 6,
-            flex: stacked ? undefined : 1,
-            width: stacked ? "100%" : undefined,
+            flex: stacked ? 0 : 1,
+            width: stacked ? "100%" : "auto",
             paddingVertical: stacked ? 6 : 0,
           }}
         >
@@ -166,7 +186,7 @@ function EasyModeBar() {
         </View>
         <Text
           style={{
-            flex: stacked ? 1 : undefined,
+            flex: stacked ? 1 : 0,
             fontSize: easy ? 18 : 12,
             color: colors.muted,
             fontWeight: "600",
@@ -507,7 +527,7 @@ const styles = StyleSheet.create({
   page: {
     padding: 20,
     gap: 18,
-    paddingBottom: 40,
+    paddingBottom: 100,
     width: "100%",
     maxWidth: 680,
     alignSelf: "center",

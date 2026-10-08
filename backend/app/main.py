@@ -22,6 +22,7 @@ from app.api.finance import router as finance_router
 from app.api.health import router
 from app.api.kakao_auth import router as kakao_auth_router
 from app.api.mobile_auth import router as mobile_auth_router
+from app.api.mobile_oauth import router as mobile_oauth_router
 from app.api.monitoring import router as monitoring_router
 from app.api.notifications import router as notifications_router
 from app.api.policies import router as policies_router
@@ -232,6 +233,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.include_router(server_admin_pages)
     application.include_router(server_admin_router)
     application.include_router(mobile_auth_router)
+    application.include_router(mobile_oauth_router)
     application.include_router(notifications_router)
     application.include_router(monitoring_router)
     application.include_router(finance_router)

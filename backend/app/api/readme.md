@@ -1,5 +1,7 @@
 # HTTP API 경계
 
+2026-10-08 모바일 가입: `/v1/mobile/auth/email/request`, `/email/verify`, `/signup`은 쿠키 대신 명시적 이메일 인증 증명을 사용합니다. `/v1/mobile/auth/kakao/*`는 브라우저 결합 OAuth와 PKCE 일회용 코드 교환 후 모바일 Bearer 세션을 발급합니다. 기존 웹 콜백의 `mobile.` state 분기만 재사용하며 웹 쿠키로 앱 로그인하지 않습니다. [카카오 계약·설정](../../docs/kakao-login.md).
+
 2026-10-07 생활 상담: `/v1/assistant/dialogue`는 계정별 임시 대화에서 부족한 정보를
 한 항목씩 질문하고 공개 공고를 비교합니다. `/dialogue/profile`은 확인·동의한 본인
 정보만 기존 지속 안내 프로필에 병합합니다. 외부 AI 호출 없이 작동하며 전체 질문

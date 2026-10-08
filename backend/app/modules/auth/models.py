@@ -90,6 +90,20 @@ privacy_state = Table(
     Column("lookup_fingerprint", String(64), nullable=False),
 )
 
+# One-use native OAuth handoffs. Provider tokens and PKCE verifiers are never stored.
+mobile_oauth_flows = Table(
+    "auth_mobile_oauth_flows",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("challenge", String(43), nullable=False),
+    Column("stage", String(16), nullable=False),
+    Column("expires_at", Integer, nullable=False, index=True),
+    Column("code_hash", String(64), nullable=True),
+    Column("account_id", String(64), nullable=True, index=True),
+    Column("subject", String(64), nullable=True),
+    Column("nickname", String(50), nullable=True),
+)
+
 username_lookup_index = Index(
     "uq_auth_accounts_username_lookup", accounts.c.username_lookup, unique=True
 )

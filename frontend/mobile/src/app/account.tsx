@@ -1,28 +1,20 @@
-import { useState } from "react";
 import { router } from "expo-router";
 import {
   Button,
   Card,
   Copy,
   Details,
-  Field,
   Notice,
   Screen,
   PageHeading,
 } from "../components/ui";
 import { useRuntime, useSession } from "../services/runtime";
 import { NotificationSettings } from "../features/notifications/NotificationSettings";
+import { AccountAccess } from "../features/auth/AccountAccess";
 
 export default function Account() {
   const { session, configError, easy } = useRuntime();
   const state = useSession();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  async function login() {
-    const secret = password;
-    setPassword("");
-    await session.login(username, secret);
-  }
   return (
     <Screen>
       <PageHeading
@@ -54,47 +46,7 @@ export default function Account() {
       ) : state.status === "restoring" || state.status === "signingOut" ? (
         <Notice>로그인 상태를 확인하고 있어요.</Notice>
       ) : (
-        <Card>
-          <Copy>
-            {easy
-              ? "웹에서 쓰던 계정으로 로그인해요."
-              : "기존 복지나침반 계정으로 로그인해 주세요."}
-          </Copy>
-          <Field
-            label="아이디"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="username"
-            editable={state.status === "signedOut"}
-          />
-          <Field
-            label="비밀번호"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="current-password"
-            editable={state.status === "signedOut"}
-            onSubmitEditing={() => {
-              if (username && password) void login();
-            }}
-          />
-          <Button
-            label="로그인"
-            busy={state.status === "signingIn"}
-            disabled={!username.trim() || !password}
-            onPress={() => void login()}
-          />
-          <Details label="회원가입 안내">
-            <Copy muted>
-              모바일 회원가입은 다음 단계에서 제공됩니다. 먼저 웹에서 만든
-              계정을 이용해 주세요.
-            </Copy>
-          </Details>
-        </Card>
+        <AccountAccess />
       )}
       {state.error ? <Notice>{state.error}</Notice> : null}
       <NotificationSettings />

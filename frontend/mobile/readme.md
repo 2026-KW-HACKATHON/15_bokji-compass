@@ -1,10 +1,12 @@
 # 복지나침반 모바일
 
+**2026-10-08 AI 복지비서:** 웹 AI 페이지의 생활정보·지원 후보·추가 확인·신청 현황·새 안내와 대화형 정보 입력을 하단 ‘AI 비서’에서 제공합니다. ‘상담’ 탭은 제거하고 ‘챗봇’은 화면을 일부만 차지하는 별도 패널로 변경했습니다. [AI 화면과 API](src/features/ai/README.md) · [챗봇 동작](src/features/assistant/README.md).
+
 **2026-10-06 Android 릴리스 경로 추가:** `npm run release:android`로 검증·독립 APK 빌드·서명·APK 검사를 수행합니다. 서명 전 빌드 검증은 `npm run release:android -- -Unsigned`입니다. [필수 서명 설정·EAS APK/AAB·실제 검증 범위](../docs/android-release.md).
 
 **2026-10-02 전시 배포 범위:** Android APK와 웹을 우선합니다. iPhone은 웹 접속으로 안내하며 iOS 네이티브 배포 작업은 이번 전시 범위에서 제외합니다. [고정 주소·QR 관리](../docs/exhibition.md).
 
-담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙은 `../packages/core`에서 공유합니다. 홈·로그인·소득/재산 계산·동의 저장·조회·삭제와 공개 공고 목록·검색·상세를 제공합니다. [알림 권한 안내·전체/유형별 수신 설정·기기 등록](src/features/notifications/readme.md)을 구현했습니다. 실제 자동 푸시 발송·개인 추천·가입 화면·저장 공고 동기화는 후속 작업입니다.
+담당: 프론트엔드/모바일. Android·iOS 공통 React Native + Expo SDK 57 앱입니다. 기존 웹과 별도로 실행하며 금융 입력 규칙은 `../packages/core`에서 공유합니다. 홈·[이메일 회원가입·카카오 가입/로그인](src/features/auth/readme.md)·소득/재산 계산·동의 저장·조회·삭제와 공개 공고 목록·검색·상세를 제공합니다. [알림 권한 안내·전체/유형별 수신 설정·기기 등록](src/features/notifications/readme.md)을 구현했습니다. 실제 자동 푸시 발송·개인 추천·저장 공고 동기화는 후속 작업입니다.
 
 문서 안내: [구현 범위와 이식 현황](../docs/mobile-migration.md) · [최신 보안 재검토와 배포 조건](../docs/mobile-security-review.md) · [배너 이미지·생성 프롬프트](assets/home/README.md). **main 반영은 소스 공유이며, 현재 개발 APK의 배포 승인을 의미하지 않습니다.**
 

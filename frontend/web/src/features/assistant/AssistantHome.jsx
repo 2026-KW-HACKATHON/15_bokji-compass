@@ -39,12 +39,12 @@ export default function AssistantHome({
   onSearch,
   onGuide,
   onCalendar,
+  onAssistant,
   easy,
   saved,
   onSave,
   onOpen,
   onTag,
-  monitoringPanel,
 }) {
   const [query, setQuery] = useState('');
   const [region, setRegion] = useState('전국');
@@ -350,7 +350,18 @@ export default function AssistantHome({
           이용 방법 알아보기 <Icon name="arrow" size={17} />
         </button>
       </div>
-      {monitoringPanel}
+      <section className="home-assistant-entry" aria-label="AI 복지비서 안내">
+        <span className="home-row-icon">
+          <Icon name="compass" size={28} />
+        </span>
+        <div>
+          <h2>내 상황에 맞는 지원을 계속 살펴보세요</h2>
+          <p>AI 복지비서에서 새 안내와 신청 준비 상황을 한곳에서 확인하세요.</p>
+        </div>
+        <button className="button primary" onClick={onAssistant}>
+          AI 복지비서 열기 <Icon name="arrow" size={18} />
+        </button>
+      </section>
       <div className="home-all-link">
         <button className="text-button" onClick={onExplore}>
           전체 공고 보기 <Icon name="arrow" size={17} />

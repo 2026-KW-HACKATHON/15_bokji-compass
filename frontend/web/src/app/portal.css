@@ -1,4 +1,26 @@
 /* Shared layout for the search-led web experience. Loaded after legacy page styles. */
+.home-assistant-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 28px;
+  margin: 28px 0;
+  background: #edf6fd;
+  border: 1px solid #d8e7f3;
+  border-radius: 18px;
+}
+.home-assistant-entry > div {
+  flex: 1 1 260px;
+}
+.home-assistant-entry h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+.home-assistant-entry p {
+  margin: 0;
+  color: #5b6f82;
+}
 :root {
   --surface: #fff;
   --canvas: #f7f9fc;

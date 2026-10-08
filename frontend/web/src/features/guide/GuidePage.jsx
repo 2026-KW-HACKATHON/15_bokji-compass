@@ -11,6 +11,8 @@ import {
   GraduationCap,
   HeartPulse,
   House,
+  MessageCircle,
+  RotateCcw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -18,6 +20,7 @@ import {
   UserRound,
   UsersRound,
 } from 'lucide-react';
+import useGuideSequence from './useGuideSequence.js';
 import './guide.css';
 
 const categories = [
@@ -60,6 +63,7 @@ const categories = [
 const sections = [
   { id: 'guide-find', label: '공고 찾기' },
   { id: 'guide-match', label: '맞춤 추천' },
+  { id: 'guide-ai', label: 'AI 대화' },
   { id: 'guide-keep', label: '저장과 일정' },
   { id: 'guide-easy', label: '쉬운 화면' },
 ];
@@ -78,13 +82,39 @@ function GuideArrow({ children, onClick, light = false }) {
 function ExampleLabel({ children = '이해를 돕기 위한 예시 화면' }) {
   return <p className="guide-example-label">{children}</p>;
 }
+function MotionReplay({ sequence, label }) {
+  return (
+    <button
+      type="button"
+      className="guide-motion-replay"
+      aria-label={`${label} 소개 애니메이션 다시 보기`}
+      onClick={sequence.replay}
+      hidden={!sequence.canAnimate}
+    >
+      <RotateCcw size={13} aria-hidden="true" />
+      <span>다시 보기</span>
+    </button>
+  );
+}
 
-export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculator, onEasyMode }) {
+export default function GuidePage({
+  onExplore,
+  onProfile,
+  onCalendar,
+  onCalculator,
+  onEasyMode,
+  onAssistant,
+  onChatbot,
+}) {
   const page = useRef(null);
   const [categoryIndex, setCategoryIndex] = useState(0);
+  const [categoryChanged, setCategoryChanged] = useState(false);
   const [demoSaved, setDemoSaved] = useState(false);
   const [easyPreview, setEasyPreview] = useState(false);
   const [activeSection, setActiveSection] = useState(sections[0].id);
+  const searchSequence = useGuideSequence(2800);
+  const matchSequence = useGuideSequence(3600);
+  const conversationSequence = useGuideSequence(4000);
   const category = categories[categoryIndex];
   const CategoryIcon = category.icon;
   useEffect(() => {
@@ -189,7 +219,7 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
       </section>
       <nav className="guide-section-nav" aria-label="서비스 소개 목차">
         <div className="guide-container guide-section-nav-inner">
-          <span className="guide-nav-title">복지나침반 사용 안내</span>
+          <span className="guide-nav-title">서비스 소개</span>
           <div className="guide-nav-links">
             {sections.map((section) => (
               <button
@@ -224,13 +254,23 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
               정확한 사업 이름을 몰라도, 필요한 도움에서 시작할 수 있어요.
             </p>
           </div>
-          <div className="guide-search-showcase" data-guide-reveal>
+          <div
+            className="guide-search-showcase"
+            ref={searchSequence.ref}
+            data-guide-reveal
+            data-guide-sequence={searchSequence.phase}
+            onFocusCapture={searchSequence.finish}
+            onPointerDownCapture={searchSequence.finish}
+          >
             <div className="guide-demo-toolbar">
-              <span>
+              <span data-guide-step="search-prompt">
                 <Search size={18} aria-hidden="true" />
                 어떤 도움이 필요하세요?
               </span>
-              <span className="guide-demo-badge">서비스 미리보기</span>
+              <div className="guide-demo-tools">
+                <span className="guide-demo-badge">서비스 미리보기</span>
+                <MotionReplay sequence={searchSequence} label="공고 찾기" />
+              </div>
             </div>
             <div className="guide-demo-body">
               <p className="guide-demo-instruction">관심 있는 분야를 눌러보세요</p>
@@ -245,8 +285,13 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
                     <button
                       type="button"
                       key={item.name}
+                      data-guide-step="category"
+                      style={{ '--guide-step-delay': `${400 + index * 90}ms` }}
                       aria-pressed={categoryIndex === index}
-                      onClick={() => setCategoryIndex(index)}
+                      onClick={() => {
+                        setCategoryChanged(true);
+                        setCategoryIndex(index);
+                      }}
                     >
                       <ItemIcon size={21} aria-hidden="true" />
                       {item.name}
@@ -254,18 +299,24 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
                   );
                 })}
               </div>
-              <div className="guide-demo-result" aria-live="polite" aria-atomic="true">
-                <span className="guide-result-icon">
+              <div
+                className="guide-demo-result"
+                aria-live="polite"
+                aria-atomic="true"
+                data-guide-step="search-result"
+                data-result-motion={categoryChanged}
+              >
+                <span className="guide-result-icon" key={`${category.name}-icon`}>
                   <CategoryIcon size={28} strokeWidth={1.5} aria-hidden="true" />
                 </span>
-                <div>
+                <div key={`${category.name}-copy`}>
                   <span className="guide-result-category">{category.name} · 공고 예시</span>
                   <h3>{category.title}</h3>
                   <p>{category.summary}</p>
                 </div>
                 <ChevronRight className="guide-result-chevron" size={22} aria-hidden="true" />
               </div>
-              <p className="guide-demo-detail">
+              <p className="guide-demo-detail" data-guide-step="search-detail">
                 <ShieldCheck size={16} aria-hidden="true" />
                 {category.detail}
               </p>
@@ -309,8 +360,15 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
               신청 전에 공식 공고의 자격 조건을 확인해 주세요.
             </p>
           </div>
-          <div className="guide-profile-stage" data-guide-reveal>
-            <div className="guide-profile-card">
+          <div
+            className="guide-profile-stage"
+            ref={matchSequence.ref}
+            data-guide-reveal
+            data-guide-sequence={matchSequence.phase}
+            onFocusCapture={matchSequence.finish}
+            onPointerDownCapture={matchSequence.finish}
+          >
+            <div className="guide-profile-card" data-guide-step="profile">
               <div className="guide-profile-top">
                 <span className="guide-user-icon">
                   <UserRound size={24} aria-hidden="true" />
@@ -322,16 +380,22 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
                 <SlidersHorizontal size={20} aria-hidden="true" />
               </div>
               <div className="guide-profile-chips">
-                <span>서울</span>
-                <span>25–29세</span>
-                <span>주거</span>
+                <span data-guide-step="profile-chip" style={{ '--guide-step-delay': '450ms' }}>
+                  서울
+                </span>
+                <span data-guide-step="profile-chip" style={{ '--guide-step-delay': '620ms' }}>
+                  25–29세
+                </span>
+                <span data-guide-step="profile-chip" style={{ '--guide-step-delay': '790ms' }}>
+                  주거
+                </span>
               </div>
             </div>
-            <div className="guide-profile-connector">
+            <div className="guide-profile-connector" data-guide-step="compare">
               <ArrowDown size={25} aria-hidden="true" />
               <span>입력한 정보와 공고 조건 비교</span>
             </div>
-            <div className="guide-match-card">
+            <div className="guide-match-card" data-guide-step="match-result">
               <div className="guide-match-card-title">
                 <Sparkles size={19} aria-hidden="true" />
                 <span>함께 살펴볼 공고</span>
@@ -339,13 +403,152 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
               </div>
               <h3>청년 주거 지원 안내</h3>
               <p>지역과 연령 등 세부 신청 조건을 확인해 보세요.</p>
-              <div className="guide-match-reason">
+              <div className="guide-match-reason" data-guide-step="match-reason">
                 <Check size={16} aria-hidden="true" />
                 선택한 관심 분야 ‘주거’와 관련 있어요
               </div>
             </div>
-            <ExampleLabel />
+            <div className="guide-profile-footer">
+              <ExampleLabel />
+              <MotionReplay sequence={matchSequence} label="맞춤 추천" />
+            </div>
           </div>
+        </div>
+      </section>
+      <section
+        className="guide-ai guide-section"
+        id="guide-ai"
+        tabIndex={-1}
+        aria-labelledby="guide-ai-title"
+      >
+        <div className="guide-container">
+          <div className="guide-split guide-ai-main">
+            <div className="guide-section-heading" data-guide-reveal>
+              <p className="guide-eyebrow">03 · AI와 함께 살펴보기</p>
+              <h2 id="guide-ai-title">
+                내 상황을 말하면,
+                <br />
+                <span>다음 단계가 보여요.</span>
+              </h2>
+              <p>
+                취업 준비나 집수리처럼 지금 필요한 도움을 알려주세요. 필요한 정보를 하나씩 확인하고,
+                관련 지원 후보와 더 살펴볼 조건을 정리해 드려요.
+              </p>
+              <dl className="guide-ai-points">
+                <div>
+                  <dt>모르는 정보는 미확인으로</dt>
+                  <dd>추가로 확인할 조건을 따로 살펴볼 수 있어요.</dd>
+                </div>
+                <div>
+                  <dt>관심 지원과 준비 상황은 한곳에</dt>
+                  <dd>관련 공고와 내가 기록한 신청 진행 상태를 모아봐요.</dd>
+                </div>
+              </dl>
+              <button type="button" className="guide-primary" onClick={onAssistant}>
+                AI 복지비서 시작하기
+                <ArrowRight size={18} aria-hidden="true" />
+              </button>
+              <p className="guide-fine-print">
+                생활 상황 대화는 로그인 후 이용할 수 있어요.
+                <br />
+                확인한 정보는 내용을 검토하고 저장에 동의한 뒤 계정에 보관해요.
+              </p>
+            </div>
+            <div
+              className="guide-conversation-stage"
+              ref={conversationSequence.ref}
+              data-guide-reveal
+              data-guide-sequence={conversationSequence.phase}
+              onFocusCapture={conversationSequence.finish}
+              onPointerDownCapture={conversationSequence.finish}
+              role="group"
+              aria-label="AI 복지비서 생활 상황 대화 예시"
+            >
+              <div className="guide-conversation-header">
+                <span className="guide-conversation-avatar">
+                  <Sparkles size={20} aria-hidden="true" />
+                </span>
+                <div>
+                  <strong>AI 복지비서</strong>
+                  <span>필요한 정보를 하나씩, 함께</span>
+                </div>
+                <span className="guide-conversation-example">예시 대화</span>
+              </div>
+              <div className="guide-conversation-body">
+                <div className="guide-message guide-message-user" data-guide-step="ai-question">
+                  <span className="guide-message-speaker">사용자</span>
+                  <p>취업 준비에 도움이 되는 지원이 궁금해요.</p>
+                </div>
+                <div className="guide-message guide-message-assistant" data-guide-step="ai-answer">
+                  <span className="guide-message-speaker">AI 복지비서</span>
+                  <p>
+                    현재 일을 찾고 계신가요?
+                    <br />
+                    확인할 정보를 하나씩 정리해 볼게요.
+                  </p>
+                </div>
+                <div className="guide-message guide-message-user" data-guide-step="ai-reply">
+                  <span className="guide-message-speaker">사용자</span>
+                  <p>네, 지금 구직 중이에요.</p>
+                </div>
+                <div className="guide-ai-summary" data-guide-step="ai-summary">
+                  <h3>
+                    <CheckCheck size={16} aria-hidden="true" />
+                    한곳에서 이어서 확인해요
+                  </h3>
+                  <dl>
+                    <div>
+                      <dt>관심 지원</dt>
+                      <dd>취업 · 직업 교육</dd>
+                    </div>
+                    <div>
+                      <dt>추가 확인</dt>
+                      <dd>소득 등 공고별 조건</dd>
+                    </div>
+                    <div className="guide-ai-progress" data-guide-step="ai-progress">
+                      <dt>신청 상태</dt>
+                      <dd>
+                        <span>신청 준비 중</span>
+                        <small>사용자가 직접 기록한 상태</small>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+              <div className="guide-conversation-footer">
+                <ExampleLabel>대화와 정리 방식의 예시입니다.</ExampleLabel>
+                <MotionReplay sequence={conversationSequence} label="AI 대화" />
+              </div>
+            </div>
+          </div>
+          <aside
+            className="guide-chatbot-intro"
+            aria-labelledby="guide-chatbot-title"
+            data-guide-reveal
+          >
+            <div className="guide-chatbot-icon">
+              <MessageCircle size={30} strokeWidth={1.5} aria-hidden="true" />
+            </div>
+            <div className="guide-chatbot-copy">
+              <p className="guide-eyebrow">궁금한 순간, 챗봇으로</p>
+              <h3 id="guide-chatbot-title">공고를 읽다가 궁금해졌다면.</h3>
+              <p>
+                지원 대상과 준비 서류를 질문하고, 답변에 제공된 원문 근거를 확인해 보세요. 신청
+                일정과 이용 방법도 안내해요.
+              </p>
+              <p className="guide-chatbot-continuation">
+                생활 상황 상담은 작은 창에서 시작해 AI 복지비서 화면에서 이어갈 수 있어요.
+              </p>
+              <p className="guide-chatbot-note">
+                이용 안내는 누구나 볼 수 있고, 생활 상황 대화와 공고 질문은 로그인 후 이용할 수
+                있어요. 신청 자격은 공식 공고에서 확인해 주세요.
+              </p>
+            </div>
+            <button type="button" className="guide-secondary" onClick={onChatbot}>
+              챗봇 열어보기
+              <ArrowRight size={18} aria-hidden="true" />
+            </button>
+          </aside>
         </div>
       </section>
       <section
@@ -356,7 +559,7 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
       >
         <div className="guide-container">
           <div className="guide-section-heading guide-centered" data-guide-reveal>
-            <p className="guide-eyebrow">03 · 관심 공고와 신청 일정</p>
+            <p className="guide-eyebrow">04 · 관심 공고와 신청 일정</p>
             <h2 id="guide-keep-title">
               좋은 발견이,
               <br />
@@ -526,7 +729,7 @@ export default function GuidePage({ onExplore, onProfile, onCalendar, onCalculat
             <ExampleLabel>글자 크기와 정보 구성이 달라지는 예시입니다.</ExampleLabel>
           </div>
           <div className="guide-section-heading" data-guide-reveal>
-            <p className="guide-eyebrow">04 · 나에게 편한 방식으로</p>
+            <p className="guide-eyebrow">05 · 나에게 편한 방식으로</p>
             <h2 id="guide-easy-title">
               조금 더 크게.
               <br />

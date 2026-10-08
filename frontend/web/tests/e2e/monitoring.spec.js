@@ -106,7 +106,7 @@ test('saving optional facts requires consent and shows sourced candidates, progr
   });
   const state = await setup(page);
   await page.setViewportSize({ width: 320, height: 900 });
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel.getByText('지속 안내 꺼짐', { exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: '생활정보와 안내 설정 저장' })).toBeDisabled();
@@ -190,7 +190,7 @@ test('failed edits keep the draft and saved candidates; pause and deletion are e
   page,
 }) => {
   const state = await setup(page, prepared());
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await panel.getByRole('button', { name: '생활정보 수정', exact: true }).click();
   await panel.getByLabel('주택 준공연도').fill('1984');
@@ -221,7 +221,7 @@ test('a source outage keeps a successful save visible and never claims a scan su
   page,
 }) => {
   await setup(page, { ...prepared(), scan_status: 'unavailable' });
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel).toContainText('생활정보는 저장됐지만 지원 공고를 확인하지 못했어요.');
   await expect(panel.getByText(policy.title, { exact: true })).toBeVisible();
@@ -270,7 +270,7 @@ test('registered disaster support asks about unknown damage and removes candidat
     };
     return route.fulfill({ json: state.snapshot });
   });
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel.getByRole('heading', { name: '거주 지역 재난 지원 확인' })).toBeVisible();
   await expect(panel.getByText(policy.title, { exact: true })).toBeVisible();
@@ -359,7 +359,7 @@ test('watch to recovery keeps shared application progress without duplicate hist
       if (item.policy_id === body.policy_id) item.state = body.state;
     return route.fulfill({ json: state.snapshot });
   });
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel.getByLabel(`${policy.title} 지원 진행 상태`)).toHaveValue('applied');
   await panel.getByRole('button', { name: '생활정보 수정', exact: true }).click();
@@ -402,7 +402,7 @@ test('previous application records and future application periods are clearly di
     },
   ];
   await setup(page, response);
-  await page.goto('/');
+  await page.goto('/#profile');
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel.getByRole('heading', { name: '관련 지원 후보 1개' })).toBeVisible();
   await expect(panel.getByRole('heading', { name: '이전 지원 기록 1개' })).toBeVisible();
@@ -448,7 +448,7 @@ test('a delayed prior-account response cannot expose facts after logout and anot
       await route.fulfill({ json: prepared() }).catch(() => {});
     } else await route.fulfill({ json: blank() });
   });
-  await page.goto('/');
+  await page.goto('/#profile');
   await expect(
     page.getByText('계정에 저장된 지속 안내를 불러오고 있어요.', { exact: true }),
   ).toBeVisible();
@@ -457,6 +457,7 @@ test('a delayed prior-account response cannot expose facts after logout and anot
   await page.getByLabel('아이디', { exact: true }).fill('monitoring_b');
   await page.getByLabel('비밀번호', { exact: true }).fill('ExamplePassword42!');
   await page.getByRole('button', { name: '로그인', exact: true }).click();
+  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
   const panel = page.getByRole('region', { name: '지속 복지 안내', exact: true });
   await expect(panel.getByRole('combobox', { name: '내 재난 피해 여부', exact: true })).toHaveValue(
     '',
