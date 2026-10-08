@@ -2,6 +2,39 @@ import { test, expect } from '@playwright/test';
 import { mockPolicyApi } from '../fixtures/api.js';
 import { demoPolicies } from '../fixtures/policies.js';
 
+test('untrusted policy text stays text and executable links are omitted', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__securityPayloadExecuted = false;
+  });
+  await mockPolicyApi(page);
+  const payload = '<img src=x onerror="window.__securityPayloadExecuted=true">';
+  const policy = {
+    ...demoPolicies[0],
+    title: payload,
+    summary: payload,
+    content: payload,
+    sourceUrl: 'javascript:window.__securityPayloadExecuted=true',
+    applicationUrl: 'data:text/html,<script>window.__securityPayloadExecuted=true</script>',
+    budget: { usedPercent: 10, evidence: payload, sourceUrl: 'javascript:alert(1)' },
+  };
+  await page.route('**/api/v1/policies?**', (route) =>
+    route.fulfill({ json: { items: [policy], total: 1, nextCursor: null } }),
+  );
+  await page.route('**/api/v1/policies/' + policy.id, (route) => route.fulfill({ json: policy }));
+  await page.goto('/#explore');
+  const card = page.getByRole('article');
+  await expect(card).toContainText(payload);
+  await card.getByRole('button', { name: policy.title + ' 자세히 보기', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(payload);
+  await expect(dialog.getByRole('link', { name: /공고 원문 보기|신청 페이지 열기/ })).toHaveCount(
+    0,
+  );
+  await expect(page.locator('img[src="x"], [onerror]')).toHaveCount(0);
+  await expect(page.locator('a[href^="javascript:"], a[href^="data:"]')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__securityPayloadExecuted)).toBe(false);
+});
+
 test('notice details expose original links and Korean labels in both display modes', async ({
   page,
 }) => {

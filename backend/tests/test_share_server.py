@@ -13,13 +13,14 @@ from app.core.config import Settings
 from app.main import create_app
 
 
-def test_share_settings_keep_database_privacy_and_kakao_configuration(monkeypatch):
+@pytest.mark.parametrize("environment", ["development", "production"])
+def test_share_settings_keep_database_privacy_and_kakao_configuration(monkeypatch, environment):
     path = Path(__file__).resolve().parents[1] / "scripts/share-server.py"
     spec = importlib.util.spec_from_file_location("share_server", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     configured = Settings(
-        _env_file=None, app_env="production", db_enabled=True, db_password="test-only",
+        _env_file=None, app_env=environment, db_enabled=True, db_password="test-only",
         db_host="policy-db.example", db_port=3308, db_name="policy_test",
         kakao_redirect_uri="https://shared.example/api/auth/kakao/callback",
         kakao_web_url="https://shared.example",
@@ -69,6 +70,9 @@ def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
     mysql = MagicMock()
     mysql.connect.side_effect = OperationalError("SELECT 1", {}, RuntimeError("offline"))
     monkeypatch.setattr("app.main.create_database_engine", lambda _: mysql)
+    member_mysql = MagicMock()
+    member_mysql.connect.side_effect = OperationalError("SELECT 1", {}, RuntimeError("offline"))
+    monkeypatch.setattr("app.api.auth.create_member_engine", lambda _: member_mysql)
     account_path = tmp_path / "must-not-exist.sqlite3"
     settings = Settings(_env_file=None, app_env=environment, db_enabled=True,
                         db_password="test-only", auth_sqlite_path=account_path)
@@ -79,6 +83,7 @@ def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
         assert response.status_code == 503
         assert response.headers["cache-control"] == "no-store"
         assert client.app.state.auth_service is None
-    mysql.connect.assert_called_once()
+    member_mysql.connect.assert_called_once()
+    member_mysql.dispose.assert_called_once()
     mysql.dispose.assert_called_once()
     assert not account_path.exists()

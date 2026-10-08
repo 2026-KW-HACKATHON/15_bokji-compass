@@ -13,12 +13,12 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.config import BACKEND_ROOT
+from app.core.web_security import WRITE_METHODS
 from app.modules.admin.access import with_capabilities
 from app.modules.auth.consent import ACCOUNT_RETENTION, NOTICE_VERSION, SignupConsentInput
+from app.modules.auth.database import create_member_engine
 from app.modules.auth.mail import EMAIL_SECONDS, RESEND_SECONDS, normalize_email
 from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
@@ -48,7 +48,7 @@ REGIONS = {
 
 
 def guard(request: Request):
-    if request.method == "POST" and request.headers.get("X-Auth-Request") != "1":
+    if request.method in WRITE_METHODS and request.headers.getlist("X-Auth-Request") != ["1"]:
         raise HTTPException(403, "올바른 인증 요청이 아니에요.")
 
 
@@ -62,27 +62,17 @@ def get_service(request: Request):
         raise HTTPException(503, "인증 서비스가 비활성화되어 있어요.")
     with state.auth_lock:
         if state.auth_service is None:
-            if settings.auth_uses_mysql:
-                engine = state.database_engine
-            else:
-                path = settings.auth_sqlite_path
-                if not path.is_absolute():
-                    path = BACKEND_ROOT / path
-                path.parent.mkdir(parents=True, exist_ok=True)
-                engine = create_engine(
-                    "sqlite:///" + path.as_posix(),
-                    connect_args={"check_same_thread": False, "timeout": 10},
-                )
-                try:
+            engine = create_member_engine(settings)
+            try:
+                if not settings.auth_uses_mysql:
                     initialize_auth_schema(engine)
-                    ensure_plaintext_storage(engine)
-                except Exception:
-                    engine.dispose()
-                    raise
-                state.auth_engine = engine
-            if settings.auth_uses_mysql:
                 ensure_plaintext_storage(engine)
-            state.auth_service = AuthService(engine, settings)
+                service = AuthService(engine, settings)
+            except Exception:
+                engine.dispose()
+                raise
+            state.auth_engine = engine
+            state.auth_service = service
     return state.auth_service
 
 
@@ -90,6 +80,8 @@ Service = Annotated[AuthService, Depends(get_service)]
 
 
 class UsernameInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     username: str = Field(pattern=r"^[a-zA-Z0-9_]{4,20}$")
 
     @field_validator("username")
@@ -282,7 +274,8 @@ def me(request: Request, service: Service):
 @router.post("/profile")
 def update_profile(data: ProfileInput, request: Request, service: Service):
     user = service.me(request.cookies.get(COOKIE))
-    return {"user": with_capabilities(service, service.update_profile(user["id"], data))}
+    updated = service.update_profile(user["id"], data, token=request.cookies.get(COOKIE))
+    return {"user": with_capabilities(service, updated)}
 
 
 @router.post("/logout")

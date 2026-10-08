@@ -1,7 +1,11 @@
 import { ApiError } from '../../shared/api/httpClient.js';
 import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
 import { emptyTranslationFields } from './policyTranslationModel.js';
+<<<<<<< HEAD
+import { safeWebUrl } from '../../../../packages/core/src/safeUrl.js';
+=======
 import { isCalendarDate } from '../calendar/calendarModel.js';
+>>>>>>> 6c0530f07ee6710a5f9e0f7d06a8416dda852b0a
 export const categories = [
   '전체',
   '생활·금융',
@@ -45,15 +49,7 @@ const presentation = {
   '사업·창업': ['store', 'blue'],
 };
 export function safeSourceUrl(value) {
-  if (typeof value !== 'string') return null;
-  try {
-    const url = new URL(value);
-    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
+  return safeWebUrl(value);
 }
 const verifiedDate = (value) =>
   value === null || value === undefined

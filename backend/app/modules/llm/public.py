@@ -232,6 +232,12 @@ def stop_codex_process(process: subprocess.Popen) -> None:
     """Stop only this attempt's process tree; POSIX children share a new session."""
     if IS_WINDOWS:
         try:
+<<<<<<< HEAD
+            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                           capture_output=True, check=False, timeout=10,
+                           shell=False,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+=======
             subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 capture_output=True,
@@ -239,6 +245,7 @@ def stop_codex_process(process: subprocess.Popen) -> None:
                 timeout=10,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
+>>>>>>> 6c0530f07ee6710a5f9e0f7d06a8416dda852b0a
         except (OSError, subprocess.TimeoutExpired):
             pass
     else:
@@ -432,6 +439,11 @@ def _extract_structured[T: StrictModel](
     )
     with (output / "events.jsonl").open("wb") as stdout, (output / "stderr.log").open("wb") as err:
         try:
+<<<<<<< HEAD
+            process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=stdout, stderr=err,
+                                       cwd=workspace, env=cli_environment(), shell=False,
+                                       **process_options)
+=======
             process = subprocess.Popen(
                 args,
                 stdin=subprocess.PIPE,
@@ -441,6 +453,7 @@ def _extract_structured[T: StrictModel](
                 env=cli_environment(),
                 **process_options,
             )
+>>>>>>> 6c0530f07ee6710a5f9e0f7d06a8416dda852b0a
         except OSError:
             raise CodexRunError(
                 "codex_start_failed: check CLI installation and permissions"
