@@ -34,8 +34,9 @@ def validate_extraction(result: PolicyExtraction, source: SourcePolicy) -> None:
             raise ValueError("Known condition requires a scope group")
 
 
-def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
-                       *, catalog: RegionCatalog | None = None) -> None:
+def validate_canonical(
+    result: CanonicalPolicy, source: SourcePolicy, *, catalog: RegionCatalog | None = None
+) -> None:
     """Structural validation plus source evidence and official-master membership."""
     catalog = catalog or default_catalog()
     if result.policy_key != source.policy_key:
@@ -45,9 +46,10 @@ def validate_canonical(result: CanonicalPolicy, source: SourcePolicy,
     for condition in result.conditions:
         if condition.source_field not in source.fields:
             raise ValueError("Unknown canonical source field")
-        if condition.evidence_quote and condition.evidence_quote not in source.fields[
-            condition.source_field
-        ]:
+        if (
+            condition.evidence_quote
+            and condition.evidence_quote not in source.fields[condition.source_field]
+        ):
             raise ValueError("Canonical evidence absent from source")
         value = condition.value
         if value is not None and value.kind == "REGION":
@@ -63,20 +65,35 @@ def validate_overview(result: LegacyPolicyOverview, source: SourcePolicy) -> Non
     if result.source_url != source.source_url:
         raise ValueError("Overview source URL differs from source")
     evidence_items = [*result.category_evidence]
-    for section in (result.region_conditions, result.gender_conditions,
-                    result.age_conditions, result.benefits):
+    for section in (
+        result.region_conditions,
+        result.gender_conditions,
+        result.age_conditions,
+        result.benefits,
+    ):
         evidence_items.extend(section.evidence)
     for item in result.other_conditions:
         evidence_items.extend(item.evidence)
     if isinstance(result, PeriodPolicyOverview):
         evidence_items.extend(result.application_period.evidence)
     if isinstance(result, PolicyOverview):
-        if (result.calendar_expression is not None and build_calendar_rule(
-                result.application_period.model_dump(), result.calendar_expression, source.fields,
-        ) is None):
+        if (
+            result.calendar_expression is not None
+            and build_calendar_rule(
+                result.application_period.model_dump(),
+                result.calendar_expression,
+                source.fields,
+            )
+            is None
+        ):
             raise ValueError("Application calendar expression is not supported by the cited source")
-        for field_name in ("application_method", "application_url", "contact",
-                           "published_date", "modified_date"):
+        for field_name in (
+            "application_method",
+            "application_url",
+            "contact",
+            "published_date",
+            "modified_date",
+        ):
             evidence_items.extend(getattr(result, field_name).evidence)
     for evidence in evidence_items:
         if evidence.source_field == "title":

@@ -43,39 +43,49 @@ def _day_numbers(value):
     """Keep day evidence separate from ages, sums, quarter numbers, and months."""
     days = {int(number) for number in re.findall(r"(?<![0-9])([0-9]{1,2})\s*일", value)}
     days.update(int(number) for number in re.findall(r"월\s*([0-9]{1,2})(?![0-9])", value))
-    days.update(int(match[2]) for match in _NUMERIC_DATE.finditer(value)
-                if 1 <= int(match[1]) <= 12)
+    days.update(
+        int(match[2]) for match in _NUMERIC_DATE.finditer(value) if 1 <= int(match[1]) <= 12
+    )
     return days
 
 
 def _month_numbers(value):
     months = {int(number) for number in re.findall(r"(?<![0-9])([0-9]{1,2})\s*월", value)}
-    months.update(int(number) for number in re.findall(
-        r"(?<![0-9])([0-9]{1,2})\s*[~～∼〜–—-]\s*[0-9]{1,2}\s*월", value,
-    ))
+    months.update(
+        int(number)
+        for number in re.findall(
+            r"(?<![0-9])([0-9]{1,2})\s*[~～∼〜–—-]\s*[0-9]{1,2}\s*월",
+            value,
+        )
+    )
     dotted_months = re.finditer(
         r"(?<![0-9])(?:20[0-9]{2}\s*[./년-]\s*)?([0-9]{1,2})\s*\.\s*"
         r"[~～∼〜–—]\s*(?:20[0-9]{2}\s*[./년-]\s*)?([0-9]{1,2})\s*\."
-        r"(?=\s|[()（）]|$)", value,
+        r"(?=\s|[()（）]|$)",
+        value,
     )
     for match in dotted_months:
         months.update((int(match[1]), int(match[2])))
-    months.update(int(match[1]) for match in _NUMERIC_DATE.finditer(value)
-                  if 1 <= int(match[1]) <= 12)
+    months.update(
+        int(match[1]) for match in _NUMERIC_DATE.finditer(value) if 1 <= int(match[1]) <= 12
+    )
     return months
 
 
 def _date_coordinates(value):
     """Preserve quoted year/month/day combinations, including shortened endpoints."""
     dates = list(_NUMERIC_DATE.finditer(value))
-    bare_days = [match for match in re.finditer(r"(?<![0-9])([0-9]{1,2})\s*일", value)
-                 if not any(point.start() <= match.start() < point.end() for point in dates)]
+    bare_days = [
+        match
+        for match in re.finditer(r"(?<![0-9])([0-9]{1,2})\s*일", value)
+        if not any(point.start() <= match.start() < point.end() for point in dates)
+    ]
     points = set()
     year = month = None
     previous_end = 0
     tokens = [(point, False) for point in dates] + [(point, True) for point in bare_days]
     for token, bare in sorted(tokens, key=lambda item: item[0].start()):
-        prefix = value[previous_end:token.start()]
+        prefix = value[previous_end : token.start()]
         labels = list(_YEAR_LABEL.finditer(prefix))
         annual = list(re.finditer(r"매\s*년|매\s*해|해마다", prefix))
         if annual and (not labels or annual[-1].start() > labels[-1].start()):
@@ -136,8 +146,10 @@ def build_calendar_rule(period: dict, expression: str | None, fields: dict) -> d
         application_schedule(quote, reference_year=2000, reference_month=1) for quote in quotes
     ]
     original_schedule = application_schedule(period["text"], reference_year=2000, reference_month=1)
-    if any(native["scheduleStatus"] != "unknown" and native != schedule
-           for native in [original_schedule, *quoted_schedules]):
+    if any(
+        native["scheduleStatus"] != "unknown" and native != schedule
+        for native in [original_schedule, *quoted_schedules]
+    ):
         return None
     if not _numbers(expression) <= (_numbers(evidence) | _year_numbers(evidence)):
         return None
@@ -158,27 +170,33 @@ def build_calendar_rule(period: dict, expression: str | None, fields: dict) -> d
         # A budget exhaustion condition does not itself supply a calendar deadline.
         limited = re.sub(r"(?:예산|재원)\s*(?:소진|소모)\s*(?:시|때)?\s*까지", "", evidence)
         preserves_native = all(native == schedule for native in quoted_schedules)
-        if (not preserves_native
-                and (not _ONGOING.search(evidence) or _DEADLINE.search(limited))):
+        if not preserves_native and (not _ONGOING.search(evidence) or _DEADLINE.search(limited)):
             return None
     return {"expression": expression, "period": deepcopy(period)}
 
 
 def resolve_calendar_schedule(
-    fields, overview, rule=None, reference_year=None, reference_month=None,
+    fields,
+    overview,
+    rule=None,
+    reference_year=None,
+    reference_month=None,
 ):
     """Use source parsing first; recheck a matching cited fallback at every read."""
     fields = fields if isinstance(fields, dict) else {}
     overview = overview if isinstance(overview, dict) else {}
     schedule = application_schedule(
         resolved_application_period(fields, overview),
-        reference_year=reference_year, reference_month=reference_month,
+        reference_year=reference_year,
+        reference_month=reference_month,
     )
     if schedule["scheduleStatus"] != "unknown":
         return schedule
     if rule is None:
         rule = build_calendar_rule(
-            overview.get("application_period"), overview.get("calendar_expression"), fields,
+            overview.get("application_period"),
+            overview.get("calendar_expression"),
+            fields,
         )
     if not isinstance(rule, dict):
         return schedule
@@ -189,5 +207,7 @@ def resolve_calendar_schedule(
     if valid is None:
         return schedule
     return application_schedule(
-        valid["expression"], reference_year=reference_year, reference_month=reference_month,
+        valid["expression"],
+        reference_year=reference_year,
+        reference_month=reference_month,
     )

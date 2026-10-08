@@ -46,7 +46,8 @@ def _endpoint(value):
         year, month, day = match.groups()
         return _Endpoint(int(year) if year else None, int(month), int(day))
     match = re.fullmatch(
-        MONTH + r"월\s*(?:말(?:일)?|마지막\s*날)" + TIME, value,
+        MONTH + r"월\s*(?:말(?:일)?|마지막\s*날)" + TIME,
+        value,
     )
     if match:
         year, month = match.groups()
@@ -67,7 +68,9 @@ def _clean_period(value):
     value = re.sub(r"\s+-\s+", " ~ ", value)
     value = re.sub(r"\s+", " ", value).strip()
     value = re.sub(
-        r"^[○●❍•*\-\s]*(?:[0-9]{1,2}\s*[.)、]\s*(?=(?:신청|접수|모집)))?", "", value,
+        r"^[○●❍•*\-\s]*(?:[0-9]{1,2}\s*[.)、]\s*(?=(?:신청|접수|모집)))?",
+        "",
+        value,
     )
     value = re.sub(r"(?<![0-9])['’]([0-9]{2})(?=\s*[./년-])", r"20\1", value)
     value = re.sub(r"(?<![0-9])([0-9]{2})\s*년", r"20\1년", value)
@@ -75,32 +78,39 @@ def _clean_period(value):
     label = re.match(
         r"^(?:(20[0-9]{2})\s*년(?:도)?\s*)?"
         r"((?:신청|접수|모집)\s*(?:기간|기한|마감일?|시작일|개시일|일정)?|마감일)"
-        r"(?:은|는|이|가)?\s*[:：]?\s*(.+)$", value,
+        r"(?:은|는|이|가)?\s*[:：]?\s*(.+)$",
+        value,
     )
     role = None
     context_year = None
     if label:
         context_year, name, value = label.groups()
-        role = ("end" if re.search(r"기한|마감", name) else
-                "start" if re.search(r"시작|개시", name) else None)
+        role = (
+            "end"
+            if re.search(r"기한|마감", name)
+            else "start"
+            if re.search(r"시작|개시", name)
+            else None
+        )
     value = re.sub(r"^(?:사업|당해|해당)\s*연도\s*", "", value)
     value = re.sub(r"^(?:예산|재원)\s*(?:의\s*)?범위\s*(?:내(?:에서)?|에서)\s*", "", value)
     value = re.sub(
         r"\s*(?:(?:신청|접수)\s*)?(?:가능합니다|가능|할\s*수\s*있습니다|"
         r"하시면\s*됩니다|해\s*주세요|하세요|합니다|됩니다|입니다|임)\s*[.。]?\s*$",
-        "", value,
+        "",
+        value,
     ).strip()
     value = re.sub(r"\s*(?:신청|접수)\s*[.。]?\s*$", "", value)
     value = re.sub(r"\s*시[·ㆍ]?도(?:를)?\s*통해\s*공모\s*$", "", value)
-    value = re.sub(r"\s*\((?:연도별\s*상이|예산[^()]*마감일\s*변경[^()]*)\)\s*$",
-                   "", value)
+    value = re.sub(r"\s*\((?:연도별\s*상이|예산[^()]*마감일\s*변경[^()]*)\)\s*$", "", value)
     value = re.sub(r"(월|분기|반기)\s*(?:중|연중)\s*$", r"\1", value)
     annual = bool(re.match(r"^(?:매\s*년|매\s*해|해마다)\s*", value))
     value = re.sub(r"^(?:매\s*년|매\s*해|해마다)\s*", "", value)
     value = re.sub(
         r"^(?:상\s*반기|하\s*반기|(?:제\s*)?[0-9]+\s*차)\s*[:：]?\s*"
         r"(?=(?:20[0-9]{2}\s*(?:년|[./-])\s*)?[0-9]{1,2}\s*(?:월|[./-]))",
-        "", value,
+        "",
+        value,
     )
     return value.rstrip(".。").strip(), role, annual, int(context_year) if context_year else None
 
@@ -120,13 +130,19 @@ def _date_schedule(value, role, annual, reference_year, reference_month):
     """Parse explicit application endpoints, keeping a missing endpoint absent."""
     year = reference_year if reference_year is not None else application_reference_year()
     month = reference_month if reference_month is not None else application_reference_month()
-    monthly = re.fullmatch(r"매\s*월\s*(?:말(?:일)?|마지막\s*날)\s*(?:까지)?"
-                          + TIME + r"\s*(?:까지)?", value)
+    monthly = re.fullmatch(
+        r"매\s*월\s*(?:말(?:일)?|마지막\s*날)\s*(?:까지)?" + TIME + r"\s*(?:까지)?", value
+    )
     if monthly:
         ending = date(year, month, monthrange(year, month)[1]).isoformat()
-        return {"applicationStart": None, "applicationEnd": ending, "scheduleStatus": "dated",
-                "applicationPrecision": "month_end", "applicationYear": None,
-                "applicationRecurrence": "monthly"}
+        return {
+            "applicationStart": None,
+            "applicationEnd": ending,
+            "scheduleStatus": "dated",
+            "applicationPrecision": "month_end",
+            "applicationYear": None,
+            "applicationRecurrence": "monthly",
+        }
     period = re.fullmatch(r"(.+?)\s*(?:~|부터)\s*(.+?)(?:\s*까지)?", value)
     if period:
         first, last = map(_endpoint, period.groups())
@@ -145,17 +161,24 @@ def _date_schedule(value, role, annual, reference_year, reference_month):
             last_year = last.year
             first_year = last_year - cross_year
         else:
-            first_year = year - bool(cross_year and reference_month is not None
-                                     and reference_month <= last_month)
+            first_year = year - bool(
+                cross_year and reference_month is not None and reference_month <= last_month
+            )
             last_year = first_year + cross_year
         start = _endpoint_date(first, first_year, first_month)
         end = _endpoint_date(last, last_year, last_month)
         if start > end:
             return None
-        return _relative_metadata({"applicationStart": start.isoformat(),
-            "applicationEnd": end.isoformat(), "scheduleStatus": "dated"},
-            annual=annual and yearless, yearless=yearless,
-            month_end=first.month_end or last.month_end)
+        return _relative_metadata(
+            {
+                "applicationStart": start.isoformat(),
+                "applicationEnd": end.isoformat(),
+                "scheduleStatus": "dated",
+            },
+            annual=annual and yearless,
+            yearless=yearless,
+            month_end=first.month_end or last.month_end,
+        )
     until = bool(re.search(r"(?:까지|이내)\s*$", value))
     beginning = bool(re.search(r"부터\s*$", value))
     endpoint_value = re.sub(r"\s*(?:까지|이내|부터)\s*$", "", value)
@@ -164,18 +187,25 @@ def _date_schedule(value, role, annual, reference_year, reference_month):
         month_only = re.fullmatch(MONTH + r"월", endpoint_value)
         if month_only:
             written_year, written_month = month_only.groups()
-            endpoint = _Endpoint(int(written_year) if written_year else None,
-                                 int(written_month), None, True)
-    if endpoint is None or (role is None and not until and not beginning
-                            and not endpoint.month_end and not annual):
+            endpoint = _Endpoint(
+                int(written_year) if written_year else None, int(written_month), None, True
+            )
+    if endpoint is None or (
+        role is None and not until and not beginning and not endpoint.month_end and not annual
+    ):
         return None
     parsed = _endpoint_date(endpoint, endpoint.year or year)
     start_only = role == "start" or beginning
-    return _relative_metadata({
-        "applicationStart": parsed.isoformat() if start_only else None,
-        "applicationEnd": None if start_only else parsed.isoformat(), "scheduleStatus": "dated",
-    }, annual=annual and endpoint.year is None, yearless=endpoint.year is None,
-        month_end=endpoint.month_end)
+    return _relative_metadata(
+        {
+            "applicationStart": parsed.isoformat() if start_only else None,
+            "applicationEnd": None if start_only else parsed.isoformat(),
+            "scheduleStatus": "dated",
+        },
+        annual=annual and endpoint.year is None,
+        yearless=endpoint.year is None,
+        month_end=endpoint.month_end,
+    )
 
 
 def _multiple_schedule(value, *, annual, context_year, reference_year, reference_month):
@@ -200,38 +230,70 @@ def _multiple_schedule(value, *, annual, context_year, reference_year, reference
             inherited_year = None
         elif explicit:
             inherited_year = int(explicit[1])
-        item = application_schedule(("매년 " if annual else "") + piece,
-            reference_year=inherited_year or reference_year, reference_month=reference_month)
+        item = application_schedule(
+            ("매년 " if annual else "") + piece,
+            reference_year=inherited_year or reference_year,
+            reference_month=reference_month,
+        )
         if inherited_year is not None and not recurrent:
             item["applicationYear"] = inherited_year
             item.pop("applicationRecurrence", None)
         parsed.append(item)
     if any(item["scheduleStatus"] != "dated" or "applicationWindows" in item for item in parsed):
         return None
-    windows = [{key: item[key] for key in ("applicationStart", "applicationEnd")}
-               for item in parsed]
+    windows = [
+        {key: item[key] for key in ("applicationStart", "applicationEnd")} for item in parsed
+    ]
     selected = None
     if reference_month is not None:
         year = reference_year if reference_year is not None else application_reference_year()
         first = date(year, reference_month, 1).isoformat()
         following = date(year + (reference_month == 12), reference_month % 12 + 1, 1).isoformat()
-        selected = next((index for index, window in enumerate(windows)
-            if ((window["applicationStart"] < following and window["applicationEnd"] >= first)
-                if window["applicationStart"] and window["applicationEnd"] else
-                first <= (window["applicationStart"] or window["applicationEnd"]) < following)),
-            None)
+        selected = next(
+            (
+                index
+                for index, window in enumerate(windows)
+                if (
+                    (window["applicationStart"] < following and window["applicationEnd"] >= first)
+                    if window["applicationStart"] and window["applicationEnd"]
+                    else first
+                    <= (window["applicationStart"] or window["applicationEnd"])
+                    < following
+                )
+            ),
+            None,
+        )
     if selected is None:
         today = application_reference_date().isoformat()
-        current = [index for index, window in enumerate(windows)
-                   if window["applicationStart"] and window["applicationEnd"]
-                   and window["applicationStart"] <= today <= window["applicationEnd"]]
-        upcoming = [index for index, window in enumerate(windows)
-                    if (window["applicationStart"] or window["applicationEnd"]) >= today]
-        selected = (current[0] if current else
-                    min(upcoming, key=lambda index: windows[index]["applicationStart"] or
-                        windows[index]["applicationEnd"]) if upcoming else
-                    max(range(len(windows)), key=lambda index: windows[index]["applicationEnd"] or
-                        windows[index]["applicationStart"]))
+        current = [
+            index
+            for index, window in enumerate(windows)
+            if window["applicationStart"]
+            and window["applicationEnd"]
+            and window["applicationStart"] <= today <= window["applicationEnd"]
+        ]
+        upcoming = [
+            index
+            for index, window in enumerate(windows)
+            if (window["applicationStart"] or window["applicationEnd"]) >= today
+        ]
+        selected = (
+            current[0]
+            if current
+            else min(
+                upcoming,
+                key=lambda index: (
+                    windows[index]["applicationStart"] or windows[index]["applicationEnd"]
+                ),
+            )
+            if upcoming
+            else max(
+                range(len(windows)),
+                key=lambda index: (
+                    windows[index]["applicationEnd"] or windows[index]["applicationStart"]
+                ),
+            )
+        )
     result = {**parsed[selected], "applicationWindows": windows}
     if context_year is not None:
         result["applicationYear"] = context_year
@@ -243,15 +305,18 @@ def monthly_schedule(value, *, reference_year=None, reference_month=None):
     """Expand a published month range to its first day and final calendar day."""
     prefix = PREFIX + r"(?:매년\s*)?"
     period = re.fullmatch(
-        prefix + MONTH + r"월?\s*[~～–—]\s*" + MONTH + r"월", value,
+        prefix + MONTH + r"월?\s*[~～–—]\s*" + MONTH + r"월",
+        value,
     )
     korean_period = re.fullmatch(
-        prefix + MONTH + r"월\s*부터\s*" + MONTH + r"월\s*까지", value,
+        prefix + MONTH + r"월\s*부터\s*" + MONTH + r"월\s*까지",
+        value,
     )
     single = re.fullmatch(prefix + MONTH + r"월", value)
     quarter = re.fullmatch(
         prefix + r"(?:(20[0-9]{2})\s*년(?:도)?\s*)?"
-        r"(?:제?\s*([1-4])\s*분기|([상하])\s*반기)", value,
+        r"(?:제?\s*([1-4])\s*분기|([상하])\s*반기)",
+        value,
     )
     match = period or korean_period
     if match is not None:
@@ -291,8 +356,11 @@ def monthly_schedule(value, *, reference_year=None, reference_month=None):
         return None
     if start > end:
         return None
-    months = (list(range(first, last + 1)) if year == final_year else
-              list(dict.fromkeys(list(range(first, 13)) + list(range(1, last + 1)))))
+    months = (
+        list(range(first, last + 1))
+        if year == final_year
+        else list(dict.fromkeys(list(range(first, 13)) + list(range(1, last + 1))))
+    )
     if final_year - year > 1:
         months = list(range(1, 13))
     return {
@@ -334,30 +402,41 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
     open_end = re.fullmatch(
         r"(.+?)\s*(?:~|부터)\s*(?:(?:예산|재원)\s*(?:소진|소모)\s*(?:시|때)?\s*까지"
         r"(?:\s*\((?:수\s*시|상\s*시)(?:\s*(?:신청|접수|모집))?\))?|"
-        r"(?:상\s*시|연\s*중\s*(?:수\s*시)?)(?:\s*(?:신청|접수|모집))?)", value,
+        r"(?:상\s*시|연\s*중\s*(?:수\s*시)?)(?:\s*(?:신청|접수|모집))?)",
+        value,
     )
     if open_end:
         start = application_schedule(
             "신청 시작일: " + ("매년 " if annual else "") + open_end[1],
-            reference_year=context_year or reference_year, reference_month=reference_month,
+            reference_year=context_year or reference_year,
+            reference_month=reference_month,
         )
         if start["scheduleStatus"] != "dated" or not start["applicationStart"]:
             return result
-        known = {key: start[key] for key in ("applicationYear", "applicationRecurrence")
-                 if key in start}
+        known = {
+            key: start[key] for key in ("applicationYear", "applicationRecurrence") if key in start
+        }
         if context_year is not None:
             known["applicationYear"] = context_year
             known.pop("applicationRecurrence", None)
-        return {"applicationStart": start["applicationStart"], "applicationEnd": None,
-                "scheduleStatus": "ongoing", **known}
+        return {
+            "applicationStart": start["applicationStart"],
+            "applicationEnd": None,
+            "scheduleStatus": "ongoing",
+            **known,
+        }
     if re.fullmatch(
         r"(?:분기별\s*(?:신청|접수)?\s*)?(?:\(\s*)?"
-        r"매\s*분기\s*말\s*(?:의\s*)?다음\s*달\s*\)?", value,
+        r"매\s*분기\s*말\s*(?:의\s*)?다음\s*달\s*\)?",
+        value,
     ):
         try:
             return _multiple_schedule(
-                "1월, 4월, 7월, 10월", annual=True, context_year=context_year,
-                reference_year=reference_year, reference_month=reference_month,
+                "1월, 4월, 7월, 10월",
+                annual=True,
+                context_year=context_year,
+                reference_year=reference_year,
+                reference_month=reference_month,
             )
         except (TypeError, ValueError):
             return result
@@ -365,7 +444,8 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
         r"(?:상\s*시\s*(?:신청|접수|모집)?|연\s*중\s*(?:수\s*시\s*)?(?:신청|접수|모집)?|"
         r"(?:월별\s*정기\s*모집\s*및\s*)?수\s*시\s*(?:신청|접수|모집)?|"
         r"출생\s*신고\s*후\s*언제든지)"
-        r"(?:\s*\(([^()\n]*)\))?", value,
+        r"(?:\s*\(([^()\n]*)\))?",
+        value,
     )
     if ongoing:
         condition = ongoing[1]
@@ -375,11 +455,13 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
                 r"(?:예산|재원)\s*(?:의\s*)?"
                 r"(?:(?:소진|소모)\s*(?:시|때)?\s*(?:까지|(?:신청|접수|지원)?\s*"
                 r"(?:조기\s*)?(?:마감|종료))?|범위\s*(?:내(?:에서)?|에서))",
-                "", condition,
+                "",
+                condition,
             ).strip(" ,;/|:")
             condition = re.sub(r"\s*마감(?:합니다|됩니다|됨)?\s*$", "까지", condition)
             parsed = application_schedule(
-                condition, reference_year=context_year or reference_year,
+                condition,
+                reference_year=context_year or reference_year,
                 reference_month=reference_month,
             )
             if parsed["scheduleStatus"] == "dated":
@@ -389,21 +471,27 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
                 return parsed
             if re.search(
                 r"[0-9]\s*(?:년|월|일|[./-])|기한|마감|종료|까지|이내|"
-                r"다음\s*해|익\s*년|전\s*년도|(?:검진|출생|공고).*?(?:후|부터)", condition,
+                r"다음\s*해|익\s*년|전\s*년도|(?:검진|출생|공고).*?(?:후|부터)",
+                condition,
             ):
                 return result
         return {**result, "scheduleStatus": "ongoing"}
     try:
         multiple = _multiple_schedule(
-            value, annual=annual, context_year=context_year,
-            reference_year=reference_year, reference_month=reference_month,
+            value,
+            annual=annual,
+            context_year=context_year,
+            reference_year=reference_year,
+            reference_month=reference_month,
         )
         if multiple is not None:
             return multiple
     except (TypeError, ValueError):
         return result
     monthly = monthly_schedule(
-        value, reference_year=context_year or reference_year, reference_month=reference_month,
+        value,
+        reference_year=context_year or reference_year,
+        reference_month=reference_month,
     )
     if monthly is not None:
         if context_year is not None:
@@ -419,7 +507,11 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
         return monthly
     try:
         parsed = _date_schedule(
-            value, role, annual, context_year or reference_year, reference_month,
+            value,
+            role,
+            annual,
+            context_year or reference_year,
+            reference_month,
         )
         if parsed is not None:
             if context_year is not None and parsed.get("applicationYear") is None:
@@ -434,8 +526,11 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
 def resolved_application_period(fields, overview=None):
     """Prefer a cited model extraction, then use conservative source-text parsing."""
     extracted = (overview or {}).get("application_period")
-    if (isinstance(extracted, dict) and extracted.get("status") == "specified"
-            and isinstance(extracted.get("text"), str)):
+    if (
+        isinstance(extracted, dict)
+        and extracted.get("status") == "specified"
+        and isinstance(extracted.get("text"), str)
+    ):
         return extracted["text"]
     return application_period(fields)
 

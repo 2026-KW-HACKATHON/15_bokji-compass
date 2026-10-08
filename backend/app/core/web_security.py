@@ -24,9 +24,15 @@ def origin_key(value: str) -> tuple[str, str, int] | None:
         return None
     try:
         parts = urlsplit(value)
-        if (parts.scheme not in {"http", "https"} or not parts.hostname
-                or parts.username is not None or parts.password is not None
-                or parts.path not in {"", "/"} or parts.query or parts.fragment):
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+            or parts.path not in {"", "/"}
+            or parts.query
+            or parts.fragment
+        ):
             return None
         port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
         return parts.scheme, parts.hostname.lower(), port
@@ -69,15 +75,19 @@ class WebSecurityMiddleware:
         self.cors_origins = cors_origins
 
     async def __call__(self, scope, receive, send):
-        if (scope["type"] != "http" or not scope["path"].startswith("/v1/")
-                or scope["method"] not in WRITE_METHODS):
+        if (
+            scope["type"] != "http"
+            or not scope["path"].startswith("/v1/")
+            or scope["method"] not in WRITE_METHODS
+        ):
             await self.app(scope, receive, send)
             return
         request = Request(scope)
 
         async def reject(status, detail):
             response = JSONResponse(
-                {"detail": detail}, status_code=status,
+                {"detail": detail},
+                status_code=status,
                 headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
             )
             await response(scope, receive, send)

@@ -21,8 +21,14 @@ def public_address(value):
         if "%" in value:
             return False
         address = ipaddress.ip_address(value)
-        if (not address.is_global or address.is_multicast or address.is_reserved
-                or address.is_unspecified or address.is_loopback or address.is_link_local):
+        if (
+            not address.is_global
+            or address.is_multicast
+            or address.is_reserved
+            or address.is_unspecified
+            or address.is_loopback
+            or address.is_link_local
+        ):
             return False
         if isinstance(address, ipaddress.IPv6Address):
             if address.is_site_local or address.sixtofour is not None or address.teredo is not None:
@@ -39,11 +45,13 @@ def public_address(value):
 
 def resolve_public(host, port, timeout=15):
     result = Queue(maxsize=1)
+
     def lookup():
         try:
             result.put(socket.getaddrinfo(host, port, type=socket.SOCK_STREAM))
         except OSError:
             result.put(None)
+
     # A stalled resolver must not hold the worker process beyond its budget.
     threading.Thread(target=lookup, daemon=True).start()
     try:
@@ -90,18 +98,46 @@ class NoticeParser(HTMLParser):
         if tag == "title":
             self.in_title = True
         if tag == "meta":
-            name = (attributes.get("property") or attributes.get("name")
-                    or attributes.get("itemprop") or "").strip().lower()
+            name = (
+                (
+                    attributes.get("property")
+                    or attributes.get("name")
+                    or attributes.get("itemprop")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             content = (attributes.get("content") or "").strip()
-            if content and name in {
-                "article:published_time", "datepublished", "dc.date", "dcterms.created",
-                "publishdate", "pubdate",
-            } and content not in self.published_dates and len(self.published_dates) < 4:
+            if (
+                content
+                and name
+                in {
+                    "article:published_time",
+                    "datepublished",
+                    "dc.date",
+                    "dcterms.created",
+                    "publishdate",
+                    "pubdate",
+                }
+                and content not in self.published_dates
+                and len(self.published_dates) < 4
+            ):
                 self.published_dates.append(content)
-            elif content and name in {
-                "article:modified_time", "datemodified", "dc.modified", "dcterms.modified",
-                "last-modified", "modified",
-            } and content not in self.modified_dates and len(self.modified_dates) < 4:
+            elif (
+                content
+                and name
+                in {
+                    "article:modified_time",
+                    "datemodified",
+                    "dc.modified",
+                    "dcterms.modified",
+                    "last-modified",
+                    "modified",
+                }
+                and content not in self.modified_dates
+                and len(self.modified_dates) < 4
+            ):
                 self.modified_dates.append(content)
         if tag in {"script", "style", "noscript", "nav", "footer", "header"}:
             self.ignored += 1
@@ -116,8 +152,9 @@ class NoticeParser(HTMLParser):
         if tag == "title":
             self.in_title = False
         if tag == "a" and self._active_link is not None:
-            self.links.append((self._active_link["href"], " ".join(
-                self._active_link["text"]).strip()))
+            self.links.append(
+                (self._active_link["href"], " ".join(self._active_link["text"]).strip())
+            )
             self._active_link = None
         if tag in {"script", "style", "noscript", "nav", "footer", "header"}:
             self.ignored = max(0, self.ignored - 1)
@@ -144,15 +181,19 @@ def fetch_notice(url, domains, http_budget):
         if parts.scheme != "https":
             raise CollectionTransportError("notice_https_required")
         options = http_budget.before("notice")
-        address = resolve_public(parts.hostname, 443,
-                                 min(options["timeout"], options["deadline"] - time.monotonic()))
+        address = resolve_public(
+            parts.hostname, 443, min(options["timeout"], options["deadline"] - time.monotonic())
+        )
         remaining = min(options["timeout"], options["deadline"] - time.monotonic())
         if remaining <= 0:
             raise CollectionTransportError("request_deadline", retryable=True)
         conn = PinnedHTTPSConnection(parts.hostname, address, remaining)
         try:
-            conn.request("GET", parts.path + ("?" + parts.query if parts.query else ""),
-                         headers={"User-Agent": "bokji-compass/0.1", "Accept-Encoding": "identity"})
+            conn.request(
+                "GET",
+                parts.path + ("?" + parts.query if parts.query else ""),
+                headers={"User-Agent": "bokji-compass/0.1", "Accept-Encoding": "identity"},
+            )
             response = conn.getresponse()
             if response.status in {301, 302, 303, 307, 308}:
                 location = response.getheader("Location")
@@ -162,10 +203,12 @@ def fetch_notice(url, domains, http_budget):
                 continue
             if response.status != 200:
                 retry = response.getheader("Retry-After")
-                raise CollectionTransportError(f"http_{response.status}",
-                    status_code=response.status, retryable=response.status == 429 or
-                    500 <= response.status < 600,
-                    retry_after_seconds=int(retry) if retry and retry.isdigit() else None)
+                raise CollectionTransportError(
+                    f"http_{response.status}",
+                    status_code=response.status,
+                    retryable=response.status == 429 or 500 <= response.status < 600,
+                    retry_after_seconds=int(retry) if retry and retry.isdigit() else None,
+                )
             if response.getheader("Content-Encoding", "identity") != "identity":
                 raise CollectionTransportError("notice_compression_unsupported")
             if response.headers.get_content_type() not in {"text/html", "application/xhtml+xml"}:
@@ -201,24 +244,44 @@ def fetch_notice(url, domains, http_budget):
             for href, label in parser.links[:20]:
                 absolute = urljoin(current, href)
                 link_parts = urlsplit(absolute)
-                if (link_parts.scheme in {"http", "https"} and link_parts.netloc
-                        and len(absolute) <= 512):
+                if (
+                    link_parts.scheme in {"http", "https"}
+                    and link_parts.netloc
+                    and len(absolute) <= 512
+                ):
                     links.append({"label": label[:100], "url": absolute})
-            attachments = sorted({url for link in links
-                if urlsplit(link["url"]).path.lower().endswith((".pdf", ".hwp", ".hwpx"))
-                for url in [link["url"]]})
-            published_date = (parser.published_dates[0] if len(parser.published_dates) == 1
-                              else json.dumps(parser.published_dates, ensure_ascii=False)
-                              if parser.published_dates else "")
-            modified_date = (parser.modified_dates[0] if len(parser.modified_dates) == 1
-                             else json.dumps(parser.modified_dates, ensure_ascii=False)
-                             if parser.modified_dates else "")
-            return {"title": parser.title.strip(), "text": text,
-                    "source_url": current, "attachments": json.dumps(attachments,
-                        ensure_ascii=False), "attachment_status": "not_parsed" if attachments else
-                    "none_detected", "links": json.dumps(links, ensure_ascii=False),
-                    "published_date": published_date,
-                    "modified_date": modified_date}, bytes(raw)
+            attachments = sorted(
+                {
+                    url
+                    for link in links
+                    if urlsplit(link["url"]).path.lower().endswith((".pdf", ".hwp", ".hwpx"))
+                    for url in [link["url"]]
+                }
+            )
+            published_date = (
+                parser.published_dates[0]
+                if len(parser.published_dates) == 1
+                else json.dumps(parser.published_dates, ensure_ascii=False)
+                if parser.published_dates
+                else ""
+            )
+            modified_date = (
+                parser.modified_dates[0]
+                if len(parser.modified_dates) == 1
+                else json.dumps(parser.modified_dates, ensure_ascii=False)
+                if parser.modified_dates
+                else ""
+            )
+            return {
+                "title": parser.title.strip(),
+                "text": text,
+                "source_url": current,
+                "attachments": json.dumps(attachments, ensure_ascii=False),
+                "attachment_status": "not_parsed" if attachments else "none_detected",
+                "links": json.dumps(links, ensure_ascii=False),
+                "published_date": published_date,
+                "modified_date": modified_date,
+            }, bytes(raw)
         except (TimeoutError, OSError, http.client.HTTPException):
             raise CollectionTransportError("notice_request_failed", retryable=True) from None
         finally:

@@ -176,7 +176,7 @@ for (const language of ['en', 'zh', 'vi', 'ja']) {
     await expect(dialog).toContainText('2026-11-10');
     await expect(dialog).toContainText('02-1234-5678');
     await expect(
-      dialog.locator('a[href="https://example.com/notice/fixture-housing"]'),
+      dialog.locator('a[href="https://example.com/notice/fixture-housing"]').first(),
     ).toBeVisible();
     await expect(
       dialog.locator('a[href="https://example.com/apply/fixture-housing"]'),

@@ -151,7 +151,7 @@ test('easy profile categories save independently and opted-in recommendations su
   await page.getByRole('button', { name: '관심 분야 추가', exact: true }).click();
   await page.getByRole('checkbox', { name: '주거', exact: true }).check();
   await page.getByRole('button', { name: '정보 저장', exact: true }).click();
-  await page.getByRole('link', { name: '홈', exact: true }).first().click();
+  await page.locator('.portal-header .brand').click();
   await expect(page.getByRole('article')).toHaveCount(3);
   await expect(page.getByText('추천 이유', { exact: true })).toHaveCount(3);
   await expect(page.getByRole('navigation', { name: '추천 공고 넘기기' })).toHaveCount(0);

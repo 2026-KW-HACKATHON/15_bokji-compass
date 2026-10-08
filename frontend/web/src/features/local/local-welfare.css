@@ -96,7 +96,7 @@
   border-top: 1px solid #d8e8f0;
   margin-top: 18px;
   padding-top: 18px;
-  font-size: .85rem;
+  font-size: 0.85rem;
 }
 .local-collected-areas select {
   background: #fff;
@@ -107,14 +107,52 @@
   max-width: 100%;
   min-height: 44px;
 }
-.local-collected-areas p { color: var(--muted); flex-basis: 100%; }
-.local-scope-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.local-scope-filter button { padding: 9px 14px; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; font-size: .88rem; }
-.local-scope-filter button[aria-pressed='true'] { color: var(--green); border-color: #78a9cb; background: #edf6fd; font-weight: 650; }
-.local-scope-filter p { flex-basis: 100%; font-size: .82rem; color: var(--muted); }
-.local-neighborhood-badge { align-self: flex-start; color: #2e674d; background: #edf5ef; border-radius: 5px; padding: 3px 8px; margin-top: 10px; font-size: .78rem; }
-.local-request-message { padding: 38px 20px; border-radius: 12px; background: #f5f8fa; color: var(--muted); }
-.local-request-message button { margin-top: 15px; }
+.local-collected-areas p {
+  color: var(--muted);
+  flex-basis: 100%;
+}
+.local-scope-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.local-scope-filter button {
+  padding: 9px 14px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+.local-scope-filter button[aria-pressed='true'] {
+  color: var(--green);
+  border-color: #78a9cb;
+  background: #edf6fd;
+  font-weight: 650;
+}
+.local-scope-filter p {
+  flex-basis: 100%;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.local-neighborhood-badge {
+  align-self: flex-start;
+  color: #2e674d;
+  background: #edf5ef;
+  border-radius: 5px;
+  padding: 3px 8px;
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+.local-request-message {
+  padding: 38px 20px;
+  border-radius: 12px;
+  background: #f5f8fa;
+  color: var(--muted);
+}
+.local-request-message button {
+  margin-top: 15px;
+}
 .local-results {
   margin-top: 42px;
 }

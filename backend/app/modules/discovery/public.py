@@ -76,17 +76,27 @@ class _Observer:
             if event["type"] in {"turn.failed", "error"}:
                 raise CodexRunError("discovery_turn_failed")
             if event["type"] not in {
-                    "thread.started", "turn.started", "turn.completed",
-                    "item.started", "item.updated", "item.completed"}:
+                "thread.started",
+                "turn.started",
+                "turn.completed",
+                "item.started",
+                "item.updated",
+                "item.completed",
+            }:
                 raise CodexRunError("discovery_invalid_event")
             item = event.get("item", {})
             if not isinstance(item, dict):
                 raise CodexRunError("discovery_invalid_event")
             kind = item.get("type")
             warning = kind == "error" and str(item.get("message", "")).startswith(
-                "Under-development features enabled:")
-            if kind and not warning and kind not in {
-                    "reasoning", "agent_message", "todo_list", "web_search", "web_search_call"}:
+                "Under-development features enabled:"
+            )
+            if (
+                kind
+                and not warning
+                and kind
+                not in {"reasoning", "agent_message", "todo_list", "web_search", "web_search_call"}
+            ):
                 raise CodexRunError("discovery_unexpected_tool")
             if kind in {"web_search", "web_search_call"}:
                 identity = item.get("id")
@@ -108,18 +118,34 @@ def _file_limits(stderr: Path, result: Path):
         raise CodexRunError("discovery_result_limit")
 
 
-def discover(settings: Settings, *, domains: list[str], query: str, timeout: int,
-             max_candidates: int = 10) -> tuple[list[dict], dict]:
+def discover(
+    settings: Settings, *, domains: list[str], query: str, timeout: int, max_candidates: int = 10
+) -> tuple[list[dict], dict]:
     """Explicit live search only; no DB writes, policy extraction or implicit fallback."""
     hosts = normalize_domains(domains)
-    if (not isinstance(query, str) or not query.strip() or len(query) > 2000
-            or type(timeout) is not int or not 10 <= timeout <= 300
-            or type(max_candidates) is not int or not 1 <= max_candidates <= 10):
+    if (
+        not isinstance(query, str)
+        or not query.strip()
+        or len(query) > 2000
+        or type(timeout) is not int
+        or not 10 <= timeout <= 300
+        or type(max_candidates) is not int
+        or not 1 <= max_candidates <= 10
+    ):
         raise ValueError("Invalid discovery query, timeout or candidate limit")
     executable = resolve_codex_executable(settings.codex_executable)
-    prompt = PROMPT + "\nREQUEST_JSON:\n" + json.dumps({
-        "allowed_domains": hosts, "query": query.strip(), "max_candidates": max_candidates,
-    }, ensure_ascii=False)
+    prompt = (
+        PROMPT
+        + "\nREQUEST_JSON:\n"
+        + json.dumps(
+            {
+                "allowed_domains": hosts,
+                "query": query.strip(),
+                "max_candidates": max_candidates,
+            },
+            ensure_ascii=False,
+        )
+    )
     started = time.monotonic()
     with TemporaryDirectory(prefix="bokji-discovery-") as directory:
         output = Path(directory)
@@ -129,33 +155,68 @@ def discover(settings: Settings, *, domains: list[str], query: str, timeout: int
         schema, result = output / "schema.json", output / "response.json"
         events, stderr = output / "events.jsonl", output / "stderr.log"
         schema.write_text(json.dumps(DiscoveryResponse.model_json_schema()), encoding="utf-8")
-        args = [str(executable), "exec", "--ignore-user-config", "--skip-git-repo-check",
-                "--ephemeral", "--sandbox", "read-only", "--json", "--color", "never",
-                "-C", str(workspace), "--model", settings.codex_model,
-                "--output-schema", str(schema), "-o", str(result)]
+        args = [
+            str(executable),
+            "exec",
+            "--ignore-user-config",
+            "--skip-git-repo-check",
+            "--ephemeral",
+            "--sandbox",
+            "read-only",
+            "--json",
+            "--color",
+            "never",
+            "-C",
+            str(workspace),
+            "--model",
+            settings.codex_model,
+            "--output-schema",
+            str(schema),
+            "-o",
+            str(result),
+        ]
         overrides = [
-            'approval_policy="never"', 'web_search="live"', "project_doc_max_bytes=0",
-            "suppress_unstable_features_warning=true", "features.shell_tool=false",
-            "features.unified_exec=false", "features.apps=false", "features.plugins=false",
-            "features.hooks=false", "features.multi_agent=false", "features.skill_search=false",
-            "features.skip_host_skill_discovery=true", "features.browser_use=false",
-            "features.computer_use=false", "features.image_generation=false",
-            "features.code_mode=false", "mcp_servers={}",
+            'approval_policy="never"',
+            'web_search="live"',
+            "project_doc_max_bytes=0",
+            "suppress_unstable_features_warning=true",
+            "features.shell_tool=false",
+            "features.unified_exec=false",
+            "features.apps=false",
+            "features.plugins=false",
+            "features.hooks=false",
+            "features.multi_agent=false",
+            "features.skill_search=false",
+            "features.skip_host_skill_discovery=true",
+            "features.browser_use=false",
+            "features.computer_use=false",
+            "features.image_generation=false",
+            "features.code_mode=false",
+            "mcp_servers={}",
             f'model_reasoning_effort="{settings.codex_reasoning_effort}"',
-            ('tools.web_search={ context_size="low", allowed_domains='
-             + json.dumps(hosts) + " }"),
+            ('tools.web_search={ context_size="low", allowed_domains=' + json.dumps(hosts) + " }"),
         ]
         for config in overrides:
             args.extend(["-c", config])
         args.append("-")
         observer = _Observer(events)
-        process_options = ({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
-                           if IS_WINDOWS else {"start_new_session": True})
+        process_options = (
+            {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+            if IS_WINDOWS
+            else {"start_new_session": True}
+        )
         with events.open("wb") as stdout, stderr.open("wb") as err:
             try:
-                process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=stdout, stderr=err,
-                                           cwd=workspace, env=cli_environment(), shell=False,
-                                           **process_options)
+                process = subprocess.Popen(
+                    args,
+                    stdin=subprocess.PIPE,
+                    stdout=stdout,
+                    stderr=err,
+                    cwd=workspace,
+                    env=cli_environment(),
+                    shell=False,
+                    **process_options,
+                )
             except OSError:
                 raise CodexRunError("discovery_start_failed") from None
             pending_input = prompt.encode("utf-8")
@@ -194,11 +255,17 @@ def discover(settings: Settings, *, domains: list[str], query: str, timeout: int
                     candidates.append({**candidate.model_dump(), "url": url})
         except (ValueError, ValidationError, UnicodeError):
             raise CodexRunError("discovery_invalid_candidates") from None
-        metadata = {"model": settings.codex_model,
-                    "reasoning_effort": settings.codex_reasoning_effort,
-                    "prompt_version": PROMPT_VERSION, "usage": observer.usage,
-                    "web_search_actions": len(observer.web_ids), "domains": hosts,
-                    "candidate_count": len(candidates), "verified": False,
-                    "search_action_limit": MAX_WEB_ACTIONS, "hard_search_limit": False,
-                    "elapsed_seconds": round(time.monotonic() - started, 2)}
+        metadata = {
+            "model": settings.codex_model,
+            "reasoning_effort": settings.codex_reasoning_effort,
+            "prompt_version": PROMPT_VERSION,
+            "usage": observer.usage,
+            "web_search_actions": len(observer.web_ids),
+            "domains": hosts,
+            "candidate_count": len(candidates),
+            "verified": False,
+            "search_action_limit": MAX_WEB_ACTIONS,
+            "hard_search_limit": False,
+            "elapsed_seconds": round(time.monotonic() - started, 2),
+        }
         return candidates, metadata

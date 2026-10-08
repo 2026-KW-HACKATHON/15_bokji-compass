@@ -1,6 +1,10 @@
 import { regions } from '../policies/policyModel.js';
 
-export const priorityLocalArea = Object.freeze({ region: '서울', district: '노원구', neighborhood: '월계1동' });
+export const priorityLocalArea = Object.freeze({
+  region: '서울',
+  district: '노원구',
+  neighborhood: '월계1동',
+});
 
 export function startingLocalArea(user, profile) {
   const saved = initialLocalArea(user, profile);

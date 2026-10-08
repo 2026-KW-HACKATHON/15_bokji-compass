@@ -1,11 +1,8 @@
 import { ApiError } from '../../shared/api/httpClient.js';
 import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
 import { emptyTranslationFields } from './policyTranslationModel.js';
-<<<<<<< HEAD
 import { safeWebUrl } from '../../../../packages/core/src/safeUrl.js';
-=======
 import { isCalendarDate } from '../calendar/calendarModel.js';
->>>>>>> 6c0530f07ee6710a5f9e0f7d06a8416dda852b0a
 export const categories = [
   '전체',
   '생활·금융',

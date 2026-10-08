@@ -24,17 +24,23 @@ def local_services(
     response.headers["Cache-Control"] = "no-store"
     try:
         return public.list_services(
-            region=region, district=district, neighborhood=neighborhood,
-            neighborhood_type=neighborhood_type, category=category, scope=scope,
+            region=region,
+            district=district,
+            neighborhood=neighborhood,
+            neighborhood_type=neighborhood_type,
+            category=category,
+            scope=scope,
         )
     except public.CatalogError:
         logger.exception("The reviewed local service catalog is unavailable")
         raise HTTPException(
-            503, "지역 복지 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+            503,
+            "지역 복지 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
             headers={"Cache-Control": "no-store"},
         ) from None
     except ValueError:
         raise HTTPException(
-            422, "시·도, 시·군·구와 동·읍·면 이름을 확인해 주세요.",
+            422,
+            "시·도, 시·군·구와 동·읍·면 이름을 확인해 주세요.",
             headers={"Cache-Control": "no-store"},
         ) from None

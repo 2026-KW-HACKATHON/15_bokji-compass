@@ -31,14 +31,30 @@ for (const easy of [false, true]) {
       user = null;
       return route.fulfill({ json: { message: '로그아웃했어요.' } });
     });
+    const navigationSelector = easy ? '.easy-navigation' : '.portal-nav';
     const geometry = () =>
-      page.evaluate(() => {
+      page.evaluate((selector) => {
         const bounds = (selector) => {
           const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
           return { x, y, width, height };
         };
-        return { header: bounds('.portal-header'), nav: bounds('.portal-nav') };
-      });
+        const header = bounds('.portal-header');
+        const nav = bounds(selector);
+        // Easy mode wraps readable account names on narrow screens. The menu
+        // stays anchored below those controls instead of clipping their text.
+        if (selector === '.easy-navigation' && innerWidth <= 1000) {
+          return {
+            header: { x: header.x, y: header.y, width: header.width },
+            nav: {
+              x: nav.x,
+              width: nav.width,
+              height: nav.height,
+              bottomInset: header.y + header.height - nav.y - nav.height,
+            },
+          };
+        }
+        return { header, nav };
+      }, navigationSelector);
     const widths = testInfo.project.name === 'desktop' ? [1446, 1440, 1280, 1180, 768] : [390, 320];
     for (const width of widths) {
       await page.setViewportSize({ width, height: 900 });
@@ -60,12 +76,15 @@ for (const easy of [false, true]) {
         .locator('.portal-header')
         .getByRole('button', { name: '로그아웃', exact: true });
       await expect(logout).toBeVisible();
-      await page.locator('.portal-nav a[href="#assistant"]').click();
+      if (easy) await page.locator('.easy-menu-toggle').click();
+      await page.locator(navigationSelector + ' a[href="#assistant"]').click();
       await expect(page).toHaveURL(/#assistant$/);
       expect(await geometry(), `login geometry at ${width}px`).toEqual(before);
       if (width >= 1280) {
         expect(
-          await page.locator('.portal-nav').evaluate((nav) => nav.scrollWidth <= nav.clientWidth),
+          await page
+            .locator(navigationSelector)
+            .evaluate((nav) => nav.scrollWidth <= nav.clientWidth),
           `all desktop menus at ${width}px`,
         ).toBe(true);
       }

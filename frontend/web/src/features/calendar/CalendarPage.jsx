@@ -485,11 +485,16 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
                         >
                           <strong>
                             {new Intl.DateTimeFormat(intlLocale, {
-                              month: 'short', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul',
+                              month: 'short',
+                              day: 'numeric',
+                              weekday: 'short',
+                              timeZone: 'Asia/Seoul',
                             }).format(new Date(`${cell.date}T00:00:00+09:00`))}
                           </strong>
                           {cell.date === today && <span>{t('오늘')}</span>}
-                          <span>{t('시작')} {starts} · {t('마감')} {ends}</span>
+                          <span>
+                            {t('시작')} {starts} · {t('마감')} {ends}
+                          </span>
                         </button>
                       );
                     })}
@@ -497,89 +502,89 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
               </details>
             </div>
           ) : (
-          <div className="calendar-board">
-            <table
-              className="month-grid"
-              aria-label={t('{value1} 공고 일정', { value1: displayedMonth })}
-            >
-              <thead>
-                <tr>
-                  {Array.from({ length: 7 }, (_, index) =>
-                    new Intl.DateTimeFormat(intlLocale, {
-                      weekday: 'short',
-                      timeZone: 'Asia/Seoul',
-                    }).format(new Date(Date.UTC(2026, 0, 4 + index))),
-                  ).map((day) => (
-                    <th key={day} scope="col">
-                      {day}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 6 }, (_, week) => (
-                  <tr key={week}>
-                    {calendarCells(displayedMonth)
-                      .slice(week * 7, week * 7 + 7)
-                      .map((cell) => {
-                        const daily = eventsByDay.get(cell.date) || [],
-                          starts = daily.filter((event) => event.type === 'start').length,
-                          ends = daily.filter((event) => event.type === 'end').length;
-                        return (
-                          <td key={cell.date} className={!cell.current ? 'outside-month' : ''}>
-                            {cell.current ? (
-                              <button
-                                className={
-                                  'calendar-day' + (selected === cell.date ? ' selected' : '')
-                                }
-                                onClick={() => chooseDay(cell.date)}
-                                aria-disabled={month !== displayedMonth || undefined}
-                                aria-pressed={selected === cell.date}
-                                aria-current={cell.date === today ? 'date' : undefined}
-                                aria-label={t(
-                                  '{value1}{value2}, 신청 시작 {value3}건, 마감 {value4}건',
-                                  {
-                                    value1: dateText(cell.date),
-                                    value2: cell.date === today ? ' ' + t('오늘') : '',
-                                    value3: starts,
-                                    value4: ends,
-                                  },
-                                )}
-                              >
-                                <span className="calendar-day-number">{cell.day}</span>
-                                <span className="calendar-day-events">
-                                  {daily.slice(0, 2).map((event) => (
-                                    <span
-                                      key={event.type + event.policy.id}
-                                      className={'calendar-event ' + event.type}
-                                    >
-                                      <span className="calendar-event-kind">
-                                        {event.type === 'start' ? t('시작') : t('마감')}
-                                      </span>
-                                      <CalendarEventTitle policy={event.policy} />
-                                    </span>
-                                  ))}
-                                  {daily.length > 2 && (
-                                    <span className="calendar-more">
-                                      +{daily.length - 2}
-                                      {t('건')}
-                                    </span>
-                                  )}
-                                </span>
-                              </button>
-                            ) : (
-                              <span className="calendar-outside-day" aria-hidden="true">
-                                {cell.day}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
+            <div className="calendar-board">
+              <table
+                className="month-grid"
+                aria-label={t('{value1} 공고 일정', { value1: displayedMonth })}
+              >
+                <thead>
+                  <tr>
+                    {Array.from({ length: 7 }, (_, index) =>
+                      new Intl.DateTimeFormat(intlLocale, {
+                        weekday: 'short',
+                        timeZone: 'Asia/Seoul',
+                      }).format(new Date(Date.UTC(2026, 0, 4 + index))),
+                    ).map((day) => (
+                      <th key={day} scope="col">
+                        {day}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 6 }, (_, week) => (
+                    <tr key={week}>
+                      {calendarCells(displayedMonth)
+                        .slice(week * 7, week * 7 + 7)
+                        .map((cell) => {
+                          const daily = eventsByDay.get(cell.date) || [],
+                            starts = daily.filter((event) => event.type === 'start').length,
+                            ends = daily.filter((event) => event.type === 'end').length;
+                          return (
+                            <td key={cell.date} className={!cell.current ? 'outside-month' : ''}>
+                              {cell.current ? (
+                                <button
+                                  className={
+                                    'calendar-day' + (selected === cell.date ? ' selected' : '')
+                                  }
+                                  onClick={() => chooseDay(cell.date)}
+                                  aria-disabled={month !== displayedMonth || undefined}
+                                  aria-pressed={selected === cell.date}
+                                  aria-current={cell.date === today ? 'date' : undefined}
+                                  aria-label={t(
+                                    '{value1}{value2}, 신청 시작 {value3}건, 마감 {value4}건',
+                                    {
+                                      value1: dateText(cell.date),
+                                      value2: cell.date === today ? ' ' + t('오늘') : '',
+                                      value3: starts,
+                                      value4: ends,
+                                    },
+                                  )}
+                                >
+                                  <span className="calendar-day-number">{cell.day}</span>
+                                  <span className="calendar-day-events">
+                                    {daily.slice(0, 2).map((event) => (
+                                      <span
+                                        key={event.type + event.policy.id}
+                                        className={'calendar-event ' + event.type}
+                                      >
+                                        <span className="calendar-event-kind">
+                                          {event.type === 'start' ? t('시작') : t('마감')}
+                                        </span>
+                                        <CalendarEventTitle policy={event.policy} />
+                                      </span>
+                                    ))}
+                                    {daily.length > 2 && (
+                                      <span className="calendar-more">
+                                        +{daily.length - 2}
+                                        {t('건')}
+                                      </span>
+                                    )}
+                                  </span>
+                                </button>
+                              ) : (
+                                <span className="calendar-outside-day" aria-hidden="true">
+                                  {cell.day}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <section className="calendar-day-panel" aria-labelledby="calendar-day-heading">
             <h2 id="calendar-day-heading" ref={dayHeading} tabIndex={-1}>

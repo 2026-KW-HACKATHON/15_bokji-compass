@@ -126,9 +126,7 @@ def assessed_earnings(profile, *, exclude_private=False, allow_approximation=Fal
     total = D(0)
     missing, breakdown = [], []
     for index, member in enumerate(profile.members, 1):
-        basis_missing = income_basis_missing(
-            member, index, allow_approximation=allow_approximation
-        )
+        basis_missing = income_basis_missing(member, index, allow_approximation=allow_approximation)
         if basis_missing:
             missing.extend(basis_missing)
             continue
@@ -344,8 +342,7 @@ def basic_assessment(profile, *, allow_approximation=False, approximated=False):
                 "소득인정액 (월)",
                 value,
                 limit,
-                ready=not approximated
-                and not any("원 미만 차이" in reason for reason in missing),
+                ready=not approximated and not any("원 미만 차이" in reason for reason in missing),
             )
         ],
         "missing": list(dict.fromkeys(missing)),
@@ -382,9 +379,7 @@ def near_poor_assessment(profile, *, allow_approximation=False):
         for car in profile.vehicles
     ):
         assets = None
-        missing.append(
-            "2,000~2,500cc 차량의 차상위 적용 조건은 현재 계산에서 지원하지 않아요."
-        )
+        missing.append("2,000~2,500cc 차량의 차상위 적용 조건은 현재 계산에서 지원하지 않아요.")
     value = None if income is None or assets is None else won(income + assets)
     limit = benefit_limit(profile.household_size, 50) if profile.reference_year == 2026 else None
     return {
@@ -405,12 +400,8 @@ def near_poor_assessment(profile, *, allow_approximation=False):
 def rental_assessment(profile, summary, *, allow_approximation=False, income_approximated=False):
     missing = context_missing(profile)
     for index, member in enumerate(profile.members, 1):
-        missing.extend(
-            income_basis_missing(member, index, allow_approximation=allow_approximation)
-        )
-    income = monthly_income(
-        profile, include_private=False, allow_approximation=allow_approximation
-    )
+        missing.extend(income_basis_missing(member, index, allow_approximation=allow_approximation))
+    income = monthly_income(profile, include_private=False, allow_approximation=allow_approximation)
     if income is None:
         missing.append("가구원 전원의 근로·사업·기타 소득을 입력해 주세요.")
     if summary["net_total"] is None:

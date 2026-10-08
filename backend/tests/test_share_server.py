@@ -20,8 +20,13 @@ def test_share_settings_keep_database_privacy_and_kakao_configuration(monkeypatc
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     configured = Settings(
-        _env_file=None, app_env=environment, db_enabled=True, db_password="test-only",
-        db_host="policy-db.example", db_port=3308, db_name="policy_test",
+        _env_file=None,
+        app_env=environment,
+        db_enabled=True,
+        db_password="test-only",
+        db_host="policy-db.example",
+        db_port=3308,
+        db_name="policy_test",
         kakao_redirect_uri="https://shared.example/api/auth/kakao/callback",
         kakao_web_url="https://shared.example",
         cors_origins=["https://old.example"],
@@ -30,7 +35,10 @@ def test_share_settings_keep_database_privacy_and_kakao_configuration(monkeypatc
     result = module.share_settings()
     assert result.db_enabled
     assert (result.db_host, result.db_port, result.db_name) == (
-        "policy-db.example", 3308, "policy_test")
+        "policy-db.example",
+        3308,
+        "policy_test",
+    )
     assert result.db_password == configured.db_password
     assert result.auth_uses_mysql
     assert result.app_env == "production"
@@ -65,7 +73,9 @@ def test_share_policy_reads_use_configured_mysql(monkeypatch):
 
 @pytest.mark.parametrize("environment", ["development", "production"])
 def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
-    tmp_path, environment, monkeypatch,
+    tmp_path,
+    environment,
+    monkeypatch,
 ):
     mysql = MagicMock()
     mysql.connect.side_effect = OperationalError("SELECT 1", {}, RuntimeError("offline"))
@@ -74,12 +84,21 @@ def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
     member_mysql.connect.side_effect = OperationalError("SELECT 1", {}, RuntimeError("offline"))
     monkeypatch.setattr("app.api.auth.create_member_engine", lambda _: member_mysql)
     account_path = tmp_path / "must-not-exist.sqlite3"
-    settings = Settings(_env_file=None, app_env=environment, db_enabled=True,
-                        db_password="test-only", auth_sqlite_path=account_path)
+    settings = Settings(
+        _env_file=None,
+        app_env=environment,
+        db_enabled=True,
+        db_password="test-only",
+        auth_sqlite_path=account_path,
+    )
     with TestClient(create_app(settings), headers={"X-Auth-Request": "1"}) as client:
-        response = client.post("/v1/auth/login", json={
-            "username": "existing", "password": "Password123!",
-        })
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "username": "existing",
+                "password": "Password123!",
+            },
+        )
         assert response.status_code == 503
         assert response.headers["cache-control"] == "no-store"
         assert client.app.state.auth_service is None

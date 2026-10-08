@@ -97,9 +97,21 @@ test('initial locality uses saved base addresses without copying personal addres
 });
 
 test('priority area is a guest fallback and never overrides saved geography', () => {
-  assert.deepEqual(startingLocalArea(null, null), { region: '서울', district: '노원구', neighborhood: '월계1동' });
-  assert.deepEqual(startingLocalArea({ address: '부산 동래구 사직로 20', region: '부산' }, null), { region: '부산', district: '동래구', neighborhood: '' });
-  assert.deepEqual(startingLocalArea(null, { region: '제주' }), { region: '제주', district: '', neighborhood: '' });
+  assert.deepEqual(startingLocalArea(null, null), {
+    region: '서울',
+    district: '노원구',
+    neighborhood: '월계1동',
+  });
+  assert.deepEqual(startingLocalArea({ address: '부산 동래구 사직로 20', region: '부산' }, null), {
+    region: '부산',
+    district: '동래구',
+    neighborhood: '',
+  });
+  assert.deepEqual(startingLocalArea(null, { region: '제주' }), {
+    region: '제주',
+    district: '',
+    neighborhood: '',
+  });
   assert.equal(parseLocalArea('서울 노원구 월계동').neighborhood, '월계동');
   assert.equal(parseLocalArea('서울 노원구 월계1동').neighborhood, '월계1동');
 });

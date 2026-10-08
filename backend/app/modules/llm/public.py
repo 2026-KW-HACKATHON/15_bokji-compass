@@ -177,8 +177,11 @@ def resolve_codex_executable(configured: str) -> Path:
         if found:
             executable = Path(found)
         elif IS_WINDOWS and os.environ.get("LOCALAPPDATA"):
-            candidates = [p for p in (Path(os.environ["LOCALAPPDATA"]) /
-                          "OpenAI/Codex/bin").glob("*/codex.exe") if p.is_file()]
+            candidates = [
+                p
+                for p in (Path(os.environ["LOCALAPPDATA"]) / "OpenAI/Codex/bin").glob("*/codex.exe")
+                if p.is_file()
+            ]
             if not candidates:
                 raise CodexRunError("codex_not_found: install CLI or set CODEX_EXECUTABLE")
             executable = max(candidates, key=lambda p: p.stat().st_mtime)
@@ -194,11 +197,34 @@ def resolve_codex_executable(configured: str) -> Path:
 
 
 def cli_environment() -> dict[str, str]:
-    allowed = {"SYSTEMROOT", "WINDIR", "COMSPEC", "PATH", "PATHEXT", "TEMP", "TMP",
-               "USERPROFILE", "APPDATA", "LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)",
-               "HOMEDRIVE", "HOMEPATH", "USERNAME", "OS", "CODEX_HOME",
-               "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE",
-               "XDG_CONFIG_HOME", "XDG_CACHE_HOME"}
+    allowed = {
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "PATH",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "USERNAME",
+        "OS",
+        "CODEX_HOME",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "TMPDIR",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+    }
     return {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
 
@@ -269,19 +295,33 @@ class _OutputObserver:
             if event["type"] in {"turn.failed", "error"}:
                 raise CodexRunError("codex_turn_failed")
             if event["type"] not in {
-                "thread.started", "turn.started", "turn.completed",
-                "item.started", "item.updated", "item.completed",
+                "thread.started",
+                "turn.started",
+                "turn.completed",
+                "item.started",
+                "item.updated",
+                "item.completed",
             }:
                 raise CodexRunError("invalid_cli_event")
             item = event.get("item", {})
             if not isinstance(item, dict):
                 raise CodexRunError("invalid_cli_event")
             item_type = item.get("type")
-            feature_warning = item_type == "error" and isinstance(item.get("message"), str) and (
-                item["message"].startswith("Under-development features enabled:"))
-            if item_type and not feature_warning and item_type not in {
-                "agent_message", "reasoning", "todo_list",
-            }:
+            feature_warning = (
+                item_type == "error"
+                and isinstance(item.get("message"), str)
+                and (item["message"].startswith("Under-development features enabled:"))
+            )
+            if (
+                item_type
+                and not feature_warning
+                and item_type
+                not in {
+                    "agent_message",
+                    "reasoning",
+                    "todo_list",
+                }
+            ):
                 raise CodexRunError("unexpected_tool_or_event")
             if event["type"] == "turn.completed":
                 self.usage.append(event.get("usage"))
@@ -300,9 +340,17 @@ def strict_output_schema(schema):
 
 
 def _extract_structured[T: StrictModel](
-    source: SourcePolicy | None, settings: Settings, output: Path, model: str,
-    prompt_template: str, response_model: type[T], prompt_version: str,
-    *, payload=None, output_schema=None, raw_response=False,
+    source: SourcePolicy | None,
+    settings: Settings,
+    output: Path,
+    model: str,
+    prompt_template: str,
+    response_model: type[T],
+    prompt_version: str,
+    *,
+    payload=None,
+    output_schema=None,
+    raw_response=False,
 ) -> tuple[T, dict]:
     """Run once; output must be a new attempt directory. No implicit model fallback."""
     executable = resolve_codex_executable(settings.codex_executable)
@@ -312,37 +360,77 @@ def _extract_structured[T: StrictModel](
     workspace.mkdir()
     (workspace / ".git").mkdir()
     schema = output / "schema.json"
-    schema.write_text(json.dumps(
-        strict_output_schema(output_schema or response_model.model_json_schema()),
-        ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    schema.write_text(
+        json.dumps(
+            strict_output_schema(output_schema or response_model.model_json_schema()),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
     result = output / "response.json"
-    args = [str(executable), "exec", "--ignore-user-config", "--skip-git-repo-check",
-            "--ephemeral", "--sandbox", "read-only", "--json", "--color", "never",
-            "-C", str(workspace), "--model", model,
-            "--output-schema", str(schema), "-o", str(result)]
+    args = [
+        str(executable),
+        "exec",
+        "--ignore-user-config",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--sandbox",
+        "read-only",
+        "--json",
+        "--color",
+        "never",
+        "-C",
+        str(workspace),
+        "--model",
+        model,
+        "--output-schema",
+        str(schema),
+        "-o",
+        str(result),
+    ]
     overrides = [
-        'approval_policy="never"', 'web_search="disabled"', "project_doc_max_bytes=0",
+        'approval_policy="never"',
+        'web_search="disabled"',
+        "project_doc_max_bytes=0",
         "suppress_unstable_features_warning=true",
-        "features.shell_tool=false", "features.unified_exec=false", "features.apps=false",
-        "features.plugins=false", "features.hooks=false", "features.multi_agent=false",
-        "features.skill_search=false", "features.skip_host_skill_discovery=true",
-        "features.browser_use=false", "features.computer_use=false",
-        "features.image_generation=false", "features.code_mode=false", "mcp_servers={}",
+        "features.shell_tool=false",
+        "features.unified_exec=false",
+        "features.apps=false",
+        "features.plugins=false",
+        "features.hooks=false",
+        "features.multi_agent=false",
+        "features.skill_search=false",
+        "features.skip_host_skill_discovery=true",
+        "features.browser_use=false",
+        "features.computer_use=false",
+        "features.image_generation=false",
+        "features.code_mode=false",
+        "mcp_servers={}",
         f'model_reasoning_effort="{settings.codex_reasoning_effort}"',
     ]
     for config in overrides:
         args.extend(["-c", config])
     args.append("-")
     # Only explicit policy fields go to the model, never Settings or the raw envelope.
-    prompt = prompt_template + "\nSOURCE_JSON:\n" + (
-        source.model_dump_json() if payload is None else
-        json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    prompt = (
+        prompt_template
+        + "\nSOURCE_JSON:\n"
+        + (
+            source.model_dump_json()
+            if payload is None
+            else json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        )
+    )
     if len(prompt) > settings.parsing_max_input_chars:
         raise CodexRunError("input_too_long")
     start = time.monotonic()
     observer = _OutputObserver(output)
-    process_options = ({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
-                       if IS_WINDOWS else {"start_new_session": True})
+    process_options = (
+        {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+        if IS_WINDOWS
+        else {"start_new_session": True}
+    )
     with (output / "events.jsonl").open("wb") as stdout, (output / "stderr.log").open("wb") as err:
         try:
             process = subprocess.Popen(
@@ -381,16 +469,23 @@ def _extract_structured[T: StrictModel](
     usage = observer.usage
     if not usage:
         raise CodexRunError("missing_completed_event")
-    metadata = {"model": model, "reasoning_effort": settings.codex_reasoning_effort,
-                "prompt_version": prompt_version, "usage": usage,
-                "input_chars": len(prompt),
-                "elapsed_seconds": round(time.monotonic() - start, 2)}
+    metadata = {
+        "model": model,
+        "reasoning_effort": settings.codex_reasoning_effort,
+        "prompt_version": prompt_version,
+        "usage": usage,
+        "input_chars": len(prompt),
+        "elapsed_seconds": round(time.monotonic() - start, 2),
+    }
     try:
         raw = result.read_text(encoding="utf-8")
         parsed = json.loads(raw) if raw_response else response_model.model_validate_json(raw)
-        if raw_response and (not isinstance(parsed, dict) or set(parsed) != {"results"}
-                             or not isinstance(parsed["results"], list)
-                             or len(parsed["results"]) > 16):
+        if raw_response and (
+            not isinstance(parsed, dict)
+            or set(parsed) != {"results"}
+            or not isinstance(parsed["results"], list)
+            or len(parsed["results"]) > 16
+        ):
             raise ValueError("Invalid batch envelope")
     except ValueError:
         raise CodexOutputError(metadata) from None
@@ -407,7 +502,11 @@ class BatchResponse(StrictModel):
     results: list[BatchPolicyResult] = Field(min_length=1, max_length=16)
 
 
-BATCH_PROMPT = PROMPT + "\n" + OVERVIEW_PROMPT + """
+BATCH_PROMPT = (
+    PROMPT
+    + "\n"
+    + OVERVIEW_PROMPT
+    + """
 SOURCE_JSON은 공고 항목의 JSON 배열이다. 각 항목은 서로 독립인 공고다.
 results에 입력 policy_key마다 정확히 한 결과를 반환한다. 다른 공고의 근거를 섞지 마라.
 need_overview=false이면 overview=null, true이면 개요를 반환한다.
@@ -416,59 +515,87 @@ need_extraction=false이면 extraction=null, true이면 조건을 반환한다.
 overview의 title/source_url, extraction의 policy_key는 서버가 원문으로 채운다. 출력하지 마라.
 근거 인용과 필수 조건·예외·수치는 보존하고 설명은 짧게 쓴다. 결과 JSON만 반환한다.
 """
+)
 
 
 def batch_payload(requests):
     """Remove transport identity hashes and empty fields; retain every nonempty source field."""
-    return [{"policy_key": source.policy_key, "need_overview": overview,
-             "need_extraction": extraction,
-             "source": {"title": source.title, "organization": source.organization,
-                        "fields": {key: value for key, value in source.fields.items() if value}}}
-            for source, overview, extraction in requests]
+    return [
+        {
+            "policy_key": source.policy_key,
+            "need_overview": overview,
+            "need_extraction": extraction,
+            "source": {
+                "title": source.title,
+                "organization": source.organization,
+                "fields": {key: value for key, value in source.fields.items() if value},
+            },
+        }
+        for source, overview, extraction in requests
+    ]
 
 
 def batch_input_chars(requests):
-    return len(BATCH_PROMPT + "\nSOURCE_JSON:\n" + json.dumps(
-        batch_payload(requests), ensure_ascii=False, separators=(",", ":")))
+    return len(
+        BATCH_PROMPT
+        + "\nSOURCE_JSON:\n"
+        + json.dumps(batch_payload(requests), ensure_ascii=False, separators=(",", ":"))
+    )
 
 
 def extract_policy_batch(requests, settings, output, model):
     if not 1 <= len(requests) <= 16 or len({s.policy_key for s, *_ in requests}) != len(requests):
         raise ValueError("Batch requires 1-16 unique policies")
-    if batch_input_chars(requests) > min(settings.ingestion_ai_batch_input_chars,
-                                       settings.parsing_max_input_chars):
+    if batch_input_chars(requests) > min(
+        settings.ingestion_ai_batch_input_chars, settings.parsing_max_input_chars
+    ):
         raise CodexRunError("batch_input_too_long")
     schema = BatchResponse.model_json_schema()
     schema["properties"]["results"].update(minItems=len(requests), maxItems=len(requests))
     # Deterministic identity/title/URL never need to be generated or billed as output.
-    for name, fields in (("PolicyOverview", ("title", "source_url")),
-                         ("PolicyExtraction", ("policy_key",))):
+    for name, fields in (
+        ("PolicyOverview", ("title", "source_url")),
+        ("PolicyExtraction", ("policy_key",)),
+    ):
         for field in fields:
             schema["$defs"][name]["properties"].pop(field)
             schema["$defs"][name]["required"].remove(field)
-    result, metadata = _extract_structured(requests[0][0], settings, output, model,
-        BATCH_PROMPT, BatchResponse, BATCH_PROMPT_VERSION, payload=batch_payload(requests),
-        output_schema=schema, raw_response=True)
+    result, metadata = _extract_structured(
+        requests[0][0],
+        settings,
+        output,
+        model,
+        BATCH_PROMPT,
+        BatchResponse,
+        BATCH_PROMPT_VERSION,
+        payload=batch_payload(requests),
+        output_schema=schema,
+        raw_response=True,
+    )
     metadata["batch_size"] = len(requests)
     return result["results"], metadata
 
 
-def extract_policy(source: SourcePolicy, settings: Settings, output: Path,
-                   model: str) -> tuple[PolicyExtraction, dict]:
-    return _extract_structured(source, settings, output, model, PROMPT, PolicyExtraction,
-                               PROMPT_VERSION)
+def extract_policy(
+    source: SourcePolicy, settings: Settings, output: Path, model: str
+) -> tuple[PolicyExtraction, dict]:
+    return _extract_structured(
+        source, settings, output, model, PROMPT, PolicyExtraction, PROMPT_VERSION
+    )
 
 
-def extract_policy_overview(source: SourcePolicy, settings: Settings, output: Path,
-                            model: str) -> tuple[PolicyOverview, dict]:
+def extract_policy_overview(
+    source: SourcePolicy, settings: Settings, output: Path, model: str
+) -> tuple[PolicyOverview, dict]:
     result, metadata = _extract_structured(
-        source, settings, output, model, OVERVIEW_PROMPT, PolicyOverview,
-        OVERVIEW_PROMPT_VERSION)
+        source, settings, output, model, OVERVIEW_PROMPT, PolicyOverview, OVERVIEW_PROMPT_VERSION
+    )
     return result.model_copy(update={"source_url": source.source_url}), metadata
 
 
-def answer_policy_question(source: SourcePolicy, question: str, profile: GuidanceProfile,
-                           settings: Settings, output: Path) -> tuple[PolicyAnswer, dict]:
+def answer_policy_question(
+    source: SourcePolicy, question: str, profile: GuidanceProfile, settings: Settings, output: Path
+) -> tuple[PolicyAnswer, dict]:
     """A fresh isolated request; no shared user history, tools, financial data or writes."""
     prompt = """공개 복지 공고에 대한 개인 안내를 한국어 JSON으로 작성한다.
 SOURCE_JSON은 DB에서 조회한 한 공고의 원문이며 USER_CONTEXT는 사용자 질문과 선택 정보다.
@@ -482,13 +609,16 @@ status=grounded일 때 실제 원문의 연속 문자열을 citations의 source_
 follow_up_questions는 필요한 정보만 최대 5개. 프로필 저장이나 신청 작업은 수행하지 않는다.
 """
     prompt += "\nUSER_CONTEXT:\n" + json.dumps(
-        {"question": question, "profile": profile.model_dump()}, ensure_ascii=False)
-    return _extract_structured(source, settings, output, settings.codex_model,
-                               prompt, PolicyAnswer, "policy-guidance-v1")
+        {"question": question, "profile": profile.model_dump()}, ensure_ascii=False
+    )
+    return _extract_structured(
+        source, settings, output, settings.codex_model, prompt, PolicyAnswer, "policy-guidance-v1"
+    )
 
 
-def translate_policy_display(display: PolicyTranslation, language: str,
-                             settings: Settings, output: Path) -> tuple[PolicyTranslation, dict]:
+def translate_policy_display(
+    display: PolicyTranslation, language: str, settings: Settings, output: Path
+) -> tuple[PolicyTranslation, dict]:
     """An isolated translation of allowlisted public text, with no member or client content."""
     languages = {"en": "English", "zh": "Simplified Chinese", "vi": "Vietnamese", "ja": "Japanese"}
     if language not in languages:
@@ -507,12 +637,22 @@ Preserve paragraph structure and original link targets. Return all fields, inclu
     schema = PolicyTranslation.model_json_schema()
     # Generate exact published keys instead of an open-ended dictionary output schema.
     schema["properties"]["sourceFields"] = {
-        "type": "object", "properties": {
-            key: {"type": "string", "maxLength": 60000} for key in display.sourceFields
-        }, "required": list(display.sourceFields), "additionalProperties": False,
+        "type": "object",
+        "properties": {key: {"type": "string", "maxLength": 60000} for key in display.sourceFields},
+        "required": list(display.sourceFields),
+        "additionalProperties": False,
     }
     schema["properties"]["otherConditions"].update(
-        minItems=len(display.otherConditions), maxItems=len(display.otherConditions))
+        minItems=len(display.otherConditions), maxItems=len(display.otherConditions)
+    )
     return _extract_structured(
-        None, settings, output, settings.codex_model, prompt, PolicyTranslation,
-        TRANSLATION_PROMPT_VERSION, payload=display.model_dump(), output_schema=schema)
+        None,
+        settings,
+        output,
+        settings.codex_model,
+        prompt,
+        PolicyTranslation,
+        TRANSLATION_PROMPT_VERSION,
+        payload=display.model_dump(),
+        output_schema=schema,
+    )

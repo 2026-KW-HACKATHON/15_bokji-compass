@@ -39,7 +39,9 @@ async function startSignup(page, { profile = true } = {}) {
 }
 async function chooseUsername(page, username = 'wizard_user') {
   await page.getByLabel('아이디', { exact: true }).fill(username);
+  const availability = page.waitForResponse('**/v1/auth/username/check');
   await page.getByRole('button', { name: '중복확인', exact: true }).click();
+  expect((await availability).ok()).toBe(true);
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeEnabled();
   await next(page);
 }
@@ -169,7 +171,12 @@ async function loginNextAccount(page) {
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page.getByText('다음회원님', { exact: true })).toHaveText('다음회원님');
-  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openMainMenu(page);
+  await page
+    .getByRole('navigation', { name: '주 메뉴', exact: true })
+    .getByRole('link', { name: '내 정보', exact: true })
+    .first()
+    .click();
   await openBasics(page, true);
 }
 
@@ -375,7 +382,12 @@ for (const nextUser of [
     await expect(recommendation.getByLabel('연령대 (선택)')).toHaveValue('65세 이상');
     expect(await page.evaluate(() => localStorage.getItem('bokji.profile.v2'))).toBeNull();
     await page.getByRole('button', { name: '로그아웃', exact: true }).click();
-    await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openMainMenu(page);
+    await page
+      .getByRole('navigation', { name: '주 메뉴', exact: true })
+      .getByRole('link', { name: '내 정보', exact: true })
+      .first()
+      .click();
     await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue('전국');
     await expect(recommendation.getByLabel('연령대 (선택)')).toHaveValue('선택하지 않음');
@@ -406,7 +418,12 @@ for (const remember of [false, true]) {
     if (remember) expect(JSON.parse(saved)).toMatchObject({ region: '제주', ageBand: '35~49세' });
     else expect(saved).toBeNull();
     await page.getByRole('button', { name: '로그아웃', exact: true }).click();
-    await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openMainMenu(page);
+    await page
+      .getByRole('navigation', { name: '주 메뉴', exact: true })
+      .getByRole('link', { name: '내 정보', exact: true })
+      .first()
+      .click();
     await openBasics(page, true);
     await expect(recommendation.getByLabel('거주 지역')).toHaveValue(remember ? '제주' : '전국');
     await loginNextAccount(page);
@@ -565,11 +582,13 @@ test('account withdrawal requires confirmation, ends the session and releases th
     .screenshot({ path: testInfo.outputPath('withdrawal-review-panel.png') });
   await page.screenshot({ path: testInfo.outputPath('withdrawal-review.png'), fullPage: true });
   const request = page.waitForRequest('**/v1/auth/withdraw');
+  const withdrawalResponse = page.waitForResponse('**/v1/auth/withdraw');
   await withdraw.click();
   expect((await request).postDataJSON()).toEqual({
     notice_version: consentVersion,
     confirmation: true,
   });
+  expect((await withdrawalResponse).ok()).toBe(true);
   await expect(page.getByRole('link', { name: '로그인', exact: true }).first()).toBeVisible();
   expect((await page.request.get('/api/v1/auth/me')).status()).toBe(401);
   expect(
@@ -826,7 +845,12 @@ for (const name of ['카카오별명', '']) {
     await expect(page.getByText(`${name || '회원'}님`, { exact: true })).toHaveText(
       `${name || '회원'}님`,
     );
-    await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+    await openMainMenu(page);
+    await page
+      .getByRole('navigation', { name: '주 메뉴', exact: true })
+      .getByRole('link', { name: '내 정보', exact: true })
+      .first()
+      .click();
     await openBasics(page, true);
     await openBasics(page);
     const member = page.getByRole('form', { name: '회원 정보 수정' });
@@ -880,7 +904,12 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
     { email: 'kakao@example.com', consent: expectedConsent(true) },
   ]);
   expect(state.profileBodies).toEqual([{ age: 35, ...addressPayload('부산') }]);
-  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openMainMenu(page);
+  await page
+    .getByRole('navigation', { name: '주 메뉴', exact: true })
+    .getByRole('link', { name: '내 정보', exact: true })
+    .first()
+    .click();
   await openBasics(page, true);
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('35~49세');
   await expect(
@@ -902,7 +931,12 @@ test('Kakao optional setup validates, saves once and supplies recommendation set
     page.getByRole('region', { name: '지역과 연령' }).getByLabel('거주 지역'),
   ).toHaveValue('부산');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
-  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await openMainMenu(page);
+  await page
+    .getByRole('navigation', { name: '주 메뉴', exact: true })
+    .getByRole('link', { name: '내 정보', exact: true })
+    .first()
+    .click();
   await openBasics(page, true);
   await expect(page.getByLabel('연령대 (선택)')).toHaveValue('선택하지 않음');
   await expect(
@@ -1023,3 +1057,10 @@ test('mode change during username lookup preserves the current step and checked 
   await next(page);
   await expect(page.getByRole('heading', { name: '비밀번호를 만들어 주세요' })).toBeFocused();
 });
+
+async function openMainMenu(page) {
+  const toggle = page.locator('.easy-menu-toggle');
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false') {
+    await toggle.click();
+  }
+}

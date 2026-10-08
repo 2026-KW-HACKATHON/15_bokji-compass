@@ -174,6 +174,9 @@ test('month navigation, all filters, mode switch and mobile layout preserve sele
   await expect(page.getByRole('status')).toContainText('이달 관련 공고 0개');
   await page.getByRole('button', { name: '오늘', exact: true }).click();
   await expect(page.getByRole('heading', { name: '2026년 10월' })).toBeVisible();
+  await expect(page.getByLabel('날짜 선택', { exact: true })).toHaveValue('2026-10-02');
+  await expect(page.getByRole('heading', { name: '10월 2일 공고' })).toBeVisible();
+  await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(page.getByRole('button', { name: /10월 2일 오늘,/ })).toHaveAttribute(
     'aria-pressed',
     'true',

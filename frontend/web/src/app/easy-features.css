@@ -37,8 +37,15 @@
   flex: 1 1 16rem;
   margin-left: 0;
 }
-.easy-mode :is(.explorer-eligibility p, .explorer-filter-note, .explorer-filter-footer p,
-  .explorer-options-error, .explorer-age-bands legend span, .filter-summary-value) {
+.easy-mode
+  :is(
+    .explorer-eligibility p,
+    .explorer-filter-note,
+    .explorer-filter-footer p,
+    .explorer-options-error,
+    .explorer-age-bands legend span,
+    .filter-summary-value
+  ) {
   font-size: 0.94rem;
   color: var(--muted);
 }
@@ -85,8 +92,9 @@
 .easy-mode .easy-policy-card :is(.policy-facts, .category-label, .saved-label) {
   font-size: 0.94rem;
 }
-.easy-mode .easy-policy-card :is(.card-summary, .benefit, .easy-recommendation-reason,
-  .easy-policy-conditions) {
+.easy-mode
+  .easy-policy-card
+  :is(.card-summary, .benefit, .easy-recommendation-reason, .easy-policy-conditions) {
   font-size: 1rem;
   line-height: 1.75;
 }
@@ -225,9 +233,18 @@
 .easy-mode .calendar-month-bar {
   flex-wrap: wrap;
 }
-.easy-mode :is(.calendar-summary > p, .calendar-legend, .calendar-chip, .calendar-row-category,
-  .calendar-policy-row small, .calendar-day-caption, .calendar-panel-empty span,
-  .calendar-undated .section-heading p, .calendar-empty-month) {
+.easy-mode
+  :is(
+    .calendar-summary > p,
+    .calendar-legend,
+    .calendar-chip,
+    .calendar-row-category,
+    .calendar-policy-row small,
+    .calendar-day-caption,
+    .calendar-panel-empty span,
+    .calendar-undated .section-heading p,
+    .calendar-empty-month
+  ) {
   font-size: 0.94rem;
 }
 .easy-mode .calendar-policy-row p {
@@ -254,13 +271,25 @@
 }
 
 /* Forms group one decision at a time; help stays large enough to read. */
-.easy-mode :is(.profile-status, .profile-category-link, .profile-manage-footer,
-  .field-hint, .privacy-note, .assistant-profile-account-note,
-  .assistant-member-summary dt, .assistant-member-summary .text-button,
-  .assistant-profile-grid small, .assistant-profile-help,
-  .assistant-profile-optional > p, .assistant-profile-optional summary > span:last-child,
-  .assistant-profile-watch small, .assistant-profile-watch > span > span,
-  .assistant-profile-consent, .assistant-profile-permissions > .assistant-profile-help) {
+.easy-mode
+  :is(
+    .profile-status,
+    .profile-category-link,
+    .profile-manage-footer,
+    .field-hint,
+    .privacy-note,
+    .assistant-profile-account-note,
+    .assistant-member-summary dt,
+    .assistant-member-summary .text-button,
+    .assistant-profile-grid small,
+    .assistant-profile-help,
+    .assistant-profile-optional > p,
+    .assistant-profile-optional summary > span:last-child,
+    .assistant-profile-watch small,
+    .assistant-profile-watch > span > span,
+    .assistant-profile-consent,
+    .assistant-profile-permissions > .assistant-profile-help
+  ) {
   font-size: 0.94rem;
 }
 .easy-mode .profile-category-preview {
@@ -275,8 +304,13 @@
 .easy-mode .monitoring-dashboard-nav button[aria-pressed='true'] {
   box-shadow: inset 0 -3px 0 var(--green);
 }
-.easy-mode :is(.assistant-profile-grid .field-label, .assistant-member-summary dd,
-  .assistant-profile-watch strong, .assistant-profile-interests span) {
+.easy-mode
+  :is(
+    .assistant-profile-grid .field-label,
+    .assistant-member-summary dd,
+    .assistant-profile-watch strong,
+    .assistant-profile-interests span
+  ) {
   font-size: 1rem;
 }
 .easy-mode .assistant-profile-interests span {
@@ -302,8 +336,15 @@
 .easy-mode :is(.assistant-profile-optional summary > span:last-child, .form-section legend small) {
   white-space: normal;
 }
-.easy-mode :is(.finance-field label, .finance-field-label, .finance-field input,
-  .finance-field select, .finance-check, .finance-presence button) {
+.easy-mode
+  :is(
+    .finance-field label,
+    .finance-field-label,
+    .finance-field input,
+    .finance-field select,
+    .finance-check,
+    .finance-presence button
+  ) {
   font-size: 1rem;
 }
 .easy-mode .finance-field :is(input, select) {
@@ -313,8 +354,15 @@
 .easy-mode .finance-presence {
   gap: 12px;
 }
-.easy-mode :is(.finance-field small, .finance-guidance-list, .finance-help-links a,
-  .finance-optional, .median-summary strong small, .median-thresholds small) {
+.easy-mode
+  :is(
+    .finance-field small,
+    .finance-guidance-list,
+    .finance-help-links a,
+    .finance-optional,
+    .median-summary strong small,
+    .median-thresholds small
+  ) {
   font-size: 0.94rem;
 }
 .easy-mode .finance-actions.finance-step-actions {
@@ -327,18 +375,35 @@
 .easy-mode :is(.finance-review-heading, .finance-progress-current) {
   flex-wrap: wrap;
 }
-.easy-mode :is(.monitoring-service-note, .monitoring-dashboard-tools,
-  .monitoring-assistant .monitoring-heading p, .monitoring-status,
-  .monitoring-field-help, .monitoring-history-note, .monitoring-questions,
-  .monitoring-policy-facts, .monitoring-candidate-top, .monitoring-alerts small,
-  .monitoring-alert-label, .assistant-summary-counts > span,
-  .assistant-onboarding > .assistant-onboarding-note) {
+.easy-mode
+  :is(
+    .monitoring-service-note,
+    .monitoring-dashboard-tools,
+    .monitoring-assistant .monitoring-heading p,
+    .monitoring-status,
+    .monitoring-field-help,
+    .monitoring-history-note,
+    .monitoring-questions,
+    .monitoring-policy-facts,
+    .monitoring-candidate-top,
+    .monitoring-alerts small,
+    .monitoring-alert-label,
+    .assistant-summary-counts > span,
+    .assistant-onboarding > .assistant-onboarding-note
+  ) {
   font-size: 0.94rem;
 }
-.easy-mode :is(.monitoring-dashboard-nav button, .assistant-summary-counts button,
-  .assistant-next-information, .monitoring-questions-list article,
-  .monitoring-need > p, .monitoring-candidate-reason, .monitoring-alerts strong,
-  .monitoring-alerts p) {
+.easy-mode
+  :is(
+    .monitoring-dashboard-nav button,
+    .assistant-summary-counts button,
+    .assistant-next-information,
+    .monitoring-questions-list article,
+    .monitoring-need > p,
+    .monitoring-candidate-reason,
+    .monitoring-alerts strong,
+    .monitoring-alerts p
+  ) {
   font-size: 1rem;
 }
 .easy-mode .monitoring-panel :is(.button, .text-button),
@@ -354,11 +419,24 @@
   font-size: 1rem;
   line-height: 1.7;
 }
-.chat-dialog-easy :is(.chat-header p, .chat-toolbar button, .chat-toolbar > span,
-  .chat-footnote, .chat-footer, .chat-answer-tag, .chat-menu-item small,
-  .chat-policy-list small, .chat-history-list small, .chat-history-list time,
-  .guided-policy-context > span, .guided-candidate-status, .guided-history,
-  .guided-conversation .guided-note, .guided-conversation .guided-consent) {
+.chat-dialog-easy
+  :is(
+    .chat-header p,
+    .chat-toolbar button,
+    .chat-toolbar > span,
+    .chat-footnote,
+    .chat-footer,
+    .chat-answer-tag,
+    .chat-menu-item small,
+    .chat-policy-list small,
+    .chat-history-list small,
+    .chat-history-list time,
+    .guided-policy-context > span,
+    .guided-candidate-status,
+    .guided-history,
+    .guided-conversation .guided-note,
+    .guided-conversation .guided-consent
+  ) {
   font-size: 0.94rem;
 }
 .chat-dialog-easy .chat-header,
@@ -390,8 +468,15 @@
   min-height: 56px;
 }
 .easy-mode .guided-conversation,
-.easy-mode .guided-conversation :is(.guided-note, .guided-consent, .guided-history,
-  .guided-policy-context > span, .guided-candidate-status) {
+.easy-mode
+  .guided-conversation
+  :is(
+    .guided-note,
+    .guided-consent,
+    .guided-history,
+    .guided-policy-context > span,
+    .guided-candidate-status
+  ) {
   font-size: 1rem;
 }
 .easy-mode .auth-surface {
@@ -400,8 +485,14 @@
 .easy-mode .auth-story {
   display: none;
 }
-.easy-mode :is(.auth-route-nav a, .auth-heading p, .auth-experience .kakao-login-section p,
-  .auth-experience .field-hint, .auth-experience .auth-error) {
+.easy-mode
+  :is(
+    .auth-route-nav a,
+    .auth-heading p,
+    .auth-experience .kakao-login-section p,
+    .auth-experience .field-hint,
+    .auth-experience .auth-error
+  ) {
   font-size: 1rem;
 }
 .easy-mode .auth-route-nav a {
@@ -409,12 +500,23 @@
 }
 
 @media (max-width: 680px) {
-  .easy-mode :is(.profile-overview-grid, .assistant-profile-grid,
-    .profile-form .form-grid, .explorer .explorer-filter-fields) {
+  .easy-mode
+    :is(
+      .profile-overview-grid,
+      .assistant-profile-grid,
+      .profile-form .form-grid,
+      .explorer .explorer-filter-fields
+    ) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .easy-mode :is(.calendar-easy-picker, .calendar-day-panel, .calendar-undated,
-    .easy-policy-card, .auth-experience .auth-card) {
+  .easy-mode
+    :is(
+      .calendar-easy-picker,
+      .calendar-day-panel,
+      .calendar-undated,
+      .easy-policy-card,
+      .auth-experience .auth-card
+    ) {
     padding: 20px;
   }
   .easy-mode .calendar-policy-row {

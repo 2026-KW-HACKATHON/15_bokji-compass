@@ -115,7 +115,7 @@ test('mobile navigation and easy mode keep the home, guide and list within a 320
   await expectNoPageOverflow(page);
 
   const menu = page.getByRole('navigation', { name: '주 메뉴', exact: true });
-  await menu.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
+  await menu.getByRole('button', { name: '전체 메뉴', exact: true }).click();
   await menu.getByRole('link', { name: '이용 안내', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: /필요한 복지를/ })).toBeVisible();
   await expectNoPageOverflow(page);
@@ -124,6 +124,7 @@ test('mobile navigation and easy mode keep the home, guide and list within a 320
   await expect(easySwitch).toBeChecked();
   await expectNoPageOverflow(page);
 
+  await menu.getByRole('button', { name: '전체 메뉴', exact: true }).click();
   await menu.getByRole('link', { name: '전체 공고', exact: true }).click();
   await expect(page.getByRole('heading', { name: '전체 공고', exact: true })).toBeVisible();
   await expect(easySwitch).toBeChecked();

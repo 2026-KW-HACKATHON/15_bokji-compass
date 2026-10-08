@@ -4,8 +4,13 @@ import Icon from '../shared/ui/Icon.jsx';
 import { isSectionActive, portalSections } from './portalNavigation.js';
 
 const sectionIcons = {
-  home: 'house', local: 'pin', assistant: 'sparkles', explore: 'search',
-  calendar: 'calendar', saved: 'bookmark', profile: 'user',
+  home: 'house',
+  local: 'pin',
+  assistant: 'sparkles',
+  explore: 'search',
+  calendar: 'calendar',
+  saved: 'bookmark',
+  profile: 'user',
 };
 
 // An explicit disclosure keeps every destination available without hover or swiping.
@@ -23,21 +28,32 @@ export default function EasyNavigation({ page, savedCount = 0 }) {
     toggle.current?.focus({ preventScroll: true });
   };
   return (
-    <nav className="easy-navigation" aria-label={t('주 메뉴')}
+    <nav
+      className="easy-navigation"
+      aria-label={t('주 메뉴')}
       onKeyDown={(event) => {
         if (open && event.key === 'Escape') {
           event.preventDefault();
           close();
         }
-      }}>
+      }}
+    >
       <div className="easy-navigation-bar">
         <span className="easy-current-page">
           <Icon name={sectionIcons[section?.id] || 'compass'} size={24} />
-          {t(currentLabel || (page === 'signup' ? '회원가입' : page === 'login' ? '로그인' : '내 정보'))}
+          {t(
+            currentLabel ||
+              (page === 'signup' ? '회원가입' : page === 'login' ? '로그인' : '내 정보'),
+          )}
         </span>
-        <button ref={toggle} type="button" className="easy-menu-toggle"
-          aria-expanded={open} aria-controls={panelId}
-          onClick={() => setOpen((value) => !value)}>
+        <button
+          ref={toggle}
+          type="button"
+          className="easy-menu-toggle"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((value) => !value)}
+        >
           <Icon name={open ? 'x' : 'grid'} size={22} />
           {t(open ? '메뉴 닫기' : '전체 메뉴')}
         </button>
@@ -45,20 +61,31 @@ export default function EasyNavigation({ page, savedCount = 0 }) {
       <div id={panelId} className="easy-menu-panel" hidden={!open}>
         {portalSections.map((item) => (
           <div className="easy-menu-section" key={item.id}>
-            <a href={'#' + item.id} aria-current={page === item.id ? 'page' : undefined}
-              onClick={() => setOpen(false)}>
+            <a
+              href={'#' + item.id}
+              aria-current={page === item.id ? 'page' : undefined}
+              onClick={() => setOpen(false)}
+            >
               <Icon name={sectionIcons[item.id]} size={24} />
-              <span>{t(item.label)}{item.id === 'saved' && savedCount > 0 && ` (${savedCount})`}</span>
+              <span>
+                {t(item.label)}
+                {item.id === 'saved' && savedCount > 0 && ` (${savedCount})`}
+              </span>
               {page === item.id && <Icon name="check" size={22} />}
             </a>
-            {item.links.length > 1 && item.links.map((link) => (
-              <a className="easy-menu-child" key={link.id} href={'#' + link.id}
-                aria-current={page === link.id ? 'page' : undefined}
-                onClick={() => setOpen(false)}>
-                <span>{t(link.label)}</span>
-                {page === link.id && <Icon name="check" size={20} />}
-              </a>
-            ))}
+            {item.links.length > 1 &&
+              item.links.map((link) => (
+                <a
+                  className="easy-menu-child"
+                  key={link.id}
+                  href={'#' + link.id}
+                  aria-current={page === link.id ? 'page' : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  <span>{t(link.label)}</span>
+                  {page === link.id && <Icon name="check" size={20} />}
+                </a>
+              ))}
           </div>
         ))}
       </div>

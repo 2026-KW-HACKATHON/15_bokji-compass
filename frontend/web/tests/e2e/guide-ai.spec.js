@@ -52,9 +52,17 @@ test('the AI introduction reaches the dedicated assistant and keeps the mobile c
 
   await page.getByRole('button', { name: 'AI 복지비서 시작하기', exact: true }).click();
   await expect(page).toHaveURL(/#assistant$/);
-  await expect(page.getByRole('heading', { name: 'AI 복지비서', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '상황을 대화로 추가하기' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'AI 챗봇 열기', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '나에게 맞는 복지, 한곳에서 관리하세요.', exact: true }),
+  ).toBeVisible();
+  const login = page.getByRole('link', { name: '로그인하고 시작하기', exact: true });
+  await expect(login).toHaveAttribute('href', '#login?return=assistant');
+  await expect(
+    page.getByRole('region', { name: 'AI 복지비서 주요 기능' }).getByRole('article'),
+  ).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'AI 챗봇 열기', exact: true })).toHaveCount(0);
+  await login.click();
+  await expect(page).toHaveURL(/#login\?return=assistant$/);
 });
 
 test('the conversation preview animates locally and respects reduced motion during replay', async ({

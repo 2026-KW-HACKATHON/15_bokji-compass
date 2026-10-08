@@ -103,7 +103,7 @@ for (const width of [1440, 1280, 1180, 768, 600, 390, 320]) {
         await page.locator('.language-selector select').selectOption(locale);
         await expect(page.locator('html')).toHaveAttribute('data-locale', locale);
         await page.evaluate(() => document.fonts.ready);
-        const geometry = await page.evaluate(() => {
+        const geometry = await page.evaluate((easy) => {
           const box = (selector) => {
             const { x, y, width, height } = document
               .querySelector(selector)
@@ -112,30 +112,38 @@ for (const width of [1440, 1280, 1180, 768, 600, 390, 320]) {
           };
           return {
             header: box('.portal-header'),
-            nav: box('.portal-nav'),
+            nav: box(easy ? '.easy-navigation' : '.portal-nav'),
             overflow: document.documentElement.scrollWidth - innerWidth,
           };
-        });
+        }, easy);
         baseline ??= geometry;
         expect(geometry, `${locale}, easy=${easy}`).toEqual(baseline);
         expect(geometry.overflow).toBe(0);
 
         // The last item remains reachable when longer translations need scrolling.
-        const lastLink = page.locator('.portal-nav a').last();
+        if (easy) await page.locator('.easy-menu-toggle').click();
+        const lastLink = page
+          .locator(
+            easy ? '.easy-menu-panel a[href="#profile"]:not(.easy-menu-child)' : '.portal-nav a',
+          )
+          .last();
         await lastLink.scrollIntoViewIfNeeded();
         await lastLink.focus();
         await expect
           .poll(async () => {
             const link = await lastLink.boundingBox();
             return (
-              link.x >= geometry.nav.x - 1 &&
-              link.x + link.width <= geometry.nav.x + geometry.nav.width + 1
+              link.x >= (easy ? 0 : geometry.nav.x) - 1 &&
+              link.x + link.width <= (easy ? width : geometry.nav.x + geometry.nav.width) + 1
             );
           })
           .toBe(true);
+        if (easy) await page.locator('.easy-menu-toggle').click();
       }
     }
-    await page.locator('.portal-nav a').last().press('Enter');
+    await page.locator('.easy-menu-toggle').click();
+    await page.locator('.easy-menu-panel a[href="#profile"]:not(.easy-menu-child)').focus();
+    await page.locator('.easy-menu-panel a[href="#profile"]:not(.easy-menu-child)').press('Enter');
     await expect(page).toHaveURL(/#profile$/);
   });
 }

@@ -43,14 +43,27 @@ test('unresolved grouped choices stay unknown while an explicit exact count is v
   draft.household_size = 13;
   draft.members = Array.from({ length: 13 }, emptyMember);
   const questions = financeQuestions(draft);
-  assert.equal(questions[0].fields[1].countChoices.groupFrom, 7);
-  assert.equal(questions[1].fields[0].countChoices.groupFrom, 3);
+  const householdQuestion = questions.find((question) =>
+    question.fields.some((field) => field.path === 'household_size'),
+  );
+  const childrenQuestion = questions.find((question) =>
+    question.fields.some((field) => field.path === 'minor_children'),
+  );
+  assert.equal(
+    householdQuestion.fields.find((field) => field.path === 'household_size').countChoices
+      .groupFrom,
+    7,
+  );
+  assert.equal(
+    childrenQuestion.fields.find((field) => field.path === 'minor_children').countChoices.groupFrom,
+    3,
+  );
   draft.minor_children = null;
   assert.equal(toFinancialProfile(draft).minor_children, null);
   draft.minor_children = 9;
   assert.equal(toFinancialProfile(draft).minor_children, 9);
   draft.minor_children = 14;
-  assert.equal(validateQuestion(questions[1], draft).field, 'finance-children');
+  assert.equal(validateQuestion(childrenQuestion, draft).field, 'finance-children');
   draft.household_size = null;
-  assert.equal(validateQuestion(questions[0], draft).field, 'finance-household');
+  assert.equal(validateQuestion(householdQuestion, draft).field, 'finance-household');
 });

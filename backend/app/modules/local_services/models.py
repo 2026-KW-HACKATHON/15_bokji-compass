@@ -106,9 +106,15 @@ class LocalService(CatalogModel):
             port = parts.port
         except ValueError as exc:
             raise ValueError("Invalid source URL") from exc
-        if (parts.scheme not in {"https", "http"} or not host or "." not in host
-                or parts.username or parts.password or port not in {None, 80, 443}
-                or host.endswith((".local", ".localhost", ".internal", ".test", ".invalid"))):
+        if (
+            parts.scheme not in {"https", "http"}
+            or not host
+            or "." not in host
+            or parts.username
+            or parts.password
+            or port not in {None, 80, 443}
+            or host.endswith((".local", ".localhost", ".internal", ".test", ".invalid"))
+        ):
             raise ValueError("Source URL must be a public HTTP(S) agency link")
         try:
             ipaddress.ip_address(host)
@@ -141,14 +147,22 @@ class LocalService(CatalogModel):
         for area in self.focusAreas:
             covered = any(
                 candidate.scope == "national"
-                or (candidate.region == area.region and (
-                    candidate.scope == "province"
-                    or (district_contains(candidate.district, area.district) and (
-                        candidate.scope == "district"
-                        or (area.neighborhood in candidate.neighborhoods
-                            and area.neighborhoodType == candidate.neighborhoodType)
-                    ))
-                ))
+                or (
+                    candidate.region == area.region
+                    and (
+                        candidate.scope == "province"
+                        or (
+                            district_contains(candidate.district, area.district)
+                            and (
+                                candidate.scope == "district"
+                                or (
+                                    area.neighborhood in candidate.neighborhoods
+                                    and area.neighborhoodType == candidate.neighborhoodType
+                                )
+                            )
+                        )
+                    )
+                )
                 for candidate in self.coverage
             )
             if not covered:

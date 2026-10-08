@@ -65,6 +65,7 @@ test('entire catalog defaults to views and sort changes and reset return to firs
   page,
 }) => {
   await page.goto('/#explore');
+  await page.locator('details.explorer-advanced > summary').click();
   await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('auto');
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');
   await expect(page.getByRole('article').first()).toContainText('9,000회');
@@ -78,6 +79,9 @@ test('entire catalog defaults to views and sort changes and reset return to firs
   expect(new URL((await next).url()).searchParams.has('cursor')).toBe(false);
   await expect(page.getByRole('article').first()).toContainText('생활비 지원');
   await page.getByRole('button', { name: '검색 조건 지우기', exact: true }).click();
+  if ((await page.locator('details.explorer-advanced').getAttribute('open')) === null) {
+    await page.locator('details.explorer-advanced > summary').click();
+  }
   await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('auto');
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');
 });
@@ -85,17 +89,20 @@ test('entire catalog defaults to views and sort changes and reset return to firs
 test('new category filters work in normal and easy screens at narrow width', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#explore');
-  await page.getByRole('button', { name: '농림축산·어업', exact: true }).click();
+  await page.locator('details.explorer-advanced > summary').click();
+  await page.getByRole('combobox', { name: '분야', exact: true }).selectOption('농림축산·어업');
   await expect(page.getByRole('article')).toHaveCount(2);
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');
-  await page.getByRole('button', { name: '사업·창업', exact: true }).click();
+  await page.getByRole('combobox', { name: '분야', exact: true }).selectOption('사업·창업');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('article')).toContainText('소상공인 창업 지원');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(page.locator('.filter-summary-value')).toContainText('사업·창업');
   await expect(page.locator('.filter-summary-value')).toContainText('인기순 (조회수)');
-  await page.locator('.filter-panel > summary').click();
+  if ((await page.locator('details.explorer-advanced').getAttribute('open')) === null) {
+    await page.locator('details.explorer-advanced > summary').click();
+  }
   await page.getByRole('combobox', { name: '분야', exact: true }).selectOption('농림축산·어업');
   await expect(page.getByRole('article')).toHaveCount(2);
   await expect(page.getByRole('article').first()).toContainText('농업인 생산 지원');

@@ -45,8 +45,11 @@ def main(argv=None):
         while True:
             try:
                 result = run_once(repository, store, service, batch_size=args.batch_size)
-                print("Monitoring evaluation: " + ", ".join(
-                    f"{key}={value}" for key, value in result.items()), flush=True)
+                print(
+                    "Monitoring evaluation: "
+                    + ", ".join(f"{key}={value}" for key, value in result.items()),
+                    flush=True,
+                )
             except SQLAlchemyError as exc:
                 print("Monitoring database unavailable: " + type(exc).__name__, flush=True)
                 if not args.watch:

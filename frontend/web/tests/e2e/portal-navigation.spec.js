@@ -140,28 +140,24 @@ test('all languages and easy mode fit narrow viewports with a scrollable submenu
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#home');
   const selector = page.locator('.language-selector select');
-  const toggle = page.locator('.portal-submenu-toggle').first();
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch').click();
+    const toggle = page.locator(easy ? '.easy-menu-toggle' : '.portal-submenu-toggle').first();
+    const panel = page.locator(easy ? '.easy-menu-panel' : '.portal-mega-menu');
     for (const language of ['ko', 'en', 'zh', 'vi', 'ja']) {
       await selector.selectOption(language);
       await toggle.click();
-      await expect(page.locator('.portal-mega-menu')).toBeVisible();
-      if (language !== 'ko')
-        await expect(page.locator('.portal-mega-menu')).not.toContainText(/[가-힣]/);
-      await page
-        .locator('.portal-menu-column')
-        .last()
-        .getByRole('link')
-        .last()
-        .scrollIntoViewIfNeeded();
+      await expect(panel).toBeVisible();
+      if (language !== 'ko') await expect(panel).not.toContainText(/[가-힣]/);
+      await panel.getByRole('link').last().scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
       if (language === 'en')
         await page.screenshot({ path: info.outputPath(`menu-320-easy-${easy}.png`) });
-      await page.locator('.portal-menu-footer button').click();
-      await expect(page.locator('.portal-mega-menu')).toBeHidden();
+      if (easy) await toggle.click();
+      else await page.locator('.portal-menu-footer button').click();
+      await expect(panel).toBeHidden();
     }
   }
 });

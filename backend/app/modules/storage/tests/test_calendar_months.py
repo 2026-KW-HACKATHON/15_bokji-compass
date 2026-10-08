@@ -16,44 +16,72 @@ def repository():
     @event.listens_for(engine, "connect")
     def register_mysql_functions(connection, _):
         connection.create_function("json_unquote", 1, lambda value: value)
-        connection.create_function("concat", -1,
-                                   lambda *values: "".join(str(value) for value in values))
+        connection.create_function(
+            "concat", -1, lambda *values: "".join(str(value) for value in values)
+        )
 
     metadata = MetaData()
-    documents = Table("condition_documents", metadata,
+    documents = Table(
+        "condition_documents",
+        metadata,
         Column("revision_id", String, primary_key=True),
         Column("policy_key", String, nullable=False),
         Column("created_at", DateTime, nullable=False),
         Column("source_json", JSON, nullable=False),
-        Column("review_status", String, nullable=False))
-    details = Table("policy_revision_details", metadata,
+        Column("review_status", String, nullable=False),
+    )
+    details = Table(
+        "policy_revision_details",
+        metadata,
         Column("revision_id", String, primary_key=True),
         Column("draft_json", JSON, nullable=False),
-        Column("title", String, nullable=False), Column("category", String))
+        Column("title", String, nullable=False),
+        Column("category", String),
+    )
     metadata.create_all(engine)
-    yield SimpleNamespace(engine=engine, tables={
-        "condition_documents": documents, "policy_revision_details": details})
+    yield SimpleNamespace(
+        engine=engine, tables={"condition_documents": documents, "policy_revision_details": details}
+    )
     engine.dispose()
 
 
 @pytest.fixture(autouse=True)
 def current_year(monkeypatch):
-    monkeypatch.setattr("app.modules.storage.application_dates.application_reference_year",
-                        lambda: 2026)
+    monkeypatch.setattr(
+        "app.modules.storage.application_dates.application_reference_year", lambda: 2026
+    )
 
 
 def add_policy(repository, key, period, *, published=True, overview_period=None):
-    source = {"title": key, "organization": "테스트 기관", "source_url": None,
-              "fields": {"application_period": period}}
+    source = {
+        "title": key,
+        "organization": "테스트 기관",
+        "source_url": None,
+        "fields": {"application_period": period},
+    }
     overview = {"application_period": overview_period} if overview_period else {}
     with repository.engine.begin() as connection:
-        connection.execute(repository.tables["condition_documents"].insert().values(
-            revision_id=key + "-revision", policy_key=key,
-            created_at=datetime(2026, 10, 8), source_json=source,
-            review_status="published" if published else "draft"))
-        connection.execute(repository.tables["policy_revision_details"].insert().values(
-            revision_id=key + "-revision", title=key, category="생활·금융",
-            draft_json={"overview": overview}))
+        connection.execute(
+            repository.tables["condition_documents"]
+            .insert()
+            .values(
+                revision_id=key + "-revision",
+                policy_key=key,
+                created_at=datetime(2026, 10, 8),
+                source_json=source,
+                review_status="published" if published else "draft",
+            )
+        )
+        connection.execute(
+            repository.tables["policy_revision_details"]
+            .insert()
+            .values(
+                revision_id=key + "-revision",
+                title=key,
+                category="생활·금융",
+                draft_json={"overview": overview},
+            )
+        )
 
 
 def ids(result):
@@ -110,9 +138,15 @@ def test_budget_ongoing_with_start_remains_visible_in_later_months(repository):
 
 
 def test_cited_month_period_is_shared_by_list_detail_calendar_and_filters(repository):
-    add_policy(repository, "assistive-device", "", overview_period={
-        "status": "specified", "text": "3~4월",
-    })
+    add_policy(
+        repository,
+        "assistive-device",
+        "",
+        overview_period={
+            "status": "specified",
+            "text": "3~4월",
+        },
+    )
     listing = catalog.list_policies(repository, category="생활·금융")
     detail = catalog.get_policy(repository, "assistive-device")
     calendar = catalog.list_calendar(repository, month="2027-03", category="생활·금융")
@@ -163,11 +197,16 @@ def test_annual_april_deadline_rebases_calendar_year_without_inventing_start(rep
     assert catalog.list_calendar(repository, month=f"{year}-05")["total"] == 0
 
 
-@pytest.mark.parametrize("month,end", [
-    ("2025-02", "2025-02-28"), ("2027-02", "2027-02-28"),
-    ("2028-02", "2028-02-29"), ("2028-04", "2028-04-30"),
-    ("2028-05", "2028-05-31"),
-])
+@pytest.mark.parametrize(
+    "month,end",
+    [
+        ("2025-02", "2025-02-28"),
+        ("2027-02", "2027-02-28"),
+        ("2028-02", "2028-02-29"),
+        ("2028-04", "2028-04-30"),
+        ("2028-05", "2028-05-31"),
+    ],
+)
 def test_monthly_deadline_uses_real_query_month_end_and_leap_year(repository, month, end):
     add_policy(repository, "monthly-deadline", "매월 말일")
     result = catalog.list_calendar(repository, month=month)
@@ -180,8 +219,7 @@ def test_monthly_deadline_uses_real_query_month_end_and_leap_year(repository, mo
 
 
 def test_two_rounds_in_one_month_keep_all_start_end_markers_and_daily_gap(repository):
-    add_policy(repository, "two-may-rounds",
-               "(1차)2026년5월1일~5월10일 (2차)2026년5월20일~5월31일")
+    add_policy(repository, "two-may-rounds", "(1차)2026년5월1일~5월10일 (2차)2026년5월20일~5월31일")
     result = catalog.list_calendar(repository, month="2026-05")
     assert ids(result) == {"two-may-rounds"} and result["total"] == 1
     assert result["undatedTotal"] == 0
@@ -192,13 +230,16 @@ def test_two_rounds_in_one_month_keep_all_start_end_markers_and_daily_gap(reposi
         {"applicationStart": "2026-05-01", "applicationEnd": "2026-05-10"},
         {"applicationStart": "2026-05-20", "applicationEnd": "2026-05-31"},
     ]
-    assert all(not (window["applicationStart"] <= "2026-05-15" <= window["applicationEnd"])
-               for window in item["applicationWindows"])
+    assert all(
+        not (window["applicationStart"] <= "2026-05-15" <= window["applicationEnd"])
+        for window in item["applicationWindows"]
+    )
 
 
 def test_calendar_checks_every_round_but_excludes_whole_month_gap(repository):
-    add_policy(repository, "separate-rounds",
-               "(1차)2026년5월22일~6월22일 (2차)2026년8월12일~9월9일")
+    add_policy(
+        repository, "separate-rounds", "(1차)2026년5월22일~6월22일 (2차)2026년8월12일~9월9일"
+    )
     for month, start, end in [
         ("2026-05", "2026-05-22", "2026-06-22"),
         ("2026-06", "2026-05-22", "2026-06-22"),
@@ -215,8 +256,7 @@ def test_calendar_checks_every_round_but_excludes_whole_month_gap(repository):
 
 
 def test_explicit_and_annual_rounds_keep_each_year_and_selected_recurrence(repository):
-    add_policy(repository, "mixed-rounds",
-               "(1차)2025년4월1일~4월30일 (2차)매년9월1일~9월30일")
+    add_policy(repository, "mixed-rounds", "(1차)2025년4월1일~4월30일 (2차)매년9월1일~9월30일")
     historic = catalog.list_calendar(repository, month="2025-04")["items"][0]
     assert historic["applicationStart"] == "2025-04-01"
     assert historic["applicationEnd"] == "2025-04-30"

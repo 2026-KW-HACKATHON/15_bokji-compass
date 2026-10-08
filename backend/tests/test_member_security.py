@@ -28,10 +28,16 @@ def member_store(tmp_path):
     initialize_auth_schema(engine)
     service = AuthService(engine)
     with engine.begin() as connection:
-        connection.execute(insert(accounts).values(
-            id="member", username="member", name="original", password_hash=password_hash(PASSWORD),
-            gender="undisclosed", created_at=1,
-        ))
+        connection.execute(
+            insert(accounts).values(
+                id="member",
+                username="member",
+                name="original",
+                password_hash=password_hash(PASSWORD),
+                gender="undisclosed",
+                created_at=1,
+            )
+        )
     try:
         yield engine, service
     finally:
@@ -42,10 +48,16 @@ def test_member_sql_errors_do_not_include_profile_parameters(member_store):
     engine, _ = member_store
     private_address = "private home address 123"
     with pytest.raises(IntegrityError) as failure, engine.begin() as connection:
-        connection.execute(insert(accounts).values(
-            id="other", username="member", name=private_address,
-            password_hash="secret-hash", gender="undisclosed", created_at=1,
-        ))
+        connection.execute(
+            insert(accounts).values(
+                id="other",
+                username="member",
+                name=private_address,
+                password_hash="secret-hash",
+                gender="undisclosed",
+                created_at=1,
+            )
+        )
     assert private_address not in str(failure.value)
     assert "secret-hash" not in str(failure.value)
     assert "parameters hidden" in str(failure.value)
@@ -119,8 +131,11 @@ def test_malformed_stored_password_fails_closed(encoded):
 
 def test_member_mysql_uses_separate_credentials_and_pool():
     settings = Settings(
-        _env_file=None, db_enabled=True, db_password="policy-secret",
-        auth_db_user="members_only", auth_db_password="member@/:secret",
+        _env_file=None,
+        db_enabled=True,
+        db_password="policy-secret",
+        auth_db_user="members_only",
+        auth_db_password="member@/:secret",
     )
     engine = create_member_engine(settings)
     try:
@@ -133,9 +148,13 @@ def test_member_mysql_uses_separate_credentials_and_pool():
         engine.dispose()
 
 
-@pytest.mark.parametrize("values", [
-    {"auth_db_user": "members_only"}, {"auth_db_password": "member-secret"},
-])
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"auth_db_user": "members_only"},
+        {"auth_db_password": "member-secret"},
+    ],
+)
 def test_partial_member_credentials_are_rejected(values):
     with pytest.raises(ValidationError, match="configured together") as failure:
         Settings(_env_file=None, **values)
@@ -144,23 +163,37 @@ def test_partial_member_credentials_are_rejected(values):
 
 def test_invalid_member_configuration_does_not_echo_database_secrets():
     with pytest.raises(ValidationError) as failure:
-        Settings(_env_file=None, db_enabled=True, db_password="private-db-secret",
-                 auth_db_password="private-member-secret")
+        Settings(
+            _env_file=None,
+            db_enabled=True,
+            db_password="private-db-secret",
+            auth_db_password="private-member-secret",
+        )
     assert "private-db-secret" not in str(failure.value)
     assert "private-member-secret" not in str(failure.value)
 
 
 def test_remote_production_member_mysql_requires_verified_tls():
     with pytest.raises(PrivacyError, match="requires"):
-        create_member_engine(Settings(
-            _env_file=None, app_env="production", db_enabled=True,
-            db_host="members.example", db_password="test-only",
-        ))
+        create_member_engine(
+            Settings(
+                _env_file=None,
+                app_env="production",
+                db_enabled=True,
+                db_host="members.example",
+                db_password="test-only",
+            )
+        )
 
 
-@pytest.mark.parametrize("cipher", [
-    None, ("Ssl_cipher", ""), ("Ssl_cipher", "TLS_AES_256_GCM_SHA384"),
-])
+@pytest.mark.parametrize(
+    "cipher",
+    [
+        None,
+        ("Ssl_cipher", ""),
+        ("Ssl_cipher", "TLS_AES_256_GCM_SHA384"),
+    ],
+)
 def test_member_mysql_rejects_tls_downgrade(monkeypatch, cipher):
     import app.modules.auth.database as member_database
 
@@ -171,12 +204,21 @@ def test_member_mysql_rejects_tls_downgrade(monkeypatch, cipher):
         member_database, "create_engine", lambda *args, **kwargs: options.update(kwargs)
     )
     listeners = []
-    monkeypatch.setattr(member_database.event, "listens_for",
-                        lambda *args: lambda listener: listeners.append(listener))
-    create_member_engine(Settings(
-        _env_file=None, app_env="production", db_enabled=True,
-        db_host="members.example", db_password="test-only", auth_db_ssl_ca="test-ca.pem",
-    ))
+    monkeypatch.setattr(
+        member_database.event,
+        "listens_for",
+        lambda *args: lambda listener: listeners.append(listener),
+    )
+    create_member_engine(
+        Settings(
+            _env_file=None,
+            app_env="production",
+            db_enabled=True,
+            db_host="members.example",
+            db_password="test-only",
+            auth_db_ssl_ca="test-ca.pem",
+        )
+    )
     assert options["connect_args"]["ssl"] is context
     assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
     assert context.minimum_version == ssl.TLSVersion.TLSv1_2
@@ -197,8 +239,12 @@ def test_driver_rejects_missing_tls_before_sending_authentication(monkeypatch):
     from pymysql import OperationalError
     from pymysql.connections import Connection
 
-    connection = Connection(user="member", password="private-password", defer_connect=True,
-                            ssl=ssl.create_default_context())
+    connection = Connection(
+        user="member",
+        password="private-password",
+        defer_connect=True,
+        ssl=ssl.create_default_context(),
+    )
     connection.server_version = "8.0.0"
     connection.server_capabilities = 0
     send_packet = MagicMock()
@@ -256,16 +302,24 @@ def test_profile_api_refuses_session_revoked_after_initial_read(member_store, mo
 
 def test_member_tls_setup_error_is_private_and_does_not_fall_back(tmp_path):
     database = tmp_path / "must-not-exist.db"
-    app = create_app(Settings(
-        _env_file=None, app_env="production", db_enabled=True,
-        db_host="private-members.example", db_password="private-password",
-        auth_sqlite_path=database,
-    ))
-    with TestClient(app, base_url="https://testserver",
-                    headers={"X-Auth-Request": "1"}) as client:
-        response = client.post("/v1/auth/login", json={
-            "username": "member", "password": PASSWORD,
-        })
+    app = create_app(
+        Settings(
+            _env_file=None,
+            app_env="production",
+            db_enabled=True,
+            db_host="private-members.example",
+            db_password="private-password",
+            auth_sqlite_path=database,
+        )
+    )
+    with TestClient(app, base_url="https://testserver", headers={"X-Auth-Request": "1"}) as client:
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "username": "member",
+                "password": PASSWORD,
+            },
+        )
         assert response.status_code == 503
         assert "private-members" not in response.text and "private-password" not in response.text
         assert response.headers["cache-control"] == "no-store"

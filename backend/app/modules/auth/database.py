@@ -38,7 +38,10 @@ def create_member_engine(settings):
     if require_tls and not ca:
         raise PrivacyError("Remote production member storage requires AUTH_DB_SSL_CA or DB_SSL_CA")
     options = {
-        "connect_timeout": 3, "read_timeout": 3, "write_timeout": 3, "local_infile": False,
+        "connect_timeout": 3,
+        "read_timeout": 3,
+        "write_timeout": 3,
+        "local_infile": False,
     }
     if require_tls:
         try:
@@ -54,17 +57,23 @@ def create_member_engine(settings):
         URL.create(
             "mysql+pymysql",
             username=settings.auth_db_user or settings.db_user,
-            password=(settings.auth_db_password if settings.auth_db_user else settings.db_password)
-            .get_secret_value(),
+            password=(
+                settings.auth_db_password if settings.auth_db_user else settings.db_password
+            ).get_secret_value(),
             host=settings.db_host,
             port=settings.db_port,
             database=settings.db_name,
             query={"charset": "utf8mb4"},
         ),
-        pool_pre_ping=True, pool_size=5, max_overflow=0, pool_timeout=3,
-        connect_args=options, hide_parameters=True,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=0,
+        pool_timeout=3,
+        connect_args=options,
+        hide_parameters=True,
     )
     if require_tls:
+
         @event.listens_for(engine, "connect")
         def require_encrypted_connection(connection, record):
             # Verify the negotiated transport before issuing any member query.

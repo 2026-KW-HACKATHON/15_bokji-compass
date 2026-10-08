@@ -83,15 +83,15 @@ export function financeQuestions(draft) {
         ),
         {
           ...select(
-            'region_subdivision',
-            'region-subdivision',
-            '전남광주통합특별시 거주 권역',
+            "region_subdivision",
+            "region-subdivision",
+            "전남광주통합특별시 거주 권역",
             [
-              ['gwangju', '광주광역시'],
-              ['other', '그 외 지역'],
+              ["gwangju", "광주광역시"],
+              ["other", "그 외 지역"],
             ],
-            '거주지에 해당하는 권역을 선택해 주세요.',
-            (profile) => profile.region === 'jeonnam_gwangju',
+            "거주지에 해당하는 권역을 선택해 주세요.",
+            (profile) => profile.region === "jeonnam_gwangju",
           ),
           required: true,
         },

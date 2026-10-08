@@ -180,7 +180,12 @@ test('saving optional facts requires consent and shows sourced candidates, progr
     path: `../../tmp/monitoring-easy-${test.info().project.name}.png`,
     fullPage: true,
   });
-  await page.getByRole('link', { name: '내 정보', exact: true }).first().click();
+  await page.locator('.easy-menu-toggle').click();
+  await page
+    .getByRole('navigation', { name: '주 메뉴', exact: true })
+    .getByRole('link', { name: '내 정보', exact: true })
+    .first()
+    .click();
   await expect(panel.getByText(policy.title, { exact: true })).toBeVisible();
   await expect(panel.getByLabel(`${policy.title} 지원 진행 상태`)).toHaveValue('preparing');
   expect(duplicateKeys).toEqual([]);

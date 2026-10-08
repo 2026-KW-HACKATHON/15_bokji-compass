@@ -36,10 +36,23 @@ def command(action, *, target="backend", job_id=None):
         except ValueError:
             raise RuntimeErrorCode("invalid_command") from None
     executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / (
-        "System32/WindowsPowerShell/v1.0/powershell.exe")
-    args = [str(executable), "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass",
-            "-File", str(SCRIPT), "-Action", action, "-Target", target,
-            "-ServerProcessId", str(os.getpid())]
+        "System32/WindowsPowerShell/v1.0/powershell.exe"
+    )
+    args = [
+        str(executable),
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(SCRIPT),
+        "-Action",
+        action,
+        "-Target",
+        target,
+        "-ServerProcessId",
+        str(os.getpid()),
+    ]
     if job_id:
         args.extend(["-JobId", job_id])
     return args
@@ -48,14 +61,22 @@ def command(action, *, target="backend", job_id=None):
 def status():
     if os.name != "nt":
         return {"supported": False, "mode": "unsupported"}
-    result = subprocess.run(command("Status"), capture_output=True, timeout=15,
-                            creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
+    result = subprocess.run(
+        command("Status"),
+        capture_output=True,
+        timeout=15,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        shell=False,
+    )
     if result.returncode or len(result.stdout) > 65536:
         raise RuntimeErrorCode("inspection_failed")
     try:
         value = json.loads(result.stdout.decode("utf-8-sig"))
         if not isinstance(value, dict) or value.get("mode") not in {
-                "development", "shared", "unmanaged"}:
+            "development",
+            "shared",
+            "unmanaged",
+        }:
             raise ValueError
         value["operation"] = latest_job()
         return value
@@ -77,16 +98,23 @@ def read_job(job_id):
             raise ValueError
     except (OSError, ValueError):
         raise RuntimeErrorCode("job_missing") from None
-    keys = {"id", "target", "action", "status", "started_at", "finished_at", "error_code",
-            "source_pid"}
+    keys = {
+        "id",
+        "target",
+        "action",
+        "status",
+        "started_at",
+        "finished_at",
+        "error_code",
+        "source_pid",
+    }
     return {key: value for key, value in data.items() if key in keys}
 
 
 def latest_job():
     if not CONTROL_ROOT.exists():
         return None
-    files = sorted(CONTROL_ROOT.glob("*.json"), key=lambda path: path.stat().st_mtime,
-                   reverse=True)
+    files = sorted(CONTROL_ROOT.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
     for path in files[:5]:
         try:
             return read_job(path.stem)
@@ -111,8 +139,7 @@ def start(state, data: ControlInput):
         raise RuntimeErrorCode("windows_required")
     with state.server_config_lock:
         operation = state.server_operations.snapshot()["operation"]
-        if (data.target in {"backend", "all"} and operation
-                and operation["status"] == "running"):
+        if data.target in {"backend", "all"} and operation and operation["status"] == "running":
             raise RuntimeErrorCode("collection_busy")
         view = status()
         if view["mode"] == "unmanaged":
@@ -137,17 +164,27 @@ def start(state, data: ControlInput):
             except (OSError, RuntimeErrorCode):
                 raise RuntimeErrorCode("control_busy") from None
         path = CONTROL_ROOT / (job_id + ".json")
-        job = {"id": job_id, "target": data.target, "action": data.action,
-               "status": "accepted", "started_at": time.time(), "finished_at": None,
-               "error_code": None, "source_pid": os.getpid(), "port": state.settings.server_port,
-               "host": state.settings.server_host}
+        job = {
+            "id": job_id,
+            "target": data.target,
+            "action": data.action,
+            "status": "accepted",
+            "started_at": time.time(),
+            "finished_at": None,
+            "error_code": None,
+            "source_pid": os.getpid(),
+            "port": state.settings.server_port,
+            "host": state.settings.server_host,
+        }
         try:
             path.write_text(json.dumps(job), encoding="utf-8")
             state.server_control_job = job_id
             state.server_control_pending = data.target in {"backend", "all"}
             subprocess.Popen(
                 command(data.action.title(), target=data.target, job_id=job_id),
-                cwd=BACKEND_ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                cwd=BACKEND_ROOT,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 shell=False,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,

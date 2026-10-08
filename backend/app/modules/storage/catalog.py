@@ -99,13 +99,18 @@ def with_popularity(catalog, connection):
             literal(None, JSON).label("popularity_listing"),
             literal(None).label("views"),
         ).subquery()
-    return select(
-        catalog,
-        collection_records.c.provider.label("popularity_provider"),
-        collection_records.c.listing_json.label("popularity_listing"),
-        view_count_expression(collection_records, dialect=connection.dialect.name).label("views"),
-    ).outerjoin(collection_records,
-                collection_records.c.policy_key == catalog.c.policy_key).subquery()
+    return (
+        select(
+            catalog,
+            collection_records.c.provider.label("popularity_provider"),
+            collection_records.c.listing_json.label("popularity_listing"),
+            view_count_expression(collection_records, dialect=connection.dialect.name).label(
+                "views"
+            ),
+        )
+        .outerjoin(collection_records, collection_records.c.policy_key == catalog.c.policy_key)
+        .subquery()
+    )
 
 
 def card(record, *, full=False, reference_year=None, reference_month=None):
@@ -129,44 +134,68 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
         "revisionId": record["revision_id"],
         "title": source["title"],
         "organization": source["organization"],
-        "summary": editorial.get("summary") or policy_description(
-            source["title"], fields.get("purpose_summary"),
-            section("benefits", fields.get("benefits") or "지원 내용 확인 필요")),
-        "benefit": format_notice_text(section("benefits", fields.get("benefits")
-                                               or "지원 내용 확인 필요")),
+        "summary": editorial.get("summary")
+        or policy_description(
+            source["title"],
+            fields.get("purpose_summary"),
+            section("benefits", fields.get("benefits") or "지원 내용 확인 필요"),
+        ),
+        "benefit": format_notice_text(
+            section("benefits", fields.get("benefits") or "지원 내용 확인 필요")
+        ),
         "region": format_notice_text(section("region_conditions", "지역 확인 필요")),
         "audience": format_notice_text(audience_text(fields, overview, editorial)),
         "paymentSchedule": payment_schedule(fields),
         "applicationPeriod": period or "공식 공고에서 확인",
         **resolve_calendar_schedule(
-            fields, overview, record["draft_json"].get("application_calendar"),
-            reference_year=reference_year, reference_month=reference_month,
+            fields,
+            overview,
+            record["draft_json"].get("application_calendar"),
+            reference_year=reference_year,
+            reference_month=reference_month,
         ),
         "date": record["created_at"].date().isoformat(),
-        "sourceUrl": policy_source_url(record["policy_key"], source.get("source_url"),
-                                       record.get("popularity_listing")),
+        "sourceUrl": policy_source_url(
+            record["policy_key"], source.get("source_url"), record.get("popularity_listing")
+        ),
         "category": category,
         "tags": [category],
-        "popularity": listing_popularity(record.get("popularity_provider"),
-                                         record.get("popularity_listing")),
+        "popularity": listing_popularity(
+            record.get("popularity_provider"), record.get("popularity_listing")
+        ),
         "content": (fields.get("text") or fields.get("eligibility") or "") if full else "",
         "gender": format_notice_text(section("gender_conditions", "")),
-        "otherConditions": [format_notice_text(text)
-                            for text in other_conditions(fields, overview)],
-        **{name: format_notice_text(section(field, fields.get(field) or ""))
-           for name, field in (("applicationMethod", "application_method"),
-                               ("contact", "contact"))},
+        "otherConditions": [
+            format_notice_text(text) for text in other_conditions(fields, overview)
+        ],
+        **{
+            name: format_notice_text(section(field, fields.get(field) or ""))
+            for name, field in (("applicationMethod", "application_method"), ("contact", "contact"))
+        },
         "applicationUrl": section("application_url", fields.get("application_url") or None),
-        "sourceFields": {key: value for key, value in fields.items()
-                         if value and not key.startswith("_editor_")} if full else {},
+        "sourceFields": {
+            key: value for key, value in fields.items() if value and not key.startswith("_editor_")
+        }
+        if full
+        else {},
         "publishedDate": section("published_date", fields.get("published_date") or ""),
         "modifiedDate": section("modified_date", fields.get("modified_date") or ""),
     }
 
 
-def filtered_catalog(repository, *, q="", search_scope: SearchScope = "all",
-                     category="", region="", audience="", tag="",
-                     provider="", organization="", connection=None):
+def filtered_catalog(
+    repository,
+    *,
+    q="",
+    search_scope: SearchScope = "all",
+    category="",
+    region="",
+    audience="",
+    tag="",
+    provider="",
+    organization="",
+    connection=None,
+):
     catalog = published_catalog(repository)
     if connection is not None:
         catalog = with_popularity(catalog, connection)
@@ -200,9 +229,10 @@ def filtered_catalog(repository, *, q="", search_scope: SearchScope = "all",
         terms = AUDIENCE_TERMS.get(audience, (audience,))
         query = query.where(
             or_(
-                and_(age_status.in_(("specified", "unrestricted")), or_(
-                    *(age_text.contains(term, autoescape=True) for term in terms)
-                )),
+                and_(
+                    age_status.in_(("specified", "unrestricted")),
+                    or_(*(age_text.contains(term, autoescape=True) for term in terms)),
+                ),
                 or_(*(other_text.contains(term, autoescape=True) for term in terms)),
             )
         )
@@ -240,66 +270,87 @@ def list_policies(
         raise ValueError("Invalid policy search relation")
     with repository.engine.connect() as connection:
         catalog, query = filtered_catalog(
-            repository, q="" if smart else q, search_scope=search_scope,
-            category=category, region=region,
-            audience=audience, tag=tag, provider=provider, organization=organization,
+            repository,
+            q="" if smart else q,
+            search_scope=search_scope,
+            category=category,
+            region=region,
+            audience=audience,
+            tag=tag,
+            provider=provider,
+            organization=organization,
             connection=connection,
         )
-        advanced = bool(status or age_bands or age_min is not None or age_max is not None
-                        or eligible_only)
+        advanced = bool(
+            status or age_bands or age_min is not None or age_max is not None or eligible_only
+        )
         if eligible_only:
             documents = repository.tables["condition_documents"]
             if "canonical_json" in documents.c and "matching_enabled" in documents.c:
-                query = query.add_columns(documents.c.canonical_json,
-                                          documents.c.matching_enabled,
-                                          documents.c.review_status).join(
-                    documents, documents.c.revision_id == catalog.c.revision_id)
+                query = query.add_columns(
+                    documents.c.canonical_json,
+                    documents.c.matching_enabled,
+                    documents.c.review_status,
+                ).join(documents, documents.c.revision_id == catalog.c.revision_id)
         if advanced:
             from app.modules.storage.explorer_filters import filter_records
+
             vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
             recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
-            order = ((catalog.c.title, catalog.c.policy_key) if sort == "name" else recent)
+            order = (catalog.c.title, catalog.c.policy_key) if sort == "name" else recent
             if sort == "popular":
                 order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
             records = filter_records(
-                connection.execution_options(yield_per=100).execute(
-                    query.order_by(*order)).mappings(),
-                status=status, age_bands=age_bands, age_min=age_min, age_max=age_max,
-                eligible_only=eligible_only, member=member,
+                connection.execution_options(yield_per=100)
+                .execute(query.order_by(*order))
+                .mappings(),
+                status=status,
+                age_bands=age_bands,
+                age_min=age_min,
+                age_max=age_max,
+                eligible_only=eligible_only,
+                member=member,
             )
             if smart:
                 matches, metadata = search_records(
-                    records, q, sort=sort,
-                    institutions=vocabulary,
-                    relation=search_relation)
+                    records, q, sort=sort, institutions=vocabulary, relation=search_relation
+                )
             else:
                 matches, metadata = [(record, None) for record in records], None
             total = len(matches)
             return {
-                "items": [{**card(record), **({"searchMatch": match} if match else {})}
-                          for record, match in matches[offset:offset + limit]],
+                "items": [
+                    {**card(record), **({"searchMatch": match} if match else {})}
+                    for record, match in matches[offset : offset + limit]
+                ],
                 "total": total,
                 "nextCursor": str(offset + limit) if offset + limit < total else None,
-                **({"search": metadata or literal_search_metadata(q, search_scope)}
-                   if q.strip() else {}),
+                **(
+                    {"search": metadata or literal_search_metadata(q, search_scope)}
+                    if q.strip()
+                    else {}
+                ),
             }
         if smart:
             # No popular/recent shortlist: every filtered published revision is
             # interpreted before count, ordering and pagination.
             vocabulary = search_institution_vocabulary(repository, connection)
             records = connection.execution_options(yield_per=100).execute(query).mappings()
-            matches, metadata = search_records(records, q, sort=sort, institutions=vocabulary,
-                                              relation=search_relation)
+            matches, metadata = search_records(
+                records, q, sort=sort, institutions=vocabulary, relation=search_relation
+            )
             total = len(matches)
             return {
-                "items": [{**card(record), "searchMatch": match}
-                          for record, match in matches[offset:offset + limit]],
+                "items": [
+                    {**card(record), "searchMatch": match}
+                    for record, match in matches[offset : offset + limit]
+                ],
                 "total": total,
                 "nextCursor": str(offset + limit) if offset + limit < total else None,
                 "search": metadata,
             }
         recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
-        order = ((catalog.c.title, catalog.c.policy_key) if sort == "name" else recent)
+        order = (catalog.c.title, catalog.c.policy_key) if sort == "name" else recent
         if sort == "popular":
             # A measured zero precedes an unknown count. Deterministic ties keep
             # offset pagination stable while the underlying catalog is unchanged.
@@ -318,10 +369,18 @@ def list_policies(
     return result
 
 
-def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
-                  search_mode: Literal["smart", "literal"] = "smart",
-                  search_relation: Literal["publisher", "related"] | None = None,
-                  category="", region="", audience=""):
+def list_calendar(
+    repository,
+    *,
+    month,
+    q="",
+    search_scope: SearchScope = "all",
+    search_mode: Literal["smart", "literal"] = "smart",
+    search_relation: Literal["publisher", "related"] | None = None,
+    category="",
+    region="",
+    audience="",
+):
     year, number = map(int, month.split("-"))
     first = date(year, number, 1).isoformat()
     following = date(year + (number == 12), number % 12 + 1, 1).isoformat()
@@ -336,8 +395,11 @@ def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
     facet_counts = {"organization": 0, "content": 0}
     with repository.engine.connect() as connection:
         catalog, query = filtered_catalog(
-            repository, q="" if smart else q, search_scope=search_scope,
-            category=category, region=region,
+            repository,
+            q="" if smart else q,
+            search_scope=search_scope,
+            category=category,
+            region=region,
             audience=audience,
             connection=connection,
         )
@@ -357,9 +419,18 @@ def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
                 item["searchMatch"] = match
             start, end = item["applicationStart"], item["applicationEnd"]
             roles = set(match["relations"]) if match else set()
-            selected = (not smart or search_relation is None or
-                        bool(roles & ({"publisher"} if search_relation == "publisher" else
-                             {"target", "contextual", "student_general", "mention"})))
+            selected = (
+                not smart
+                or search_relation is None
+                or bool(
+                    roles
+                    & (
+                        {"publisher"}
+                        if search_relation == "publisher"
+                        else {"target", "contextual", "student_general", "mention"}
+                    )
+                )
+            )
             if not start and not end:
                 if selected:
                     undated_total += 1
@@ -402,12 +473,19 @@ def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
 
 
 def literal_search_metadata(query, scope):
-    return {"mode": "literal", "summary": {
-        "all": "입력한 단어를 게시 기관과 공고 내용에서 찾았어요.",
-        "organization": "입력한 단어를 게시 기관에서 찾았어요.",
-        "content": "입력한 단어를 공고 내용에서 찾았어요.",
-    }[scope], "originalQuery": query, "interpretedQuery": query,
-        "corrections": [], "alternatives": [], "warnings": []}
+    return {
+        "mode": "literal",
+        "summary": {
+            "all": "입력한 단어를 게시 기관과 공고 내용에서 찾았어요.",
+            "organization": "입력한 단어를 게시 기관에서 찾았어요.",
+            "content": "입력한 단어를 공고 내용에서 찾았어요.",
+        }[scope],
+        "originalQuery": query,
+        "interpretedQuery": query,
+        "corrections": [],
+        "alternatives": [],
+        "warnings": [],
+    }
 
 
 def search_institution_vocabulary(repository, connection):
@@ -432,13 +510,20 @@ def explorer_options(repository):
     """Only distinct publishers of latest public revisions; no raw body or private rows."""
     published = published_catalog(repository)
     with repository.engine.connect() as connection:
-        rows = connection.execute(select(
-            published.c.policy_key, json_text(published.c.source_json, "$.organization")
-            .label("organization"))).mappings()
+        rows = connection.execute(
+            select(
+                published.c.policy_key,
+                json_text(published.c.source_json, "$.organization").label("organization"),
+            )
+        ).mappings()
         providers = {}
         for row in rows:
             provider = row["policy_key"].split(":", 1)[0]
             if row["organization"]:
                 providers.setdefault(provider, set()).add(row["organization"])
-    return {"providers": [{"id": provider, "organizations": sorted(names)}
-                          for provider, names in sorted(providers.items())]}
+    return {
+        "providers": [
+            {"id": provider, "organizations": sorted(names)}
+            for provider, names in sorted(providers.items())
+        ]
+    }

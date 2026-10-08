@@ -107,10 +107,12 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(SQLAlchemyError)
     async def safe_database_error(request, exc):
-        if (request.url.path.startswith("/v1/policies/")
-                and request.url.path.endswith("/translation")):
+        if request.url.path.startswith("/v1/policies/") and request.url.path.endswith(
+            "/translation"
+        ):
             return JSONResponse(
-                status_code=503, content={"detail": {"code": "translation_unavailable"}},
+                status_code=503,
+                content={"detail": {"code": "translation_unavailable"}},
                 headers={"Cache-Control": "no-store"},
             )
         if request.url.path.startswith(
@@ -135,17 +137,20 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
             return JSONResponse(
                 status_code=503,
                 content={
-                    "detail": "지속 안내 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."},
+                    "detail": "지속 안내 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+                },
                 headers={"Cache-Control": "no-store"},
             )
         return await database_error_handler(request, exc)
 
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
-        if (request.url.path.startswith("/v1/policies/")
-                and request.url.path.endswith("/translation")):
+        if request.url.path.startswith("/v1/policies/") and request.url.path.endswith(
+            "/translation"
+        ):
             return JSONResponse(
-                status_code=422, content={"detail": {"code": "translation_invalid_request"}},
+                status_code=422,
+                content={"detail": {"code": "translation_invalid_request"}},
                 headers={"Cache-Control": "no-store"},
             )
         if request.url.path.startswith("/v1/monitoring"):

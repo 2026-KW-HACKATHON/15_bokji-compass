@@ -15,14 +15,15 @@ test('guests find verified district services, filter them, and see uncollected a
   await page.getByRole('button', { name: '동네 복지 둘러보기', exact: true }).click();
   await expect(page).toHaveURL(/#local$/);
   await expect(page.getByRole('heading', { level: 1, name: '우리 동네 복지' })).toBeVisible();
-  await expect(page.getByText('내 지역부터 선택해 주세요', { exact: true })).toBeVisible();
+  await expect(page.locator('#local-area')).toHaveValue('서울 노원구 월계1동');
+  await expect(page.locator('.local-service-card')).toHaveCount(8);
   const input = page.getByLabel('어느 지역을 살펴볼까요?', { exact: true });
   await input.fill('월계동');
   await input.press('Enter');
   await expect(input).toHaveAttribute('aria-invalid', 'true');
   await expect(input).toBeFocused();
-  await page.getByRole('button', { name: '서울 노원구 월계동 둘러보기', exact: true }).click();
-  await expect(page.locator('.local-service-card')).toHaveCount(3);
+  await page.getByRole('button', { name: '중점 지역 · 노원구 월계1동', exact: true }).click();
+  await expect(page.locator('.local-service-card')).toHaveCount(8);
   await expect(page.getByRole('heading', { name: '노원행복버스', exact: true })).toBeVisible();
   const link = page.getByRole('link', { name: '노원행복버스 공식 안내 (새 창)', exact: true });
   await expect(link).toHaveAttribute(
@@ -34,12 +35,10 @@ test('guests find verified district services, filter them, and see uncollected a
   await page.getByRole('button', { name: '이동·교통', exact: true }).click();
   await expect(page.locator('.local-service-card')).toHaveCount(1);
   await page.getByRole('button', { name: '돌봄·생활', exact: true }).click();
-  await expect(
-    page.getByText('이 분야에 등록된 서비스가 아직 없어요', { exact: true }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: '전체 서비스 보기', exact: true }).click();
   await expect(page.locator('.local-service-card')).toHaveCount(3);
-  await input.fill('부산 중구');
+  await page.getByRole('button', { name: '전체', exact: true }).click();
+  await expect(page.locator('.local-service-card')).toHaveCount(8);
+  await input.fill('경남 고성군');
   await input.press('Enter');
   await expect(page.locator('.local-service-card')).toHaveCount(0);
   await expect(
@@ -47,10 +46,10 @@ test('guests find verified district services, filter them, and see uncollected a
   ).toBeVisible();
   await page.getByRole('button', { name: '지역 관련 공고 찾기', exact: true }).click();
   const params = new URLSearchParams(new URL(page.url()).hash.split('?')[1]);
-  expect(params.get('q')).toBe('중구');
-  expect(params.get('region')).toBe('부산');
+  expect(params.get('q')).toBe('고성군');
+  expect(params.get('region')).toBe('경남');
   await page.goBack();
-  await expect(page.locator('#local-area')).toHaveValue('부산 중구');
+  await expect(page.locator('#local-area')).toHaveValue('경남 고성군');
   await expect(page.locator('.local-service-card')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -76,20 +75,22 @@ test('saved addresses select a district without exposing street or unit details 
   await page.goto('/#local');
   const input = page.getByLabel('어느 지역을 살펴볼까요?', { exact: true });
   await expect(input).toHaveValue('서울 노원구');
-  await expect(page.locator('.local-service-card')).toHaveCount(3);
+  await expect(page.locator('.local-service-card')).toHaveCount(8);
   await input.fill('서울 강남구');
   await input.press('Enter');
   await page.getByRole('button', { name: '내 주소 지역 사용', exact: true }).click();
   await expect(input).toHaveValue('서울 노원구');
-  await expect(page.locator('.local-welfare-page')).not.toContainText('광운로');
+  await expect(page.locator('.local-welfare-page')).not.toContainText(
+    '서울특별시 노원구 광운로 20',
+  );
   await expect(page.locator('.local-welfare-page')).not.toContainText('101동');
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
   expect(storage).not.toContain('광운로');
   expect(storage).not.toContain('202호');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.goto('/#local');
-  await expect(input).toHaveValue('');
-  await expect(page.locator('.local-service-card')).toHaveCount(0);
+  await expect(input).toHaveValue('서울 노원구 월계1동');
+  await expect(page.locator('.local-service-card')).toHaveCount(8);
 });
 
 test('narrow and easy layouts retain inputs and filters across languages', async ({
@@ -97,13 +98,13 @@ test('narrow and easy layouts retain inputs and filters across languages', async
 }, info) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#local');
-  await page.getByRole('button', { name: '서울 노원구 월계동 둘러보기', exact: true }).click();
+  await page.getByRole('button', { name: '중점 지역 · 노원구 월계1동', exact: true }).click();
   await page.getByRole('button', { name: '건강', exact: true }).click();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(page.locator('#local-area')).toHaveValue('서울 노원구 월계동');
+  await expect(page.locator('#local-area')).toHaveValue('서울 노원구 월계1동');
   for (const locale of ['ko', 'en', 'zh', 'vi', 'ja']) {
     await page.locator('.language-selector select').selectOption(locale);
-    await expect(page.locator('.local-service-card')).toHaveCount(1);
+    await expect(page.locator('.local-service-card')).toHaveCount(2);
     if (locale !== 'ko') {
       await expect(page.locator('.local-hero h1')).not.toContainText(/[가-힣]/);
       await expect(page.locator('.local-categories')).not.toContainText(/[가-힣]/);

@@ -71,34 +71,52 @@ def test_ambiguous_invalid_and_partial_periods_are_not_invented(period):
     }
 
 
-@pytest.mark.parametrize("period", [
-    "2026-10-01부터 예산 소진 시까지", "2026.10.1.~재원소진시까지(수시)",
-    "2026년 10월 1일부터 예산 소진시까지",
-])
+@pytest.mark.parametrize(
+    "period",
+    [
+        "2026-10-01부터 예산 소진 시까지",
+        "2026.10.1.~재원소진시까지(수시)",
+        "2026년 10월 1일부터 예산 소진시까지",
+    ],
+)
 def test_budget_limited_ongoing_period_retains_its_exact_start_date(period):
     assert application_schedule(period, reference_year=2027) == {
-        "applicationStart": "2026-10-01", "applicationEnd": None,
+        "applicationStart": "2026-10-01",
+        "applicationEnd": None,
         "scheduleStatus": "ongoing",
     }
 
 
-@pytest.mark.parametrize("period,start,end", [
-    ("10월 1일 ~ 10월 31일", "2027-10-01", "2027-10-31"),
-    ("신청기간: 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00", "2027-09-28", "2027-10-07"),
-    ("마감일: 10월 15일", None, "2027-10-15"),
-    ("10.15.까지", None, "2027-10-15"),
-    ("접수 시작일: 10월 15일", "2027-10-15", None),
-])
+@pytest.mark.parametrize(
+    "period,start,end",
+    [
+        ("10월 1일 ~ 10월 31일", "2027-10-01", "2027-10-31"),
+        ("신청기간: 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00", "2027-09-28", "2027-10-07"),
+        ("마감일: 10월 15일", None, "2027-10-15"),
+        ("10.15.까지", None, "2027-10-15"),
+        ("접수 시작일: 10월 15일", "2027-10-15", None),
+    ],
+)
 def test_yearless_application_dates_use_selected_year_and_keep_absent_endpoints(period, start, end):
     assert application_schedule(period, reference_year=2027) == {
-        "applicationStart": start, "applicationEnd": end, "scheduleStatus": "dated",
-        "applicationRecurrence": "yearly", "applicationYear": None,
+        "applicationStart": start,
+        "applicationEnd": end,
+        "scheduleStatus": "dated",
+        "applicationRecurrence": "yearly",
+        "applicationYear": None,
     }
 
 
 @pytest.mark.parametrize(
-    "period", ["상시", "상시 신청", "연중", "수시 접수", "상시 신청(예산 소진 시까지)",
-               "월별 정기 모집 및 수시 모집"]
+    "period",
+    [
+        "상시",
+        "상시 신청",
+        "연중",
+        "수시 접수",
+        "상시 신청(예산 소진 시까지)",
+        "월별 정기 모집 및 수시 모집",
+    ],
 )
 def test_ongoing_period_has_no_arbitrary_calendar_date(period):
     assert application_schedule(period)["scheduleStatus"] == "ongoing"

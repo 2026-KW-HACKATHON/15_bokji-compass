@@ -105,11 +105,13 @@ class AuthService:
             account = require_active_account(connection, account_id)
             if token is not None:
                 active = connection.execute(
-                    select(sessions.c.token_hash).where(
+                    select(sessions.c.token_hash)
+                    .where(
                         sessions.c.account_id == account_id,
                         sessions.c.token_hash == self.session_digest(token),
                         sessions.c.expires_at > int(time.time()),
-                    ).with_for_update()
+                    )
+                    .with_for_update()
                 ).first()
                 if active is None:
                     raise HTTPException(401, "로그인이 필요해요.")

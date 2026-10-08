@@ -33,9 +33,23 @@ function ServiceCard({ service, area }) {
         <span>{t(category.label)}</span>
       </div>
       <h3>{service.title}</h3>
-      {area.neighborhood && (service.focusAreas.some((place) => place.region === area.region && place.district === area.district && place.neighborhood === area.neighborhood) || service.coverage.some((place) => place.region === area.region && place.district === area.district && place.neighborhoods.includes(area.neighborhood))) && (
-        <span className="local-neighborhood-badge">{t('{neighborhood} 관련 안내', { neighborhood: area.neighborhood })}</span>
-      )}
+      {area.neighborhood &&
+        (service.focusAreas.some(
+          (place) =>
+            place.region === area.region &&
+            place.district === area.district &&
+            place.neighborhood === area.neighborhood,
+        ) ||
+          service.coverage.some(
+            (place) =>
+              place.region === area.region &&
+              place.district === area.district &&
+              place.neighborhoods.includes(area.neighborhood),
+          )) && (
+          <span className="local-neighborhood-badge">
+            {t('{neighborhood} 관련 안내', { neighborhood: area.neighborhood })}
+          </span>
+        )}
       <p className="local-service-summary">{service.summary}</p>
       <dl>
         {[
@@ -76,7 +90,9 @@ export default function LocalWelfarePage({
   onSelectionChange,
 }) {
   const { t, locale } = useI18n();
-  const [area, setArea] = useState(() => initialSelection?.area || startingLocalArea(user, profile));
+  const [area, setArea] = useState(
+    () => initialSelection?.area || startingLocalArea(user, profile),
+  );
   const [input, setInput] = useState(() =>
     areaText(initialSelection?.area || startingLocalArea(user, profile)),
   );
@@ -89,7 +105,14 @@ export default function LocalWelfarePage({
   const inputRef = useRef(null);
   const savedArea = initialLocalArea(user, profile);
   const hasArea = Boolean(area?.region);
-  const requestKey = JSON.stringify([area.region, area.district, area.neighborhood, category, scope, retry]);
+  const requestKey = JSON.stringify([
+    area.region,
+    area.district,
+    area.neighborhood,
+    category,
+    scope,
+    retry,
+  ]);
   const status = result.key === requestKey ? result.status : 'loading';
   const services = status === 'ready' ? result.value.items : [];
   const search = localPolicySearch(area);
@@ -98,13 +121,17 @@ export default function LocalWelfarePage({
     if (!hasArea) return;
     const controller = new AbortController();
     setResult({ key: requestKey, status: 'loading', value: null });
-    repository.list({ ...area, category, scope }, { signal: controller.signal }).then((value) => {
-      if (controller.signal.aborted) return;
-      setResult({ key: requestKey, status: 'ready', value });
-      setCoverage(value.coverage);
-    }).catch(() => {
-      if (!controller.signal.aborted) setResult({ key: requestKey, status: 'error', value: null });
-    });
+    repository
+      .list({ ...area, category, scope }, { signal: controller.signal })
+      .then((value) => {
+        if (controller.signal.aborted) return;
+        setResult({ key: requestKey, status: 'ready', value });
+        setCoverage(value.coverage);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setResult({ key: requestKey, status: 'error', value: null });
+      });
     return () => controller.abort();
   }, [repository, requestKey, hasArea]);
 
@@ -182,17 +209,38 @@ export default function LocalWelfarePage({
             {t('중점 지역 · 노원구 월계1동')} <Icon name="right" size={16} />
           </button>
         </div>
-        {coverage && <div className="local-collected-areas">
-          <label htmlFor="local-collected-area">{t('자료가 등록된 다른 지역')}</label>
-          <select id="local-collected-area" value="" onChange={(event) => {
-            const next = coverage.regions.find((place) => `${place.region}|${place.district}` === event.target.value);
-            if (next) applyArea({ region: next.region, district: next.district, neighborhood: '' });
-          }}>
-            <option value="">{t('지역 선택')}</option>
-            {coverage.regions.map((place) => <option key={`${place.region}|${place.district}`} value={`${place.region}|${place.district}`}>{[t(place.region), place.district || t('광역 전체')].join(' ')} · {t('등록된 서비스 {count}개', { count: place.count })}</option>)}
-          </select>
-          <p>{t('전체 {count}개 서비스 · 공식 자료를 확인한 지역부터 넓혀가요.', { count: coverage.totalServices })}</p>
-        </div>}
+        {coverage && (
+          <div className="local-collected-areas">
+            <label htmlFor="local-collected-area">{t('자료가 등록된 다른 지역')}</label>
+            <select
+              id="local-collected-area"
+              value=""
+              onChange={(event) => {
+                const next = coverage.regions.find(
+                  (place) => `${place.region}|${place.district}` === event.target.value,
+                );
+                if (next)
+                  applyArea({ region: next.region, district: next.district, neighborhood: '' });
+              }}
+            >
+              <option value="">{t('지역 선택')}</option>
+              {coverage.regions.map((place) => (
+                <option
+                  key={`${place.region}|${place.district}`}
+                  value={`${place.region}|${place.district}`}
+                >
+                  {[t(place.region), place.district || t('광역 전체')].join(' ')} ·{' '}
+                  {t('등록된 서비스 {count}개', { count: place.count })}
+                </option>
+              ))}
+            </select>
+            <p>
+              {t('전체 {count}개 서비스 · 공식 자료를 확인한 지역부터 넓혀가요.', {
+                count: coverage.totalServices,
+              })}
+            </p>
+          </div>
+        )}
       </header>
 
       <section className="local-results" aria-labelledby="local-results-title">
@@ -218,11 +266,21 @@ export default function LocalWelfarePage({
             {t('선택한 시·군·구의 서비스를 모았어요. 실제 이용 장소와 대상은 서비스마다 달라요.')}
           </p>
         )}
-        {area.neighborhood && <div className="local-scope-filter" role="group" aria-label={t('생활지역 범위')}>
-          <button type="button" aria-pressed={scope === 'all'} onClick={() => selectScope('all')}>{t('구·광역 서비스 함께')}</button>
-          <button type="button" aria-pressed={scope === 'neighborhood'} onClick={() => selectScope('neighborhood')}>{t('{neighborhood} 중심', { neighborhood: area.neighborhood })}</button>
-          <p>{t('동 중심 보기에는 공식 자료에서 해당 동과의 관계를 확인한 안내만 표시해요.')}</p>
-        </div>}
+        {area.neighborhood && (
+          <div className="local-scope-filter" role="group" aria-label={t('생활지역 범위')}>
+            <button type="button" aria-pressed={scope === 'all'} onClick={() => selectScope('all')}>
+              {t('구·광역 서비스 함께')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={scope === 'neighborhood'}
+              onClick={() => selectScope('neighborhood')}
+            >
+              {t('{neighborhood} 중심', { neighborhood: area.neighborhood })}
+            </button>
+            <p>{t('동 중심 보기에는 공식 자료에서 해당 동과의 관계를 확인한 안내만 표시해요.')}</p>
+          </div>
+        )}
         {hasArea && (
           <div className="local-categories" role="group" aria-label={t('생활서비스 분야')}>
             {categories.map(({ id, label, Icon: CategoryIcon }) => (
@@ -243,7 +301,22 @@ export default function LocalWelfarePage({
             {t('지역 서비스의 상세 안내는 한국어 원문으로 제공돼요.')}
           </p>
         )}
-        {status === 'loading' ? <p className="local-request-message" role="status">{t('생활서비스를 불러오고 있어요.')}</p> : status === 'error' ? <div className="local-request-message" role="alert"><p>{t('생활서비스를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')}</p><button type="button" className="text-button" onClick={() => setRetry((value) => value + 1)}>{t('다시 시도하기')}</button></div> : services.length > 0 ? (
+        {status === 'loading' ? (
+          <p className="local-request-message" role="status">
+            {t('생활서비스를 불러오고 있어요.')}
+          </p>
+        ) : status === 'error' ? (
+          <div className="local-request-message" role="alert">
+            <p>{t('생활서비스를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')}</p>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              {t('다시 시도하기')}
+            </button>
+          </div>
+        ) : services.length > 0 ? (
           <div className="local-service-grid">
             {services.map((service) => (
               <ServiceCard key={service.id} service={service} area={area} />
@@ -267,9 +340,15 @@ export default function LocalWelfarePage({
                   : t('등록된 정보가 없다는 뜻이며, 이용할 수 있는 복지가 없다는 뜻은 아니에요.')}
             </p>
             {(category !== 'all' || scope === 'neighborhood') && (
-              <button type="button" className="text-button" onClick={() => {
-                setCategory('all'); setScope('all'); onSelectionChange?.({ area, category: 'all', scope: 'all' });
-              }}>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setCategory('all');
+                  setScope('all');
+                  onSelectionChange?.({ area, category: 'all', scope: 'all' });
+                }}
+              >
                 {t('전체 서비스 보기')} <Icon name="arrow" size={17} />
               </button>
             )}

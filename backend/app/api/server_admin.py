@@ -42,13 +42,15 @@ class ConsoleRoute(APIRoute):
             if request.method in {"POST", "PATCH"}:
                 total, chunks = 0, []
                 policy_edit = request.method == "PATCH" and request.url.path.startswith(
-                    "/v1/server-admin/policies/")
+                    "/v1/server-admin/policies/"
+                )
                 maximum = 1048576 if policy_edit else 65536
                 async for chunk in request.stream():
                     total += len(chunk)
                     if total > maximum:
                         raise HTTPException(
-                            413, "공고 편집은 1MB, 그 외 관리자 요청은 64KB 이하입니다.")
+                            413, "공고 편집은 1MB, 그 외 관리자 요청은 64KB 이하입니다."
+                        )
                     chunks.append(chunk)
                 request._body = b"".join(chunks)
             return await original(request)
@@ -61,16 +63,23 @@ def guard_console(request: Request):
         raise HTTPException(403, "같은 백엔드 주소에서 관리 페이지를 열어 주세요.")
     origin = request.headers.get("Origin")
     if origin is not None:
-        valid = (len(request.headers.getlist("origin")) == 1 and origin_key(origin) is not None
-                 and origin_key(origin) == origin_key(str(request.base_url)))
+        valid = (
+            len(request.headers.getlist("origin")) == 1
+            and origin_key(origin) is not None
+            and origin_key(origin) == origin_key(str(request.base_url))
+        )
         if not valid:
             raise HTTPException(403, "같은 백엔드 주소에서 관리 페이지를 열어 주세요.")
     if request.method in WRITE_METHODS and request.headers.getlist("X-Auth-Request") != ["1"]:
         raise HTTPException(403, "올바른 관리자 요청이 아닙니다.")
 
 
-router = APIRouter(prefix="/v1/server-admin", tags=["server-admin"],
-                   dependencies=[Depends(guard_console)], route_class=ConsoleRoute)
+router = APIRouter(
+    prefix="/v1/server-admin",
+    tags=["server-admin"],
+    dependencies=[Depends(guard_console)],
+    route_class=ConsoleRoute,
+)
 
 
 def require_console_admin(request: Request):
@@ -99,32 +108,47 @@ class SettingsPatch(BaseModel):
 
 @pages.get("/")
 def home():
-    return FileResponse(ASSETS / "index.html", media_type="text/html",
-                        headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        ASSETS / "index.html", media_type="text/html", headers={"Cache-Control": "no-store"}
+    )
 
 
 @pages.get("/server-admin-assets/{filename}")
 def asset(filename: str):
-    allowed = {"console.css": "text/css", "console.js": "text/javascript",
-               "policies.js": "text/javascript"}
+    allowed = {
+        "console.css": "text/css",
+        "console.js": "text/javascript",
+        "policies.js": "text/javascript",
+    }
     if filename not in allowed:
         raise HTTPException(404)
-    return FileResponse(ASSETS / filename, media_type=allowed[filename],
-                        headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        ASSETS / filename, media_type=allowed[filename], headers={"Cache-Control": "no-store"}
+    )
 
 
 @router.post("/login")
 def login(data: ConsoleLogin, request: Request, response: Response, service: Service):
-    token, user = service.login(data.username, data.password.get_secret_value(), ip(request),
-                               request.cookies.get(COOKIE), console=True)
+    token, user = service.login(
+        data.username,
+        data.password.get_secret_value(),
+        ip(request),
+        request.cookies.get(COOKIE),
+        console=True,
+    )
     if admin_role(service.engine, user["id"]) != "superadmin":
         service.logout(token, console=True)
         raise HTTPException(403, "최고 관리자 계정으로 로그인해 주세요.")
-    response.set_cookie(COOKIE, token, max_age=SESSION_SECONDS, httponly=True,
-                        secure=request.app.state.settings.app_env == "production",
-                        samesite="strict", path="/")
-    return {"user": {"id": user["id"], "username": user["username"],
-                     "admin_role": "superadmin"}}
+    response.set_cookie(
+        COOKIE,
+        token,
+        max_age=SESSION_SECONDS,
+        httponly=True,
+        secure=request.app.state.settings.app_env == "production",
+        samesite="strict",
+        path="/",
+    )
+    return {"user": {"id": user["id"], "username": user["username"], "admin_role": "superadmin"}}
 
 
 @router.get("/session")
@@ -137,8 +161,13 @@ def logout(request: Request, response: Response):
     token = request.cookies.get(COOKIE)
     if token:
         get_service(request).logout(token, console=True)
-    response.delete_cookie(COOKIE, path="/", httponly=True, samesite="strict",
-                           secure=request.app.state.settings.app_env == "production")
+    response.delete_cookie(
+        COOKIE,
+        path="/",
+        httponly=True,
+        samesite="strict",
+        secure=request.app.state.settings.app_env == "production",
+    )
     return {"status": "logged_out"}
 
 
@@ -148,14 +177,19 @@ def overview(request: Request, user: Admin):
 
 
 @router.get("/policies")
-def policy_list(request: Request, user: Admin,
-                q: Annotated[str, Query(max_length=200)] = "",
-                status: Annotated[str, Query(
-                    pattern=r"^(all|raw|listing|draft|reviewed|published|rejected)$")] = "all",
-                limit: Annotated[int, Query(ge=1, le=100)] = 20,
-                cursor: Annotated[str, Query(pattern=r"^(0|[1-9][0-9]{0,7})$")] = "0"):
-    return editor.list_editable_policies(get_repository(request), q=q, status=status,
-                                         limit=limit, offset=int(cursor))
+def policy_list(
+    request: Request,
+    user: Admin,
+    q: Annotated[str, Query(max_length=200)] = "",
+    status: Annotated[
+        str, Query(pattern=r"^(all|raw|listing|draft|reviewed|published|rejected)$")
+    ] = "all",
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    cursor: Annotated[str, Query(pattern=r"^(0|[1-9][0-9]{0,7})$")] = "0",
+):
+    return editor.list_editable_policies(
+        get_repository(request), q=q, status=status, limit=limit, offset=int(cursor)
+    )
 
 
 @router.get("/policies/{policy_key}")
@@ -176,7 +210,8 @@ def policy_edit_save(policy_key: str, data: editor.PolicyEditInput, request: Req
         raise HTTPException(404, "공고를 찾을 수 없습니다.") from None
     except ValueError:
         raise HTTPException(
-            422, "공고 내용·요약 길이·조건 코드와 원문 근거를 확인하세요.") from None
+            422, "공고 내용·요약 길이·조건 코드와 원문 근거를 확인하세요."
+        ) from None
 
 
 @router.get("/settings")
@@ -193,17 +228,20 @@ def settings_update(data: SettingsPatch, request: Request, user: Admin):
         return console.update_settings(request.app.state, data.revision, data.changes)
     except SettingsConflict:
         raise HTTPException(
-            409, "다른 작업에서 설정이 변경됐습니다. 새로고침 후 다시 저장해 주세요.") from None
+            409, "다른 작업에서 설정이 변경됐습니다. 새로고침 후 다시 저장해 주세요."
+        ) from None
     except SettingsInputError:
         raise HTTPException(
-            422, "허용된 설정, 값 범위와 환경변수 우선 설정을 확인해 주세요.") from None
+            422, "허용된 설정, 값 범위와 환경변수 우선 설정을 확인해 주세요."
+        ) from None
     except (SettingsWriteError, OSError):
         raise HTTPException(503, "서버 설정 파일과 저장 권한을 확인해 주세요.") from None
 
 
 @router.get("/collection/{kind}")
-def collection_view(kind: str, request: Request, user: Admin,
-                    limit: Annotated[int, Query(ge=1, le=100)] = 20):
+def collection_view(
+    kind: str, request: Request, user: Admin, limit: Annotated[int, Query(ge=1, le=100)] = 20
+):
     if kind not in {"status", "changes", "candidates"}:
         raise HTTPException(404)
     try:
@@ -238,12 +276,14 @@ def operation_start(data: RunInput, request: Request, user: Admin):
             "windows_required": "자동 수집 등록은 Windows 서버에서 사용할 수 있습니다.",
             "schedule_configuration_mismatch": (
                 "자동 수집은 기본 .env 파일 설정을 사용합니다. "
-                "별도 설정 파일과 프로세스 환경변수를 확인해 주세요."),
+                "별도 설정 파일과 프로세스 환경변수를 확인해 주세요."
+            ),
             "schedule_time_limit": "자동 수집의 회차 제한 시간을 600초 이하로 설정해 주세요.",
         }
         status = 409 if error.args[0] in {"operation_busy", "restart_required"} else 503
         raise HTTPException(
-            status, messages.get(error.args[0], "작업을 시작하지 못했습니다.")) from None
+            status, messages.get(error.args[0], "작업을 시작하지 못했습니다.")
+        ) from None
     except (ValueError, OSError, RuntimeError):
         raise HTTPException(422, "실행 범위와 저장된 서버 설정을 확인해 주세요.") from None
 
@@ -277,8 +317,10 @@ def processes_control(data: runtime.ControlInput, request: Request, user: Admin)
             "unmanaged_runtime": "개발 또는 운영 실행 BAT로 서버를 시작한 뒤 사용해 주세요.",
         }
         code = error.args[0]
-        raise HTTPException(409 if code in {"collection_busy", "control_busy"} else 503,
-                            messages.get(code, "프로세스 제어를 시작하지 못했습니다.")) from None
+        raise HTTPException(
+            409 if code in {"collection_busy", "control_busy"} else 503,
+            messages.get(code, "프로세스 제어를 시작하지 못했습니다."),
+        ) from None
     except (OSError, subprocess.SubprocessError):
         raise HTTPException(503, "프로세스 제어를 시작하지 못했습니다.") from None
 
