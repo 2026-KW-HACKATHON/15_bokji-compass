@@ -29,6 +29,7 @@
   padding: 12px;
 }
 .easy-mode .explorer .explorer-advanced > summary {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   padding: 18px 20px;

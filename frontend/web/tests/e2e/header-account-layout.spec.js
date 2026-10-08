@@ -5,6 +5,7 @@ for (const easy of [false, true]) {
   test(`login keeps the header readable and navigation available, easy=${easy}`, async ({
     page,
   }, testInfo) => {
+    test.slow(); // Check several viewport sizes, account transitions and three languages.
     await mockPolicyApi(page);
     await page.route('**/v1/auth/kakao/status', (route) =>
       route.fulfill({ json: { enabled: true } }),

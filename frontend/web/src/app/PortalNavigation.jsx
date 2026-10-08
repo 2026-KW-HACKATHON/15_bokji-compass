@@ -82,8 +82,14 @@ export default function PortalNavigation({ page, savedCount = 0 }) {
             className="portal-nav-group"
             data-active={isSectionActive(section, page)}
             data-open={openSection === section.id}
-            onPointerEnter={(event) => {
-              if (event.pointerType === 'mouse' && window.matchMedia('(hover: hover)').matches) {
+            onPointerMove={(event) => {
+              // Mode changes can mount a group under a stationary pointer.
+              // Open on deliberate movement, preserving explicitly clicked menus.
+              if (
+                event.pointerType === 'mouse' &&
+                window.matchMedia('(hover: hover)').matches &&
+                openSection !== section.id
+              ) {
                 reveal(section.id, event.currentTarget.querySelector('button'), 'hover');
               }
             }}

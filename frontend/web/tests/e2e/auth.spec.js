@@ -58,7 +58,9 @@ async function confirmEmail(page, email = 'wizard@example.com', actual = false) 
       ).code
     : '123456';
   await page.getByLabel('이메일 인증번호', { exact: true }).fill(code);
+  const verification = page.waitForResponse('**/v1/auth/email/verify');
   await page.getByRole('button', { name: '인증번호 확인', exact: true }).click();
+  expect((await verification).ok()).toBe(true);
   await expect(page.getByRole('button', { name: '다음', exact: true })).toBeEnabled();
   await next(page);
 }
@@ -444,7 +446,7 @@ for (const remember of [false, true]) {
 test('phone-free signup, DB username check, login, member edit, reload and logout', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   const suffix = String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 10));
   const username = 'user_' + suffix;
   await page.goto('/#signup');
@@ -482,15 +484,21 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('signup-review.png'), fullPage: true });
+  const signupResponse = page.waitForResponse('**/v1/auth/signup');
   await page.getByRole('button', { name: '회원가입', exact: true }).click();
+  expect((await signupResponse).status()).toBe(201);
   await expect(page.getByRole('status')).toContainText('회원가입이 완료');
   await page.getByRole('link', { name: '로그인하러 가기' }).click();
   await page.getByLabel('아이디', { exact: true }).fill(username);
   await page.getByLabel('비밀번호', { exact: true }).fill('WrongPassword42!');
+  const deniedLogin = page.waitForResponse('**/v1/auth/login');
   await page.getByRole('button', { name: '로그인', exact: true }).click();
+  expect((await deniedLogin).status()).toBe(401);
   await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
+  const loginResponse = page.waitForResponse('**/v1/auth/login');
   await page.getByRole('button', { name: '로그인', exact: true }).click();
+  expect((await loginResponse).ok()).toBe(true);
   await expect(page.getByText('홍길동님', { exact: true })).toHaveText('홍길동님');
   await page.goto('/#profile');
   await openBasics(page);
@@ -528,7 +536,7 @@ test('phone-free signup, DB username check, login, member edit, reload and logou
 test('account withdrawal requires confirmation, ends the session and releases the username', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   const username =
     'delete_' + String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 10));
   async function signup(email) {
@@ -539,14 +547,18 @@ test('account withdrawal requires confirmation, ends the session and releases th
     await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
     await next(page);
     await confirmEmail(page, email, true);
+    const signupResponse = page.waitForResponse('**/v1/auth/signup');
     await page.getByRole('button', { name: '회원가입', exact: true }).click();
+    expect((await signupResponse).status()).toBe(201);
     await expect(page.getByRole('status')).toContainText('회원가입이 완료');
   }
   async function login() {
     await page.getByRole('link', { name: '로그인하러 가기' }).click();
     await page.getByLabel('아이디', { exact: true }).fill(username);
     await page.getByLabel('비밀번호', { exact: true }).fill(password);
+    const loginResponse = page.waitForResponse('**/v1/auth/login');
     await page.getByRole('button', { name: '로그인', exact: true }).click();
+    expect((await loginResponse).ok()).toBe(true);
     await expect(page.getByText('회원님', { exact: true })).toHaveText('회원님');
   }
 
@@ -583,12 +595,14 @@ test('account withdrawal requires confirmation, ends the session and releases th
   await page.screenshot({ path: testInfo.outputPath('withdrawal-review.png'), fullPage: true });
   const request = page.waitForRequest('**/v1/auth/withdraw');
   const withdrawalResponse = page.waitForResponse('**/v1/auth/withdraw');
+  const reloaded = page.waitForEvent('domcontentloaded');
   await withdraw.click();
   expect((await request).postDataJSON()).toEqual({
     notice_version: consentVersion,
     confirmation: true,
   });
   expect((await withdrawalResponse).ok()).toBe(true);
+  await reloaded;
   await expect(page.getByRole('link', { name: '로그인', exact: true }).first()).toBeVisible();
   expect((await page.request.get('/api/v1/auth/me')).status()).toBe(401);
   expect(

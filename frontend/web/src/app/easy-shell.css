@@ -571,6 +571,11 @@ html[data-easy='true'] {
   min-width: 56px;
   flex-shrink: 0;
 }
+@media (max-width: 360px) {
+  .portal-shell.easy-mode .easy-navigation .easy-menu-toggle {
+    min-height: 76px;
+  }
+}
 @media (max-width: 1000px) {
   .portal-shell.easy-mode .portal-header {
     grid-template-columns: minmax(0, 1fr);

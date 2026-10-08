@@ -95,6 +95,8 @@ def test_liveness_is_not_database_readiness():
             "/v1/monitoring/preferences",
             "/v1/monitoring/refresh",
             "/v1/monitoring/candidates/state",
+            "/v1/monitoring/candidates/feedback",
+            "/v1/monitoring/candidates/preparation",
             "/v1/monitoring/alerts/read",
             "/v1/monitoring/delete",
             "/v1/mobile/notifications/preferences",

@@ -18,6 +18,15 @@ const original = {
   sourceFields: { documents: '신분증 사본', application_period: '2026-10-01 ~ 2026-10-31 접수' },
   sourceUrl: 'https://example.com/notice/fixture-housing',
   applicationUrl: 'https://example.com/apply/fixture-housing',
+  applicationGuide: {
+    methodText: '온라인 신청',
+    onlineUrl: 'https://example.com/apply/fixture-housing',
+    phones: [],
+    visitText: '',
+    documents: [{ id: 'copy-of-id', label: '신분증 사본' }],
+    documentsStatus: 'listed',
+    documentsNote: '',
+  },
   publishedDate: '2026-09-22',
   modifiedDate: '2026-10-01',
   budgetNotice: '예산 소진 시 조기 마감',
@@ -178,6 +187,7 @@ for (const language of ['en', 'zh', 'vi', 'ja']) {
     await expect(
       dialog.locator('a[href="https://example.com/notice/fixture-housing"]').first(),
     ).toBeVisible();
+    await dialog.locator('.application-guide-trigger').click();
     await expect(
       dialog.locator('a[href="https://example.com/apply/fixture-housing"]'),
     ).toBeVisible();
