@@ -256,11 +256,14 @@ def recognized_assets(profile, *, financial_rate=D("0.0626"), allow_approximatio
     missing, breakdown = [], []
     region = profile.region
     approximate_region = False
+    regional_basis = None
     if region == "jeonnam_gwangju":
         if profile.region_subdivision == "gwangju":
             region = "metropolitan"
+            regional_basis = "다른 광역시 기준"
         elif profile.region_subdivision == "other":
             region = "other"
+            regional_basis = "그 밖의 지역 기준"
         elif allow_approximation:
             region = "other"
             approximate_region = True
@@ -302,6 +305,8 @@ def recognized_assets(profile, *, financial_rate=D("0.0626"), allow_approximatio
                 "label": (
                     "지역별 기본재산 공제 한도 (그 밖의 지역 기준 임시 적용)"
                     if approximate_region
+                    else f"지역별 기본재산 공제 한도 ({regional_basis})"
+                    if regional_basis
                     else "지역별 기본재산 공제 한도"
                 ),
                 "amount": allowance,
@@ -499,9 +504,25 @@ def rules_catalog():
         + [
             {
                 "region": "jeonnam_gwangju",
-                "status": "unavailable",
+                "status": "requires_subdivision",
                 "basic_property_allowance": None,
                 "residential_property_limit": None,
+                "subdivisions": [
+                    {
+                        "region_subdivision": "gwangju",
+                        "based_on_region": "metropolitan",
+                        "status": "supported",
+                        "basic_property_allowance": REGIONAL_ALLOWANCES["metropolitan"][0],
+                        "residential_property_limit": REGIONAL_ALLOWANCES["metropolitan"][1],
+                    },
+                    {
+                        "region_subdivision": "other",
+                        "based_on_region": "other",
+                        "status": "supported",
+                        "basic_property_allowance": REGIONAL_ALLOWANCES["other"][0],
+                        "residential_property_limit": REGIONAL_ALLOWANCES["other"][1],
+                    },
+                ],
             }
         ],
         "programs": [
