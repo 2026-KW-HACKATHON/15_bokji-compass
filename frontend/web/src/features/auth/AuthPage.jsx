@@ -1,3 +1,4 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import { authRequest } from './authApi.js';
@@ -27,6 +28,7 @@ export default function AuthPage({ type, onLogin, easy }) {
 }
 
 function LoginForm({ onLogin, destination, outcome, easy }) {
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -88,14 +90,16 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
   return (
     <AuthLayout
       type="login"
-      title="로그인"
+      title={t('로그인')}
       description={
-        easy ? '아이디와 비밀번호를 입력해 주세요.' : '반가워요. 편한 방법으로 로그인해 주세요.'
+        easy
+          ? t('아이디와 비밀번호를 입력해 주세요.')
+          : t('반가워요. 편한 방법으로 로그인해 주세요.')
       }
     >
       {error && (
         <p id="login-error" ref={errorRef} tabIndex={-1} role="alert" className="auth-error">
-          {error}
+          {t(error)}
         </p>
       )}
       {!easy && (
@@ -106,7 +110,7 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
             onError={setError}
             onAvailability={onAvailability}
           />
-          <div className="auth-method-divider">또는</div>
+          <div className="auth-method-divider">{t('또는')}</div>
         </div>
       )}
       <button
@@ -117,15 +121,17 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
         disabled={busy || kakaoBusy}
         onClick={toggleCredentials}
       >
-        <Icon name="user" size={18} /> 아이디로 로그인 <Icon name="down" size={18} />
+        <Icon name="user" size={18} />
+        {t(' 아이디로 로그인 ')}
+        <Icon name="down" size={18} />
       </button>
       <div id="id-login-panel" className="auth-id-panel" hidden={!showCredentials}>
-        <form onSubmit={submit} noValidate aria-label="로그인 정보">
-          {busy && <p role="status">로그인하는 중입니다…</p>}
+        <form onSubmit={submit} noValidate aria-label={t('로그인 정보')}>
+          {busy && <p role="status">{t('로그인하는 중입니다…')}</p>}
           <fieldset className="auth-fields" disabled={busy || kakaoBusy}>
             <div className="auth-input-group">
               <label className="field-label" htmlFor="auth-username">
-                아이디
+                {t('아이디')}
               </label>
               <input
                 ref={usernameRef}
@@ -138,7 +144,7 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
                 onChange={(event) => setUsername(event.target.value)}
                 required
                 maxLength={20}
-                placeholder="가입한 아이디"
+                placeholder={t('가입한 아이디')}
                 aria-invalid={invalidField === 'username' || undefined}
                 aria-describedby={invalidField === 'username' ? 'login-error' : undefined}
               />
@@ -146,23 +152,23 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
             <PasswordInput
               id="auth-password"
               name="password"
-              label="비밀번호"
+              label={t('비밀번호')}
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="비밀번호"
+              placeholder={t('비밀번호')}
               aria-invalid={invalidField === 'password' || undefined}
               aria-describedby={invalidField === 'password' ? 'login-error' : undefined}
             />
             <button className="button primary full" type="submit">
-              {busy ? '로그인 중…' : '로그인'}
+              {busy ? t('로그인 중…') : t('로그인')}
             </button>
           </fieldset>
         </form>
       </div>
       {easy && (
         <div className="auth-easy-alternative">
-          <p>카카오로도 로그인할 수 있어요.</p>
+          <p>{t('카카오로도 로그인할 수 있어요.')}</p>
           <KakaoLogin
             busy={busy || kakaoBusy}
             onBusy={setKakaoBusy}
@@ -172,7 +178,8 @@ function LoginForm({ onLogin, destination, outcome, easy }) {
         </div>
       )}
       <p className="auth-switch">
-        처음 방문하셨나요? <a href="#signup">회원가입</a>
+        {t('처음 방문하셨나요? ')}
+        <a href="#signup">{t('회원가입')}</a>
       </p>
     </AuthLayout>
   );

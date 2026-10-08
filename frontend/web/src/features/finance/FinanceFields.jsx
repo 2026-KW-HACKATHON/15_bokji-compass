@@ -1,18 +1,13 @@
+import useFinanceI18n from './useFinanceI18n.js';
 import FinanceHelp from './FinanceHelp.jsx';
 import CountField from './CountField.jsx';
 import { fieldValue, visibleFields } from './financeFlow.js';
-import {
-  formatMoney,
-  formatNumber,
-  moneyInput,
-  moneyInputValue,
-  parseMoney,
-  MAX_HOUSEHOLD_SIZE,
-} from './financeModel.js';
-
-const numericValue = (value) => (typeof value === 'number' ? formatNumber(value) : (value ?? ''));
+import { moneyInput, moneyInputValue, parseMoney, MAX_HOUSEHOLD_SIZE } from './financeModel.js';
 
 function FinanceField({ field, draft, onChange, easy }) {
+  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+
+  const numericValue = (value) => (typeof value === 'number' ? formatNumber(value) : (value ?? ''));
   const value = fieldValue(draft, field.path);
   const hintId = field.hint ? `${field.id}-hint` : undefined;
   const exampleId = field.example ? `${field.id}-example` : undefined;
@@ -20,12 +15,12 @@ function FinanceField({ field, draft, onChange, easy }) {
     return (
       <CountField
         id={field.id}
-        label={field.label}
+        label={t(field.label)}
         value={value}
         onChange={(next) => onChange(field.path, next)}
         min={field.min}
         max={field.max}
-        hint={field.hint}
+        hint={t(field.hint)}
         {...field.countChoices}
       />
     );
@@ -41,13 +36,13 @@ function FinanceField({ field, draft, onChange, easy }) {
             onChange={(event) => onChange(field.path, event.target.checked)}
           />
           <span>
-            {field.label}
-            {field.optional && <small className="finance-optional">선택 · 필수 아님</small>}
+            {t(field.label)}
+            {field.optional && <small className="finance-optional">{t('선택 · 필수 아님')}</small>}
           </span>
         </label>
         {field.hint && (
           <p className="finance-help" id={hintId}>
-            {field.hint}
+            {t(field.hint)}
           </p>
         )}
       </div>
@@ -55,7 +50,7 @@ function FinanceField({ field, draft, onChange, easy }) {
   if (field.type === 'select')
     return (
       <div className="finance-field">
-        <label htmlFor={field.id}>{field.label}</label>
+        <label htmlFor={field.id}>{t(field.label)}</label>
         <select
           id={field.id}
           value={value ?? 'unknown'}
@@ -64,11 +59,11 @@ function FinanceField({ field, draft, onChange, easy }) {
         >
           {field.options.map(([key, label]) => (
             <option key={key} value={key}>
-              {label}
+              {t(label)}
             </option>
           ))}
         </select>
-        {field.hint && <small id={hintId}>{field.hint}</small>}
+        {field.hint && <small id={hintId}>{t(field.hint)}</small>}
       </div>
     );
   const money = field.type === 'money';
@@ -95,22 +90,22 @@ function FinanceField({ field, draft, onChange, easy }) {
       <div className="finance-field-heading">
         {money && easy ? (
           <label id={`${field.id}-label`} htmlFor={presence === 'yes' ? field.id : presenceId}>
-            {field.label}
+            {t(field.label)}
           </label>
         ) : money ? (
           <span id={`${field.id}-label`} className="finance-field-label">
-            {field.label}
+            {t(field.label)}
           </span>
         ) : (
-          <label htmlFor={field.id}>{field.label}</label>
+          <label htmlFor={field.id}>{t(field.label)}</label>
         )}
-        {field.example && <small id={exampleId}>{field.example}</small>}
+        {field.example && <small id={exampleId}>{t(field.example)}</small>}
       </div>
       {money && easy && (
         <select
           id={presenceId}
           className="finance-presence-select"
-          aria-label={`${field.label} 입력 상태`}
+          aria-label={t('{value1} 입력 상태', { value1: t(field.label) })}
           aria-describedby={
             [
               presence === 'yes' ? unitHintId : presence === 'none' ? presenceHintId : null,
@@ -123,16 +118,16 @@ function FinanceField({ field, draft, onChange, easy }) {
           value={presence}
           onChange={(event) => changePresence(event.target.value)}
         >
-          <option value="yes">금액 입력</option>
-          <option value="none">없음 (0원)</option>
-          <option value="unknown">모름 · 확인 필요</option>
+          <option value="yes">{t('금액 입력')}</option>
+          <option value="none">{t('없음 (0원)')}</option>
+          <option value="unknown">{t('모름 · 확인 필요')}</option>
         </select>
       )}
       {money && !easy && (
         <div
           className="finance-presence"
           role="group"
-          aria-label={`${field.label} 여부`}
+          aria-label={t('{value1} 여부', { value1: t(field.label) })}
           aria-describedby={exampleId}
         >
           {[
@@ -146,7 +141,7 @@ function FinanceField({ field, draft, onChange, easy }) {
               aria-pressed={presence === key}
               onClick={() => changePresence(key)}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -162,39 +157,41 @@ function FinanceField({ field, draft, onChange, easy }) {
             onChange={(event) =>
               onChange(field.path, money ? moneyInput(event.target.value) : event.target.value)
             }
-            placeholder={field.placeholder ?? (money ? '예: 500' : '모르면 비워두세요')}
+            placeholder={t(field.placeholder ?? (money ? '예: 500' : '모르면 비워두세요'))}
             aria-describedby={
               [unitHintId, exampleId, hintId].filter(Boolean).join(' ') || undefined
             }
           />
-          <span aria-hidden="true">{money ? '만원' : field.unit}</span>
+          <span aria-hidden="true">{money ? t('만원') : t(field.unit)}</span>
         </div>
       )}
       {money && presence === 'yes' && (
         <small id={unitHintId}>
-          {easy ? '만원 단위로 입력합니다. ' : '만원 단위로 입력해요. '}
+          {easy ? t('만원 단위로 입력합니다. ') : t('만원 단위로 입력해요. ')}
           {convertedAmount === null
-            ? '예: 500 = 500만 원'
-            : `입력한 금액: ${formatMoney(convertedAmount)}`}
+            ? t('예: 500 = 500만 원')
+            : t('입력한 금액: {value1}', { value1: formatMoney(convertedAmount) })}
         </small>
       )}
       {money && presence !== 'yes' && (!easy || presence === 'none') && (
         <small id={presenceHintId}>
           {presence === 'none'
             ? easy
-              ? '0원으로 계산합니다.'
-              : '0원으로 계산해요.'
+              ? t('0원으로 계산합니다.')
+              : t('0원으로 계산해요.')
             : easy
-              ? '확인할 항목으로 남깁니다. 다음으로 진행할 수 있습니다.'
-              : '확인 필요로 남겨두고 다음으로 갈 수 있어요.'}
+              ? t('확인할 항목으로 남깁니다. 다음으로 진행할 수 있습니다.')
+              : t('확인 필요로 남겨두고 다음으로 갈 수 있어요.')}
         </small>
       )}
-      {field.hint && <small id={hintId}>{field.hint}</small>}
+      {field.hint && <small id={hintId}>{t(field.hint)}</small>}
     </div>
   );
 }
 
 export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemoveVehicle, easy }) {
+  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+
   const basicMember = question.id.match(/^member-(\d+)-basic$/);
   const memberIndex = basicMember ? Number(basicMember[1]) : null;
   return (
@@ -203,7 +200,7 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
         <button
           type="button"
           className="text-button"
-          aria-label={`가구원 ${memberIndex + 1}의 소득 모두 없음으로 선택`}
+          aria-label={t('가구원 {value1}의 소득 모두 없음으로 선택', { value1: memberIndex + 1 })}
           onClick={() =>
             onChange(`members.${memberIndex}`, {
               ...draft.members[memberIndex],
@@ -214,7 +211,7 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
             })
           }
         >
-          {easy ? '이 가구원의 소득 모두 없음으로 선택' : '이 가구원의 소득이 모두 없어요'}
+          {easy ? t('이 가구원의 소득 모두 없음으로 선택') : t('이 가구원의 소득이 모두 없어요')}
         </button>
       )}
       {question.id === 'debts' && (
@@ -223,7 +220,7 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
           className="text-button"
           onClick={() => onChange('debts', { bank: 0, public: 0, other: 0 })}
         >
-          {easy ? '모든 부채를 없음으로 선택' : '부채가 모두 없어요'}
+          {easy ? t('모든 부채를 없음으로 선택') : t('부채가 모두 없어요')}
         </button>
       )}
       <div className="finance-grid">
@@ -240,14 +237,18 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
       {question.id === 'vehicles' && draft.vehicle_status === 'owned' && (
         <div className="finance-vehicle-list">
           <p className="finance-help">
-            보유하거나 빌려 쓰는 차량 수에 맞춰 추가하세요. 차량별 정보를 입력합니다.
+            {' '}
+            {t('보유하거나 빌려 쓰는 차량 수에 맞춰 추가하세요. 차량별 정보를 입력합니다.')}{' '}
           </p>
           {draft.vehicles.map((_, i) => (
             <div key={i}>
-              <span>차량 {i + 1}</span>
+              <span>
+                {t('차량')} {i + 1}
+              </span>
               {draft.vehicles.length > 1 && (
                 <button type="button" className="text-button" onClick={() => onRemoveVehicle(i)}>
-                  차량 {i + 1} 삭제
+                  {' '}
+                  {t('차량')} {i + 1} {t('삭제')}{' '}
                 </button>
               )}
             </div>
@@ -258,7 +259,8 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
             disabled={draft.vehicles.length >= 10}
             onClick={onAddVehicle}
           >
-            차량 추가
+            {' '}
+            {t('차량 추가')}{' '}
           </button>
         </div>
       )}
@@ -267,24 +269,28 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
   );
 }
 
-function displayValue(field, draft) {
+function displayValue(field, draft, t, formatMoney, formatNumber) {
   const value = fieldValue(draft, field.path);
   if (field.path === 'household_size') {
     const count = Number(value);
     return Number.isInteger(count) && count >= 1 && count <= MAX_HOUSEHOLD_SIZE
-      ? `${formatNumber(count)}명`
-      : '확인 필요';
+      ? t('{value1}명', { value1: formatNumber(count) })
+      : t('확인 필요');
   }
-  if (field.type === 'check') return value ? '예' : '미확인';
+  if (field.type === 'check') return t(value ? '예' : '미확인');
   if (field.type === 'select')
-    return field.options.find(([key]) => String(key) === String(value ?? 'unknown'))?.[1] ?? '모름';
-  if (value == null || String(value).trim() === '') return '확인 필요';
+    return t(
+      field.options.find(([key]) => String(key) === String(value ?? 'unknown'))?.[1] ?? '모름',
+    );
+  if (value == null || String(value).trim() === '') return t('확인 필요');
   if (field.type === 'money') return formatMoney(parseMoney(value, field.label));
   const number = Number(String(value).replaceAll(',', ''));
-  return `${formatNumber(number)}${field.unit}`;
+  return `${formatNumber(number)}${t(field.unit)}`;
 }
 
 export function FinanceReview({ questions, sections, draft, onEdit }) {
+  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+
   const reviewSections =
     sections ?? questions.map((question) => ({ ...question, questions: [question] }));
   return (
@@ -292,15 +298,16 @@ export function FinanceReview({ questions, sections, draft, onEdit }) {
       {reviewSections.map((section) => (
         <article key={section.id}>
           <div className="finance-review-heading">
-            <h3>{section.title}</h3>
+            <h3>{translateTitle(section.title)}</h3>
             {onEdit && (
               <button
                 type="button"
                 className="text-button"
-                aria-label={`${section.title} 수정`}
+                aria-label={t('{value1} 수정', { value1: translateTitle(section.title) })}
                 onClick={() => onEdit(section.questions[0].id)}
               >
-                수정
+                {' '}
+                {t('수정')}{' '}
               </button>
             )}
           </div>
@@ -310,10 +317,10 @@ export function FinanceReview({ questions, sections, draft, onEdit }) {
                 <div key={field.path}>
                   <dt>
                     {sections && /^(member|vehicle)-\d+-/.test(question.id)
-                      ? `${question.title.split(' · ')[0]} · ${field.label}`
-                      : field.label}
+                      ? `${translateTitle(question.title.split(' · ')[0])} · ${t(field.label)}`
+                      : t(field.label)}
                   </dt>
-                  <dd>{displayValue(field, draft)}</dd>
+                  <dd>{displayValue(field, draft, t, formatMoney, formatNumber)}</dd>
                 </div>
               )),
             )}

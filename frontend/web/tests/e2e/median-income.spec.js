@@ -44,7 +44,7 @@ test('quick calculator immediately shows official amounts and optional income ra
     page.getByRole('heading', { name: '중위소득 빠르게 확인', exact: true }),
   ).toBeVisible();
   await expect(page.locator('.median-summary')).toContainText('2,564,238원');
-  await expect(page.getByRole('combobox')).toHaveCount(1);
+  await expect(page.getByRole('combobox', { name: '가구원 수', exact: true })).toHaveCount(1);
   await expect(page.getByLabel('직업군', { exact: true })).toHaveCount(0);
   await page.getByLabel('가구원 수', { exact: true }).selectOption('4');
   await expect(page.locator('.median-summary')).toContainText('6,494,738원');

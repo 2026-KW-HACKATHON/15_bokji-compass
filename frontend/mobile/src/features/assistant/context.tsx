@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
-export type ChatPolicy = {
-  id: string;
-  title: string;
-  revisionId: string | null;
-};
+import { parsePolicy } from "../policies/model";
+export type ChatPolicy = ReturnType<typeof parsePolicy>;
 type Panel = "chat" | "menu" | null;
 const Assistant = createContext({
   enabled: true,

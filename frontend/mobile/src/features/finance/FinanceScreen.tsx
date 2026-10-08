@@ -1,5 +1,7 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import { emptyVehicle } from "@bokji/core/finance-model";
 import { financeGroups } from "@bokji/core/finance-flow";
 import {
@@ -18,8 +20,10 @@ import { financeSections, reviewRows, validateSection } from "./flow";
 import { QuickCalculator } from "./QuickCalculator";
 import { QuestionFields } from "./FinanceFields";
 import { FinanceResult } from "./FinanceResult";
+import { financeError, questionTitle } from "./i18n";
 
 export default function FinanceScreen() {
+  const { t, formatMoney } = useI18n();
   const { api, session, configError, easy } = useRuntime();
   const auth = useSession();
   const [form] = useState(() => createFinanceState(api));
@@ -30,10 +34,16 @@ export default function FinanceScreen() {
   );
   const [consentedDraft, setConsentedDraft] = useState<unknown>(null);
   const consent = consentedDraft === state.draft;
-  const setConsent = (value: boolean) => setConsentedDraft(value ? state.draft : null);
-  const [confirmation, setConfirmation] = useState<{ action: "load" | "clear" | "delete"; draft: unknown } | null>(null);
-  const confirm = confirmation?.draft === state.draft ? confirmation.action : null;
-  const setConfirm = (action: "load" | "clear" | "delete" | null) => setConfirmation(action ? { action, draft: state.draft } : null);
+  const setConsent = (value: boolean) =>
+    setConsentedDraft(value ? state.draft : null);
+  const [confirmation, setConfirmation] = useState<{
+    action: "load" | "clear" | "delete";
+    draft: unknown;
+  } | null>(null);
+  const confirm =
+    confirmation?.draft === state.draft ? confirmation.action : null;
+  const setConfirm = (action: "load" | "clear" | "delete" | null) =>
+    setConfirmation(action ? { action, draft: state.draft } : null);
   const [validationKey, setValidationKey] = useState(0);
   useEffect(() => {
     void Promise.resolve(form.setIdentity(auth)).then((result) => {
@@ -50,7 +60,7 @@ export default function FinanceScreen() {
   function next() {
     const invalid = validateSection(current, state.draft);
     if (invalid) {
-      error(invalid.message);
+      error(financeError(invalid.message, t));
       return;
     }
     form.show("detail", state.step + 1);
@@ -62,7 +72,7 @@ export default function FinanceScreen() {
         const invalid = validateSection(section, state.draft);
         if (invalid) {
           form.show("detail", section.index);
-          error(invalid.message);
+          error(financeError(invalid.message, t));
           return;
         }
       }
@@ -94,7 +104,9 @@ export default function FinanceScreen() {
               ? "계산 결과를 확인하세요"
               : state.step === 5
                 ? "입력한 내용을 확인해 주세요"
-                : `${current.title} 정보를 알려주세요`
+                : t("{section} 정보를 알려주세요", {
+                    section: t(current.title),
+                  })
         }
         eyebrow={
           state.view === "quick" ? "중위소득 빠른 확인" : "소득·재산 상세 계산"
@@ -196,7 +208,7 @@ export default function FinanceScreen() {
             <Card>
               <Copy>입력한 금융정보를 내 계정에 저장하는 데 동의합니다.</Copy>
               <Switch
-                accessibilityLabel="금융정보 계정 저장 동의"
+                accessibilityLabel={t("금융정보 계정 저장 동의")}
                 value={consent}
                 onValueChange={setConsent}
                 disabled={state.busy}
@@ -218,7 +230,7 @@ export default function FinanceScreen() {
           <View style={{ gap: 10 }}>
             <View
               accessibilityRole="progressbar"
-              accessibilityLabel="상세 계산 진행"
+              accessibilityLabel={t("상세 계산 진행")}
               accessibilityValue={{ min: 1, max: 6, now: state.step + 1 }}
               style={{
                 height: 6,
@@ -244,7 +256,10 @@ export default function FinanceScreen() {
                 <Pressable
                   key={group}
                   accessibilityRole="button"
-                  accessibilityLabel={`${i + 1}단계 ${group}`}
+                  accessibilityLabel={t("{step}단계 {group}", {
+                    step: i + 1,
+                    group: t(group),
+                  })}
                   accessibilityState={{
                     selected: state.step === i,
                     disabled: i > state.step || state.busy,
@@ -267,12 +282,14 @@ export default function FinanceScreen() {
                       fontWeight: i === state.step ? "700" : "500",
                     }}
                   >
-                    {i + 1} {group}
+                    {i + 1} {t(group)}
                   </Text>
                 </Pressable>
               ))}
             </ScrollView>
-            <Copy muted>{state.step + 1} / 6단계 · 금액은 만원 단위</Copy>
+            <Copy muted>
+              {t("{step} / 6단계 · 금액은 만원 단위", { step: state.step + 1 })}
+            </Copy>
           </View>
           {state.step === 5 ? (
             <>
@@ -286,11 +303,15 @@ export default function FinanceScreen() {
                     }}
                   >
                     <View style={{ flex: 1 }}>
-                      <Copy title>{section.title} 정보</Copy>
+                      <Copy title>
+                        {t("{section} 정보", { section: t(section.title) })}
+                      </Copy>
                     </View>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`${section.title} 정보 수정`}
+                      accessibilityLabel={t("{section} 정보 수정", {
+                        section: t(section.title),
+                      })}
                       onPress={() => form.show("detail", section.index)}
                       style={{ minHeight: 48, padding: 12 }}
                     >
@@ -307,9 +328,11 @@ export default function FinanceScreen() {
                   </View>
                   <Details
                     collapsible
-                    label={`${section.title} 입력 내역 펼치기`}
+                    label={t("{section} 입력 내역 펼치기", {
+                      section: t(section.title),
+                    })}
                   >
-                    {reviewRows(section, state.draft).map(
+                    {reviewRows(section, state.draft, { t, formatMoney }).map(
                       (row: { key: string; label: string; value: string }) => (
                         <View
                           key={row.key}
@@ -341,7 +364,7 @@ export default function FinanceScreen() {
                     color: colors.ink,
                   }}
                 >
-                  {question.title}
+                  {questionTitle(question, state.draft, t)}
                 </Text>
                 <QuestionFields
                   question={question}
@@ -352,14 +375,20 @@ export default function FinanceScreen() {
                 {question.id === "vehicles" &&
                   state.draft.vehicle_status === "owned" && (
                     <View style={{ gap: 12 }}>
-                      <Copy>차량 {state.draft.vehicles.length}대</Copy>
+                      <Copy>
+                        {t("차량 {count}대", {
+                          count: state.draft.vehicles.length,
+                        })}
+                      </Copy>
                       {state.draft.vehicles.length > 1 &&
                         state.draft.vehicles.map(
                           (_: unknown, index: number) => (
                             <Button
                               key={index}
                               secondary
-                              label={`차량 ${index + 1} 삭제`}
+                              label={t("차량 {index} 삭제", {
+                                index: index + 1,
+                              })}
                               disabled={state.busy}
                               onPress={() =>
                                 form.edit(
@@ -395,7 +424,9 @@ export default function FinanceScreen() {
               label={
                 state.step === 5
                   ? "참고 금액 계산하기"
-                  : `다음 · ${financeGroups[state.step + 1]}`
+                  : t("다음 · {section}", {
+                      section: t(financeGroups[state.step + 1]),
+                    })
               }
               busy={state.busy}
               disabled={!!configError && state.step === 5}

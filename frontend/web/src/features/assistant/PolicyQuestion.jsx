@@ -1,4 +1,6 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
+import ContentLanguageNotice from '../../shared/i18n/ContentLanguageNotice.jsx';
 import { appConfig } from '../../shared/config.js';
 import { createFaqApi, createQuestionApi } from './questionApi.js';
 import { policyQuestionLabels } from './assistantContent.js';
@@ -14,6 +16,8 @@ export default function PolicyQuestion({
   historyEntry,
   onRecord,
 }) {
+  const { t, intlLocale } = useI18n();
+
   const id = useId();
   const active = useRef(null);
   const interacted = useRef(Boolean(historyEntry));
@@ -101,27 +105,30 @@ export default function PolicyQuestion({
 
   return (
     <section className="policy-question" aria-labelledby={`${id}-heading`}>
-      <h3 id={`${id}-heading`}>이 공고에 대해 질문하기</h3>
+      <h3 id={`${id}-heading`}>{t('이 공고에 대해 질문하기')}</h3>
       {!user ? (
         <p>
-          <a href="#login">로그인</a>하면 공고 내용을 물어볼 수 있어요.
+          <a href="#login">{t('로그인')}</a>
+          {t('하면 공고 내용을 물어볼 수 있어요.')}{' '}
         </p>
       ) : !revisionId ? (
-        <p>전체 공고에서 최신 공고를 다시 열면 질문할 수 있어요.</p>
+        <p>{t('전체 공고에서 최신 공고를 다시 열면 질문할 수 있어요.')}</p>
       ) : (
         <>
-          <p>궁금한 내용을 선택하면 답변을 바로 확인할 수 있어요.</p>
-          {faqState === 'loading' && <p role="status">기본 질문을 준비하고 있어요.</p>}
+          <p>{t('궁금한 내용을 선택하면 답변을 바로 확인할 수 있어요.')}</p>
+          {faqState === 'loading' && <p role="status">{t('기본 질문을 준비하고 있어요.')}</p>}
           {faqState === 'error' && (
             <div className="faq-error">
               <p role="status">
-                기본 질문을 불러오지 못했어요. 다시 시도하거나 직접 질문해 주세요.
+                {' '}
+                {t('기본 질문을 불러오지 못했어요. 다시 시도하거나 직접 질문해 주세요.')}{' '}
               </p>
               <button
                 className="button secondary"
                 onClick={() => setFaqRetry((value) => value + 1)}
               >
-                기본 질문 다시 불러오기
+                {' '}
+                {t('기본 질문 다시 불러오기')}{' '}
               </button>
             </div>
           )}
@@ -130,7 +137,7 @@ export default function PolicyQuestion({
               ref={choicesPanel}
               className="faq-choices"
               role="group"
-              aria-label="자주 묻는 질문"
+              aria-label={t('자주 묻는 질문')}
             >
               {faqs.map((item) => (
                 <button
@@ -142,7 +149,7 @@ export default function PolicyQuestion({
                   aria-controls={`${id}-answer`}
                   onClick={() => selectFaq(item)}
                 >
-                  {item.question}
+                  {t(item.question)}
                 </button>
               ))}
             </div>
@@ -152,23 +159,26 @@ export default function PolicyQuestion({
             id={`${id}-answer`}
             tabIndex={-1}
             role="region"
-            aria-label="질문 답변"
+            aria-label={t('질문 답변')}
             aria-live="polite"
             aria-atomic="true"
           >
             {answer && (
               <div className="policy-answer">
-                <p className="selected-question">{selectedQuestion}</p>
+                <ContentLanguageNotice />
+                <p className="selected-question">
+                  {answer.response_type === 'prepared' ? t(selectedQuestion) : selectedQuestion}
+                </p>
                 <h4>
                   {answer.response_type === 'prepared'
-                    ? '준비된 안내'
+                    ? t('준비된 안내')
                     : variant === 'chat'
-                      ? 'AI 답변'
-                      : '공고에 따른 안내'}
+                      ? t('AI 답변')
+                      : t('공고에 따른 안내')}
                 </h4>
                 {variant === 'chat' && answer.answer.length > 650 ? (
                   <details className="policy-answer-full">
-                    <summary>안내 내용 펼쳐 보기</summary>
+                    <summary>{t('안내 내용 펼쳐 보기')}</summary>
                     <p className="policy-answer-text">{answer.answer}</p>
                   </details>
                 ) : (
@@ -176,7 +186,7 @@ export default function PolicyQuestion({
                 )}
                 {answer.citations.length > 0 && (
                   <details>
-                    <summary>원문 근거 보기</summary>
+                    <summary>{t('원문 근거 보기')}</summary>
                     {answer.citations.map((item, index) => (
                       <blockquote key={index}>{item.quote}</blockquote>
                     ))}
@@ -184,7 +194,7 @@ export default function PolicyQuestion({
                 )}
                 {answer.follow_up_questions.length > 0 && (
                   <>
-                    <h4>추가로 확인할 내용</h4>
+                    <h4>{t('추가로 확인할 내용')}</h4>
                     <ul>
                       {answer.follow_up_questions.map((item, index) => (
                         <li key={index}>{item}</li>
@@ -192,7 +202,7 @@ export default function PolicyQuestion({
                     </ul>
                   </>
                 )}
-                <p>신청 자격과 현재 접수 여부는 담당 기관에서 확인해 주세요.</p>
+                <p>{t('신청 자격과 현재 접수 여부는 담당 기관에서 확인해 주세요.')}</p>
                 {faqs.length > 0 && (
                   <button
                     className="button secondary"
@@ -204,19 +214,22 @@ export default function PolicyQuestion({
                       choicesPanel.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
                     }}
                   >
-                    다른 질문 고르기
+                    {' '}
+                    {t('다른 질문 고르기')}{' '}
                   </button>
                 )}
               </div>
             )}
           </div>
-          <h4>다른 내용이 궁금하신가요?</h4>
+          <h4>{t('다른 내용이 궁금하신가요?')}</h4>
           <p>
-            직접 질문하면 내 정보에 저장한 지역·연령대를 참고해요. 정보가 없으면 공고를 기준으로
-            안내해요. 이름과 전화번호는 적지 마세요.
+            {' '}
+            {t(
+              '직접 질문하면 내 정보에 저장한 지역·연령대를 참고해요. 정보가 없으면 공고를 기준으로 안내해요. 이름과 전화번호는 적지 마세요.',
+            )}{' '}
           </p>
           <form onSubmit={submit}>
-            <label htmlFor={`${id}-input`}>궁금한 내용</label>
+            <label htmlFor={`${id}-input`}>{t('궁금한 내용')}</label>
             <textarea
               id={`${id}-input`}
               value={question}
@@ -225,16 +238,16 @@ export default function PolicyQuestion({
               onChange={(event) => setQuestion(event.target.value)}
               required
               disabled={busy}
-              placeholder="어떤 지원을 받을 수 있나요?"
+              placeholder={t('어떤 지원을 받을 수 있나요?')}
             />
             <button className="button primary" type="submit" disabled={busy || !question.trim()}>
-              {busy ? '원문을 확인하고 있어요…' : '질문 보내기'}
+              {busy ? t('원문을 확인하고 있어요…') : t('질문 보내기')}
             </button>
           </form>
           <div role="status" aria-live="polite">
-            {busy && '답변을 준비하고 있어요.'}
+            {busy && t('답변을 준비하고 있어요.')}
           </div>
-          {error && <p role="alert">{error}</p>}
+          {error && <p role="alert">{t(error)}</p>}
         </>
       )}
     </section>

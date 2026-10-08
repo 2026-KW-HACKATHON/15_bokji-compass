@@ -73,3 +73,10 @@ groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원�
 manifest.json은 정책별 초안 경로·처리 상태 관리. 실제 함수 반환·폴더 구조는 [파싱 사용법](raw-parsing.md) 참조. MySQL 저장·조회·공개 계약은 미구현이며 향후 버전 변환을 통해 별도 연결.
 
 004 SQL은 v2 저장 테이블 DDL만 제공. 기존 v1 파일·001 개발 SQL·인증 DB 자동 이관 없음.
+
+## 공개 공고 표시 번역 (2026-10-07)
+
+`contracts/translation.py`의 `PolicyTranslation`은 표시 문구만 담는다. 원문 개정·자격 모델·
+분야·지역·태그·날짜/URL 메타데이터를 생성하거나 변경하지 않는다. 응답의 공고 ID·개정 ID·
+내용 해시·언어와 DB 캐시 버전을 대조하며 숫자·숫자 날짜·URL·이메일·필드 구조를 보존한다.
+정확한 필드·오류·일일 생성 한도는 [공고 번역 계약](policy-translation.md)을 따른다.

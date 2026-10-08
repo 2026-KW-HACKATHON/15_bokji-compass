@@ -1,3 +1,4 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useRef, useState } from 'react';
 import MemberProfileForm from '../auth/MemberProfileForm.jsx';
 import { financeQuestions } from '../finance/financeFlow.js';
@@ -19,11 +20,12 @@ import './profile.css';
 const tabs = [{ id: 'overview', label: '전체 요약' }, ...profileCategories];
 
 function Facts({ rows, onAdd }) {
+  const { t } = useI18n();
   return (
     <dl className="profile-facts">
       {rows.map(([label, value]) => (
         <div key={label}>
-          <dt>{label}</dt>
+          <dt>{t(label)}</dt>
           <dd>
             {value ??
               (onAdd ? (
@@ -31,12 +33,13 @@ function Facts({ rows, onAdd }) {
                   type="button"
                   className="text-button"
                   onClick={onAdd}
-                  aria-label={`${label} 입력하기`}
+                  aria-label={t('{label} 입력하기', { label: t(label) })}
                 >
-                  미입력 · 추가하기 <Icon name="right" size={16} />
+                  {t('미입력 · 추가하기 ')}
+                  <Icon name="right" size={16} />
                 </button>
               ) : (
-                '미입력'
+                t('미입력')
               ))}
           </dd>
         </div>
@@ -58,6 +61,7 @@ export default function ProfilePage({
   financialSession,
   onFinancialLoaded,
 }) {
+  const { t } = useI18n();
   const savedProfile = profile || (user ? memberRecommendationProfile(user) : defaultProfile);
   const [active, setActive] = useState('overview');
   const [editing, setEditing] = useState({});
@@ -81,8 +85,34 @@ export default function ProfilePage({
           : financeState === 'error'
             ? '확인 필요'
             : '미입력';
-  const rowsOf = (id) =>
-    id === 'finance' ? (finance ? financeRows(finance) : []) : profileRows(id, user, savedProfile);
+  const rowsOf = (id) => {
+    const rows =
+      id === 'finance'
+        ? finance
+          ? financeRows(finance)
+          : []
+        : profileRows(id, user, savedProfile);
+    return rows.map(([label, value]) => {
+      if (value == null || ['이름', '거주 주소', '우편번호'].includes(label)) return [label, value];
+      if (label === '나이 (만 나이)') return [label, t('{age}세', { age: user.age })];
+      if (label === '가구원') return [label, t('{count}명', { count: finance.household_size })];
+      if (label === '차량' && finance?.vehicle_status === 'owned')
+        return [label, t('{count}대', { count: finance.vehicles.length })];
+      const counts = String(value).match(/^(\d+) \/ (\d+)개 항목 입력$/);
+      if (counts)
+        return [
+          label,
+          t('{filled} / {total}개 항목 입력', { filled: counts[1], total: counts[2] }),
+        ];
+      return [
+        label,
+        String(value)
+          .split(' · ')
+          .map((item) => t(item))
+          .join(' · '),
+      ];
+    });
+  };
   const statusOf = (id) => (id === 'finance' ? financialStatus : rowStatus(rowsOf(id)));
   function choose(id, focusHeading = false) {
     setActive(id);
@@ -118,7 +148,7 @@ export default function ProfilePage({
     setMessage(
       stored === false
         ? '이번 방문에 사용할 정보를 저장했어요. 브라우저 저장 설정을 변경하지 못했어요.'
-        : `${profileCategories.find((category) => category.id === id).label} 저장이 완료됐어요.`,
+        : { category: profileCategories.find((category) => category.id === id).label },
     );
   }
   function financeLink() {
@@ -129,11 +159,11 @@ export default function ProfilePage({
   return (
     <section className="profile-page profile-manager">
       <div className="page-heading">
-        {!easy && <span className="eyebrow">회원·추천 정보</span>}
-        <h1>내 정보</h1>
-        <p>입력한 정보를 확인하고, 필요한 항목만 추가하거나 수정해요.</p>
+        {!easy && <span className="eyebrow">{t('회원·추천 정보')}</span>}
+        <h1>{t('내 정보')}</h1>
+        <p>{t('입력한 정보를 확인하고, 필요한 항목만 추가하거나 수정해요.')}</p>
       </div>
-      <div className="profile-tabs" role="tablist" aria-label="내 정보 카테고리">
+      <div className="profile-tabs" role="tablist" aria-label={t('내 정보 카테고리')}>
         {tabs.map(({ id, label }, index) => (
           <button
             key={id}
@@ -141,8 +171,8 @@ export default function ProfilePage({
             role="tab"
             id={`profile-tab-${id}`}
             aria-selected={active === id}
-            aria-label={label}
-            aria-description={editing[id] ? '저장 전 입력이 있어요.' : undefined}
+            aria-label={t(label)}
+            aria-description={editing[id] ? t('저장 전 입력이 있어요.') : undefined}
             aria-controls={`profile-panel-${id}`}
             tabIndex={active === id ? 0 : -1}
             ref={(node) => {
@@ -151,14 +181,16 @@ export default function ProfilePage({
             onClick={() => choose(id)}
             onKeyDown={(event) => tabKey(event, index)}
           >
-            {label}
+            {t(label)}
             {editing[id] && <span className="profile-draft-dot" aria-hidden="true" />}
           </button>
         ))}
       </div>
       {message && (
         <p className="notice-box profile-save-message" role="status">
-          {message}
+          {typeof message === 'string'
+            ? t(message)
+            : t('{category} 저장이 완료됐어요.', { category: t(message.category) })}
         </p>
       )}
       <div
@@ -169,8 +201,8 @@ export default function ProfilePage({
         tabIndex={0}
       >
         <div className="profile-overview-heading">
-          <h2>입력한 정보 한눈에 보기</h2>
-          <p>카테고리를 선택하면 상세 정보를 볼 수 있어요. 모든 항목은 선택 사항이에요.</p>
+          <h2>{t('입력한 정보 한눈에 보기')}</h2>
+          <p>{t('카테고리를 선택하면 상세 정보를 볼 수 있어요. 모든 항목은 선택 사항이에요.')}</p>
         </div>
         <div className="profile-overview-grid">
           {profileCategories.map(({ id, label, icon, description }) => {
@@ -178,7 +210,7 @@ export default function ProfilePage({
             const preview = rows
               .filter(([, value]) => value != null)
               .slice(0, 2)
-              .map(([key, value]) => `${key} · ${value}`)
+              .map(([key, value]) => `${t(key)} · ${value}`)
               .join(' / ');
             return (
               <button
@@ -186,7 +218,7 @@ export default function ProfilePage({
                 type="button"
                 className="profile-category-card"
                 onClick={() => choose(id, true)}
-                aria-label={`${label} 상세 보기`}
+                aria-label={t('{label} 상세 보기', { label: t(label) })}
               >
                 <span className="profile-category-top">
                   <span className="profile-category-icon">
@@ -195,23 +227,24 @@ export default function ProfilePage({
                   <span
                     className={`profile-status ${statusOf(id) === '입력됨' ? 'is-filled' : ''}`}
                   >
-                    {editing[id] ? '저장 전' : statusOf(id)}
+                    {editing[id] ? t('저장 전') : t(statusOf(id))}
                   </span>
                 </span>
-                <strong>{label}</strong>
-                <span className="profile-category-description">{description}</span>
+                <strong>{t(label)}</strong>
+                <span className="profile-category-description">{t(description)}</span>
                 <span className="profile-category-preview">
                   {preview ||
                     (id === 'finance' && financialStatus !== '미입력'
                       ? {
-                          '확인 중': '계정에 저장된 정보를 확인하고 있어요.',
-                          '확인 필요': '저장된 정보를 불러오지 못했어요.',
-                          '작성 중': '계산기에서 입력을 이어갈 수 있어요.',
+                          '확인 중': t('계정에 저장된 정보를 확인하고 있어요.'),
+                          '확인 필요': t('저장된 정보를 불러오지 못했어요.'),
+                          '작성 중': t('계산기에서 입력을 이어갈 수 있어요.'),
                         }[financialStatus]
-                      : '아직 입력한 정보가 없어요.')}
+                      : t('아직 입력한 정보가 없어요.'))}
                 </span>
                 <span className="profile-category-link">
-                  정보 보기 <Icon name="right" size={17} />
+                  {t('정보 보기 ')}
+                  <Icon name="right" size={17} />
                 </span>
               </button>
             );
@@ -221,11 +254,12 @@ export default function ProfilePage({
           <p className="profile-account-note">
             <Icon name="info" size={18} />
             <span>
-              추천 정보는 로그인 없이 입력할 수 있어요. 회원 정보와 소득·재산을 계정에 저장하려면{' '}
+              {t(
+                '추천 정보는 로그인 없이 입력할 수 있어요. 회원 정보와 소득·재산을 계정에 저장하려면 로그인해 주세요.',
+              )}{' '}
               <a className="text-button" href="#login?return=profile">
-                로그인
+                {t('로그인')}
               </a>
-              해 주세요.
             </span>
           </p>
         )}
@@ -247,13 +281,15 @@ export default function ProfilePage({
                   headingRefs.current[id] = node;
                 }}
               >
-                {label}
+                {t(label)}
               </h2>
-              <p>{description}</p>
+              <p>{t(description)}</p>
             </div>
             {!editing[id] && id !== 'finance' && (
               <button type="button" className="button secondary" onClick={() => edit(id)}>
-                {label} {statusOf(id) === '미입력' ? '추가' : '수정'}
+                {t(statusOf(id) === '미입력' ? '{label} 추가' : '{label} 수정', {
+                  label: t(label),
+                })}
               </button>
             )}
           </div>
@@ -263,12 +299,13 @@ export default function ProfilePage({
                 <>
                   <Facts rows={rowsOf(id)} />
                   <details className="profile-finance-details">
-                    <summary>입력한 소득·재산 상세 보기</summary>
+                    <summary>{t('입력한 소득·재산 상세 보기')}</summary>
                     <FinanceReview draft={finance} questions={financeQuestions(finance)} />
                   </details>
                   <p className="field-hint">
-                    입력한 정보 기준이에요. 모르는 금액은 ‘확인 필요’로 표시해요. 계정 저장은
-                    계산기에서 동의 후 진행할 수 있어요.
+                    {t(
+                      '입력한 정보 기준이에요. 모르는 금액은 ‘확인 필요’로 표시해요. 계정 저장은 계산기에서 동의 후 진행할 수 있어요.',
+                    )}
                   </p>
                 </>
               ) : (
@@ -276,35 +313,35 @@ export default function ProfilePage({
                   <Icon name="wallet" size={32} />
                   <h3>
                     {hasFinanceDraft
-                      ? '작성 중인 정보가 있어요'
+                      ? t('작성 중인 정보가 있어요')
                       : financialStatus === '확인 중'
-                        ? '저장된 정보를 확인하고 있어요'
+                        ? t('저장된 정보를 확인하고 있어요')
                         : financialStatus === '확인 필요'
-                          ? '저장된 정보를 확인하지 못했어요'
-                          : '소득·재산 정보를 추가해 보세요'}
+                          ? t('저장된 정보를 확인하지 못했어요')
+                          : t('소득·재산 정보를 추가해 보세요')}
                   </h3>
                   <p>
                     {hasFinanceDraft
-                      ? '계산기에서 작성하던 내용을 이어서 입력할 수 있어요.'
-                      : '가구원별 소득과 재산을 차례로 입력하고 계산할 수 있어요.'}
+                      ? t('계산기에서 작성하던 내용을 이어서 입력할 수 있어요.')
+                      : t('가구원별 소득과 재산을 차례로 입력하고 계산할 수 있어요.')}
                   </p>
                 </div>
               )}
               {financeError && (
                 <div className="profile-finance-error" role="status">
-                  <p>{financeError}</p>
+                  <p>{t(financeError)}</p>
                   <button type="button" className="text-button" onClick={savedFinance?.retry}>
-                    다시 불러오기
+                    {t('다시 불러오기')}
                   </button>
                 </div>
               )}
               <a className="button primary" href="#calculator-details" onClick={financeLink}>
                 <Icon name="calculator" />
                 {finance
-                  ? '계산기에서 확인·수정'
+                  ? t('계산기에서 확인·수정')
                   : hasFinanceDraft
-                    ? '계산기에서 이어서 입력'
-                    : '소득·재산 입력하기'}
+                    ? t('계산기에서 이어서 입력')
+                    : t('소득·재산 입력하기')}
               </a>
             </div>
           ) : editing[id] ? (
@@ -321,9 +358,9 @@ export default function ProfilePage({
                     }}
                   />
                   <details className="profile-recommendation-options">
-                    <summary>추천에 사용할 지역·연령대 별도로 설정</summary>
+                    <summary>{t('추천에 사용할 지역·연령대 별도로 설정')}</summary>
                     <p className="field-hint">
-                      회원 정보와 다른 기준으로 공고를 추천받고 싶을 때 설정해요.
+                      {t('회원 정보와 다른 기준으로 공고를 추천받고 싶을 때 설정해요.')}
                     </p>
                     <ProfileForm
                       profile={savedProfile}
@@ -353,14 +390,18 @@ export default function ProfilePage({
               <Facts rows={rowsOf(id)} onAdd={() => edit(id)} />
               {id === 'basic' && user && (
                 <p className="field-hint">
-                  아이디 · {user.username || '카카오 계정'} / 회원 정보는 계정에 저장돼요.
+                  {t('아이디 · ')}
+                  {user.username || t('카카오 계정')}
+                  {t(' / 회원 정보는 계정에 저장돼요.')}
                 </p>
               )}
               {id !== 'basic' || !user ? (
                 <p className="field-hint">
                   {remembered
-                    ? '이 브라우저에 저장된 추천 정보예요.'
-                    : '이번 방문에 사용할 추천 정보예요. 수정할 때 브라우저 저장 여부를 선택할 수 있어요.'}
+                    ? t('이 브라우저에 저장된 추천 정보예요.')
+                    : t(
+                        '이번 방문에 사용할 추천 정보예요. 수정할 때 브라우저 저장 여부를 선택할 수 있어요.',
+                      )}
                 </p>
               ) : null}
             </div>
@@ -369,7 +410,7 @@ export default function ProfilePage({
       ))}
       {profile && active === 'overview' && (
         <div className="profile-manage-footer">
-          <span>추천 설정을 지우면 회원 정보와 소득·재산은 유지돼요.</span>
+          <span>{t('추천 설정을 지우면 회원 정보와 소득·재산은 유지돼요.')}</span>
           <button
             type="button"
             className="text-button"
@@ -378,7 +419,7 @@ export default function ProfilePage({
               setMessage('맞춤 추천 설정을 지웠어요.');
             }}
           >
-            맞춤 추천 설정 지우기
+            {t('맞춤 추천 설정 지우기')}
           </button>
         </div>
       )}

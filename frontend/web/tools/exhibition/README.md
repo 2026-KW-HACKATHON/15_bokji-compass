@@ -20,7 +20,7 @@
 
 2026-10-06: 고정 HTTPS API 주소와 서버 연결 장애 안내를 포함한 서명 release APK를 등록했습니다. 공개 다운로드 주소는 `https://bokji.commitnaru.com/downloads/bokji-compass.apk`이며 독립 JS 번들을 포함합니다. QR 페이지에 **APK 다운로드** 버튼과 휴대폰 설치 순서를 추가했습니다. APK가 없거나 관리자 권한이 만료되면 버튼을 비활성화하고 다운로드 주소를 제거합니다.
 
-등록된 APK는 83,118,477바이트(79.3 MiB), SHA-256 `4a90e98b8cb39e482b68ecd506e4b21b9234d2ee0bbb43d9ec63bac665b9ded7`입니다. APK 정적 검사 21개 PASS, 공개 HTTPS 전체 다운로드 해시 일치와 APK MIME·attachment·no-store를 확인했습니다. 실제 Android 휴대폰 설치·실행은 아직 미검증입니다. QR 관리 화면은 관리자 로그인, QR의 APK 다운로드 대상은 로그인 없이 이용할 수 있습니다.
+2026-10-08 현재 등록된 앱은 **0.4.0 (versionCode 4)**, 84,695,836바이트(80.8 MiB), SHA-256 `2c56799fddf8fb00a5a6e84a5806c729e4513d06c5120f9b118a8cf7ca285bb7`입니다. 기존 배포 인증서 일치와 APK 정적 검사 21개 PASS, 공개 HTTPS 전체 다운로드 해시 일치와 APK MIME·attachment·no-store를 확인했습니다. `public/downloads`와 운영 `dist/downloads`에 동일한 파일을 등록했으며 기존 고정 QR을 그대로 사용합니다. 이번 작업에서 실제 Android 휴대폰 설치·실행은 검사하지 않았습니다. QR 관리 화면은 관리자 로그인, QR의 APK 다운로드 대상은 로그인 없이 이용할 수 있습니다.
 
 후속 APK 갱신 절차:
 

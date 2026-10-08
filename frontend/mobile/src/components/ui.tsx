@@ -14,7 +14,6 @@ import {
   ScrollView,
   Switch,
   StyleSheet,
-  Text,
   TextInput,
   TextInputProps,
   View,
@@ -26,6 +25,12 @@ import { connectionMessage } from "../services/serverConnection";
 import { useAssistant } from "../features/assistant/context";
 import { Icon } from "./Icon";
 import { colors, typography } from "./theme";
+import { LocalizedText as Text } from "../i18n/LocalizedText";
+import { useI18n } from "../i18n/context";
+import {
+  LanguageSelector,
+  OriginalContentNotice,
+} from "../i18n/LanguageSelector";
 
 export { colors } from "./theme";
 const ScreenScroll = createContext<React.RefObject<ScrollView | null> | null>(
@@ -42,14 +47,17 @@ export function Copy({
   title = false,
   muted = false,
   numberOfLines,
+  original = false,
 }: React.PropsWithChildren<{
   title?: boolean;
   muted?: boolean;
   numberOfLines?: number;
+  original?: boolean;
 }>) {
   const { easy } = useRuntime();
   return (
     <Text
+      original={original}
       numberOfLines={numberOfLines}
       accessibilityRole={title ? "header" : undefined}
       style={{
@@ -93,6 +101,7 @@ export function Screen({ children }: React.PropsWithChildren) {
         >
           <ScreenScroll.Provider value={scroll}>
             <ServerConnectionNotice />
+            <OriginalContentNotice />
             {children}
           </ScreenScroll.Provider>
         </ScrollView>
@@ -132,10 +141,11 @@ function ServerConnectionNotice() {
   );
 }
 function EasyModeBar() {
+  const { t, locale } = useI18n();
   const { easy, setEasy } = useRuntime();
   const { openMenu } = useAssistant();
   const { width, fontScale } = useWindowDimensions();
-  const stacked = easy || width < 350 || fontScale > 1.2;
+  const stacked = easy || locale !== "ko" || width < 350 || fontScale > 1.2;
   return (
     <View
       style={{
@@ -184,6 +194,7 @@ function EasyModeBar() {
             복지나침반
           </Text>
         </View>
+        <LanguageSelector compact />
         <Text
           style={{
             flex: stacked ? 1 : 0,
@@ -195,14 +206,14 @@ function EasyModeBar() {
           쉬운 화면
         </Text>
         <Switch
-          accessibilityLabel="쉬운 화면"
+          accessibilityLabel={t("쉬운 화면")}
           value={easy}
           onValueChange={setEasy}
           trackColor={{ false: "#CDD4DA", true: colors.green }}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="전체 메뉴 열기"
+          accessibilityLabel={t("전체 메뉴 열기")}
           onPress={openMenu}
           style={{
             minWidth: easy ? 52 : 44,
@@ -246,6 +257,7 @@ export function Details({
   accessibilityLabel?: string;
   collapsible?: boolean;
 }>) {
+  const { t } = useI18n();
   const { easy } = useRuntime();
   const [open, setOpen] = useState(false);
   if (!easy && !collapsible) return <>{children}</>;
@@ -253,7 +265,7 @@ export function Details({
     <View style={{ gap: 10 }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
+        accessibilityLabel={t(accessibilityLabel)}
         accessibilityState={{ expanded: open }}
         aria-expanded={open}
         onPress={() => setOpen(!open)}
@@ -303,12 +315,17 @@ export function ReadableText({
   label: string;
   title?: boolean;
 }) {
+  const { t } = useI18n();
   const { easy } = useRuntime();
   const [open, setOpen] = useState(false);
   const lengthy = easy && text.length > (title ? 60 : 100);
   return (
     <View style={{ gap: 6 }}>
-      <Copy title={title} numberOfLines={lengthy && !open ? 3 : undefined}>
+      <Copy
+        original
+        title={title}
+        numberOfLines={lengthy && !open ? 3 : undefined}
+      >
         {text}
       </Copy>
       {lengthy && (
@@ -316,7 +333,10 @@ export function ReadableText({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           aria-expanded={open}
-          accessibilityLabel={`${label} ${open ? "접기" : "전체 보기"}`}
+          accessibilityLabel={t("{label} {action}", {
+            label: t(label),
+            action: t(open ? "접기" : "전체 보기"),
+          })}
           onPress={() => setOpen(!open)}
           style={{ minHeight: 48, justifyContent: "center" }}
         >
@@ -341,12 +361,14 @@ export function Button({
   disabled = false,
   secondary = false,
   busy = false,
+  original = false,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
   busy?: boolean;
+  original?: boolean;
 }) {
   const { easy } = useRuntime();
   return (
@@ -375,6 +397,7 @@ export function Button({
     >
       {busy && <ActivityIndicator color={secondary ? colors.green : "#FFF"} />}
       <Text
+        original={original}
         style={{
           color: secondary ? colors.ink : "#FFF",
           fontSize: easy ? 20 : 16,
@@ -391,13 +414,15 @@ export function Button({
 }
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const { easy } = useRuntime();
+  const { t } = useI18n();
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       <Copy>{label}</Copy>
       <TextInput
         {...props}
-        accessibilityLabel={props.accessibilityLabel ?? label}
+        accessibilityLabel={t(props.accessibilityLabel ?? label)}
+        placeholder={props.placeholder ? t(props.placeholder) : undefined}
         placeholderTextColor={colors.muted}
         onFocus={(event) => {
           setFocused(true);
@@ -482,11 +507,12 @@ export function Choice({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const { easy } = useRuntime();
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={t(accessibilityLabel)}
       accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}

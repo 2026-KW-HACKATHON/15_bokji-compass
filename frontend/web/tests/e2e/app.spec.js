@@ -140,7 +140,7 @@ test('easy profile categories save independently and opted-in recommendations su
   await page.goto('/#profile');
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(page.getByRole('tabpanel', { name: '전체 요약' })).toBeVisible();
-  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(page.locator('.profile-page').getByRole('combobox')).toHaveCount(0);
   await page.getByRole('tab', { name: '기본 정보', exact: true }).click();
   await page.getByRole('button', { name: '기본 정보 추가', exact: true }).click();
   await page.getByRole('combobox', { name: '거주 지역' }).selectOption('서울');
@@ -191,7 +191,7 @@ test('category switches and easy mode preserve unfinished profile inputs and sto
   await expect(page.getByRole('combobox', { name: '연령대 (선택)', exact: true })).toHaveValue(
     '65세 이상',
   );
-  await expect(page.getByRole('combobox')).toHaveCount(2);
+  await expect(page.locator('.profile-page').getByRole('combobox')).toHaveCount(2);
   await page.getByRole('tab', { name: '직업·가구', exact: true }).click();
   await expect(
     page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true }),

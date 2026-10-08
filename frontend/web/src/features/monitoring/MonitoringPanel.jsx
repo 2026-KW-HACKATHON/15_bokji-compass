@@ -1,3 +1,8 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
+import {
+  PolicyTranslationStatus,
+  useVisibleTranslatedPolicy,
+} from '../../shared/i18n/PolicyTranslation.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { request } from '../../shared/api/client.js';
 import Icon from '../../shared/ui/Icon.jsx';
@@ -11,7 +16,6 @@ import {
   housingTenures,
   housingTypes,
   initialMonitoringProfile,
-  monitoringDate,
   monitoringOccupations,
   todayInSeoul,
 } from './monitoringModel.js';
@@ -39,6 +43,16 @@ export default function MonitoringPanel({
   variant = 'default',
   refreshKey = 0,
 }) {
+  const { t, intlLocale } = useI18n();
+
+  const monitoringDate = (value) =>
+    value
+      ? new Intl.DateTimeFormat(intlLocale, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Seoul',
+        }).format(new Date(value))
+      : t('미확인');
   const prefix = useId();
   const owner = user?.id || null;
   const currentOwner = useRef(owner);
@@ -252,7 +266,7 @@ export default function MonitoringPanel({
   function optionField(name, label, options) {
     return (
       <label className="field-label" htmlFor={id(name)} key={name}>
-        {label}
+        {t(label)}
         <select
           id={id(name)}
           value={draft[name] ?? ''}
@@ -261,10 +275,10 @@ export default function MonitoringPanel({
             setDraft((value) => ({ ...value, [name]: event.target.value || null }))
           }
         >
-          <option value="">미확인·입력하지 않음</option>
+          <option value="">{t('미확인·입력하지 않음')}</option>
           {options.map(([value, text]) => (
             <option key={value} value={value}>
-              {text}
+              {t(text)}
             </option>
           ))}
         </select>
@@ -274,7 +288,7 @@ export default function MonitoringPanel({
   function booleanField(name, label, yes = '예', no = '아니요') {
     return (
       <label className="field-label" htmlFor={id(name)} key={name}>
-        {label}
+        {t(label)}
         <select
           id={id(name)}
           value={draft[name] === null ? '' : String(draft[name])}
@@ -286,9 +300,9 @@ export default function MonitoringPanel({
             }))
           }
         >
-          <option value="">미확인·입력하지 않음</option>
-          <option value="true">{yes}</option>
-          <option value="false">{no}</option>
+          <option value="">{t('미확인·입력하지 않음')}</option>
+          <option value="true">{t(yes)}</option>
+          <option value="false">{t(no)}</option>
         </select>
       </label>
     );
@@ -304,50 +318,56 @@ export default function MonitoringPanel({
         <div>
           {!assistant && (
             <span className="eyebrow">
-              <Icon name="compass" size={18} /> 내 상황에 맞춰 이어가는 안내
+              <Icon name="compass" size={18} /> {t('내 상황에 맞춰 이어가는 안내')}{' '}
             </span>
           )}
-          <h2 id={id('heading')}>{assistant ? '나를 위한 지원 현황' : '지속 복지 안내'}</h2>
+          <h2 id={id('heading')}>{assistant ? t('나를 위한 지원 현황') : t('지속 복지 안내')}</h2>
           <p>
             {assistant
-              ? '저장한 생활정보와 등록된 공고를 기준으로 정리했어요.'
-              : '거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.'}
+              ? t('저장한 생활정보와 등록된 공고를 기준으로 정리했어요.')
+              : t('거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.')}
           </p>
         </div>
         {snapshot && (
           <span className={'monitoring-status' + (snapshot.enabled ? ' is-on' : '')}>
-            {snapshot.enabled ? '지속 안내 켜짐' : '지속 안내 꺼짐'}
+            {snapshot.enabled ? t('지속 안내 켜짐') : t('지속 안내 꺼짐')}
           </span>
         )}
       </div>
       <p className="monitoring-service-note">
-        등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요. 새 안내는 이 화면에서 확인할 수
-        있어요.
+        {' '}
+        {t(
+          '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요. 새 안내는 이 화면에서 확인할 수 있어요.',
+        )}{' '}
       </p>
       {!owner ? (
         <p className="notice-box">
-          <a href={assistant ? '#login?return=assistant' : '#login?return=profile'}>로그인</a>하면
-          내 계정에 정보를 저장하고 안내를 이어갈 수 있어요.
+          <a href={assistant ? '#login?return=assistant' : '#login?return=profile'}>
+            {t('로그인')}
+          </a>
+          {t('하면 내 계정에 정보를 저장하고 안내를 이어갈 수 있어요.')}{' '}
         </p>
       ) : mode !== 'api' ? (
-        <p className="notice-box">지속 안내를 사용할 수 있도록 서버 연결을 확인해 주세요.</p>
+        <p className="notice-box">{t('지속 안내를 사용할 수 있도록 서버 연결을 확인해 주세요.')}</p>
       ) : (
         <>
           {busy === 'load' && (
             <p className="notice-box" role="status">
-              계정에 저장된 지속 안내를 불러오고 있어요.
+              {' '}
+              {t('계정에 저장된 지속 안내를 불러오고 있어요.')}{' '}
             </p>
           )}
           {error && (
             <div className="notice-box monitoring-error" role="alert">
-              <p>{error}</p>
+              <p>{t(error)}</p>
               {(!snapshot || error.includes('로그인 상태')) && (
                 <button
                   className="text-button"
                   disabled={!!busy}
                   onClick={() => setReload((value) => value + 1)}
                 >
-                  다시 불러오기
+                  {' '}
+                  {t('다시 불러오기')}{' '}
                 </button>
               )}
               {error.includes('로그인 상태') && (
@@ -355,20 +375,23 @@ export default function MonitoringPanel({
                   className="text-button"
                   href={assistant ? '#login?return=assistant' : '#login?return=profile'}
                 >
-                  로그인하기
+                  {' '}
+                  {t('로그인하기')}{' '}
                 </a>
               )}
             </div>
           )}
           {message && (
             <p className="monitoring-message" role="status">
-              <Icon name="check" size={18} /> {message}
+              <Icon name="check" size={18} /> {t(message)}
             </p>
           )}
           {snapshot?.scan_status === 'unavailable' && (
             <p className="notice-box" role="status">
-              생활정보는 저장됐지만 지원 공고를 확인하지 못했어요. 잠시 후 공고 다시 확인을 눌러
-              주세요.
+              {' '}
+              {t(
+                '생활정보는 저장됐지만 지원 공고를 확인하지 못했어요. 잠시 후 공고 다시 확인을 눌러 주세요.',
+              )}{' '}
             </p>
           )}
           {snapshot && (
@@ -379,8 +402,10 @@ export default function MonitoringPanel({
                     <p className="monitoring-paused">
                       <Icon name="info" size={18} />
                       {snapshot.profile
-                        ? '지속 안내가 꺼져 있어요. 저장된 기록은 확인할 수 있고, 안내 설정에서 다시 켤 수 있어요.'
-                        : '생활정보를 추가하면 내 상황에 맞는 지원을 함께 살펴볼 수 있어요.'}
+                        ? t(
+                            '지속 안내가 꺼져 있어요. 저장된 기록은 확인할 수 있고, 안내 설정에서 다시 켤 수 있어요.',
+                          )
+                        : t('생활정보를 추가하면 내 상황에 맞는 지원을 함께 살펴볼 수 있어요.')}
                     </p>
                   )}
                   <DashboardOverview
@@ -392,7 +417,9 @@ export default function MonitoringPanel({
                     onStartConversation={onStartConversation}
                   />
                   <div className="monitoring-dashboard-tools">
-                    <p>최근 공고 확인 · {monitoringDate(snapshot.last_checked_at)}</p>
+                    <p>
+                      {t('최근 공고 확인 ·')} {monitoringDate(snapshot.last_checked_at)}
+                    </p>
                     <button
                       className="text-button"
                       disabled={!!busy || !snapshot.enabled}
@@ -400,10 +427,10 @@ export default function MonitoringPanel({
                         void change('refresh', api.refresh, '등록된 공고를 다시 확인했어요.')
                       }
                     >
-                      {busy === 'refresh' ? '공고 확인 중…' : '공고 다시 확인'}
+                      {busy === 'refresh' ? t('공고 확인 중…') : t('공고 다시 확인')}
                     </button>
                   </div>
-                  <nav className="monitoring-dashboard-nav" aria-label="AI 복지비서 상세 항목">
+                  <nav className="monitoring-dashboard-nav" aria-label={t('AI 복지비서 상세 항목')}>
                     {[
                       ['candidates', '관련 지원 후보'],
                       ['questions', '추가 확인 정보'],
@@ -423,10 +450,11 @@ export default function MonitoringPanel({
                 <>
                   <div className="monitoring-overview">
                     <p>
-                      <strong>최근 공고 확인</strong> {monitoringDate(snapshot.last_checked_at)}
+                      <strong>{t('최근 공고 확인')}</strong>{' '}
+                      {monitoringDate(snapshot.last_checked_at)}
                     </p>
                     <p>
-                      <strong>회원 거주 지역</strong> {user.region || '미입력'}
+                      <strong>{t('회원 거주 지역')}</strong> {user.region || t('미입력')}
                       {user.address ? ` · ${user.address}` : ''}{' '}
                       <a
                         className="text-button"
@@ -440,7 +468,8 @@ export default function MonitoringPanel({
                             : undefined
                         }
                       >
-                        회원 정보에서 수정
+                        {' '}
+                        {t('회원 정보에서 수정')}{' '}
                       </a>
                     </p>
                   </div>
@@ -457,7 +486,7 @@ export default function MonitoringPanel({
                           setError('');
                         }}
                       >
-                        {editing ? '생활정보 수정 닫기' : '생활정보 수정'}
+                        {editing ? t('생활정보 수정 닫기') : t('생활정보 수정')}
                       </button>
                       <button
                         className="button secondary"
@@ -466,7 +495,7 @@ export default function MonitoringPanel({
                           void change('refresh', api.refresh, '등록된 공고를 다시 확인했어요.')
                         }
                       >
-                        {busy === 'refresh' ? '공고 확인 중…' : '공고 다시 확인'}
+                        {busy === 'refresh' ? t('공고 확인 중…') : t('공고 다시 확인')}
                       </button>
                       <button
                         className="text-button"
@@ -480,25 +509,28 @@ export default function MonitoringPanel({
                           )
                         }
                       >
-                        {snapshot.enabled ? '지속 안내 중지' : '지속 안내 다시 켜기'}
+                        {snapshot.enabled ? t('지속 안내 중지') : t('지속 안내 다시 켜기')}
                       </button>
                     </div>
                   )}
                   {!snapshot.profile && (
                     <p className="monitoring-intro">
-                      모든 항목은 선택이에요. 모르는 정보는 미확인으로 두세요. 저장한 정보와 회원
-                      거주 지역을 지원 탐색에 함께 사용해요.
+                      {' '}
+                      {t(
+                        '모든 항목은 선택이에요. 모르는 정보는 미확인으로 두세요. 저장한 정보와 회원 거주 지역을 지원 탐색에 함께 사용해요.',
+                      )}{' '}
                     </p>
                   )}
                   {!snapshot.profile && !editing && (
                     <button className="button secondary" onClick={editProfile}>
-                      생활정보 추가하기
+                      {' '}
+                      {t('생활정보 추가하기')}{' '}
                     </button>
                   )}
                   {editing && (
                     <form className="monitoring-form" onSubmit={submit}>
                       <fieldset disabled={!!busy}>
-                        <legend>일과 가구</legend>
+                        <legend>{t('일과 가구')}</legend>
                         <div className="monitoring-form-grid">
                           {optionField(
                             'occupation',
@@ -519,7 +551,7 @@ export default function MonitoringPanel({
                         </div>
                       </fieldset>
                       <fieldset disabled={!!busy}>
-                        <legend>주거 상황</legend>
+                        <legend>{t('주거 상황')}</legend>
                         <div className="monitoring-form-grid">
                           {optionField(
                             'housing_tenure',
@@ -528,7 +560,8 @@ export default function MonitoringPanel({
                           )}
                           {optionField('housing_type', '주택 종류', housingTypes)}
                           <label className="field-label" htmlFor={id('building_year')}>
-                            주택 준공연도
+                            {' '}
+                            {t('주택 준공연도')}{' '}
                             <input
                               id={id('building_year')}
                               type="number"
@@ -536,7 +569,7 @@ export default function MonitoringPanel({
                               min="1800"
                               max={todayInSeoul().slice(0, 4)}
                               step="1"
-                              placeholder="예: 1995"
+                              placeholder={t('예: 1995')}
                               value={draft.building_year ?? ''}
                               onChange={(event) =>
                                 setDraft((value) => ({
@@ -546,7 +579,9 @@ export default function MonitoringPanel({
                                 }))
                               }
                             />
-                            <small>모르면 비워 두세요. 건축물대장 등에서 확인할 수 있어요.</small>
+                            <small>
+                              {t('모르면 비워 두세요. 건축물대장 등에서 확인할 수 있어요.')}
+                            </small>
                           </label>
                           {booleanField(
                             'repair_needed',
@@ -557,9 +592,12 @@ export default function MonitoringPanel({
                         </div>
                       </fieldset>
                       <fieldset disabled={!!busy}>
-                        <legend>직접 확인한 재난 피해</legend>
+                        <legend>{t('직접 확인한 재난 피해')}</legend>
                         <p className="monitoring-field-help">
-                          같은 지역에 재난이 발생했어도 내 피해 여부와 지원 조건은 따로 확인해요.
+                          {' '}
+                          {t(
+                            '같은 지역에 재난이 발생했어도 내 피해 여부와 지원 조건은 따로 확인해요.',
+                          )}{' '}
                         </p>
                         <div className="monitoring-form-grid">
                           {optionField('disaster_type', '재난 종류', disasterTypes)}
@@ -570,7 +608,8 @@ export default function MonitoringPanel({
                             '피해 없음',
                           )}
                           <label className="field-label" htmlFor={id('disaster_occurred_on')}>
-                            피해 발생일
+                            {' '}
+                            {t('피해 발생일')}{' '}
                             <input
                               id={id('disaster_occurred_on')}
                               type="date"
@@ -587,7 +626,7 @@ export default function MonitoringPanel({
                         </div>
                       </fieldset>
                       <fieldset disabled={!!busy}>
-                        <legend>관심 분야</legend>
+                        <legend>{t('관심 분야')}</legend>
                         <div className="monitoring-interests">
                           {categories.slice(1).map((category) => (
                             <label key={category}>
@@ -615,12 +654,14 @@ export default function MonitoringPanel({
                             checked={enabled}
                             disabled={!!busy}
                             onChange={(event) => setEnabled(event.target.checked)}
-                          />
-                          지속 안내 켜기
+                          />{' '}
+                          {t('지속 안내 켜기')}{' '}
                         </label>
                         <p>
-                          켜면 저장한 상황으로 등록된 지원 공고를 계속 비교하고 새 안내를 이 화면에
-                          모아요. 끄면 새 안내를 만들지 않아요.
+                          {' '}
+                          {t(
+                            '켜면 저장한 상황으로 등록된 지원 공고를 계속 비교하고 새 안내를 이 화면에 모아요. 끄면 새 안내를 만들지 않아요.',
+                          )}{' '}
                         </p>
                         <label>
                           <input
@@ -628,12 +669,16 @@ export default function MonitoringPanel({
                             checked={consent}
                             disabled={!!busy}
                             onChange={(event) => setConsent(event.target.checked)}
-                          />
-                          생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.
+                          />{' '}
+                          {t(
+                            '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+                          )}{' '}
                         </label>
                         <p>
-                          언제든 지속 안내를 중지하거나 저장한 생활정보와 안내 기록을 삭제할 수
-                          있어요.
+                          {' '}
+                          {t(
+                            '언제든 지속 안내를 중지하거나 저장한 생활정보와 안내 기록을 삭제할 수 있어요.',
+                          )}{' '}
                         </p>
                       </div>
                       <div className="monitoring-actions">
@@ -642,7 +687,7 @@ export default function MonitoringPanel({
                           className="button primary"
                           disabled={!!busy || !consent}
                         >
-                          {busy === 'save' ? '저장 중…' : '생활정보와 안내 설정 저장'}
+                          {busy === 'save' ? t('저장 중…') : t('생활정보와 안내 설정 저장')}
                         </button>
                         {snapshot.profile && (
                           <button
@@ -657,7 +702,8 @@ export default function MonitoringPanel({
                               setError('');
                             }}
                           >
-                            수정 취소
+                            {' '}
+                            {t('수정 취소')}{' '}
                           </button>
                         )}
                       </div>
@@ -670,7 +716,7 @@ export default function MonitoringPanel({
                   {show('questions') && (
                     <>
                       <div className="monitoring-section-heading">
-                        <h3>{assistant ? '추가로 확인할 정보' : '살펴볼 지원 분야'}</h3>
+                        <h3>{assistant ? t('추가로 확인할 정보') : t('살펴볼 지원 분야')}</h3>
                       </div>
                       {snapshot.needs.length ? (
                         <div className="monitoring-needs">
@@ -687,7 +733,8 @@ export default function MonitoringPanel({
                                   className="text-button"
                                   onClick={() => onStartConversation?.(questionForNeed(need.id))}
                                 >
-                                  대화로 정보 추가하기 <Icon name="arrow" size={16} />
+                                  {' '}
+                                  {t('대화로 정보 추가하기')} <Icon name="arrow" size={16} />
                                 </button>
                               )}
                             </article>
@@ -695,8 +742,10 @@ export default function MonitoringPanel({
                         </div>
                       ) : (
                         <p className="monitoring-empty">
-                          현재 정보에서 추가로 살펴볼 지원 분야를 찾지 못했어요. 상황이 바뀌면
-                          생활정보를 수정해 주세요.
+                          {' '}
+                          {t(
+                            '현재 정보에서 추가로 살펴볼 지원 분야를 찾지 못했어요. 상황이 바뀌면 생활정보를 수정해 주세요.',
+                          )}{' '}
                         </p>
                       )}
                       {assistant && overview.questions.filter((item) => item.policy).length > 0 && (
@@ -708,7 +757,8 @@ export default function MonitoringPanel({
                                 <strong>{item.title}</strong>
                                 <p>{item.question}</p>
                                 <button className="text-button" onClick={() => onOpen(item.policy)}>
-                                  공고에서 조건 확인하기 <Icon name="arrow" size={16} />
+                                  {' '}
+                                  {t('공고에서 조건 확인하기')} <Icon name="arrow" size={16} />
                                 </button>
                               </article>
                             ))}
@@ -720,8 +770,13 @@ export default function MonitoringPanel({
                     <>
                       <div className="monitoring-section-heading">
                         <h3>
-                          {assistant && view === 'progress' ? '신청 진행 상태' : '관련 지원 후보'}{' '}
-                          <span>{displayedCandidates.length}개</span>
+                          {assistant && view === 'progress'
+                            ? t('신청 진행 상태')
+                            : t('관련 지원 후보')}{' '}
+                          <span>
+                            {displayedCandidates.length}
+                            {t('개')}
+                          </span>
                         </h3>
                       </div>
                       {displayedCandidates.length ? (
@@ -745,10 +800,16 @@ export default function MonitoringPanel({
                       ) : (
                         <p className="monitoring-empty">
                           {assistant && view === 'progress'
-                            ? '아직 신청 진행 기록이 없어요. 관련 지원 후보에서 신청 준비 중 또는 신청 완료로 표시하면 여기에 모아볼 수 있어요.'
+                            ? t(
+                                '아직 신청 진행 기록이 없어요. 관련 지원 후보에서 신청 준비 중 또는 신청 완료로 표시하면 여기에 모아볼 수 있어요.',
+                              )
                             : !snapshot.profile
-                              ? '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.'
-                              : '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.'}
+                              ? t(
+                                  '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.',
+                                )
+                              : t(
+                                  '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.',
+                                )}
                         </p>
                       )}
                       {displayedCandidates.length > 3 && (
@@ -758,17 +819,20 @@ export default function MonitoringPanel({
                               className="button secondary"
                               onClick={() => setCandidateLimit((value) => value + 3)}
                             >
-                              지원 후보 3개 더 보기
+                              {' '}
+                              {t('지원 후보 3개 더 보기')}{' '}
                             </button>
                           )}
                           {candidateLimit > 3 && (
                             <button className="text-button" onClick={() => setCandidateLimit(3)}>
-                              처음 3개만 보기
+                              {' '}
+                              {t('처음 3개만 보기')}{' '}
                             </button>
                           )}
                           <span className="fine-print">
                             {Math.min(candidateLimit, displayedCandidates.length)} /{' '}
-                            {displayedCandidates.length}개 표시
+                            {displayedCandidates.length}
+                            {t('개 표시')}{' '}
                           </span>
                         </div>
                       )}
@@ -776,14 +840,21 @@ export default function MonitoringPanel({
                         <>
                           <div className="monitoring-section-heading">
                             <h3>
-                              이전 지원 기록 <span>{previousCandidates.length}개</span>
+                              {' '}
+                              {t('이전 지원 기록')}{' '}
+                              <span>
+                                {previousCandidates.length}
+                                {t('개')}
+                              </span>
                             </h3>
                           </div>
                           <details className="monitoring-history">
-                            <summary>이전 지원 기록 펼치기</summary>
+                            <summary>{t('이전 지원 기록 펼치기')}</summary>
                             <p className="monitoring-history-note">
-                              현재 탐색 결과에 없는 공고의 진행 기록이에요. 최신 조건과 일정은 공식
-                              공고에서 다시 확인해 주세요.
+                              {' '}
+                              {t(
+                                '현재 탐색 결과에 없는 공고의 진행 기록이에요. 최신 조건과 일정은 공식 공고에서 다시 확인해 주세요.',
+                              )}{' '}
                             </p>
                             <div className="monitoring-candidates">
                               {previousCandidates.map((candidate) => (
@@ -811,7 +882,12 @@ export default function MonitoringPanel({
                     <>
                       <div className="monitoring-section-heading">
                         <h3>
-                          새 안내 <span>안 읽음 {snapshot.unread_count}개</span>
+                          {' '}
+                          {t('새 안내')}{' '}
+                          <span>
+                            {t('안 읽음')} {snapshot.unread_count}
+                            {t('개')}
+                          </span>
                         </h3>
                         {snapshot.alerts.some((alert) => !alert.read) && (
                           <button
@@ -831,7 +907,8 @@ export default function MonitoringPanel({
                               )
                             }
                           >
-                            표시된 안내 읽음
+                            {' '}
+                            {t('표시된 안내 읽음')}{' '}
                           </button>
                         )}
                       </div>
@@ -841,7 +918,7 @@ export default function MonitoringPanel({
                             <li key={alert.id} className={alert.read ? 'is-read' : ''}>
                               <div>
                                 <span className="monitoring-alert-label">
-                                  {alert.read ? '읽음' : '새 안내'}
+                                  {alert.read ? t('읽음') : t('새 안내')}
                                 </span>
                                 <strong>{alert.title}</strong>
                                 <p>{alert.body}</p>
@@ -851,7 +928,7 @@ export default function MonitoringPanel({
                                 <button
                                   className="text-button"
                                   disabled={!!busy}
-                                  aria-label={`${alert.title} 읽음 표시`}
+                                  aria-label={t(`${alert.title} 읽음 표시`)}
                                   onClick={() =>
                                     void change(
                                       'read',
@@ -860,14 +937,15 @@ export default function MonitoringPanel({
                                     )
                                   }
                                 >
-                                  읽음 표시
+                                  {' '}
+                                  {t('읽음 표시')}{' '}
                                 </button>
                               )}
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="monitoring-empty">아직 새 안내가 없어요.</p>
+                        <p className="monitoring-empty">{t('아직 새 안내가 없어요.')}</p>
                       )}
                     </>
                   )}
@@ -876,8 +954,10 @@ export default function MonitoringPanel({
                       {deleting ? (
                         <div className="notice-box">
                           <p>
-                            저장한 생활정보, 지원 후보의 진행 상태와 새 안내를 삭제하고 지속 안내를
-                            중지해요.
+                            {' '}
+                            {t(
+                              '저장한 생활정보, 지원 후보의 진행 상태와 새 안내를 삭제하고 지속 안내를 중지해요.',
+                            )}{' '}
                           </p>
                           <div className="monitoring-actions">
                             <button
@@ -899,14 +979,15 @@ export default function MonitoringPanel({
                                 )
                               }
                             >
-                              {busy === 'delete' ? '삭제 중…' : '생활정보와 안내 기록 삭제'}
+                              {busy === 'delete' ? t('삭제 중…') : t('생활정보와 안내 기록 삭제')}
                             </button>
                             <button
                               className="text-button"
                               disabled={!!busy}
                               onClick={() => setDeleting(false)}
                             >
-                              삭제 취소
+                              {' '}
+                              {t('삭제 취소')}{' '}
                             </button>
                           </div>
                         </div>
@@ -916,7 +997,8 @@ export default function MonitoringPanel({
                           disabled={!!busy}
                           onClick={() => setDeleting(true)}
                         >
-                          저장한 생활정보와 안내 삭제
+                          {' '}
+                          {t('저장한 생활정보와 안내 삭제')}{' '}
                         </button>
                       )}
                     </div>
@@ -932,12 +1014,14 @@ export default function MonitoringPanel({
 }
 
 function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onStartConversation }) {
+  const { t } = useI18n();
+
   return (
     <div className="monitoring-dashboard-grid">
       <article className="monitoring-dashboard-card monitoring-dashboard-profile">
         <div className="monitoring-dashboard-card-title">
           <Icon name="user" size={22} />
-          <h3>내 상황 요약</h3>
+          <h3>{t('내 상황 요약')}</h3>
         </div>
         {overview.facts.length > 0 ? (
           <ul className="monitoring-fact-chips">
@@ -946,25 +1030,25 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onSta
             ))}
           </ul>
         ) : (
-          <p className="monitoring-card-empty">아직 저장한 생활정보가 없어요.</p>
+          <p className="monitoring-card-empty">{t('아직 저장한 생활정보가 없어요.')}</p>
         )}
         <p className="monitoring-card-note">
           {snapshot.profile
-            ? '직접 저장한 정보로 살펴봐요. 상황이 달라지면 알려주세요.'
-            : '주거·일·재난 피해 등 필요한 정보만 추가해 주세요.'}
+            ? t('직접 저장한 정보로 살펴봐요. 상황이 달라지면 알려주세요.')
+            : t('주거·일·재난 피해 등 필요한 정보만 추가해 주세요.')}
         </p>
         <button className="text-button" disabled={disabled} onClick={onEdit}>
-          {snapshot.profile ? '생활정보 수정하기' : '생활정보 추가하기'}{' '}
+          {snapshot.profile ? t('생활정보 수정하기') : t('생활정보 추가하기')}{' '}
           <Icon name="arrow" size={16} />
         </button>
       </article>
       <article className="monitoring-dashboard-card">
         <div className="monitoring-dashboard-card-title">
           <Icon name="sparkles" size={22} />
-          <h3>새 안내</h3>
+          <h3>{t('새 안내')}</h3>
           <strong className="monitoring-count">
             {snapshot.unread_count}
-            <small>개</small>
+            <small>{t('개')}</small>
           </strong>
         </div>
         {overview.newAlerts.length ? (
@@ -976,21 +1060,22 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onSta
         ) : (
           <p className="monitoring-card-empty">
             {snapshot.enabled
-              ? '새로 도착한 안내가 없어요.'
-              : '지속 안내를 켜면 새 공고와 변경 내용을 모아드려요.'}
+              ? t('새로 도착한 안내가 없어요.')
+              : t('지속 안내를 켜면 새 공고와 변경 내용을 모아드려요.')}
           </p>
         )}
         <button className="text-button" onClick={() => onView('alerts')}>
-          안내함 확인하기 <Icon name="arrow" size={16} />
+          {' '}
+          {t('안내함 확인하기')} <Icon name="arrow" size={16} />
         </button>
       </article>
       <article className="monitoring-dashboard-card">
         <div className="monitoring-dashboard-card-title">
           <Icon name="help" size={22} />
-          <h3>추가 확인 정보</h3>
+          <h3>{t('추가 확인 정보')}</h3>
           <strong className="monitoring-count">
             {overview.questions.length}
-            <small>개</small>
+            <small>{t('개')}</small>
           </strong>
         </div>
         {overview.questions.length ? (
@@ -1002,44 +1087,48 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onSta
         ) : (
           <p className="monitoring-card-empty">
             {snapshot.profile
-              ? '현재 안내에서 추가로 요청한 정보가 없어요. 신청 자격은 공고별로 확인해 주세요.'
-              : '궁금한 상황을 이야기하면 필요한 정보를 하나씩 확인해요.'}
+              ? t('현재 안내에서 추가로 요청한 정보가 없어요. 신청 자격은 공고별로 확인해 주세요.')
+              : t('궁금한 상황을 이야기하면 필요한 정보를 하나씩 확인해요.')}
           </p>
         )}
         {overview.questions.length ? (
           <button className="text-button" onClick={() => onView('questions')}>
-            확인할 정보 살펴보기 <Icon name="arrow" size={16} />
+            {' '}
+            {t('확인할 정보 살펴보기')} <Icon name="arrow" size={16} />
           </button>
         ) : (
           <button className="text-button" onClick={() => onStartConversation?.()}>
-            대화로 상황 추가하기 <Icon name="arrow" size={16} />
+            {' '}
+            {t('대화로 상황 추가하기')} <Icon name="arrow" size={16} />
           </button>
         )}
       </article>
       <article className="monitoring-dashboard-card">
         <div className="monitoring-dashboard-card-title">
           <Icon name="bookmark" size={22} />
-          <h3>신청 진행 상태</h3>
+          <h3>{t('신청 진행 상태')}</h3>
         </div>
         <dl className="monitoring-progress-counts">
           <div>
-            <dt>준비 중</dt>
+            <dt>{t('준비 중')}</dt>
             <dd>{overview.progressCounts.preparing}</dd>
           </div>
           <div>
-            <dt>신청 완료</dt>
+            <dt>{t('신청 완료')}</dt>
             <dd>{overview.progressCounts.applied}</dd>
           </div>
           <div>
-            <dt>확인 완료</dt>
+            <dt>{t('확인 완료')}</dt>
             <dd>{overview.progressCounts.completed}</dd>
           </div>
         </dl>
         <p className="monitoring-card-note">
-          직접 표시한 진행 상태예요. 기관의 접수 결과와는 별도로 관리해요.
+          {' '}
+          {t('직접 표시한 진행 상태예요. 기관의 접수 결과와는 별도로 관리해요.')}{' '}
         </p>
         <button className="text-button" onClick={() => onView('progress')}>
-          진행 중인 지원 보기 <Icon name="arrow" size={16} />
+          {' '}
+          {t('진행 중인 지원 보기')} <Icon name="arrow" size={16} />
         </button>
       </article>
     </div>
@@ -1047,10 +1136,11 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onSta
 }
 
 function Questions({ questions, label = '신청 전에 더 확인할 조건' }) {
+  const { t } = useI18n();
   if (!questions.length) return null;
   return (
     <div className="monitoring-questions">
-      <strong>{label}</strong>
+      <strong>{t(label)}</strong>
       <ul>
         {questions.map((question, index) => (
           <li key={`${index}:${question}`}>{question}</li>
@@ -1060,81 +1150,94 @@ function Questions({ questions, label = '신청 전에 더 확인할 조건' }) 
   );
 }
 function Candidate({ candidate, disabled, onOpen, onState }) {
+  const { t, intlLocale } = useI18n();
+
   const fieldId = useId();
-  const { policy, status, reason, questions, state, active, schedule_status } = candidate;
+  const { policy: original, status, reason, questions, state, active, schedule_status } = candidate;
+  const translation = useVisibleTranslatedPolicy(original);
+  const { policy } = translation;
   const source = safeSourceUrl(policy.sourceUrl);
   return (
-    <article className="monitoring-candidate">
+    <article ref={translation.ref} className="monitoring-candidate">
       <div className="monitoring-candidate-top">
         <span className="soft-badge">
           {!active
-            ? '이전 지원 기록'
+            ? t('이전 지원 기록')
             : status === 'needs_review'
-              ? '추가 조건 확인 필요'
-              : '관련 지원 후보'}
+              ? t('추가 조건 확인 필요')
+              : t('관련 지원 후보')}
         </span>
-        {active && schedule_status === 'upcoming' && <span className="soft-badge">접수 예정</span>}
+        {active && schedule_status === 'upcoming' && (
+          <span className="soft-badge">{t('접수 예정')}</span>
+        )}
         <span>
-          {policy.region} · {policy.category}
+          {t(policy.region)} · {t(policy.category)}
         </span>
       </div>
       <h4>
-        <button className="text-button" onClick={() => onOpen(policy)}>
+        <button className="text-button" onClick={() => onOpen(original)}>
           {policy.title}
         </button>
       </h4>
+      <PolicyTranslationStatus translation={translation} />
       {!active && (
         <p className="monitoring-history-note">
-          현재 탐색 결과에 없어요. 공식 공고에서 최신 조건과 일정을 다시 확인해 주세요.
+          {' '}
+          {t('현재 탐색 결과에 없어요. 공식 공고에서 최신 조건과 일정을 다시 확인해 주세요.')}{' '}
         </p>
       )}
       {active && schedule_status === 'upcoming' && (
         <p className="monitoring-field-help">
-          접수 시작 전 공고예요. 신청 시작일과 준비할 내용을 확인해 주세요.
+          {' '}
+          {t('접수 시작 전 공고예요. 신청 시작일과 준비할 내용을 확인해 주세요.')}{' '}
         </p>
       )}
       <p className="monitoring-candidate-reason">
-        <strong>살펴보는 이유</strong> {reason}
+        <strong>{t('살펴보는 이유')}</strong> {reason}
       </p>
       <dl className="monitoring-policy-facts">
         <div>
-          <dt>지원 내용</dt>
+          <dt>{t('지원 내용')}</dt>
           <dd>{policy.benefit}</dd>
         </div>
         <div>
-          <dt>신청 기간</dt>
-          <dd>{policy.applicationPeriod || '공식 공고에서 확인'}</dd>
+          <dt>{t('신청 기간')}</dt>
+          <dd>{policy.applicationPeriod || t('공식 공고에서 확인')}</dd>
         </div>
       </dl>
       <Questions questions={questions} />
       <p className="fine-print">
-        지원 후보는 신청 자격 확정이 아니에요. 담당 기관과 공식 공고에서 확인해 주세요.
+        {' '}
+        {t('지원 후보는 신청 자격 확정이 아니에요. 담당 기관과 공식 공고에서 확인해 주세요.')}{' '}
       </p>
       <div className="monitoring-candidate-actions">
         <label className="field-label" htmlFor={fieldId}>
-          지원 진행 상태
+          {' '}
+          {t('지원 진행 상태')}{' '}
           <select
             id={fieldId}
-            aria-label={`${policy.title} 지원 진행 상태`}
+            aria-label={t('{value1} 지원 진행 상태', { value1: policy.title })}
             value={state}
             disabled={disabled}
             onChange={(event) => onState(event.target.value)}
           >
             {candidateStates.map(([value, text]) => (
               <option key={value} value={value}>
-                {text}
+                {t(text)}
               </option>
             ))}
           </select>
         </label>
         <div className="monitoring-actions">
-          <button className="button secondary" onClick={() => onOpen(policy)}>
-            공고 상세 보기
+          <button className="button secondary" onClick={() => onOpen(original)}>
+            {' '}
+            {t('공고 상세 보기')}{' '}
           </button>
           {source && (
             <a className="button secondary" href={source} target="_blank" rel="noopener noreferrer">
-              공식 공고 <Icon name="external" size={17} />
-              <span className="sr-only">새 창</span>
+              {' '}
+              {t('공식 공고')} <Icon name="external" size={17} />
+              <span className="sr-only">{t('새 창')}</span>
             </a>
           )}
         </div>

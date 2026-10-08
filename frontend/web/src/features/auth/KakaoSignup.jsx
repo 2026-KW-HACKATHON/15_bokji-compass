@@ -1,3 +1,4 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useEffect, useRef, useState } from 'react';
 import AuthLayout from './AuthLayout.jsx';
 import { authRequest } from './authApi.js';
@@ -5,6 +6,7 @@ import { emailError, normalizeEmail } from './authFields.js';
 import PrivacyConsent from './PrivacyConsent.jsx';
 
 export default function KakaoSignup({ onLogin }) {
+  const { t } = useI18n();
   const [identity, setIdentity] = useState(null);
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(null);
@@ -72,30 +74,30 @@ export default function KakaoSignup({ onLogin }) {
   return (
     <AuthLayout
       type="signup"
-      title="카카오로 가입하기"
-      description="이메일을 입력하면 가입을 마칠 수 있어요."
+      title={t('카카오로 가입하기')}
+      description={t('이메일을 입력하면 가입을 마칠 수 있어요.')}
     >
       {error && (
         <p id="kakao-signup-error" role="alert" ref={errorRef} tabIndex={-1} className="auth-error">
-          {error}
+          {t(error)}
         </p>
       )}
       {identity && !expired && (
         <p className="notice-box">
           {consent?.profile && identity.name
-            ? `${identity.name}님의 카카오 인증이 완료됐어요.`
-            : '카카오 인증이 완료됐어요.'}
+            ? t('{name}님의 카카오 인증이 완료됐어요.', { name: identity.name })
+            : t('카카오 인증이 완료됐어요.')}
         </p>
       )}
-      {!identity && !error && <p role="status">카카오 인증을 확인하고 있어요…</p>}
+      {!identity && !error && <p role="status">{t('카카오 인증을 확인하고 있어요…')}</p>}
       {!consent ? (
-        <PrivacyConsent buttonLabel="동의하고 가입 계속하기" onAccept={setConsent} />
+        <PrivacyConsent buttonLabel={t('동의하고 가입 계속하기')} onAccept={setConsent} />
       ) : (
         <>
           <p className="auth-field-hint">
             {consent.profile
-              ? '맞춤 안내를 위한 나이와 지역은 가입 후 선택할 수 있어요.'
-              : '맞춤 정보를 입력하지 않고 가입할 수 있어요.'}
+              ? t('맞춤 안내를 위한 나이와 지역은 가입 후 선택할 수 있어요.')
+              : t('맞춤 정보를 입력하지 않고 가입할 수 있어요.')}
           </p>
           <form
             className="auth-fields"
@@ -104,10 +106,10 @@ export default function KakaoSignup({ onLogin }) {
               event.preventDefault();
               run('complete');
             }}
-            aria-label="카카오 회원가입 정보"
+            aria-label={t('카카오 회원가입 정보')}
           >
             <label className="field-label" htmlFor="kakao-email">
-              이메일
+              {t('이메일')}
             </label>
             <input
               id="kakao-email"
@@ -132,7 +134,7 @@ export default function KakaoSignup({ onLogin }) {
               className="button primary full"
               disabled={Boolean(busy) || !identity || expired}
             >
-              {busy === 'complete' ? '가입하는 중…' : '가입하고 시작하기'}
+              {busy === 'complete' ? t('가입하는 중…') : t('가입하고 시작하기')}
             </button>
             <button
               type="button"
@@ -140,7 +142,7 @@ export default function KakaoSignup({ onLogin }) {
               disabled={Boolean(busy)}
               onClick={() => run('cancel')}
             >
-              {busy === 'cancel' ? '돌아가는 중…' : '가입 방법 다시 선택'}
+              {busy === 'cancel' ? t('돌아가는 중…') : t('가입 방법 다시 선택')}
             </button>
             <button
               type="button"
@@ -148,7 +150,7 @@ export default function KakaoSignup({ onLogin }) {
               disabled={Boolean(busy)}
               onClick={() => setConsent(null)}
             >
-              개인정보 안내와 동의 다시 확인
+              {t('개인정보 안내와 동의 다시 확인')}
             </button>
           </form>
         </>

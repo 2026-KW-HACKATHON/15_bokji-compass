@@ -1,14 +1,17 @@
-import { Linking, Text, View } from "react-native";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
+import { Linking, View } from "react-native";
 import {
   medianForHousehold,
   medianPercents,
   medianReference,
   monthlyIncomeRatio,
 } from "@bokji/core/median-income";
-import { formatMoney, MAX_HOUSEHOLD_SIZE } from "@bokji/core/finance-model";
+import { MAX_HOUSEHOLD_SIZE } from "@bokji/core/finance-model";
+import { useI18n } from "../../i18n/context";
 import { Button, Card, Copy, Field, Notice, colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
 import { CountField } from "./CountField";
+import { financeError } from "./i18n";
 
 export function QuickCalculator({
   draft,
@@ -21,6 +24,7 @@ export function QuickCalculator({
   onDetail: () => void;
   onMessage: (message: string) => void;
 }) {
+  const { t, formatMoney } = useI18n();
   const { easy } = useRuntime();
   let base: number | null = null;
   let error = "";
@@ -28,13 +32,13 @@ export function QuickCalculator({
   try {
     base = medianForHousehold(draft.householdSize);
   } catch (err) {
-    error = (err as Error).message;
+    error = financeError((err as Error).message, t);
   }
   if (base !== null) {
     try {
       ratio = monthlyIncomeRatio(draft.monthlyIncome, base);
     } catch (err) {
-      error = (err as Error).message;
+      error = financeError((err as Error).message, t);
     }
   }
   return (
@@ -74,8 +78,10 @@ export function QuickCalculator({
               lineHeight: 27,
             }}
           >
-            {medianReference.year}년 · {draft.householdSize}인 가구 기준
-            중위소득
+            {t("{year}년 · {count}인 가구 기준 중위소득", {
+              year: medianReference.year,
+              count: draft.householdSize,
+            })}
           </Text>
           <Text
             style={{
@@ -120,7 +126,11 @@ export function QuickCalculator({
               gap: 6,
             }}
           >
-            <Copy>입력한 월소득 {formatMoney(ratio.income)}</Copy>
+            <Copy>
+              {t("입력한 월소득 {amount}", {
+                amount: formatMoney(ratio.income),
+              })}
+            </Copy>
             <Text
               style={{
                 color: colors.green,
@@ -129,7 +139,7 @@ export function QuickCalculator({
                 fontWeight: "800",
               }}
             >
-              기준 중위소득의 {ratio.percent}%
+              {t("기준 중위소득의 {percent}%", { percent: ratio.percent })}
             </Text>
           </View>
         )}

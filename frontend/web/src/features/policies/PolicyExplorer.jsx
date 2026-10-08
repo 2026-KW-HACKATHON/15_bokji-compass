@@ -1,3 +1,5 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
+import ContentLanguageNotice from '../../shared/i18n/ContentLanguageNotice.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { categories, regions } from './policyModel.js';
 import PolicyCard from './PolicyCard.jsx';
@@ -38,6 +40,8 @@ export default function PolicyExplorer({
   initialRegion = '전국',
   initialCategory = '전체',
 }) {
+  const { t, intlLocale } = useI18n();
+
   const [filters, setFilters] = useState(() => ({
     ...initialFilters,
     query: initialQuery,
@@ -66,7 +70,9 @@ export default function PolicyExplorer({
     filters.audience === '전체' ? '모든 대상' : filters.audience,
     sortLabels[effectivePolicySort(filters)],
     searchScopeLabels[filters.searchScope],
-  ].join(' · ');
+  ]
+    .map((value) => t(value))
+    .join(' · ');
   useEffect(() => {
     const controller = new AbortController();
     const previous = loadedRequest.current;
@@ -144,12 +150,12 @@ export default function PolicyExplorer({
   return (
     <section className="explorer">
       <div className="page-heading">
-        {!easy && <span className="eyebrow">직접 찾아보기</span>}
-        <h1>전체 공고</h1>
+        {!easy && <span className="eyebrow">{t('직접 찾아보기')}</span>}
+        <h1>{t('전체 공고')}</h1>
         <p>
           {easy
-            ? '필요한 지원을 편하게 말해 주세요.'
-            : '필요한 지원을 문장으로 입력해 보세요. 말의 뜻에 맞는 공고를 찾아요.'}
+            ? t('필요한 지원을 편하게 말해 주세요.')
+            : t('필요한 지원을 문장으로 입력해 보세요. 말의 뜻에 맞는 공고를 찾아요.')}
         </p>
       </div>
       <form
@@ -162,15 +168,18 @@ export default function PolicyExplorer({
         <label className="search-field">
           <Icon name="search" />
           <input
-            aria-label="공고 검색"
+            aria-label={t('공고 검색')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={easy ? '예: 광운대 장학금 찾아줘' : '예: 광운대에서 올린 장학금 찾아줘'}
+            placeholder={
+              easy ? t('예: 광운대 장학금 찾아줘') : t('예: 광운대에서 올린 장학금 찾아줘')
+            }
             maxLength={200}
           />
         </label>
         <button className="button primary" type="submit">
-          검색
+          {' '}
+          {t('검색')}{' '}
         </button>
       </form>
       <SearchScopeControl
@@ -189,22 +198,24 @@ export default function PolicyExplorer({
       {tag && (
         <div className="active-tag" role="status">
           <span>
-            선택한 태그 <strong>#{tag}</strong>
+            {' '}
+            {t('선택한 태그')} <strong>#{tag}</strong>
           </span>
-          <button onClick={onClearTag} aria-label="태그 필터 해제">
-            <Icon name="x" size={18} />
-            해제
+          <button onClick={onClearTag} aria-label={t('태그 필터 해제')}>
+            <Icon name="x" size={18} /> {t('해제')}{' '}
           </button>
         </div>
       )}
       <details className="filter-panel" open={easy ? undefined : true}>
         <summary>
           <Icon name="filter" size={19} />
-          <span className="filter-summary-label">{easy ? '검색 조건' : '분야·지역 선택'}</span>
+          <span className="filter-summary-label">
+            {easy ? t('검색 조건') : t('분야·지역 선택')}
+          </span>
           {easy && <span className="filter-summary-value">{filterSummary}</span>}
         </summary>
         {!easy && (
-          <div className="category-list" aria-label="공고 분야">
+          <div className="category-list" aria-label={t('공고 분야')}>
             {categories.map((item) => (
               <button
                 key={item}
@@ -212,7 +223,7 @@ export default function PolicyExplorer({
                 className={filters.category === item ? 'selected' : ''}
                 onClick={() => change('category', item)}
               >
-                {item}
+                {t(item)}
               </button>
             ))}
           </div>
@@ -220,86 +231,102 @@ export default function PolicyExplorer({
         <div className="filter-row">
           {easy && (
             <label>
-              분야
+              {' '}
+              {t('분야')}{' '}
               <select
                 value={filters.category}
                 onChange={(event) => change('category', event.target.value)}
               >
                 {categories.map((item) => (
-                  <option key={item}>{item}</option>
+                  <option key={item} value={item}>
+                    {t(item)}
+                  </option>
                 ))}
               </select>
             </label>
           )}
           <label>
-            지역
+            {' '}
+            {t('지역')}{' '}
             <select
               value={filters.region}
               onChange={(event) => change('region', event.target.value)}
             >
               {regions.map((region) => (
-                <option key={region}>{region}</option>
+                <option key={region} value={region}>
+                  {t(region)}
+                </option>
               ))}
             </select>
           </label>
           <label>
-            대상
+            {' '}
+            {t('대상')}{' '}
             <select
               value={filters.audience}
               onChange={(event) => change('audience', event.target.value)}
             >
               {['전체', '청년', '가족', '어르신'].map((value) => (
-                <option key={value}>{value}</option>
+                <option key={value} value={value}>
+                  {t(value)}
+                </option>
               ))}
             </select>
           </label>
           <label>
-            정렬
+            {' '}
+            {t('정렬')}{' '}
             <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
-              <option value="auto">자동 (검색할 때 관련도순)</option>
-              <option value="relevance">관련도순</option>
-              <option value="popular">인기순 (조회수)</option>
-              <option value="recent">최근 등록순</option>
-              <option value="name">이름순</option>
+              <option value="auto">{t('자동 (검색할 때 관련도순)')}</option>
+              <option value="relevance">{t('관련도순')}</option>
+              <option value="popular">{t('인기순 (조회수)')}</option>
+              <option value="recent">{t('최근 등록순')}</option>
+              <option value="name">{t('이름순')}</option>
             </select>
           </label>
           <button className="text-button" onClick={reset}>
-            검색 조건 지우기
+            {' '}
+            {t('검색 조건 지우기')}{' '}
           </button>
         </div>
       </details>
+      <ContentLanguageNotice />
       <div className="results-heading">
         <h2 ref={heading} tabIndex={-1}>
-          공고 목록
+          {' '}
+          {t('공고 목록')}{' '}
         </h2>
         <span role="status">
           {state === 'ready'
-            ? '총 ' + result.total + '개'
+            ? t('총 {count}개', { count: result.total })
             : state === 'loading'
-              ? '불러오는 중'
+              ? t('불러오는 중')
               : ''}
         </span>
       </div>
       {state === 'loading' ? (
         <div className="empty-state" role="status">
-          공고를 가져오고 있어요.
+          {' '}
+          {t('공고를 가져오고 있어요.')}{' '}
         </div>
       ) : state === 'error' ? (
         <div className="empty-state" role="alert">
           <Icon name="info" size={30} />
-          <h3>공고를 불러오지 못했어요</h3>
-          <p>{error}</p>
+          <h3>{t('공고를 불러오지 못했어요')}</h3>
+          <p>{t(error)}</p>
           <button className="button primary" onClick={() => setRetry((value) => value + 1)}>
-            다시 시도하기
+            {' '}
+            {t('다시 시도하기')}{' '}
           </button>
         </div>
       ) : result.items.length === 0 ? (
         <div className="empty-state">
           <Icon name="search" size={30} />
-          <h3>조건에 맞는 공고가 없어요</h3>
-          <p>다른 검색어나 분야를 선택해 보세요.</p>
+          <h3>{t('조건에 맞는 공고가 없어요')}</h3>
+          <p>{t('다른 검색어나 분야를 선택해 보세요.')}</p>
           <button className="button secondary" onClick={reset}>
-            검색 조건 지우기
+            {' '}
+            {t('검색 조건 지우기')}{' '}
           </button>
         </div>
       ) : (
@@ -319,29 +346,36 @@ export default function PolicyExplorer({
             ))}
           </div>
           {(!easy || cursors.length > 1 || result.nextCursor) && (
-            <nav className="pagination" aria-label="공고 페이지">
+            <nav className="pagination" aria-label={t('공고 페이지')}>
               <button
                 className="button secondary"
                 disabled={cursors.length === 1}
                 onClick={() => turnPage(cursors.slice(0, -1))}
               >
-                이전 페이지
+                {' '}
+                {t('이전 페이지')}{' '}
               </button>
               {easy ? (
                 <span
-                  aria-label={`전체 ${result.total}개 중 ${firstResult}번째부터 ${firstResult + result.items.length - 1}번째 공고`}
+                  aria-label={t('전체 {value1}개 중 {value2}번째부터 {value3}번째 공고', {
+                    value1: result.total,
+                    value2: firstResult,
+                    value3: firstResult + result.items.length - 1,
+                  })}
                 >
-                  {firstResult}–{firstResult + result.items.length - 1} / {result.total}개
+                  {firstResult}–{firstResult + result.items.length - 1} / {result.total}
+                  {t('개')}{' '}
                 </span>
               ) : (
-                <span>{cursors.length}번째 페이지</span>
+                <span>{t('{page}번째 페이지', { page: cursors.length })}</span>
               )}
               <button
                 className="button secondary"
                 disabled={!result.nextCursor || cursors.includes(result.nextCursor)}
                 onClick={() => turnPage([...cursors, result.nextCursor])}
               >
-                다음 페이지
+                {' '}
+                {t('다음 페이지')}{' '}
               </button>
             </nav>
           )}

@@ -119,13 +119,13 @@ export function GuidedConversation({
               <Details collapsible label={`이전 대화 ${history.length - 1}개`}>
                 {history.slice(0, -1).map((entry, index) => (
                   <View key={index} style={{ gap: 8 }}>
-                    <Copy>{entry.question}</Copy>
-                    <Copy muted>{entry.answer}</Copy>
+                    <Copy original>{entry.question}</Copy>
+                    <Copy original muted>{entry.answer}</Copy>
                   </View>
                 ))}
               </Details>
             )}
-            <Copy muted>{history.at(-1)?.question}</Copy>
+            <Copy original muted>{history.at(-1)?.question}</Copy>
             {!!dialogue.practical_steps.length && (
               <>
                 <Copy title>먼저 이렇게 해보세요</Copy>
@@ -136,7 +136,7 @@ export function GuidedConversation({
                 ))}
               </>
             )}
-            <Copy>{dialogue.answer}</Copy>
+            <Copy original>{dialogue.answer}</Copy>
             {dialogue.catalog_status === "unavailable" && (
               <Notice>
                 공고 정보를 확인하지 못했어요. 아래 안내와 추가 질문을 먼저
@@ -145,7 +145,7 @@ export function GuidedConversation({
             )}
             {follow && (
               <View style={{ gap: 10 }}>
-                <Copy title>{follow.question}</Copy>
+                <Copy original title>{follow.question}</Copy>
                 {follow.input_type === "select" ? (
                   follow.options.map((option, index) => (
                     <Button
@@ -201,7 +201,7 @@ export function GuidedConversation({
             {!!dialogue.missing_fields.length && (
               <Details collapsible label="앞으로 확인할 정보">
                 {dialogue.missing_fields.map((field) => (
-                  <Copy key={field.slot}>• {field.label}</Copy>
+                  <Copy original key={field.slot}>• {field.label}</Copy>
                 ))}
               </Details>
             )}
@@ -232,7 +232,7 @@ export function GuidedConversation({
                     label: string;
                     value: string | number;
                   }) => (
-                    <Copy key={fact.field}>
+                    <Copy original key={fact.field}>
                       {fact.label} · {fact.value}
                     </Copy>
                   ),
@@ -300,12 +300,12 @@ export function GuidedConversation({
         <Card>
           <Copy title>선택한 공고의 조건 비교</Copy>
           {dialogue.selected_policy.comparison.notes.map((note, index) => (
-            <Copy key={index}>{note}</Copy>
+            <Copy original key={index}>{note}</Copy>
           ))}
           <Details collapsible label="비교 근거 보기">
             {dialogue.selected_policy.comparison.checks.map((check, index) => (
               <View key={index} style={{ gap: 8 }}>
-                <Copy>
+                <Copy original>
                   {check.label} ·{" "}
                   {check.state === "match"
                     ? "조건 일치"
@@ -313,8 +313,8 @@ export function GuidedConversation({
                       ? "조건 불일치"
                       : "추가 확인"}
                 </Copy>
-                <Copy>{check.note}</Copy>
-                {!!check.quote && <Copy muted>{check.quote}</Copy>}
+                <Copy original>{check.note}</Copy>
+                {!!check.quote && <Copy original muted>{check.quote}</Copy>}
               </View>
             ))}
           </Details>

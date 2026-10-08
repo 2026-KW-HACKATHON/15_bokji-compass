@@ -1,5 +1,11 @@
 # 복지나침반 백엔드
 
+2026-10-07: 공개 공고 본문을 영어·중국어 간체·베트남어·일본어로 번역합니다. 기존 Codex CLI
+로그인·모델 설정과 정책 MySQL을 사용하며, 백엔드에서
+`.\.venv\Scripts\python.exe -m app.modules.storage init`으로 011 캐시/UTC 일일 예산 테이블을
+명시적으로 준비합니다. 원문과 자격 모델은 유지합니다. 모의 모델·격리 SQLite/API 테스트로
+검증했으며 실제 CLI 번역·MySQL 적용은 별도입니다. [API·환경설정·한도](docs/policy-translation.md).
+
 2026-10-03: 회원 로그인에서 AES 암호화와 HMAC 키 설정을 제거했습니다. `DB_ENABLED=false`이면 SQLite에 회원·세션을 저장하며 일반 로그인과 카카오 로그인을 사용할 수 있습니다. `DB_ENABLED=true`이면 기존 MySQL을 사용합니다. 비밀번호 scrypt 해시와 세션·카카오 요청 검증은 유지합니다. [현재 저장 구조와 기존 암호화 데이터 복원](docs/member-privacy.md).
 
 > 2026-10-01: 공고 파싱은 기본 MySQL 저장으로 전환했습니다. 먼저 `python -m app.modules.storage init`을 실행하세요. [저장·JSON 이관·DB 개인 안내](docs/policy-storage.md). 아래 과거 파일 저장 설명은 명시적 `--storage json` 내보내기에만 적용됩니다.

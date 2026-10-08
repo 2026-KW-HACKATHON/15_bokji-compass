@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import {
   AppState,
   BackHandler,
@@ -8,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import {
@@ -25,6 +26,7 @@ import { tabBarHeight } from "../../components/theme";
 import { chatPanelLayout } from "./panelLayout";
 
 export function AppShell({ children }: React.PropsWithChildren) {
+  const { t } = useI18n();
   const chat = useAssistant();
   const { easy, setEasy } = useRuntime();
   const dimensions = useWindowDimensions();
@@ -150,7 +152,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
       {chat.enabled && !blocking && keyboardTop === null && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="챗봇 열기"
+          accessibilityLabel={t("챗봇 열기")}
           onPress={() => chat.openChat()}
           style={[
             styles.launcher,
@@ -176,7 +178,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
           accessibilityViewIsModal={chat.panel === "menu"}
           role="dialog"
           aria-modal={chat.panel === "menu"}
-          aria-label={
+          aria-label={t(
             chat.confirm
               ? "챗봇 종료 확인"
               : chat.disabledNotice
@@ -184,7 +186,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                 : chat.panel === "menu"
                   ? "전체 메뉴"
                   : "챗봇"
-          }
+          )}
         >
           <View
             pointerEvents="box-none"
@@ -218,7 +220,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="챗봇 접기"
+                    accessibilityLabel={t("챗봇 접기")}
                     onPress={() => {
                       Keyboard.dismiss();
                       chat.closePanel();
@@ -236,7 +238,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="챗봇 기능 끄기"
+                    accessibilityLabel={t("챗봇 기능 끄기")}
                     onPress={() => {
                       Keyboard.dismiss();
                       chat.requestDisable();
@@ -256,7 +258,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
               <View style={styles.backdrop}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="메뉴 바깥을 눌러 닫기"
+                  accessibilityLabel={t("메뉴 바깥을 눌러 닫기")}
                   onPress={chat.closePanel}
                   style={StyleSheet.absoluteFill}
                 />
@@ -267,7 +269,7 @@ export function AppShell({ children }: React.PropsWithChildren) {
                     </Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="전체 메뉴 닫기"
+                      accessibilityLabel={t("전체 메뉴 닫기")}
                       onPress={chat.closePanel}
                       style={[
                         styles.headerButton,

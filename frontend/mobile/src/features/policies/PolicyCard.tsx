@@ -1,10 +1,16 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
+import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Icon, IconName } from "../../components/Icon";
 import { colors } from "../../components/theme";
 import { useRuntime } from "../../services/runtime";
 import { parsePolicy } from "./model";
 import { Details, Copy } from "../../components/ui";
+import {
+  PolicyTranslationControls,
+  usePolicyTranslation,
+} from "./usePolicyTranslation";
 
 export const categoryAppearance: Record<
   string,
@@ -33,7 +39,10 @@ export function PolicyCard({
   policy: ReturnType<typeof parsePolicy>;
   showReason?: boolean;
 }) {
+  const { t } = useI18n();
   const { easy } = useRuntime();
+  const translation = usePolicyTranslation(policy);
+  const display = translation.display || policy;
   const tone = policyAppearance(policy.category);
   const open = () =>
     router.push({ pathname: "/policies/[id]", params: { id: policy.id } });
@@ -56,52 +65,58 @@ export function PolicyCard({
           {policy.region}
         </Text>
       </View>
+      <PolicyTranslationControls state={translation} compact />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${policy.title} 자세히 보기`}
+        accessibilityLabel={t("{title} 자세히 보기", { title: display.title })}
         onPress={open}
         style={({ pressed }) => ({ gap: 12, opacity: pressed ? 0.65 : 1 })}
       >
-        <Text style={[styles.title, easy && { fontSize: 23, lineHeight: 33 }]}>
-          {policy.title}
+        <Text
+          original
+          style={[styles.title, easy && { fontSize: 23, lineHeight: 33 }]}
+        >
+          {display.title}
         </Text>
         <View style={[styles.benefit, easy && { borderRadius: 6 }]}>
           <Text style={[styles.label, easy && { fontSize: 17 }]}>
             지원 내용
           </Text>
           <Text
+            original
             numberOfLines={easy ? 3 : 2}
             style={[
               styles.benefitText,
               easy && { fontSize: 20, lineHeight: 30 },
             ]}
           >
-            {policy.benefit === "공식 공고에서 확인"
-              ? policy.summary || policy.benefit
-              : policy.benefit}
+            {display.benefit === "공식 공고에서 확인"
+              ? display.summary || display.benefit
+              : display.benefit}
           </Text>
         </View>
         <PolicyFact
           icon="account"
           label="대상"
-          value={policy.audience}
+          value={display.audience}
           lines={2}
         />
         <PolicyFact
           icon="calendar"
           label="기간"
-          value={policy.applicationPeriod}
+          value={display.applicationPeriod}
           lines={2}
         />
         <View style={styles.footer}>
           <Text
+            original
             numberOfLines={2}
             style={[
               styles.organization,
               easy && { fontSize: 16, lineHeight: 24 },
             ]}
           >
-            {policy.organization}
+            {display.organization}
           </Text>
           <View style={[styles.action, easy && styles.easyAction]}>
             <Text style={[styles.actionText, easy && { fontSize: 18 }]}>
@@ -113,9 +128,9 @@ export function PolicyCard({
       </Pressable>
       {showReason && policy.searchMatch && (
         <Details collapsible label="이 공고를 찾은 이유">
-          <Copy>{policy.searchMatch.reason}</Copy>
+          <Copy original>{policy.searchMatch.reason}</Copy>
           {policy.searchMatch.evidence.map(({ quote }, index) => (
-            <Copy key={index} muted>
+            <Copy original key={index} muted>
               {quote}
             </Copy>
           ))}
@@ -146,6 +161,7 @@ export function PolicyFact({
         {label}
       </Text>
       <Text
+        original
         numberOfLines={lines}
         style={[styles.factValue, easy && { fontSize: 18, lineHeight: 27 }]}
       >

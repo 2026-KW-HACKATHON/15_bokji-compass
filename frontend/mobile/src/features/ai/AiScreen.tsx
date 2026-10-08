@@ -1,8 +1,8 @@
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useCallback, useState } from "react";
 import {
   AppState,
   Pressable,
-  Text,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -492,8 +492,8 @@ function MemberAi({
                   )}
                   {overview!.questions.map((item, index) => (
                     <Card key={`${item.needId}:${index}`}>
-                      <Copy muted>{item.title}</Copy>
-                      <Copy>{item.question}</Copy>
+                      <Copy original muted>{item.title}</Copy>
+                      <Copy original>{item.question}</Copy>
                       <Button
                         secondary
                         label={
@@ -527,8 +527,8 @@ function MemberAi({
                         {alert.read ? "읽은 안내" : "새 안내"} ·{" "}
                         {monitoringDate(alert.created_at)}
                       </Copy>
-                      <Copy title>{alert.title}</Copy>
-                      <Copy>{alert.body}</Copy>
+                      <Copy original title>{alert.title}</Copy>
+                      <Copy original>{alert.body}</Copy>
                       <Button
                         secondary
                         label="공고 확인"

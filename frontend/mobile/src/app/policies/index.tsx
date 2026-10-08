@@ -1,6 +1,8 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Icon } from "../../components/Icon";
 import { PolicyCard } from "../../features/policies/PolicyCard";
 import {
@@ -75,6 +77,7 @@ function Policies({
   initialQuery: string;
   initialCategory: string;
 }) {
+  const { t } = useI18n();
   const { api, easy, configError } = useRuntime();
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState({
@@ -173,11 +176,11 @@ function Policies({
             <Choice
               key={value}
               label={choiceLabels[value] ?? value}
-              accessibilityLabel={
+              accessibilityLabel={t(
                 key === "searchScope"
-                  ? `검색 범위 ${choiceLabels[value]}`
-                  : (choiceLabels[value] ?? value)
-              }
+                  ? t("검색 범위 {scope}", { scope: t(choiceLabels[value]) })
+                  : (choiceLabels[value] ?? value),
+              )}
               selected={filters[key] === value}
               onPress={() => change(key, value)}
             />
@@ -234,7 +237,7 @@ function Policies({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
-        accessibilityLabel="공고 분야"
+        accessibilityLabel={t("공고 분야")}
       >
         {categories.map((category) => (
           <Choice
@@ -277,15 +280,16 @@ function Policies({
             {page.search?.originalQuery.trim() && (
               <Card>
                 <View accessibilityLiveRegion="polite">
-                  <Copy>{page.search.summary}</Copy>
+                  <Copy original>{page.search.summary}</Copy>
                 </View>
                 {page.search.corrections.length > 0 && (
                   <>
-                    <Copy muted>
-                      {page.search.corrections
-                        .map(({ from, to }) => `‘${from}’ → ‘${to}’`)
-                        .join(", ")}
-                      로 찾았어요.
+                    <Copy original muted>
+                      {t("{corrections}로 찾았어요.", {
+                        corrections: page.search.corrections
+                          .map(({ from, to }) => `‘${from}’ → ‘${to}’`)
+                          .join(", "),
+                      })}
                     </Copy>
                     <Button
                       secondary
@@ -295,14 +299,17 @@ function Policies({
                   </>
                 )}
                 {page.search.warnings.map((warning) => (
-                  <Copy muted key={warning}>
+                  <Copy original muted key={warning}>
                     {warning}
                   </Copy>
                 ))}
                 {page.search.alternatives.map((item) => (
                   <Choice
                     key={item.scope}
-                    label={`${item.label} ${item.count}개`}
+                    label={t("{label} {count}개", {
+                      label: item.label,
+                      count: item.count,
+                    })}
                     selected={
                       filters.searchRelation ===
                       searchRelationForScope(item.scope)
@@ -328,14 +335,14 @@ function Policies({
                   color: colors.ink,
                 }}
               >
-                찾은 공고{" "}
+                {t("찾은 공고")}{" "}
                 <Text style={{ color: colors.green }}>
-                  {page.total.toLocaleString()}개
+                  {t("{count}개", { count: page.total.toLocaleString() })}
                 </Text>
               </Text>
               <Text style={{ color: colors.muted, fontSize: easy ? 17 : 13 }}>
-                {filters.region} ·{" "}
-                {easy ? "" : sortLabels[effectivePolicySort(filters)]}
+                {t(filters.region)} ·{" "}
+                {easy ? "" : t(sortLabels[effectivePolicySort(filters)])}
               </Text>
             </View>
             {!page.items.length ? (
@@ -359,7 +366,7 @@ function Policies({
             )}
             {(cursors.length > 1 || page.nextCursor) && (
               <Card>
-                <Copy>{cursors.length}번째 페이지</Copy>
+                <Copy>{t("{page}번째 페이지", { page: cursors.length })}</Copy>
                 <Button
                   secondary
                   label="이전 페이지"

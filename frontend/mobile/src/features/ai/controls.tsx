@@ -1,4 +1,6 @@
-import { Pressable, Text, View } from "react-native";
+import { PolicyTranslationControls, usePolicyTranslation } from "../policies/usePolicyTranslation";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
+import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { Button, Choice, Copy, Details, colors } from "../../components/ui";
 import { Icon } from "../../components/Icon";
@@ -106,6 +108,8 @@ export function CandidateCard({
   onState?: (state: string) => void;
 }) {
   const { easy } = useRuntime();
+  const translation = usePolicyTranslation(item.policy);
+  const policy = translation.display || item.policy;
   return (
     <View
       style={{
@@ -130,17 +134,18 @@ export function CandidateCard({
             ? "접수 예정 · 조건 확인 필요"
             : "관련 지원 후보 · 조건 확인 필요"}
       </Text>
-      <Copy title>{item.policy.title}</Copy>
-      <Copy muted>
-        {item.policy.region} · {item.policy.organization}
+      <Copy original title>{policy.title}</Copy>
+      <PolicyTranslationControls state={translation} compact />
+      <Copy original muted>
+        {policy.region} · {policy.organization}
       </Copy>
-      <Copy>{item.reason}</Copy>
-      <Copy>{item.policy.benefit}</Copy>
-      <Copy muted>신청 기간 · {item.policy.applicationPeriod}</Copy>
+      <Copy original>{item.reason}</Copy>
+      <Copy original>{policy.benefit}</Copy>
+      <Copy original muted>신청 기간 · {policy.applicationPeriod}</Copy>
       {!!item.questions.length && (
         <Details collapsible label="신청 전에 확인할 조건">
           {item.questions.map((question, index) => (
-            <Copy key={index}>• {question}</Copy>
+            <Copy original key={index}>• {question}</Copy>
           ))}
         </Details>
       )}

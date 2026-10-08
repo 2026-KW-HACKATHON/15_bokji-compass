@@ -172,10 +172,10 @@ test('question history keeps earlier replies across closing and changing policie
   await panel.getByRole('button', { name: '상담창 닫기' }).click();
   panel = await open(page);
   await panel.getByRole('button', { name: '질문 내역', exact: true }).click();
-  await expect(panel.locator('.chat-history-list > button')).toHaveCount(4);
-  await expect(panel.locator('.chat-history-list > button').first()).toContainText(
-    '다른 공고 질문',
-  );
+  await expect(panel.locator('.chat-history-list > .chat-policy-entry > button')).toHaveCount(4);
+  await expect(
+    panel.locator('.chat-history-list > .chat-policy-entry > button').first(),
+  ).toContainText('다른 공고 질문');
   await page.screenshot({ path: testInfo.outputPath('assistant-history.png') });
   await panel.getByRole('button', { name: /첫 번째 질문/ }).click();
   await expect(panel.getByRole('heading', { name: policy.title, exact: true })).toBeVisible();

@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Copy, Notice, colors } from "../../components/ui";
 import { useRuntime, useSession } from "../../services/runtime";
+import { useI18n } from "../../i18n/context";
 import {
   notificationPlatform,
   type Permission,
@@ -42,6 +43,7 @@ const message = (error: unknown) =>
     : "알림 설정을 처리하지 못했어요. 다시 시도해 주세요.";
 
 export function NotificationProvider({ children }: React.PropsWithChildren) {
+  const { t } = useI18n();
   const { api, session, configError } = useRuntime();
   const auth = useSession();
   const token = auth.status === "signedIn" ? auth.token : null;
@@ -131,7 +133,7 @@ export function NotificationProvider({ children }: React.PropsWithChildren) {
             await api.notifications.disable(token);
           } else {
             // Ensure category channels exist even when permission was already granted.
-            await notificationPlatform.requestPermission();
+            await notificationPlatform.requestPermission(t);
             const pushToken = await notificationPlatform.getPushToken();
             if (disposed || !current(token)) return;
             await api.notifications.register(
@@ -199,7 +201,7 @@ export function NotificationProvider({ children }: React.PropsWithChildren) {
 
   async function requestPermission() {
     try {
-      const access = await notificationPlatform.requestPermission();
+      const access = await notificationPlatform.requestPermission(t);
       setPermission(access);
       if (!access.granted)
         setError(
@@ -223,7 +225,7 @@ export function NotificationProvider({ children }: React.PropsWithChildren) {
     const next = { ...visiblePreferences, [key]: value };
     try {
       if (key === "enabled" && value && notificationPlatform.supported) {
-        const access = await notificationPlatform.requestPermission();
+        const access = await notificationPlatform.requestPermission(t);
         if (!current(token)) return;
         setPermission(access);
         if (!access.granted) {
@@ -278,7 +280,7 @@ export function NotificationProvider({ children }: React.PropsWithChildren) {
     setIntroError("");
     try {
       if (allow) {
-        const access = await notificationPlatform.requestPermission();
+        const access = await notificationPlatform.requestPermission(t);
         setPermission(access);
       }
       await dismissIntro();
@@ -334,7 +336,7 @@ export function NotificationProvider({ children }: React.PropsWithChildren) {
                 <Copy title>필요한 공고 소식을 알려드릴까요?</Copy>
                 <Copy>다음 소식을 알림으로 받을 수 있어요.</Copy>
                 {notificationTypes.map((type) => (
-                  <Copy key={type.key}>• {type.title}</Copy>
+                  <Copy key={type.key}>• {t(type.title)}</Copy>
                 ))}
                 <Copy muted>
                   알림은 선택사항이에요. 로그인 후 내 계정에서 전체 수신을 켜고,

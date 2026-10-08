@@ -1,5 +1,6 @@
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Button, Card, Copy, Field, Notice, useScreenStep } from "../../components/ui";
 import { useRuntime, useSession } from "../../services/runtime";
 import { useKakao } from "./context";

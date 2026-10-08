@@ -2,6 +2,8 @@
 
 **2026-10-08 AI 복지비서:** 웹 AI 페이지의 생활정보·지원 후보·추가 확인·신청 현황·새 안내와 대화형 정보 입력을 하단 ‘AI 비서’에서 제공합니다. ‘상담’ 탭은 제거하고 ‘챗봇’은 화면을 일부만 차지하는 별도 패널로 변경했습니다. [AI 화면과 API](src/features/ai/README.md) · [챗봇 동작](src/features/assistant/README.md).
 
+**2026-10-07 다국어 UI·공고 번역:** 한국어·영어·중국어 간체·베트남어·일본어를 상단 🌐 버튼 또는 내 계정에서 선택할 수 있습니다. 선택은 기기에 저장하고, 공고의 제목·요약·본문·상세 조건을 선택한 언어로 번역하며 한국어 원문과 전환할 수 있습니다. 번역 중/실패에는 원문과 안내·재시도를 제공합니다. AI 상담 답변은 현재 한국어입니다. [번역 모듈과 추가 방법](src/i18n/readme.md).
+
 **2026-10-06 Android 릴리스 경로 추가:** `npm run release:android`로 검증·독립 APK 빌드·서명·APK 검사를 수행합니다. 서명 전 빌드 검증은 `npm run release:android -- -Unsigned`입니다. [필수 서명 설정·EAS APK/AAB·실제 검증 범위](../docs/android-release.md).
 
 **2026-10-02 전시 배포 범위:** Android APK와 웹을 우선합니다. iPhone은 웹 접속으로 안내하며 iOS 네이티브 배포 작업은 이번 전시 범위에서 제외합니다. [고정 주소·QR 관리](../docs/exhibition.md).
@@ -67,22 +69,22 @@ Android Studio에서 네이티브 프로젝트를 열려면 생성된 `frontend/
 
 ## 파일과 공개 진입점
 
-| 위치 | 역할·입력·반환 |
-|---|---|
-| `src/app/_layout.tsx` | 공통 상태와 홈·공고·계산기·상담·내 계정 탭 조립 |
-| `src/features/home/HomeScreen.tsx` | 검색, 분야별 바로가기, 중위소득 확인, 실제 인기 공고 |
-| `src/components/ui.tsx` | 모든 화면에서 스크롤 밖에 고정한 쉬운 화면 스위치와 공통 UI |
-| `src/components/theme.ts`, `Icon.tsx` | 공통 색상·글자 크기·탭 높이와 Lucide 아이콘. 일반/쉬운 모드의 시각 구분 |
-| `src/app/policies/` | 목록·검색·분야/지역·정렬·페이지 이동, 별도 상세 경로·공식 링크 |
-| `src/features/policies/model.js` | `policyPath({query?,category?,region?,sort?,cursor?,limit?})` → 공고 조회 경로 문자열(기본 `sort="popular"`, `limit=6`). 공고/페이지 검증·분야 목록·HTTP(S) 링크 검사. [함수 계약](src/features/policies/readme.md) |
-| `src/services/client.js` | `resolveApiUrl(value,development)` → 검증된 절대 주소. `createClient({baseUrl,fetchImpl?,timeoutMs?})` → HTTP 요청 함수. 외부 HTTP 호출, 15초 제한, 취소·상태 오류 |
-| `src/services/api.js` | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile/listPolicies/getPolicy. 금융·공고 응답 검증, 공고는 비회원 요청 |
-| `src/services/session.js` | `createSession({api,storage,baseUrl,now?})` → subscribe/getSnapshot/restore/login/logout/invalidate. 저장소·서버 호출을 주입하고 세션 상태 관리 |
-| `src/platform/sessionStorage.ts` | read/write/clear: 기기 SecureStore의 토큰·서버 주소·만료·로그아웃 대기 상태만 저장. 웹 어댑터는 메모리 전용 |
-| `src/features/finance/FinanceScreen.tsx` | 빠른 중위소득 확인, 5개 입력 단계·최종 확인, 계산 결과·동의 저장·불러오기·삭제 |
-| `src/features/finance/state.js` | 메모리 전용 금융 상태, 계정별 초기화, 자동 불러오기와 늦은 응답 보호 |
-| `src/features/finance/draft.js` | `updateDraft(draft,path,value,cache?)` → 원본을 바꾸지 않은 입력 초안. 가구/차량 목록 정합성과 축소 후 복원. I/O 없음 |
-| `app.config.ts`, `eas.json` | Expo 설정과 개발/내부 테스트/운영 빌드 프로필 |
+| 위치                                     | 역할·입력·반환                                                                                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/_layout.tsx`                    | 공통 상태와 홈·공고·계산기·상담·내 계정 탭 조립                                                                                                                                                                     |
+| `src/features/home/HomeScreen.tsx`       | 검색, 분야별 바로가기, 중위소득 확인, 실제 인기 공고                                                                                                                                                                |
+| `src/components/ui.tsx`                  | 모든 화면에서 스크롤 밖에 고정한 쉬운 화면 스위치와 공통 UI                                                                                                                                                         |
+| `src/components/theme.ts`, `Icon.tsx`    | 공통 색상·글자 크기·탭 높이와 Lucide 아이콘. 일반/쉬운 모드의 시각 구분                                                                                                                                             |
+| `src/app/policies/`                      | 목록·검색·분야/지역·정렬·페이지 이동, 별도 상세 경로·공식 링크                                                                                                                                                      |
+| `src/features/policies/model.js`         | `policyPath({query?,category?,region?,sort?,cursor?,limit?})` → 공고 조회 경로 문자열(기본 `sort="popular"`, `limit=6`). 공고/페이지 검증·분야 목록·HTTP(S) 링크 검사. [함수 계약](src/features/policies/readme.md) |
+| `src/services/client.js`                 | `resolveApiUrl(value,development)` → 검증된 절대 주소. `createClient({baseUrl,fetchImpl?,timeoutMs?})` → HTTP 요청 함수. 외부 HTTP 호출, 15초 제한, 취소·상태 오류                                                  |
+| `src/services/api.js`                    | `createApi(request)` → health/login/me/logout/calculate/getProfile/saveProfile/deleteProfile/listPolicies/getPolicy. 금융·공고 응답 검증, 공고는 비회원 요청                                                        |
+| `src/services/session.js`                | `createSession({api,storage,baseUrl,now?})` → subscribe/getSnapshot/restore/login/logout/invalidate. 저장소·서버 호출을 주입하고 세션 상태 관리                                                                     |
+| `src/platform/sessionStorage.ts`         | read/write/clear: 기기 SecureStore의 토큰·서버 주소·만료·로그아웃 대기 상태만 저장. 웹 어댑터는 메모리 전용                                                                                                         |
+| `src/features/finance/FinanceScreen.tsx` | 빠른 중위소득 확인, 5개 입력 단계·최종 확인, 계산 결과·동의 저장·불러오기·삭제                                                                                                                                      |
+| `src/features/finance/state.js`          | 메모리 전용 금융 상태, 계정별 초기화, 자동 불러오기와 늦은 응답 보호                                                                                                                                                |
+| `src/features/finance/draft.js`          | `updateDraft(draft,path,value,cache?)` → 원본을 바꾸지 않은 입력 초안. 가구/차량 목록 정합성과 축소 후 복원. I/O 없음                                                                                               |
+| `app.config.ts`, `eas.json`              | Expo 설정과 개발/내부 테스트/운영 빌드 프로필                                                                                                                                                                       |
 
 ## 인증과 개인정보
 
@@ -176,19 +178,19 @@ APK 검사는 디버그 여부, 서명, 노출 컴포넌트, 권한, XML 정책�
 
 2026-10-01 실제 검증 결과:
 
-| 항목 | 결과 |
-| --- | --- |
-| 모바일 계약·보안 회귀 테스트 | 21개 통과, 타입·린트 통과 |
-| 공고 UI 회귀 | 고정 쉬운 화면, 페이지 초기화, 필터, 상세, 빈 목록, 503 재시도, 404 통과·JS 오류 없음 |
-| 서버 인증·금융정보 검증 | 121개 통과: 토큰 해시·만료·폐기, 계정 격리, 동의, 오류 입력 비노출 |
-| npm audit | 기존 moderate 13건 → 알려진 취약점 0건 |
-| 릴리스 Maven 의존성 OSV 조회 | 187개 조회, 기존 취약 패키지 2개 → 알려진 취약점 0개 |
-| Android APK | x86_64 debug 빌드·설치 성공, 백업·이전 차단 및 최소 권한 확인 |
-| Android 창 보호 | MainActivity의 SECURE 플래그와 adb 캡처 이미지 미생성 확인 |
-| Android 로그인 리다이렉트 | 가짜 로그인으로 HTTP 307 원본 POST 1회, 목적지 요청 0회 |
-| 릴리스 HTTPS 가드 | HTTP API 주소로 release 번들 작업 시 실제 빌드 실패 확인 |
-| Android·iOS JS/Hermes | 두 플랫폼 번들 생성 성공, iOS OS 실행 검증은 아님 |
-| 최종 APK 배포 판정 | BLOCKED: debug 서명·개발 런처·로컬 HTTP 예외·독립 번들 없음·승인 서명 미설정 |
+| 항목                         | 결과                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| 모바일 계약·보안 회귀 테스트 | 21개 통과, 타입·린트 통과                                                             |
+| 공고 UI 회귀                 | 고정 쉬운 화면, 페이지 초기화, 필터, 상세, 빈 목록, 503 재시도, 404 통과·JS 오류 없음 |
+| 서버 인증·금융정보 검증      | 121개 통과: 토큰 해시·만료·폐기, 계정 격리, 동의, 오류 입력 비노출                    |
+| npm audit                    | 기존 moderate 13건 → 알려진 취약점 0건                                                |
+| 릴리스 Maven 의존성 OSV 조회 | 187개 조회, 기존 취약 패키지 2개 → 알려진 취약점 0개                                  |
+| Android APK                  | x86_64 debug 빌드·설치 성공, 백업·이전 차단 및 최소 권한 확인                         |
+| Android 창 보호              | MainActivity의 SECURE 플래그와 adb 캡처 이미지 미생성 확인                            |
+| Android 로그인 리다이렉트    | 가짜 로그인으로 HTTP 307 원본 POST 1회, 목적지 요청 0회                               |
+| 릴리스 HTTPS 가드            | HTTP API 주소로 release 번들 작업 시 실제 빌드 실패 확인                              |
+| Android·iOS JS/Hermes        | 두 플랫폼 번들 생성 성공, iOS OS 실행 검증은 아님                                     |
+| 최종 APK 배포 판정           | BLOCKED: debug 서명·개발 런처·로컬 HTTP 예외·독립 번들 없음·승인 서명 미설정          |
 
 최종 APK SHA-256: `bb6f41d9182e7a6d63942d0b09c55928539ffbea80dc59bf512b6e2863162308`. 세부 증거는 저장소 루트의 `tmp/apk-security-after.json`, `tmp/android-dependency-audit-after.json`, `tmp/mobile-audit-after.json`, `tmp/android-redirect-proof.json`에 있습니다. APK 비밀값 대조는 로컬 설정의 유효 비밀값 1개와 private-key 표식/파일명 범위에서 미검출이며, 모든 유형의 비밀정보 부재를 보장하지 않습니다. 릴리스 Manifest 단독 병합은 RN 번들 작업 의존성 때문에 완료되지 않았고, 운영 주소와 서명으로 만든 최종 산출물은 아직 검사하지 못했습니다.
 

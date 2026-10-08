@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./i18n": "./src/i18n/index.js",
     "./finance-model": "./src/financeModel.js",
     "./finance-flow": "./src/financeFlow.js",
     "./median-income": "./src/medianIncome.js",
