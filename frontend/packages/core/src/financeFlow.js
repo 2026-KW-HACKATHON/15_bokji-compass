@@ -14,6 +14,10 @@ import {
   parseMoney,
   MAX_MONEY,
   MAX_HOUSEHOLD_SIZE,
+  emptyPrivateTransferHistory,
+  privateTransferSources,
+  privateTransferPurposes,
+  transferMonthLabels,
 } from "./financeModel.js";
 
 export const financeGroups = ["가구", "소득", "재산", "부채", "차량", "확인"];
@@ -66,6 +70,9 @@ const question = (id, group, title, fields, help) => ({
 
 // These describe the input flow only. Calculation rules remain on the server.
 export function financeQuestions(draft) {
+  const transfer =
+    draft.private_transfer_history ?? emptyPrivateTransferHistory();
+  const transferLabels = transferMonthLabels(transfer.as_of_month);
   return [
     question(
       "household",
@@ -229,11 +236,82 @@ export function financeQuestions(draft) {
               path("private_transfer_income"),
               `transfer-${i}`,
               "가족·지인에게 정기적으로 받는 돈 (월)",
+              "현재 월 지원금이에요. 생계급여 계산에는 아래 최근 12개월 지원 내역을 사용해요.",
             ),
           ],
         ),
       ];
     }),
+    question(
+      "private-transfer",
+      1,
+      "최근 12개월 동안 가족·지인 등의 지원을 받았나요?",
+      [
+        select(
+          "private_transfer_history.status",
+          "transfer-status",
+          "가구 전체의 지원 여부",
+          [
+            ["unknown", "모름 · 확인 필요"],
+            ["none", "최근 12개월 동안 받은 지원금 없음"],
+            ["received", "지원받은 내역 입력"],
+          ],
+          `${transferLabels.at(-1)}부터 ${transferLabels[0]}까지 가구원 모두가 받은 돈을 합산해 주세요. 가구원 사이에 주고받은 돈은 중복 입력하지 않아요.`,
+        ),
+        select(
+          "private_transfer_history.source",
+          "transfer-source",
+          "누구에게 받았나요?",
+          privateTransferSources,
+          "여러 가족·지인 또는 후원자가 준 돈도 월별로 합산해요.",
+          () => transfer.status === "received",
+        ),
+        select(
+          "private_transfer_history.purpose",
+          "transfer-purpose",
+          "받은 돈을 어떻게 사용했나요?",
+          privateTransferPurposes,
+          "사용처가 정해진 돈은 증빙에 따라 달라져 추가 확인으로 남겨요.",
+          () => transfer.status === "received",
+        ),
+      ],
+    ),
+    ...(transfer.status === "received"
+      ? [
+          question(
+            "private-transfer-months",
+            1,
+            "지원받은 달의 금액과 횟수를 알려주세요",
+            [
+              ...transferLabels.flatMap((label, i) => [
+                amount(
+                  `private_transfer_history.months.${i}.amount`,
+                  `transfer-month-${i}`,
+                  `${label} 지원금 합계`,
+                  "그 달에 여러 사람에게 받은 금액을 모두 더해 주세요.",
+                ),
+                {
+                  ...number(
+                    `private_transfer_history.months.${i}.count`,
+                    `transfer-count-${i}`,
+                    `${label} 받은 횟수`,
+                    "회",
+                    10000,
+                  ),
+                  when: positive(`private_transfer_history.months.${i}.amount`),
+                },
+              ]),
+              {
+                ...check(
+                  "private_transfer_history.unentered_months_zero",
+                  "금액을 입력하지 않은 달에는 지원받은 돈이 없었어요",
+                ),
+                hint: "모르는 달이 있으면 체크하지 마세요. 확인 필요로 남겨두고 계산할 수 있어요.",
+              },
+            ],
+          ),
+        ]
+      : []),
     question("assets-home", 2, "가구의 주택과 보증금을 알려주세요", [
       amount(
         "assets.housing",

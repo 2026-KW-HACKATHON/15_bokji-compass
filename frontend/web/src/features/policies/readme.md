@@ -1,5 +1,11 @@
 # 공고
 
+2026-10-08 신청 안내: `ApplicationGuide`에서 직접 온라인 신청·신청/문의 전화·방문 안내·
+필요한 서류를 펼친다. 상세는 읽기 전용이며 계정별 체크는 AI 비서의 추천 카드에서
+제공한다. 기존 단순 `applicationUrl` 버튼은 새 근거 기반 안내로 대체했다.
+`applicationGuideModel`은 HTTP(S)·전화번호·문서 ID를 검증하고 공고/홈/문의 페이지를
+온라인 신청으로 표시하지 않는다. 마감 공고는 실제 신청 액션 대신 안내를 확인한다.
+
 2026-10-08 공고 상세 JSON 정제: 공개 API가 법령·문의처·신청 절차·첨부 파일·관련 링크를
 줄별 안내 문자열로 반환합니다. `PolicyDetail`과 `parsePolicy`는 기존 문자열 계약으로
 표시하며 복지로 코드/키 대신 법령명·기관과 전화번호·파일명과 URL을 보여줍니다.
@@ -14,10 +20,10 @@ PC·320px·일반/쉬운 화면의 정제 항목·키보드 상세 열기·가�
 단위 테스트와 실제 브라우저의 쿠키 전송·제외를 검사합니다.
 [조회 성능·인증 수정 기록](../../../../docs/performance-review.md).
 
-2026-10-08: `PolicyDeadline({policy,target='end',showContext=false})`는 캘린더에서 시작·마감 목적을 구분할 수 있습니다. `target='start'`는 `applicationStart`를 같은 날짜 계산 함수에 전달하며 미래/당일에만 표시합니다. `showContext`는 마감 D-n/D-Day 앞에 ‘신청 마감까지/신청 마감’을 붙입니다. 기본 호출은 기존 카드·상세 표시를 유지합니다. 날짜 모델과 자정 갱신은 동일하며 모든 문구를 공통 번역 사전으로 전달합니다.
+2026-10-08: `PolicyDeadline({policy,target='end'}) -> <span>|null`은 일반·쉬운 화면 모두 남은 기간을 풀어 표시합니다. `target='start'`는 `applicationStart`를 기준으로 미래에 ‘신청일까지 N일 남음’, 당일에 ‘오늘 신청 시작’을 표시하고 지난 시작일·없는/잘못된 시작일은 `null`을 반환합니다. 기본 마감 대상은 ‘마감일까지 N일 남음’, ‘오늘 신청 마감’, ‘접수 마감’을 표시합니다. 화면·접근성 이름·툴팁에 같은 번역 문구를 사용하며 D+/D-/경과 일수를 표시하지 않습니다.
 
-2026-10-08 마감 D-Day: `PolicyDeadline({policy})`는 서버의 `applicationEnd`를 한국 시간
-오늘과 비교하여 D-n, D-Day, 접수 마감 D+n, 상시 접수 또는 마감일 확인 필요를 표시합니다.
+2026-10-08 남은 기간: `PolicyDeadline({policy})`는 서버의 `applicationEnd`를 한국 시간
+오늘과 비교하여 마감일까지 남은 일수, 오늘 신청 마감, 접수 마감, 상시 접수 또는 마감일 확인 필요를 표시합니다.
 전체/추천/저장 공고 카드의 일반·쉬운 화면, 상세와 캘린더 공고 행이 함께 사용합니다.
 `deadlineModel.policyDeadline(policy,today=seoulToday()) -> {state,days}`는 정상 날짜의
 UTC 일수 차를 계산하며 state는 upcoming/today/closed/ongoing/unknown입니다.

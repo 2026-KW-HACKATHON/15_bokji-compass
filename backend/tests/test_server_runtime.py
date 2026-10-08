@@ -18,7 +18,8 @@ from app.modules.server_admin.operations import OperationError, Operations, RunI
 def state(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "CONTROL_ROOT", tmp_path / "control")
     monkeypatch.setattr(runtime, "status", lambda: {
-        "supported": True, "mode": "development", "current_pid": os.getpid()})
+        "supported": True, "mode": "development", "current_pid": os.getpid(),
+        "mysql": {"controllable": True}, "tunnel": {"controllable": False}})
     monkeypatch.setattr(runtime.subprocess, "Popen", lambda *args, **kw: SimpleNamespace(pid=123))
     return SimpleNamespace(settings=Settings(_env_file=None), server_config_lock=RLock(),
                            server_operations=Operations())
@@ -115,3 +116,37 @@ def test_corrupt_job_is_not_exposed(state):
     (runtime.CONTROL_ROOT / (job_id + ".json")).write_text('[]', encoding="utf-8")
     with pytest.raises(runtime.RuntimeErrorCode, match="job_missing"):
         runtime.read_job(job_id)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process adapter")
+def test_database_control_shares_collection_gate_and_preserves_recovery_job(state):
+    state.server_operations.latest = {"status": "running"}
+    with pytest.raises(runtime.RuntimeErrorCode, match="collection_busy"):
+        runtime.start(state, runtime.ControlInput(target="mysql", action="restart"))
+    state.server_operations.latest = None
+    job = runtime.start(state, runtime.ControlInput(target="mysql", action="start"))["operation"]
+    assert job["target"] == "mysql" and job["action"] == "start"
+    assert state.server_control_pending is True
+    with pytest.raises(OperationError, match="operation_busy"):
+        state.server_operations.start(state, RunInput(action="check"))
+
+
+@pytest.mark.parametrize("target,code", [("mysql", "mysql_unmanaged"),
+                                       ("all", "mysql_unmanaged"),
+                                       ("tunnel", "tunnel_unmanaged")])
+def test_unmanaged_dependencies_cannot_launch_a_control_job(state, monkeypatch, target, code):
+    monkeypatch.setattr(runtime, "status", lambda: {"mode": "development"})
+    with pytest.raises(runtime.RuntimeErrorCode, match=code):
+        runtime.start(state, runtime.ControlInput(target=target, action="stop"))
+    assert not runtime.CONTROL_ROOT.exists()
+
+
+def test_api_restart_recovers_the_persisted_collection_gate(state):
+    runtime.CONTROL_ROOT.mkdir()
+    job_id = str(uuid4())
+    (runtime.CONTROL_ROOT / (job_id + ".json")).write_text(json.dumps({
+        "id": job_id, "target": "all", "status": "running"}), encoding="utf-8")
+    (runtime.CONTROL_ROOT / "active.lock").write_text(job_id, encoding="ascii")
+    runtime.refresh_pending(state)
+    assert state.server_control_pending is True
+    assert state.server_control_job == job_id

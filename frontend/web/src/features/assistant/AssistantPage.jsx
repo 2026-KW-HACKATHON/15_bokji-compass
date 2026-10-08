@@ -24,6 +24,8 @@ export default function AssistantPage({
   profile,
   mode,
   onOpen,
+  onOpenAlert,
+  openingAlertId,
   onProfile,
   onStartConversation,
   onProfileDeleted,
@@ -172,6 +174,8 @@ export default function AssistantPage({
           profile={profile}
           mode={mode}
           onOpen={onOpen}
+          onOpenAlert={onOpenAlert}
+          openingAlertId={openingAlertId}
           onProfile={onProfile}
           onStartConversation={onStartConversation}
           onProfileDeleted={onProfileDeleted}

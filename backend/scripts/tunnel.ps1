@@ -61,8 +61,7 @@ function Stop-Tunnel($saved) {
     $saved.processes = @($saved.processes | Where-Object name -ne 'tunnel')
     Save-State $saved
 }
-function Start-Tunnel($saved) {
-    if (Get-OwnedTunnel $saved) { return }
+function Assert-TunnelPrerequisites {
     if ($env:TUNNEL_TOKEN) { throw 'configuration_invalid' }
     if (!(Test-Path -LiteralPath $cloudflared -PathType Leaf) -or
         !(Test-Path -LiteralPath $TunnelTokenFile -PathType Leaf)) { throw 'runtime_missing' }
@@ -82,6 +81,13 @@ function Start-Tunnel($saved) {
     # A tunnel is useful only after its local origin is responding.
     try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8080/' -TimeoutSec 3 | Out-Null }
     catch { throw 'origin_unavailable' }
+    return $publicUri
+}
+function Start-Tunnel($saved, $publicUri = $null) {
+    $existing = Get-OwnedTunnel $saved
+    if ($existing -and (Get-TunnelStatus $saved).connected) { return }
+    if (!$publicUri) { $publicUri = Assert-TunnelPrerequisites }
+    if ($existing) { Stop-Tunnel $saved }
     $runId = [guid]::NewGuid().ToString('N')
     $process = Start-Process -FilePath $cloudflared -WindowStyle Hidden -PassThru -WorkingDirectory $repoRoot `
         -ArgumentList ('tunnel --no-autoupdate --no-prechecks --protocol auto --edge-ip-version 4 run --token-file "' + $TunnelTokenFile + '"') `
@@ -111,8 +117,10 @@ try {
     $lockStream = [IO.File]::Open($lockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
     $saved = Read-State
     if ($saved.url) { $PublicUrl = $saved.url }
+    $publicUri = $null
+    if ($Action -eq 'restart') { $publicUri = Assert-TunnelPrerequisites }
     if ($Action -in @('stop', 'restart')) { Stop-Tunnel $saved }
-    if ($Action -in @('start', 'restart')) { Start-Tunnel $saved }
+    if ($Action -in @('start', 'restart')) { Start-Tunnel $saved $publicUri }
     Get-TunnelStatus $saved | ConvertTo-Json -Compress
 } finally {
     if ($lockStream) { $lockStream.Dispose(); Remove-Item -LiteralPath $lockPath }

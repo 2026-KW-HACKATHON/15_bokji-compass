@@ -1,5 +1,13 @@
 # 웹·모바일 공통 번역
 
+2026-10-08: `commonMessages.js`의 공통 하단 AI 안내를 간결한 격식체로 바꾸고 네 외국어 번역도 줄였습니다. `translate(locale, source) -> string` 계약은 동일합니다.
+
+2026-10-08: `navigationMessages.js`에 종 알림 목록·미읽음 수·공고 연결·실패 안내를
+영어·중국어·베트남어·일본어로 추가했습니다. `{count}`와 `{title}`을 치환하며 서버
+알림 제목·본문의 원문은 유지합니다. `translate(locale, source, params) -> string` 계약은 같습니다.
+
+2026-10-08: `featureDynamicMessages.js`는 ‘신청일까지 {count}일 남음’·‘마감일까지 {count}일 남음’, 오늘 신청 시작/마감과 접수 마감 문구를 네 외국어로 제공합니다. D+/D-/경과 일수 번역은 제거했으며 `translate(locale, source, {count}) -> string` 호출 계약은 같습니다.
+
 2026-10-08: `localMessages.js`는 우리 동네 복지의 메뉴·지역 입력·분야·빈 상태·공식 안내 링크 UI 43개 문구를 영어·중국어·베트남어·일본어로 제공합니다. `index.js`의 `messageCatalogs`와 `messages`에 등록하며 서비스 원문과 입력 지역명은 번역하지 않습니다.
 
 2026-10-08: `accountMessages.js`는 주소 검색의 브라우저 오프라인·응답 지연·외부

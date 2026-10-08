@@ -8,6 +8,7 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from './policyModel.js';
 import PolicyQuestion from '../assistant/PolicyQuestion.jsx';
 import PolicyDeadline from './PolicyDeadline.jsx';
+import ApplicationGuide from './ApplicationGuide.jsx';
 export default function PolicyDetail({
   policy: original,
   saved,
@@ -24,7 +25,6 @@ export default function PolicyDetail({
 
   const source = safeSourceUrl(policy.sourceUrl);
   const scheduleSource = safeSourceUrl(original.sourceFields?.['일정 확인 출처']);
-  const application = safeSourceUrl(policy.applicationUrl);
   const sourceLabels = {
     text: '공고 본문',
     purpose_summary: '사업 목적',
@@ -70,7 +70,7 @@ export default function PolicyDetail({
       <div className="detail-badges">
         <span className="soft-badge">{t(policy.category)}</span>
         <span className="soft-badge">{t(policy.region)}</span>
-        <PolicyDeadline policy={original} easy={easy} />
+        <PolicyDeadline policy={original} />
       </div>
       <p className="modal-description">{policy.summary}</p>
       {source && (
@@ -93,6 +93,7 @@ export default function PolicyDetail({
         <h3>{t('지원 내용')}</h3>
         <p>{policy.benefit}</p>
       </div>
+      <ApplicationGuide key={`${original.id}:${original.revisionId}`} policy={original} />
       {easy && (
         <dl className="policy-detail detail-key-facts">
           <div>
@@ -223,18 +224,6 @@ export default function PolicyDetail({
           <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
             {' '}
             {t('자세한 공고 확인하기')} <Icon name="external" size={18} />
-            <span className="sr-only">{t('새 창')}</span>
-          </a>
-        )}
-        {application && (
-          <a
-            className="button secondary"
-            href={application}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {' '}
-            {t('신청 페이지 열기')} <Icon name="external" size={18} />
             <span className="sr-only">{t('새 창')}</span>
           </a>
         )}

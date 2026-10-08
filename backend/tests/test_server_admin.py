@@ -714,7 +714,7 @@ def test_process_control_requires_fresh_admin_and_same_origin(console, monkeypat
 
 @pytest.mark.parametrize("body", [
     {"target": "all", "action": "exec"},
-    {"target": "mysql", "action": "stop"},
+    {"target": "system", "action": "stop"},
     {"target": "backend", "action": "restart", "pid": 123},
     {"target": "frontend", "action": "stop", "command": "private-command"},
 ])
@@ -756,3 +756,26 @@ def test_process_job_id_is_uuid_and_errors_are_safe(console, monkeypatch):
         {"status": "completed", "action": "restart", "target": "backend"}))
     response = client.get("/v1/server-admin/processes/00000000-0000-0000-0000-000000000000")
     assert response.json()["operation"]["status"] == "completed"
+
+
+@pytest.mark.parametrize("target,action", [("mysql", "start"), ("mysql", "stop"),
+                                         ("mysql", "restart"), ("tunnel", "start"),
+                                         ("tunnel", "stop"), ("tunnel", "restart"),
+                                         ("all", "start")])
+def test_dependency_control_uses_the_same_authenticated_fixed_contract(
+    console, monkeypatch, target, action,
+):
+    from app.modules.server_admin import runtime
+
+    client, _, _, _ = console
+    calls = []
+    monkeypatch.setattr(runtime, "start", lambda state, data: (
+        calls.append((data.target, data.action)) or {"operation": {"status": "accepted"}}))
+    payload = {"target": target, "action": action}
+    assert client.post("/v1/server-admin/processes", json=payload).status_code == 401
+    assert login(client).status_code == 200
+    assert client.post("/v1/server-admin/processes", json=payload,
+                       headers={"Origin": "https://foreign.invalid"}).status_code == 403
+    assert calls == []
+    assert client.post("/v1/server-admin/processes", json=payload).status_code == 202
+    assert calls == [(target, action)]

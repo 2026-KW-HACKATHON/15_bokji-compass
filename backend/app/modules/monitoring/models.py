@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import Field, field_validator
+from pydantic import Field, StrictBool, field_validator
 
 from app.contracts.categories import POLICY_DISPLAY_CATEGORIES, PolicyDisplayCategory
 from app.contracts.matching import Occupation
@@ -67,3 +67,17 @@ class CandidateStateInput(StrictModel):
     policy_id: str = Field(min_length=1, max_length=128)
     need_id: str = Field(min_length=1, max_length=64)
     state: Literal["watching", "preparing", "applied", "dismissed", "completed"]
+
+
+class CandidateFeedbackInput(StrictModel):
+    policy_id: str = Field(min_length=1, max_length=128)
+    need_id: str = Field(min_length=1, max_length=64)
+    reason: Literal["not_eligible", "not_interested"] | None
+
+
+class CandidatePreparationInput(StrictModel):
+    policy_id: str = Field(min_length=1, max_length=128)
+    need_id: str = Field(min_length=1, max_length=64)
+    revision_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=128)
+    prepared: StrictBool

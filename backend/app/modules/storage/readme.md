@@ -1,5 +1,14 @@
 # 공고 저장소
 
+2026-10-08 신청 준비: `catalog.card(record, full=False)`는 목록·상세·추천에서 원문 기반
+`applicationGuide`를 반환합니다. 신청 방법, 별도 실제 신청 URL, 신청/문의 전화 구분,
+방문 안내, 조건·대체 표현을 보존한 서류 목록과 `listed/none/unknown` 상태를 포함합니다.
+목록에서도 원문 기반 안내를 제공하므로 신청 동작 때문에 상세 원문 전체를 추가 조회하지
+않습니다. 안내의 서류 ID는 원문별로 안정적이며 `신청서 해당없음`을 전체 서류 없음으로
+오인하지 않습니다. 기존 `applicationMethod/applicationUrl/contact/sourceFields`는 유지합니다.
+저장된 원문·번역·개요·조건·DB를 바꾸지 않고 외부 호출도 없습니다.
+[신청 경로·서류 추출 계약과 검증](../presentation/readme.md).
+
 2026-10-08 조회 성능·상태 보완: `catalog.list_policies(repository, ...)`는 자연어
 순위 계산이 없는 상세 필터 조회에서 전체 건수를 끝까지 계산하되 요청한 페이지의 행만
 보관합니다. 반환값 `{items,total,nextCursor,search?}`와 정렬은 유지합니다.

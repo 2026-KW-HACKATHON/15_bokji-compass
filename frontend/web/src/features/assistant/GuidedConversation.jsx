@@ -3,6 +3,7 @@ import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { TranslatedPolicyTitle } from '../../shared/i18n/PolicyTranslation.jsx';
 import { request } from '../../shared/api/client.js';
 import { safeSourceUrl } from '../policies/policyModel.js';
+import ApplicationGuide from '../policies/ApplicationGuide.jsx';
 import { todayInSeoul } from '../monitoring/monitoringModel.js';
 import { createDialogueApi } from './dialogueApi.js';
 import { confirmedFacts, dialogueError, restoreDialogueSession } from './dialogueModel.js';
@@ -149,7 +150,7 @@ function GuidedSession({
           ? '확인한 정보를 저장했어요. 공고 확인은 잠시 후 지속 복지 안내에서 다시 시도해 주세요.'
           : snapshot.enabled
             ? '확인한 정보를 저장하고 지속 복지 안내에 반영했어요.'
-            : '확인한 정보를 저장했어요. 내 정보에서 지속 복지 안내를 켜면 이후 공고도 살펴볼 수 있어요.',
+            : '확인한 정보를 저장했어요. AI 비서의 지속 복지 안내를 켜면 이후 공고도 살펴볼 수 있어요.',
       );
       setConsent(false);
       onSaved?.(snapshot);
@@ -350,6 +351,7 @@ function GuidedSession({
                           <span className="sr-only"> {t('새 창')}</span>
                         </a>
                       )}
+                      <ApplicationGuide policy={candidate.policy} />
                     </article>
                   ))}
                   {dialogue.candidates.length > candidateLimit && (
@@ -464,7 +466,7 @@ function GuidedSession({
                     <p role="status">{t(saved)}</p>
                     <button className="button secondary" onClick={onProfile}>
                       {' '}
-                      {t('내 정보에서 확인하기')}{' '}
+                      {t('지속 복지 안내 설정')}{' '}
                     </button>
                   </>
                 ) : (
@@ -524,7 +526,7 @@ function GuidedSession({
             <p className="guided-note">
               {' '}
               {t(
-                '본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 내 정보에서 수정할 수 있어요.',
+                '본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 지속 복지 안내에서 수정할 수 있어요.',
               )}{' '}
             </p>
             <button className="button secondary" onClick={onProfile}>

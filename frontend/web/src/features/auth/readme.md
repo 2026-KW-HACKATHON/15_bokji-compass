@@ -1,5 +1,7 @@
 # 웹 회원가입·로그인
 
+2026-10-08 안내 분리: `loginDestination(value)`의 허용 경로에 `assistant-monitoring`과 `new-notices`를 추가해 비회원의 지속 안내·신규공고 진입 후 로그인 복귀를 지원합니다. 반환값은 허용된 내부 hash 경로이며 외부 URL·관리자 경로는 기존처럼 `home`으로 대체합니다.
+
 2026-10-08 주소 검색 오류 안내: `loadPostcode()`는 공식 SDK 생성자를 반환하는
 `Promise`를 유지하며, 실패 시 `Error.code`로 `POSTCODE_OFFLINE`, `POSTCODE_TIMEOUT`,
 `POSTCODE_SCRIPT`, `POSTCODE_UNAVAILABLE`을 구분합니다. 브라우저가 오프라인으로

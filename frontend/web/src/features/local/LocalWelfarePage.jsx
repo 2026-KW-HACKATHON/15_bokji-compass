@@ -185,7 +185,7 @@ export default function LocalWelfarePage({
               aria-invalid={Boolean(error)}
               aria-describedby={error ? 'local-area-error local-area-help' : 'local-area-help'}
             />
-            <button type="submit" className="primary">
+            <button type="submit" className="button primary">
               {t('이 지역 보기')} <Icon name="arrow" size={19} />
             </button>
           </div>

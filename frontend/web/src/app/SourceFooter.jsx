@@ -45,7 +45,7 @@ export default function SourceFooter({ showSources = false }) {
         </span>
         <p className="footer-disclaimer">
           {t(
-            'AI는 실수할 수 있어요. 안내와 계산 결과는 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따라 달라질 수 있어요.',
+            'AI는 실수할 수 있습니다. 안내·계산은 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따릅니다.',
           )}
         </p>
       </div>

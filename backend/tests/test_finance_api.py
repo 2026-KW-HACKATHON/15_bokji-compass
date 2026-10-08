@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,6 +84,25 @@ def save(client, profile=None, **extra):
             **extra,
         },
     )
+
+
+def test_private_transfer_history_round_trips_as_raw_facts(client):
+    profile = {
+        **PROFILE,
+        "private_transfer_history": {
+            "as_of_month": (datetime.now(UTC) + timedelta(hours=9)).strftime("%Y-%m"),
+            "status": "received",
+            "source": "family_friends",
+            "purpose": "living",
+            "unentered_months_zero": True,
+            "months": [{"amount": 200_000, "count": 2} for _ in range(12)],
+        },
+    }
+    saved = save(client, profile)
+    assert saved.status_code == 200
+    loaded = client.get("/v1/finance/profile").json()
+    assert loaded["profile"]["private_transfer_history"] == profile["private_transfer_history"]
+    assert "recognized_income" not in loaded["profile"]["private_transfer_history"]
 
 
 @pytest.mark.parametrize("auth_enabled", [True, False])

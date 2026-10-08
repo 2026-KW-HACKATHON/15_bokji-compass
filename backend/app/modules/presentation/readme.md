@@ -1,5 +1,40 @@
 # 콘솔 표시
 
+## 신청 경로·서류 안내 (2026-10-08)
+
+`application.application_guide(fields: dict[str,str], overview=None, source_url=None) -> dict`는
+원천 필드에서 신청 방법·실제 신청용 URL·전화·방문 안내·준비 서류를 읽습니다. 반환값은
+`{methodText, onlineUrl, phones, visitText, documents, documentsStatus, documentsNote}`입니다.
+`phones`는 `{number,label,kind:'application'|'inquiry'}` 목록이고 `documents`는
+`{id,label}` 목록입니다. 문서 ID는 표시 원문 전체의 SHA-256으로 만들어 순서 변경에도 유지하며,
+원문이 바뀌면 다른 ID가 됩니다. 조건부 서류와 대체 서류 표현은 한 항목 안에 보존하고
+목록을 잘라내지 않습니다.
+
+원천 `application_method/application_url/contact/documents/required_documents`가 우선입니다.
+없는 항목은 본문의 명시된 신청방법·구비서류 등 제목 아래 블록 또는 원문과 정확히 일치하는
+개요 인용으로 보완합니다. 개요의 생성·번역된 요약은 신청 근거로 쓰지 않습니다.
+지원 대상·선정 조건·첨부 서식만으로 제출 의무를 추정하지 않습니다. `신청서: 해당없음`은
+서식 안내일 뿐 전체 구비서류가 없다는 뜻으로 처리하지 않습니다.
+`documentsStatus`는 명시된 서류 목록 `listed`, 명시적으로 없는 구비서류 `none`, 확인되지 않은
+서류 `unknown`을 구분하며, 없음 문구와 추가 조건부 서류가 함께 있으면 `listed`를 유지합니다.
+
+온라인 URL은 명시적 `application_url` 또는 원문의 신청방법 블록에서 온라인 신청·접수·등록
+표현과 같은 URL이 연결된 HTTP(S) 한 건만 사용합니다. 로그인 정보가 든 URL,
+잘못된 포트·제어 문자·공고 원문과 같은 URL·사이트 홈·알려진 공고 조회 경로는 제외합니다.
+온라인 신청이 가능하다는 문장이나 관련 링크에서 신청 페이지를 만들어내지 않습니다.
+개요 인용에서 읽은 URL은 원문에서도 같은 URL과 신청·접수·등록 페이지 표현이 연결되어야
+신청 경로로 사용하며 문의·신청 안내 URL은 제외합니다.
+전화 신청은 번호와 전화 신청·접수 표현이 함께 있는 원문 또는 명시적 신청 전화 항목만
+`application`으로 표시합니다. 상담·문의·전화 신청 불가 문구와 문의처에만 있는 번호는
+`inquiry`입니다. 팩스 번호와 유효하지 않은 번호는 전화 동작 목록에서 제외합니다.
+신청·문의 용도로 각각 명시된 같은 번호는 신청 경로를 보존합니다.
+
+`storage.catalog.card`의 목록·상세·캘린더·추천 카드에 동일한 `applicationGuide`가 추가됩니다.
+원천·개요·인용·기존 표시 필드·DB는 변경하지 않으며 HTTP·LLM·DB 호출도 없습니다.
+외부 신청 사이트의 현재 접수 여부를 이 함수가 확인하지는 않습니다.
+검증: `python -m pytest -p no:cacheprovider tests/test_application_guidance.py
+tests/test_source_field_presentation.py tests/test_notice_presentation.py`.
+
 ## 공고 상세 JSON 표시 정제 (2026-10-08)
 
 - `public.format_source_field(value: str, field='') -> str`은 JSON 객체·배열 문자열을

@@ -13,6 +13,8 @@ type Calculation = {
     rule_id: string;
     label: string;
     status: string;
+    notice?: string | null;
+    comparison_note?: string | null;
     notes: string[];
     missing: string[];
     checks: {
@@ -103,6 +105,7 @@ export function FinanceResult({
           <Copy original title>
             {item.label}
           </Copy>
+          {item.notice && <Copy original>{item.notice}</Copy>}
           {item.checks.map((check, i) => (
             <View
               key={i}
@@ -115,11 +118,12 @@ export function FinanceResult({
             >
               <Copy original>{check.label}</Copy>
               <Copy>
-                {check.state === "within"
-                  ? "입력값은 기준 이내"
-                  : check.state === "over"
-                    ? "입력값은 기준 초과"
-                    : "확인 필요"}
+                {item.comparison_note ??
+                  (check.state === "within"
+                    ? "입력값은 기준 이내"
+                    : check.state === "over"
+                      ? "입력값은 기준 초과"
+                      : "확인 필요")}
               </Copy>
               <Copy muted>
                 {t("계산값 {value} · 기준 {limit}", {

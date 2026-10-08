@@ -22,7 +22,10 @@ MySQL이 이미 실행 중이면 재사용하며, 시작 실패 시 API를 실�
 API·QR·웹을 다시 실행합니다. 관리자 콘솔에서 서버를 중지해 터널만 남은 경우에도 같은 BAT로 복구합니다.
 다른 주소·터널 모드이거나 터널 없이 일부 서버만 남아 있으면 상태 확인 후 `stop`으로 종료하고 다시 실행합니다.
 Node.js·웹 의존성·Python 환경·Caddy·cloudflared·터널 토큰과 최초 프로젝트 MySQL 구성을 준비해야 합니다.
-MySQL 시작에 실패하면 서버 시작·재시작을 중단하며, `stop`·`status`에서는 MySQL을 시작하거나 종료하지 않습니다.
+MySQL 시작에 실패하면 서버 시작·재시작을 중단합니다. `stop`은 API·웹·QR·터널·MySQL을 모두 중지합니다.
+`restart`는 프론트 빌드 성공 후 전체 서비스를 중지하고 DB부터 순서대로 시작합니다.
+`status`는 서비스 실행 여부와 DB·터널 연결 상태를 조회합니다. 개별 제어는
+`start-server-prod.bat mysql start/stop/restart/status`, `start-server-prod.bat tunnel start/stop/restart/status`입니다.
 두 실행 파일 모두 `backend/.env`와 해당 DB 설정을 공유합니다. 운영용 BAT는 별도의 DB나 수집 스케줄을 만들지 않습니다.
 `start.ps1`·`share.ps1`을 직접 실행하거나 원격·별도 MySQL을 사용하면 DB 가동은 직접 관리합니다.
 
@@ -31,10 +34,11 @@ MySQL 시작에 실패하면 서버 시작·재시작을 중단하며, `stop`·`
 | `setup.ps1` | 선택 PythonExecutable, RuntimeOnly | 로컬 환경·의존성 설치, 없는 `.env`만 생성 |
 | `start.ps1` | 선택 Reload | API 포그라운드 실행, Ctrl+C로 종료 |
 | `stop-dev.ps1` | 없음 | 이 프로젝트의 server.py 개발 API만 확인 후 프로세스 트리 종료 |
-| `process-control.ps1` | Action=Status/Stop/Restart, Target=backend/frontend/all, ServerProcessId, JobId | 관리자 콘솔 전용 고정 프로세스 제어. 변경은 접수된 작업·잠금과 일치해야 실행 |
+| `process-control.ps1` | Action=Status/Start/Stop/Restart, Target=backend/frontend/mysql/tunnel/all, ServerProcessId, JobId | 관리자 콘솔 전용 고정 서비스 제어. 변경은 접수된 작업·잠금과 일치해야 실행 |
 | `share.ps1` | start / stop / status / reload, 선택 ReloadIfRunning | 공유 API·정적 웹·Cloudflare HTTPS 터널 실행/종료/상태. start -ReloadIfRunning은 같은 주소의 실행 중 터널을 유지하며 reload. [준비·범위](../../frontend/web/deploy/readme.md) |
 | `setup-mysql.ps1` | 선택 MySqlExecutable, Port | 독립 개발 DB 초기화·시작, 로컬 DB 설정 기록 |
-| `mysql.ps1` | start / stop / status | 프로젝트 DB 실행·종료·상태 확인 |
+| `mysql.ps1` | start / stop / restart / status / inspect | 프로젝트 DB 실행·정상 종료·재시작·상태 확인. inspect는 JSON 읽기 전용 소유권·준비 조회 |
+| `tunnel.ps1` | start / stop / restart / status, 선택 PublicUrl/TunnelTokenFile | 고정 도메인 터널만 제어. 소유권·로컬 웹·터널 준비 확인, 토큰은 파일로 전달 |
 | `test.ps1` | 없음 | pytest·Ruff·패키지 충돌 검사 |
 | `lock.ps1` | 없음 | `.in`에서 고정 의존성 `.txt` 생성 |
 | `parse-raw.ps1` | InputPath 배열, 선택 PrepareOnly/Storage | 원문 파싱·설정 모델 추출·검증·MySQL 기본 저장. Storage=json만 파일 내보내기 |
@@ -55,9 +59,13 @@ MySQL 시작에 실패하면 서버 시작·재시작을 중단하며, `stop`·`
 관리 콘솔의 프로세스 제어는 현재 API의 실행 방식을 확인합니다. 개발 모드는 정확한 절대
 스크립트 인수, 운영 모드는 공유 실행 기록의 PID·실행파일·시작 시각으로 소유권을 검사합니다.
 API는 트리를 종료하지 않고 확인한 API 프로세스만 종료해 별도 관리 도우미를 보존합니다.
-운영 웹·QR은 해당 실행 기록만 제어하며 MySQL·터널은 유지합니다. 새 프로세스는 숨김으로
+운영 웹·QR·터널은 해당 실행 기록만 제어하며 DB는 기존 프로젝트 MySQL helper를 사용합니다.
+개별 서버·프론트 제어와 별도로 `all`은 DB·터널까지 포함합니다. 새 프로세스는 숨김으로
 실행하고 준비 응답을 확인한 뒤 영속 작업 결과를 기록합니다. 실패 코드는 안전한 목록만
 저장하며 실행 stdout/stderr는 로컬 `backend/data/server-control/`에 남깁니다.
+터널 로그는 `backend/data/tunnel-demo/runtime/`에 남깁니다. IPv4·QUIC 우선 자동 프로토콜을
+사용하고 UDP 연결이 안 되면 HTTP/2로 전환합니다. 소유 프로세스의 loopback metrics `/ready`
+응답으로 프로세스 실행 여부와 별도로 실제 연결 상태를 검사합니다.
 
 ## 노트북 공고 수집 스케줄
 

@@ -12,6 +12,8 @@ from app.contracts.conditions import CanonicalCondition, CanonicalPolicy, LogicN
 from app.contracts.finance import FinancialProfile
 from app.contracts.matching import RecommendationProfile
 from app.contracts.parsing import SourcePolicy
+from app.modules.matching.gender import source_gender_guard
+from app.modules.monitoring.feedback import personalize
 from app.modules.presentation.public import load_popularity, policy_signals
 from app.modules.regions.public import RegionCatalog, default_catalog
 from app.modules.storage.catalog import card, published_catalog
@@ -231,6 +233,20 @@ def compare_policy(record: dict, facts: MatchingFacts, *, catalog: RegionCatalog
              and canonical.coverage == "complete")
     status = "needs_review" if not ready or logical is None else (
         "potential_match" if logical else "not_matched")
+    gender_guard = source_gender_guard(record, facts, canonical)
+    if gender_guard:
+        guard_id = "source-gender"
+        while guard_id in states:
+            guard_id += "-guard"
+        checks.append({
+            "condition_id": guard_id, "field_key": "gender", "role": "eligibility",
+            "subject": "applicant", "label": LABELS["gender"],
+            **gender_guard,
+        })
+        if gender_guard["state"] == "mismatch":
+            status = "not_matched"
+        elif gender_guard["state"] == "unknown" and status != "not_matched":
+            status = "needs_review"
     notes = []
     if not record["matching_enabled"]:
         notes.append("이 공고는 자동 매칭 검토가 완료되지 않았어요.")
@@ -239,15 +255,18 @@ def compare_policy(record: dict, facts: MatchingFacts, *, catalog: RegionCatalog
     if any(check["state"] == "unknown" for check in checks):
         notes.append("아직 비교할 수 없는 조건이 있어요.")
     return {"status": status, "checks": checks, "notes": notes,
-            "eligibility_decided": False, "matching_enabled": bool(record["matching_enabled"])}
+            "eligibility_decided": False, "matching_enabled": bool(record["matching_enabled"]),
+            "gender_guard": gender_guard}
 
 
 def review_questions(comparison: dict, canonical: CanonicalPolicy, source: SourcePolicy,
-                     *, schedule_status: str) -> list[str]:
+                     *, schedule_status: str,
+                     logic_states: dict[str, bool | None] | None = None) -> list[str]:
     """Explain unresolved source requirements without exposing extraction keys or priority rules."""
     checks = {check["condition_id"]: check for check in comparison["checks"]}
-    states = {key: None if check["state"] == "unknown" else check["state"] == "match"
-              for key, check in checks.items()}
+    states = (logic_states if logic_states is not None else {
+        key: None if check["state"] == "unknown" else check["state"] == "match"
+        for key, check in checks.items()})
 
     def unresolved(node):
         if evaluate_logic(node, states) is not None or node.op == "unknown":
@@ -288,7 +307,8 @@ def review_questions(comparison: dict, canonical: CanonicalPolicy, source: Sourc
             if not add_source(statement, "지원 대상 안내"):
                 incomplete = True
     if incomplete:
-        questions.append("세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요.")
+        questions.append(
+            "세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요.")
     if schedule_status == "unknown":
         questions.append("담당 기관에 현재 신청을 받고 있는지와 신청 마감일을 문의해 주세요.")
     return list(dict.fromkeys(questions))
@@ -396,7 +416,7 @@ def application_is_open(policy: dict, matching: dict, today: date) -> bool:
 
 
 def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile | None = None,
-              *, limit: int = 3, today: date | None = None) -> dict:
+              *, limit: int = 3, today: date | None = None, feedback=()) -> dict:
     """Offer proven profile comparisons or explicitly broad current notices."""
     today = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
     with repository.engine.connect() as connection:
@@ -468,7 +488,7 @@ def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile |
     profile_sufficient = bool(personalized) or classified_with_profile
     candidates = personalized if profile_sufficient else general
     candidates.sort(key=lambda entry: entry[0], reverse=True)
-    items = [item for _, item in candidates[:limit]]
+    items = personalize([item for _, item in candidates], feedback)[:limit]
     if profile_sufficient:
         mode = "personalized"
         guidance = (("입력한 정보로 비교할 수 있는 공고를 골랐어요. "
@@ -485,6 +505,8 @@ def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile |
         mode = "profile_required"
         guidance = ("현재 정보로 안전하게 추천할 수 있는 신청 중 공고가 없어요. "
                     "나이·거주 지역 등 내 정보를 추가하고 전체 공고도 확인해 주세요.")
+    if candidates and not items and feedback:
+        guidance = "추천에서 제외한 공고 외에 현재 안내할 신청 중 공고가 없어요."
     summary = (f"조건을 비교한 신청 중 공개 공고 {len(items)}건을 안내해요."
                if profile_sufficient else f"신청 중인 일반 공고 {len(items)}건을 안내해요."
                if items else "현재 안내할 수 있는 신청 중 공개 공고가 없어요.")

@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { loginDestination } from '../src/features/auth/loginDestination.js';
 
 test('login resumes supported input pages and ignores external or privileged destinations', () => {
-  for (const page of ['calculator-details', 'calculator', 'profile', 'assistant']) {
+  for (const page of [
+    'calculator-details',
+    'calculator',
+    'profile',
+    'assistant',
+    'assistant-monitoring',
+    'new-notices',
+  ]) {
     assert.equal(loginDestination(page), page);
   }
   for (const value of [

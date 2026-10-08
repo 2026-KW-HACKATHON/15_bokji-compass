@@ -79,6 +79,8 @@ for (const easy of [false, true]) {
         .locator('.portal-header')
         .getByRole('button', { name: '로그아웃', exact: true });
       await expect(logout).toBeVisible();
+      await expect(page.locator('.account-actions .auth-username')).toBeVisible();
+      await expect(page.locator('.notification-trigger')).toBeVisible();
       if (easy) await page.getByRole('button', { name: '전체 메뉴', exact: true }).click();
       await page.locator(`${navSelector} a[href="#assistant"]`).click();
       await expect(page).toHaveURL(/#assistant$/);
@@ -94,13 +96,28 @@ for (const easy of [false, true]) {
         await page.evaluate(() => document.fonts.ready);
         await expectHeaderLayout(before, `language geometry at ${width}px, ${locale}`);
         const visibleAccount = await page.locator('.account-actions').evaluate((account) => {
-          const button = account.querySelector('button').getBoundingClientRect();
+          const button = account.querySelector(':scope > button').getBoundingClientRect();
           const area = account.getBoundingClientRect();
           return (
             button.x >= area.x - 1 && button.right <= area.right + 1 && button.right <= innerWidth
           );
         });
         expect(visibleAccount, `logout visible at ${width}px, ${locale}`).toBe(true);
+        const overlapping = await page.locator('.header-actions').evaluate((header) => {
+          const boxes = ['.language-control', '.mode-switch', '.account-actions'].map((selector) =>
+            header.querySelector(selector).getBoundingClientRect(),
+          );
+          return boxes.some((box, index) =>
+            boxes
+              .slice(index + 1)
+              .some(
+                (other) =>
+                  Math.min(box.right, other.right) - Math.max(box.left, other.left) > 1 &&
+                  Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 1,
+              ),
+          );
+        });
+        expect(overlapping, `account controls do not overlap at ${width}px, ${locale}`).toBe(false);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
         );

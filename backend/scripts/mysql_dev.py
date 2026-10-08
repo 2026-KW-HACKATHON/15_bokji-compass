@@ -7,6 +7,7 @@ import secrets
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -180,6 +181,8 @@ def inspect_instance() -> dict:
     if not result["configured"]:
         return result
     state = json.loads(STATE.read_text(encoding="utf-8"))
+    if str(BACKEND) not in sys.path:
+        sys.path.insert(0, str(BACKEND))
     from app.core.config import load_settings
 
     settings = load_settings()
@@ -217,7 +220,9 @@ def stop(state: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["setup", "start", "stop", "restart", "status", "inspect"])
+    parser.add_argument(
+        "action", choices=["setup", "start", "stop", "restart", "status", "inspect"]
+    )
     parser.add_argument("--mysqld")
     parser.add_argument("--port", type=int, default=3307)
     arguments = parser.parse_args()
@@ -247,6 +252,12 @@ def main() -> None:
             raise RuntimeError("Run setup-mysql.ps1 first.")
         if arguments.action in {"setup", "start", "restart"}:
             if arguments.action == "restart":
+                if not CONFIG.is_file() or not (DATA / "mysql").is_dir() or not Path(
+                    state["executable"]
+                ).is_file():
+                    raise RuntimeError(
+                        "MySQL restart prerequisites are missing; no DB was stopped."
+                    )
                 stop(state)
             start(state)
             if arguments.action == "setup":

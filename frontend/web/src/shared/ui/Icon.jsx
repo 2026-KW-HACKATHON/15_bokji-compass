@@ -2,6 +2,7 @@ import {
   ArrowDownUp,
   ArrowRight,
   ArrowUpRight,
+  Bell,
   BookOpen,
   Bookmark,
   Calculator,
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react';
 
 const icons = {
+  bell: Bell,
   arrow: ArrowRight,
   external: ArrowUpRight,
   book: BookOpen,

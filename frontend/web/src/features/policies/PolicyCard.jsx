@@ -35,7 +35,7 @@ export default function PolicyCard({
           <h3 className="card-title" tabIndex={-1}>
             {policy.title}
           </h3>
-          <PolicyDeadline policy={original} easy />
+          <PolicyDeadline policy={original} />
           <PolicyTranslationStatus translation={translation} />
           {reason ? (
             <p className="easy-recommendation-reason">

@@ -1,5 +1,46 @@
 # 사용자 상황 기반 지속 안내
 
+## 신청 안내와 서류 준비 (2026-10-08)
+
+공개 카드의 `applicationGuide`로 실제 신청 주소·전화 목적·방문 안내와 원문 서류를
+제공한다. 서류·신청 경로가 달라지면 monitoring fingerprint도 바뀐다.
+`set_candidate_preparation(account_id, policy_id, need_id, revision_id, document_id, prepared)`는
+현재 계정의 활성·추천 제외되지 않은 후보와 정확한 revision·원문 서류 ID를 검증한다.
+없는 후보는 404, 오래된 안내·없는 서류·비활성·제외 후보는 409로 거절한다.
+
+체크는 기존 `candidate_json.application_preparation`에 revision·서류 목록 signature·
+준비한 문서 ID·시각을 저장한다. snapshot에는 `{revision_id, prepared_document_ids}`
+또는 null만 반환한다. 같은 계정·공고·revision·서류 집합에서 분야 간 공유하고 재조회
+후에도 유지한다. revision이나 서류가 바뀌면 숨겨진 이력의 체크도 초기화한다. 단순
+프로필 수정은 같은 원문의 체크를 지우지 않는다. 버전 갱신으로 지연 worker를 차단하며
+신청 상태·자격 판단·추천 제외 이유는 유지한다. 새 테이블·마이그레이션은 없다.
+안내 삭제·탈퇴는 체크도 지운다. 이 기능은 사용자의 준비 확인이며 파일 업로드·실물
+검증·정부기관 제출·신청 완료를 수행하지 않는다.
+
+## 개인별 추천 제외 (2026-10-08)
+
+`set_candidate_feedback(account_id, policy_id, need_id, reason)`은 해당 계정에서 추천받은
+공고만 수정하고 snapshot을 반환합니다. `not_eligible`은 해당 공고를 제외하며,
+`not_interested`는 해당 공고를 제외하고 같은 분야·제목 단어가 비슷한 공고의 순위를
+낮춥니다. `reason=None`은 복원입니다. 자격 조건과 회원 생활정보는 변경하지 않습니다.
+
+`feedback.py`의 `personalize(items, feedback)`는 제외 후 관심도 감점을 기준으로 안정
+정렬합니다. 감점은 동일 분야 2점 + 제목 단어 Jaccard 유사도 × 8이며 여러 제외 공고 중
+가장 큰 값을 적용합니다. 기존 관련도 순서는 감점이 같은 후보 사이에서 유지합니다.
+LLM 학습·외부 호출 없이 저장한 이유를 적용하고 다른 계정에는 영향을 주지 않습니다.
+
+기존 후보의 `candidate_json.recommendation_feedback`에 공고 ID·선택 이유·제목·분야·
+제목 단어·선택 시각을 저장하므로 테이블 변경은 없습니다. snapshot에는 공고별로 중복을
+제거한 `recommendation_feedback` 목록과 후보별 동일 필드를 추가합니다. 같은 공고의
+모든 탐색 분야와 개정에 적용하고, 다음 scan·프로필 수정에도 보존합니다. 신청 기록은
+유지하며 추천 제외 변경도 버전을 갱신해 이전 worker가 덮어쓰지 못하게 합니다.
+
+제외 시 해당 공고의 미확인 알림을 읽음 처리하고 이후 변경 알림 생성을 억제합니다.
+명시적 복원 또는 안내 정보 삭제·회원 탈퇴 시 제외 설정을 제거합니다. 비활성 공고도
+목록에서 복원할 수 있고, 복원 후 실제 추천 여부는 현재 공개 상태·조건에 따릅니다.
+홈 추천과 인증된 AI 대화는 `load_recommendation_feedback(engine, account_id)`로 같은
+설정을 읽습니다. 신규 설치에서 후보 테이블이 없으면 빈 목록으로 처리하고 생성하지 않습니다.
+
 사용자가 저장과 지속 안내에 동의한 상황 정보에서 탐색 분야를 도출하고, 공개된 정책
 카탈로그의 전체 후보를 주기적으로 다시 비교합니다. 노후 자가주택의 주거 개선, 청년·구직자의
 일자리 지원, 거주 지역과 연결된 재난 지원 공고의 발견, 사용자가 확인한 재난 피해의 복구
@@ -48,6 +89,9 @@
   status는 potential_match 또는 needs_review이며 eligibility_decided는 항상 false다.
   연결된 공고의 원문·조건 손상은 `MonitoringScanIncomplete`; DB 조회 실패는 SQLAlchemyError다.
   실패를 빈 후보 결과로 바꾸지 않는다. 외부 검색·AI·공고 쓰기 없음.
+  후보 `questions`는 `matching.review_questions()`의 원문 기반 신청 확인사항이며,
+  `need.questions`의 생활정보 질문을 공고마다 반복하지 않는다. 생활정보 질문은 탐색 분야에
+  유지한다. 내부 항목명과 시스템의 미해석 상태를 사용자 정보 요청으로 바꾸지 않는다.
 - `MonitoringStore(engine).read(account_id)` → profile/needs/candidates/alerts/설정/버전의 snapshot.
   `save(account_id, profile, *, enabled=False)` → 같은 snapshot. 저장 동의 확인은 API 모델이 한다.
   `set_enabled(account_id, bool)` → 설정 변경 snapshot; `delete(account_id)` → None.

@@ -96,7 +96,21 @@ export function parseDialogue(value) {
       },
     };
   }
-  return { ...value, candidates, selected_policy: selected, profile_draft: profile };
+  const missing = value.missing_fields.filter(
+    (field) =>
+      Object.hasOwn(emptyMonitoringProfile, field.slot) ||
+      ['subject', 'region', 'support_interest', 'search_query'].includes(field.slot),
+  );
+  return {
+    ...value,
+    candidates,
+    selected_policy: selected,
+    profile_draft: profile,
+    missing_fields: missing.map((field) => ({
+      ...field,
+      label: userConditionLabel(field.label),
+    })),
+  };
 }
 
 export function createDialogueApi(request, { guest = false } = {}) {

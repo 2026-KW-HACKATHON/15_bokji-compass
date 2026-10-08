@@ -6,6 +6,9 @@ import {
   moneyInput,
   moneyInputValue,
   parseMoney,
+  currentTransferMonth,
+  emptyPrivateTransferHistory,
+  repeatPrivateTransferMonths,
 } from "@bokji/core/finance-model";
 import {
   Button,
@@ -230,6 +233,52 @@ export function QuestionFields({
           disabled={props.busy}
           onPress={() => props.edit("debts", { bank: 0, public: 0, other: 0 })}
         />
+      )}
+      {question.id === "private-transfer" &&
+        props.draft.private_transfer_history &&
+        props.draft.private_transfer_history.as_of_month !==
+          currentTransferMonth() && (
+          <View style={{ gap: 12 }}>
+            <Copy>
+              저장된 지원 내역의 기간이 지났어요. 이번 달 기준 최근 12개월로
+              다시 입력해 주세요.
+            </Copy>
+            <Button
+              secondary
+              label="이번 달 기준으로 다시 입력"
+              disabled={props.busy}
+              onPress={() =>
+                props.edit(
+                  "private_transfer_history",
+                  emptyPrivateTransferHistory(),
+                )
+              }
+            />
+          </View>
+        )}
+      {question.id === "private-transfer-months" && (
+        <View style={{ gap: 12 }}>
+          <Copy>
+            12개월 내내 같은 지원을 받았다면 첫 달의 금액·횟수를 입력한 뒤 아래
+            버튼을 누르세요.
+          </Copy>
+          <Button
+            secondary
+            label="첫 달 금액·횟수를 12개월에 동일하게 적용"
+            disabled={
+              props.busy ||
+              !repeatPrivateTransferMonths(props.draft.private_transfer_history)
+            }
+            onPress={() =>
+              props.edit(
+                "private_transfer_history",
+                repeatPrivateTransferMonths(
+                  props.draft.private_transfer_history,
+                ),
+              )
+            }
+          />
+        </View>
       )}
       {visibleFields(question, props.draft).map((field: FormField) => (
         <FinanceField key={field.path} field={field} {...props} />

@@ -16,7 +16,7 @@ export function assistantOverview(snapshot, user) {
     profile?.repair_needed === true ? '주택 수리 필요' : null,
     profile?.disaster_damage === true ? '재난 피해 있음' : null,
   ].filter((fact, index, values) => Boolean(fact) && values.indexOf(fact) === index);
-  const active = snapshot.candidates.filter((item) => item.active);
+  const active = snapshot.candidates.filter((item) => item.active && !item.recommendation_feedback);
   const byPolicy = new Map();
   for (const candidate of snapshot.candidates) {
     if (!byPolicy.has(candidate.policy_id) || candidate.active)

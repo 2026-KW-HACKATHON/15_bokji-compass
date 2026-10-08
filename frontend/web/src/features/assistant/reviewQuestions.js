@@ -16,7 +16,11 @@ export function userReviewQuestions(questions, profileQuestions = []) {
   for (const item of questions) {
     const question = item.trim();
     if (personal.has(question)) continue;
-    if (legacyDiagnostic.test(question) || internalKey.test(question) || legacyNotices.has(question)) {
+    if (
+      legacyDiagnostic.test(question) ||
+      internalKey.test(question) ||
+      legacyNotices.has(question)
+    ) {
       needsOfficialNotice = true;
       continue;
     }
@@ -28,11 +32,13 @@ export function userReviewQuestions(questions, profileQuestions = []) {
 
 export function userConditionLabel(label, role = 'eligibility') {
   if (!internalKey.test(label)) return label;
-  return {
-    eligibility: '지원 대상',
-    exclusion: '신청 제외 대상',
-    priority: '우대사항',
-    application: '신청 안내',
-    reference: '참고사항',
-  }[role] || '지원 대상';
+  return (
+    {
+      eligibility: '지원 대상',
+      exclusion: '신청 제외 대상',
+      priority: '우대사항',
+      application: '신청 안내',
+      reference: '참고사항',
+    }[role] || '지원 대상'
+  );
 }

@@ -53,7 +53,7 @@ async function setup(page, initial = ready(), user = member, { introSeen = true 
       [assistantIntroKey(member.id), assistantIntroKey('assistant-b'), assistantIntroKey(null)],
     );
   }
-  const state = { user, snapshot: initial, calls: [], reads: 0, failSaves: 0 };
+  const state = { user, snapshot: initial, calls: [], reads: 0, failSaves: 0, failFeedback: 0 };
   await page.route('**/api/v1/auth/kakao/status', (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
@@ -85,6 +85,24 @@ async function setup(page, initial = ready(), user = member, { introSeen = true 
       state.snapshot = { ...state.snapshot, profile: body.profile, enabled: body.enabled };
     }
     if (path.endsWith('/candidates/state')) state.snapshot.candidates[0].state = body.state;
+    if (path.endsWith('/candidates/feedback')) {
+      if (state.failFeedback > 0) {
+        state.failFeedback--;
+        return route.fulfill({ status: 503, json: {} });
+      }
+      state.snapshot.recommendation_feedback =
+        body.reason === null
+          ? []
+          : [
+              {
+                policy_id: body.policy_id,
+                need_id: body.need_id,
+                reason: body.reason,
+                title: dialoguePolicy.title,
+                updated_at: '2026-10-08T05:00:00Z',
+              },
+            ];
+    }
     if (path.endsWith('/alerts/read')) {
       state.snapshot.alerts.forEach((item) => {
         item.read = true;
@@ -105,12 +123,128 @@ async function openChat(page) {
   return chat;
 }
 
+test('saved internal checks become readable application guidance without asking for unrelated data', async ({
+  page,
+}, testInfo) => {
+  const snapshot = ready();
+  snapshot.candidates[0].questions = [
+    snapshot.needs[0].questions[0],
+    '공고의 regular_income_status 조건에 필요한 정보를 확인해 주세요.',
+    '공고의 employment_vulnerability 조건에 필요한 정보를 확인해 주세요.',
+    '공고의 local_geography_knowledge 조건에 필요한 정보를 확인해 주세요.',
+    '원문에 기재된 추가 지원대상 조건을 확인해 주세요.',
+    '공고의 전체 조건·예외를 공식 안내와 함께 확인해 주세요.',
+    '지원 대상 안내: 정기소득이 없는 사람',
+  ];
+  if (testInfo.project.name === 'mobile') {
+    await page.setViewportSize({ width: 320, height: 1200 });
+  }
+  await setup(page, snapshot);
+  await page.goto('/#assistant');
+  const card = page.locator('.monitoring-candidate');
+  await expect(card.getByText('신청 전 확인사항', { exact: true })).toBeVisible();
+  await expect(
+    card.getByText('지원 대상 안내: 정기소득이 없는 사람', { exact: true }),
+  ).toBeVisible();
+  await expect(card.locator('.monitoring-questions li')).toHaveCount(2);
+  await expect(card).not.toContainText(
+    /regular_income_status|employment_vulnerability|local_geography_knowledge/,
+  );
+  await expect(card).not.toContainText(snapshot.needs[0].questions[0]);
+  await expect(card.getByRole('combobox', { name: /지원 진행 상태/ })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: '이 공고 추천하지 않기' })).toBeVisible();
+  await expect(card.getByRole('link', { name: /공식 공고/ })).toHaveAttribute(
+    'href',
+    dialoguePolicy.sourceUrl,
+  );
+  await expect(page.locator('html')).toHaveJSProperty(
+    'scrollWidth',
+    await page.locator('html').evaluate((element) => element.clientWidth),
+  );
+  const capture = testInfo.project.name === 'mobile' ? card.locator('.monitoring-questions') : card;
+  await capture.screenshot({
+    path: `C:/15_bokji-compass/tmp/assistant-guidance-${testInfo.project.name}.png`,
+    scale: 'css',
+  });
+});
+
 async function openAssistantNavigation(page) {
   await page
     .getByRole('navigation', { name: '주 메뉴', exact: true })
     .getByRole('link', { name: 'AI 비서', exact: true })
     .click();
 }
+
+for (const [reason, label] of [
+  ['not_eligible', '지원 대상이 아니에요'],
+  ['not_interested', '관심 없는 공고예요'],
+]) {
+  test(`recommendation feedback ${reason} persists, can be cancelled and restored`, async ({
+    page,
+  }, info) => {
+    const state = await setup(page);
+    if (info.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 1100 });
+    await page.goto('/#assistant');
+    const card = page.locator('.monitoring-candidate');
+    const trigger = card.getByRole('button', { name: '이 공고 추천하지 않기' });
+    await expect(card.getByRole('combobox', { name: /지원 진행 상태/ })).toHaveCount(0);
+    await trigger.click();
+    await expect(card.getByRole('radio').first()).toBeFocused();
+    await expect(card.getByRole('button', { name: '추천에서 제외', exact: true })).toBeDisabled();
+    await card.getByRole('radio', { name: label }).check();
+    await card.getByRole('button', { name: '취소', exact: true }).click();
+    await expect(trigger).toBeFocused();
+    expect(state.calls.some((call) => call.path.endsWith('/candidates/feedback'))).toBe(false);
+    await trigger.click();
+    await card.getByRole('radio', { name: label }).check();
+    if (reason === 'not_interested')
+      await expect(card).toContainText('비슷한 공고의 추천 순위를 낮춰요.');
+    await card.locator('.recommendation-feedback').screenshot({
+      path: info.outputPath('recommendation-feedback-form.png'),
+      scale: 'css',
+    });
+    await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    expect(state.calls.find((call) => call.path.endsWith('/candidates/feedback')).body).toEqual({
+      policy_id: dialoguePolicy.id,
+      need_id: 'housing_repair',
+      reason,
+    });
+    await page.reload();
+    await expect(card).toHaveCount(0);
+    await expect(page.locator('.monitoring-panel')).toContainText(
+      '추천에서 제외한 공고 외에 현재 안내할 지원 후보가 없어요.',
+    );
+    const excluded = page.locator('.recommendation-excluded');
+    await excluded.locator('summary').click();
+    await expect(excluded).toContainText(label);
+    await excluded.getByRole('button', { name: '다시 추천받기' }).click();
+    await expect(card).toHaveCount(1);
+    expect(
+      state.calls.filter((call) => call.path.endsWith('/candidates/feedback')).at(-1).body.reason,
+    ).toBeNull();
+    expect(state.snapshot.candidates[0].state).toBe('preparing');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  });
+}
+
+test('failed recommendation feedback keeps the reason and card available for retry', async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.failFeedback = 1;
+  await page.goto('/#assistant');
+  const card = page.locator('.monitoring-candidate');
+  await card.getByRole('button', { name: '이 공고 추천하지 않기' }).click();
+  await card.getByRole('radio', { name: '관심 없는 공고예요' }).check();
+  await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+  await expect(card.getByRole('radio', { name: '관심 없는 공고예요' })).toBeChecked();
+  await expect(card.getByRole('button', { name: '추천에서 제외', exact: true })).toBeEnabled();
+  await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+  await expect(card).toHaveCount(0);
+});
 
 test('the first assistant visit explains the service and opens optional information entry', async ({
   page,

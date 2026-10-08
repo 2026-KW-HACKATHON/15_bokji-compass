@@ -1,6 +1,8 @@
 import { ApiError } from '../../shared/api/httpClient.js';
+import { notifyMonitoringChanged } from './monitoringEvents.js';
 import {
   candidateStates,
+  recommendationFeedbackReasons,
   parseMonitoringProfile,
   parseMonitoringSnapshot,
 } from './monitoringModel.js';
@@ -15,8 +17,11 @@ export function createMonitoringApi(request) {
       timeoutMs: 30000,
     });
   }
-  const snapshot = async (path, body, options) =>
-    parseMonitoringSnapshot(await call(path, body, options));
+  const snapshot = async (path, body, options) => {
+    const value = parseMonitoringSnapshot(await call(path, body, options));
+    if (body !== undefined) notifyMonitoringChanged(options?.signal);
+    return value;
+  };
   return {
     read: (options) => snapshot('', undefined, options),
     save: (profile, { consent, enabled, ...options } = {}) => {
@@ -52,12 +57,55 @@ export function createMonitoringApi(request) {
         options,
       );
     },
+    feedback: (candidate, reason, options) => {
+      if (
+        !candidate?.policy_id ||
+        !candidate?.need_id ||
+        (reason !== null && !recommendationFeedbackReasons.some(([value]) => value === reason))
+      )
+        throw new ApiError('추천에서 제외할 이유를 선택해 주세요.', 'invalid_input');
+      return snapshot(
+        '/candidates/feedback',
+        {
+          policy_id: candidate.policy_id,
+          need_id: candidate.need_id,
+          reason,
+        },
+        options,
+      );
+    },
+    preparation: (candidate, documentId, prepared, options) => {
+      const guide = candidate?.policy?.applicationGuide;
+      if (
+        !candidate?.policy_id ||
+        !candidate?.need_id ||
+        !candidate?.policy?.revisionId ||
+        candidate.active === false ||
+        candidate.recommendation_feedback ||
+        guide?.documentsStatus !== 'listed' ||
+        !guide.documents.some((document) => document.id === documentId) ||
+        typeof prepared !== 'boolean'
+      )
+        throw new ApiError('준비할 서류 정보를 다시 확인해 주세요.', 'invalid_input');
+      return snapshot(
+        '/candidates/preparation',
+        {
+          policy_id: candidate.policy_id,
+          need_id: candidate.need_id,
+          revision_id: candidate.policy.revisionId,
+          document_id: documentId,
+          prepared,
+        },
+        options,
+      );
+    },
     readAlerts: async (ids, options) => {
       if (!Array.isArray(ids) || !ids.length || !ids.every((id) => typeof id === 'string' && id))
         throw new ApiError('읽을 알림을 확인해 주세요.', 'invalid_input');
       const value = await call('/alerts/read', { ids: [...new Set(ids)] }, options);
       if (value?.updated !== true)
         throw new ApiError('알림 읽음 처리를 확인하지 못했어요.', 'invalid_response');
+      notifyMonitoringChanged(options?.signal);
       return value;
     },
     remove: (options) => snapshot('/delete', {}, options),

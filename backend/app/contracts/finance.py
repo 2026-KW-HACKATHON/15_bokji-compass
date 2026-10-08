@@ -42,6 +42,22 @@ class IncomeMember(FinanceModel):
     ] = "unknown"
 
 
+class PrivateTransferMonth(FinanceModel):
+    amount: Money | None = None
+    count: int | None = Field(default=None, strict=True, ge=0, le=10000)
+
+
+class PrivateTransferHistory(FinanceModel):
+    """Household totals, newest month first; no user-entered legal classification."""
+
+    as_of_month: str = Field(pattern=r"^20\d{2}-(0[1-9]|1[0-2])$")
+    status: Literal["none", "received", "unknown"] = "unknown"
+    source: Literal["family_friends", "sponsor", "foreign_spouse", "other", "unknown"] = "unknown"
+    purpose: Literal["living", "restricted", "mixed", "unknown"] = "unknown"
+    unentered_months_zero: bool = Field(default=False, strict=True)
+    months: list[PrivateTransferMonth] = Field(min_length=12, max_length=12)
+
+
 class Assets(FinanceModel):
     housing: Money | None = None
     rental_deposit: Money | None = None
@@ -80,6 +96,7 @@ class FinancialProfile(FinanceModel):
     minor_children: int | None = Field(default=None, strict=True, ge=0, le=100)
     recipient_status: Literal["none", "near_poor", "basic", "unknown"] = "unknown"
     members: list[IncomeMember] = Field(min_length=1, max_length=100)
+    private_transfer_history: PrivateTransferHistory | None = None
     assets: Assets = Field(default_factory=Assets)
     debts: Debts = Field(default_factory=Debts)
     vehicle_status: Literal["none", "owned", "unknown"] = "unknown"

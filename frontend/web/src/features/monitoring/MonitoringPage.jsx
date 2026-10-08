@@ -13,11 +13,16 @@ export default function MonitoringPage({ notices = false, ...props }) {
         </a>
         <h1>{t(notices ? '신규공고 확인하기' : '지속 복지 안내')}</h1>
         <p>
-          {t(notices
-            ? '내 상황과 관련해 새로 도착한 공고 안내를 모아봤어요.'
-            : '거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.')}
+          {t(
+            notices
+              ? '내 상황과 관련해 새로 도착한 공고 안내를 모아봤어요.'
+              : '거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.',
+          )}
         </p>
-        <a className="text-button monitoring-page-link" href={notices ? '#assistant-monitoring' : '#new-notices'}>
+        <a
+          className="text-button monitoring-page-link"
+          href={notices ? '#assistant-monitoring' : '#new-notices'}
+        >
           {t(notices ? '지속 복지 안내 설정' : '신규공고 확인하기')} <Icon name="arrow" size={18} />
         </a>
       </div>

@@ -11,11 +11,27 @@ if errorlevel 1 (
 
 if /i "%~1"=="stop" goto :stop
 if /i "%~1"=="status" goto :status
+if /i "%~1"=="mysql" (
+    set "service_script=mysql.ps1"
+    goto :dependency
+)
+if /i "%~1"=="tunnel" (
+    set "service_script=tunnel.ps1"
+    goto :dependency
+)
+set "restart_requested=0"
+if /i "%~1"=="restart" (
+    set "restart_requested=1"
+    goto :start
+)
+if /i "%~1"=="start" goto :start
 if not "%~1"=="" (
-    echo Usage: start-server-prod.bat [stop^|status]
+    echo Usage: start-server-prod.bat [start^|stop^|restart^|status]
+    echo Services: start-server-prod.bat mysql^|tunnel [start^|stop^|restart^|status]
     goto :failed
 )
 
+:start
 if not exist "backend\.venv\Scripts\python.exe" (
     echo [ERROR] Python environment is missing. Run backend\scripts\setup.ps1 first.
     goto :failed
@@ -50,6 +66,14 @@ echo Building the public website...
 call npm.cmd --prefix "frontend\web" run build
 if errorlevel 1 goto :failed
 
+if "%restart_requested%"=="1" (
+    echo Stopping the public services and MySQL before restarting...
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" stop
+    if errorlevel 1 goto :failed
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" stop
+    if errorlevel 1 goto :failed
+)
+
 echo Starting the project MySQL database...
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" start
 if errorlevel 1 (
@@ -71,16 +95,38 @@ echo.
 echo Public address: https://bokji.commitnaru.com
 echo The servers keep running after this window closes.
 echo To stop them: start-server-prod.bat stop
-echo MySQL is running and will remain running when the public servers stop.
+echo Stop shuts down API, web, QR, tunnel and MySQL.
+echo Manage MySQL: start-server-prod.bat mysql start^|stop^|restart^|status
+echo Manage tunnel: start-server-prod.bat tunnel start^|stop^|restart^|status
 goto :finished
 
 :stop
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" stop
+if errorlevel 1 goto :failed
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" stop
 set "server_exit_code=%errorlevel%"
 goto :finished
 
 :status
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\share.ps1" status
+if errorlevel 1 goto :failed
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\tunnel.ps1" status
+if errorlevel 1 goto :failed
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\mysql.ps1" status
+set "server_exit_code=%errorlevel%"
+goto :finished
+
+:dependency
+set "service_action=status"
+if /i "%~2"=="start" set "service_action=start"
+if /i "%~2"=="stop" set "service_action=stop"
+if /i "%~2"=="restart" set "service_action=restart"
+if /i "%~2"=="status" set "service_action=status"
+if not "%~2"=="" if /i not "%~2"=="%service_action%" (
+    echo [ERROR] Service action must be start, stop, restart or status.
+    goto :failed
+)
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "backend\scripts\%service_script%" %service_action%
 set "server_exit_code=%errorlevel%"
 goto :finished
 

@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
 });
 
-test('full menu groups the calculator and separates assistant destinations', async ({
+test('each section shows only its own destinations, including guidance and new notices', async ({
   page,
 }, info) => {
   const errors = [];
@@ -18,10 +18,15 @@ test('full menu groups the calculator and separates assistant destinations', asy
   await expect(
     nav.locator('.portal-nav').getByRole('link', { name: '계산기', exact: true }),
   ).toHaveCount(0);
-  await nav.getByRole('button', { name: '내 정보 하위 메뉴', exact: true }).click();
+  await nav.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
   const panel = nav.locator('.portal-mega-menu');
   await expect(panel).toBeVisible();
   const ai = panel.getByRole('region', { name: 'AI 비서', exact: true });
+  await expect(panel.getByRole('region')).toHaveCount(1);
+  await expect(ai.getByRole('link', { name: '지속 복지 안내', exact: true })).toHaveAttribute(
+    'href',
+    '#assistant-monitoring',
+  );
   await expect(ai.getByRole('link', { name: '서비스 소개', exact: true })).toHaveAttribute(
     'href',
     '#assistant-intro',
@@ -30,16 +35,32 @@ test('full menu groups the calculator and separates assistant destinations', asy
     'href',
     '#assistant-overview',
   );
+  await nav.getByRole('button', { name: '홈 하위 메뉴', exact: true }).click();
   const home = panel.getByRole('region', { name: '홈', exact: true });
   await expect(home.getByRole('link', { name: '서비스 안내', exact: true })).toHaveAttribute(
     'href',
     '#guide',
   );
+  await nav.getByRole('button', { name: '내 정보 하위 메뉴', exact: true }).click();
   const account = panel.getByRole('region', { name: '내 정보', exact: true });
+  await expect(
+    account.getByRole('link', { name: '신규공고 확인하기', exact: true }),
+  ).toHaveAttribute('href', '#new-notices');
+  await expect(ai).toHaveCount(0);
   await expect(account.getByRole('link', { name: '계산기', exact: true })).toHaveAttribute(
     'href',
     '#calculator',
   );
+  const rows = await account.getByRole('link').evaluateAll((links) =>
+    links.map((link) => {
+      const { x, y, bottom } = link.getBoundingClientRect();
+      return { x, y, bottom };
+    }),
+  );
+  for (let index = 1; index < rows.length; index += 1) {
+    expect(Math.abs(rows[index].x - rows[0].x)).toBeLessThan(1);
+    expect(rows[index].y).toBeGreaterThanOrEqual(rows[index - 1].bottom);
+  }
   await page.screenshot({ path: info.outputPath('menu-open.png') });
   await account.getByRole('link', { name: '계산기', exact: true }).click();
   await expect(page).toHaveURL(/#calculator$/);
@@ -54,12 +75,15 @@ test('keyboard and touch controls close the menu and keep destinations accessibl
 }) => {
   await page.goto('/#home');
   const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
-  const toggle = nav.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true });
+  const toggle = nav.getByRole('button', { name: '홈 하위 메뉴', exact: true });
   await toggle.focus();
   await toggle.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const guide = nav.getByRole('link', { name: '서비스 안내', exact: true });
-  await guide.focus();
+  await toggle.press('Tab');
+  await expect(nav.getByRole('link', { name: '홈으로 이동', exact: true })).toBeFocused();
+  await nav.getByRole('link', { name: '홈으로 이동', exact: true }).press('Tab');
+  await expect(guide).toBeFocused();
   await guide.press('Escape');
   await expect(nav.locator('.portal-mega-menu')).toBeHidden();
   await expect(toggle).toBeFocused();
@@ -71,6 +95,33 @@ test('keyboard and touch controls close the menu and keep destinations accessibl
   await toggle.click();
   await page.locator('.portal-header .brand').click();
   await expect(nav.locator('.portal-mega-menu')).toBeHidden();
+});
+
+test('hover switches between sections and keeps the panel open while entering its links', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'Touch uses the explicit menu buttons.');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#home');
+  const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
+  const panel = nav.locator('.portal-mega-menu');
+  for (const label of [
+    '홈',
+    '우리 동네 복지',
+    'AI 비서',
+    '전체 공고',
+    '공고 캘린더',
+    '저장한 공고',
+    '내 정보',
+  ]) {
+    await nav.locator('.portal-nav').getByRole('link', { name: label, exact: true }).hover();
+    await expect(panel.getByRole('region', { name: label, exact: true })).toBeVisible();
+    await expect(panel.getByRole('region')).toHaveCount(1);
+    await panel.getByRole('link').first().hover();
+    await expect(panel).toBeVisible();
+  }
+  await page.mouse.move(12, 700);
+  await expect(panel).toBeHidden();
 });
 
 test('service introduction and current workspace have independent URLs and preserve a conversation draft', async ({

@@ -21,6 +21,24 @@ def run_control(tmp_path, *, action="Stop", target="backend", shared=False, reus
     script = script_dir / "process-control.ps1"
     script.write_text((BACKEND / "scripts/process-control.ps1").read_text(encoding="utf-8"),
                       encoding="utf-8-sig")
+    (script_dir / "mysql.ps1").write_text(r'''
+param($Action)
+if ($Action -eq 'inspect') { '{"controllable":true,"running":true,"ready":true}'; return }
+$global:controlTest_dependencies += "mysql:$Action"
+$global:controlTest_events += "mysql:$Action"
+''', encoding="utf-8-sig")
+    (script_dir / "tunnel.ps1").write_text(r'''
+param($Action)
+if ($Action -eq 'status') { '{"controllable":true,"running":true,"connected":true}'; return }
+$global:controlTest_dependencies += "tunnel:$Action"
+$global:controlTest_events += "tunnel:$Action"
+if ($Action -eq 'stop') {
+    $path = Join-Path $PSScriptRoot '..\data\tunnel-demo\runtime\processes.json'
+    $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $saved.processes = @($saved.processes | Where-Object name -ne 'tunnel')
+    $saved | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $path
+}
+''', encoding="utf-8-sig")
     python = root / "backend/.venv/Scripts/python.exe"
     node = root / "node.exe"
     for path in (python, node, root / "frontend/web/node_modules/vite/bin/vite.js",
@@ -68,6 +86,8 @@ $global:controlTest_rows = ConvertFrom-Json -InputObject '{rows_json}'
 $global:controlTest_killed = @()
 $global:controlTest_commands = @()
 $global:controlTest_starts = @()
+$global:controlTest_dependencies = @()
+$global:controlTest_events = @()
 function Get-CimInstance {{
     param($ClassName, $Filter)
     if ($Filter -match '^ProcessId = (\d+)$') {{
@@ -90,6 +110,7 @@ function taskkill.exe {{
     param([Parameter(ValueFromRemainingArguments=$true)]$Arguments)
     $targetId = [int]$Arguments[1]
     $global:controlTest_killed += $targetId; $global:controlTest_commands += ($Arguments -join ' ')
+    $global:controlTest_events += "kill:$targetId"
     $global:controlTest_rows = @($global:controlTest_rows |
         Where-Object {{ $_.ProcessId -ne $targetId }})
     $global:LASTEXITCODE=0
@@ -99,6 +120,7 @@ function Start-Process {{
         $RedirectStandardOutput,$RedirectStandardError)
     $global:controlTest_starts += @{{path=$FilePath;arguments=$ArgumentList;window=$WindowStyle;
         cwd=$WorkingDirectory}}
+    $global:controlTest_events += "start:$ArgumentList"
     return [pscustomobject]@{{Id=900;StartTime=[datetime]'2026-10-06T00:00:00Z';HasExited=$false}}
 }}
 function Get-Command {{
@@ -116,7 +138,8 @@ catch {{ $failure=$_.Exception.Message }}
 $job = Get-Content -LiteralPath '{str(control / (job_id + '.json'))}' -Raw | ConvertFrom-Json
 Write-Output ('RESULT:' + (@{{killed=@($global:controlTest_killed);
     commands=@($global:controlTest_commands);
-    starts=@($global:controlTest_starts);error=$failure;job=$job;
+    starts=@($global:controlTest_starts);dependencies=@($global:controlTest_dependencies);
+    events=@($global:controlTest_events);error=$failure;job=$job;
     remaining=@($global:controlTest_rows | ForEach-Object {{$_.ProcessId}})}} |
     ConvertTo-Json -Compress -Depth 8))
 """, encoding="utf-8-sig")
@@ -172,8 +195,43 @@ def test_shared_frontend_stop_preserves_api_and_tunnel_registry(tmp_path):
     assert result["saved"]["url"] == "https://example.invalid"
 
 
-def test_shared_all_stop_preserves_other_projects_and_tunnel_registry(tmp_path):
+def test_shared_all_stop_includes_database_and_tunnel_and_preserves_other_projects(tmp_path):
     result = run_control(tmp_path, target="all", shared=True)
     assert sorted(result["killed"]) == [100, 101, 300, 400]
     assert result["remaining"] == [201]
-    assert [entry["name"] for entry in result["saved"]["processes"]] == ["tunnel"]
+    assert result["saved"]["processes"] == []
+    assert result["dependencies"] == ["tunnel:stop", "mysql:stop"]
+    assert result["events"] == ["tunnel:stop", "kill:300", "kill:400", "kill:100",
+                                "kill:101", "mysql:stop"]
+    assert result["job"]["status"] == "completed"
+
+
+def test_database_restart_does_not_stop_api_or_frontend(tmp_path):
+    result = run_control(tmp_path, target="mysql", action="Restart")
+    assert result["killed"] == []
+    assert result["starts"] == []
+    assert result["dependencies"] == ["mysql:restart"]
+    assert result["job"]["status"] == "completed"
+
+
+def test_tunnel_restart_does_not_stop_api_or_database(tmp_path):
+    result = run_control(tmp_path, target="tunnel", action="Restart", shared=True)
+    assert result["killed"] == []
+    assert result["dependencies"] == ["tunnel:restart"]
+    assert result["job"]["status"] == "completed"
+
+
+def test_start_frontend_preserves_already_running_frontend(tmp_path):
+    result = run_control(tmp_path, target="frontend", action="Start")
+    assert result["killed"] == []
+    assert result["starts"] == []
+    assert result["job"]["status"] == "completed"
+
+
+def test_all_restart_starts_database_before_api_and_frontend(tmp_path):
+    result = run_control(tmp_path, target="all", action="Restart")
+    assert result["job"]["status"] == "completed"
+    assert result["events"][:5] == ["kill:300", "kill:100", "kill:101",
+                                   "mysql:stop", "mysql:start"]
+    assert "backend\\server.py" in result["events"][5]
+    assert "vite\\bin\\vite.js" in result["events"][6]

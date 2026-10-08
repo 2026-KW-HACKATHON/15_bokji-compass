@@ -14,7 +14,7 @@ Cloudflare의 `bokji-compass` 터널에 published application hostname `bokji.co
 
 | 용도 | 고정 주소 |
 | --- | --- |
-| Android·iPhone 웹 서비스 소개 QR | `https://bokji.commitnaru.com/#guide` |
+| Android·iPhone 웹 서비스 소개 QR (쉬운 모드 OFF) | `https://bokji.commitnaru.com/#guide?easy=0` |
 | Android 다운로드 QR | `https://bokji.commitnaru.com/downloads/bokji-compass.apk` |
 | APK 빌드에 사용할 서버 주소 | `https://bokji.commitnaru.com/api` |
 
@@ -36,6 +36,6 @@ Cloudflare의 `bokji-compass` 터널에 published application hostname `bokji.co
 
 [관리 화면 실행·APK 등록](../web/tools/exhibition/README.md)을 따릅니다. 사이트 관리자 로그인 후 상단 **전시 QR 관리**(`/admin/exhibition/`)에서 엽니다. 일반 회원에게 메뉴를 표시하지 않으며 직접 주소를 입력해도 서버가 차단합니다. 최고 관리자는 **관리자 관리**(`#admin`)에서 QR 전용 하위 관리자를 생성할 수 있습니다. 하위 계정에는 관리자 생성·DB 관리 권한을 부여하지 않습니다.
 
-QR 관리 화면은 기본적으로 `https://bokji.commitnaru.com/#guide`와 같은 도메인의 APK 다운로드 주소를 사용합니다. 웹 QR은 서비스 소개 페이지로 바로 연결됩니다. 공유 서버 재시작이나 임시 터널 기록에 따라 주소를 바꾸지 않습니다. 기존 메인 페이지나 임시 주소로 인쇄한 웹 QR은 새 PNG로 교체합니다. 다른 도메인이 필요하면 직접 입력하거나 `EXHIBITION_PUBLIC_URL`로 지정합니다.
+QR 관리 화면은 기본적으로 `https://bokji.commitnaru.com/#guide?easy=0`와 같은 도메인의 APK 다운로드 주소를 사용합니다. 웹 QR은 쉬운 모드가 꺼진 서비스 소개 페이지로 바로 연결됩니다. 저장된 쉬운 모드 ON 설정도 QR 접속 시 OFF로 바꿉니다. 공유 서버 재시작이나 임시 터널 기록에 따라 주소를 바꾸지 않습니다. 기존 `/#guide`, 메인 페이지나 임시 주소로 인쇄한 웹 QR은 새 PNG로 교체합니다. 다른 도메인이 필요하면 직접 입력하거나 `EXHIBITION_PUBLIC_URL`로 지정합니다.
 
 2026-10-06 현재 상태: 서버 연결 장애 안내를 포함한 서명 APK를 `public/downloads`와 실행 중인 서버의 `dist/downloads`에 등록했습니다. QR 관리 페이지의 APK 다운로드 버튼과 설치 안내를 갱신했으며 공개 HTTPS 전체 다운로드가 서명 APK와 동일한 SHA-256임을 확인했습니다. APK MIME·attachment·no-store 응답 정상, QR 관리 비로그인 접근은 계속 401입니다. QR/다운로드 화면은 테스트 관리자 인증 대역으로 검증했으며 실제 관리자 로그인과 Android 휴대폰 설치·실행은 별도 확인이 필요합니다. 같은 다운로드 주소를 유지하므로 기존 고정 QR을 그대로 사용할 수 있습니다. iOS 네이티브 배포는 이번 전시 범위에서 제외합니다.

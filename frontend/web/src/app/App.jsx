@@ -35,6 +35,8 @@ import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 import PortalNavigation from './PortalNavigation.jsx';
 import EasyNavigation from './EasyNavigation.jsx';
 import { portalRoutes } from './portalNavigation.js';
+import NotificationBell from '../features/monitoring/NotificationBell.jsx';
+import useAlertNavigation from '../features/monitoring/useAlertNavigation.js';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
 const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
 const LocalWelfarePage = lazy(() => import('../features/local/LocalWelfarePage.jsx'));
@@ -76,6 +78,7 @@ function readRoute() {
     region: params.get('region') || '전국',
     category: params.get('category') || '전체',
     setup: params.get('setup') === '1',
+    standardGuideEntry: page === 'guide' && params.get('easy') === '0',
   };
 }
 function validSaved(value) {
@@ -232,7 +235,9 @@ export default function App() {
     setQuickDraft(next);
   };
   const [easy, setEasy] = useState(() =>
-    readStoredValue(easyKey, false, (value) => typeof value === 'boolean'),
+    route.standardGuideEntry
+      ? false
+      : readStoredValue(easyKey, false, (value) => typeof value === 'boolean'),
   );
   const [recommendation, setRecommendation] = useState(() => {
     const value = readStoredValue(profileKey, null, isProfile);
@@ -293,6 +298,21 @@ export default function App() {
     setGuidance(null);
     setMonitoringRefresh(0);
   }, [user?.id]);
+  const guidanceMember = useRef(user);
+  useEffect(() => {
+    const previous = guidanceMember.current;
+    guidanceMember.current = user;
+    if (!previous || !user || previous.id !== user.id) return;
+    if (
+      previous.age === user.age &&
+      previous.gender === user.gender &&
+      previous.region === user.region
+    )
+      return;
+    setGuidance(null);
+    setAssistant(null);
+    setMonitoringRefresh((value) => value + 1);
+  }, [user?.id, user?.age, user?.gender, user?.region]);
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(emptyResult);
   const [state, setState] = useState('idle');
@@ -399,7 +419,9 @@ export default function App() {
   };
   useEffect(() => {
     const onHash = () => {
-      setRoute(readRoute());
+      const next = readRoute();
+      setRoute(next);
+      if (next.standardGuideEntry) setEasy(false);
       setSelected(null);
       setNotice(routeNotice.current);
       routeNotice.current = '';
@@ -411,6 +433,12 @@ export default function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  useEffect(() => {
+    // QR entry starts in the standard guide even on a browser that saved easy mode.
+    if (!route.standardGuideEntry) return;
+    if (!writeStoredValue(easyKey, false))
+      setNotice('화면 설정을 이 브라우저에 기억하지 못했어요.');
+  }, [route]);
   useEffect(() => {
     document.documentElement.dataset.easy = String(easy);
   }, [easy]);
@@ -440,10 +468,33 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [profile, retry, useFinancial, financialProfile, user?.id]);
+  }, [
+    profile,
+    retry,
+    useFinancial,
+    financialProfile,
+    user?.id,
+    user?.age,
+    user?.gender,
+    user?.region,
+  ]);
   const navigate = (page, tag = '') => {
     window.location.hash = page + (tag ? '?tag=' + encodeURIComponent(tag) : '');
   };
+  const { openAlert, openingId: openingAlertId } = useAlertNavigation({
+    owner: user?.id,
+    scope: route.page,
+    repository: policyRepository,
+    onOpen: setSelected,
+    onRelatedPage: (message) => {
+      if (route.page === 'assistant-monitoring') setNotice(message);
+      else {
+        routeNotice.current = message;
+        navigate('assistant-monitoring');
+      }
+    },
+    onMessage: setNotice,
+  });
   const openAssistantPage = ({ policy, session } = {}) => {
     const owner = user?.id || null;
     if (policy || (session && session.owner === owner)) {
@@ -594,6 +645,15 @@ export default function App() {
                 >
                   {t('{name}님', { name: user.name || t('회원') })}
                 </span>
+                {appConfig.dataMode === 'api' && (
+                  <NotificationBell
+                    key={user.id}
+                    refreshKey={monitoringRefresh}
+                    routeKey={route.page}
+                    onOpenAlert={openAlert}
+                    openingId={openingAlertId}
+                  />
+                )}
                 <button className="text-button" onClick={logout} disabled={loggingOut}>
                   {loggingOut ? t('로그아웃 중…') : t('로그아웃')}
                 </button>
@@ -687,6 +747,8 @@ export default function App() {
                   profile={profile}
                   mode={appConfig.dataMode}
                   onOpen={setSelected}
+                  onOpenAlert={openAlert}
+                  openingAlertId={openingAlertId}
                   onProfile={() => navigate('profile')}
                   onStartConversation={startGuidance}
                   refreshKey={monitoringRefresh}
@@ -700,7 +762,7 @@ export default function App() {
                         policy={guidance.policy}
                         session={guidance.session}
                         onSessionChange={rememberGuidance}
-                        onProfile={() => navigate('profile')}
+                        onProfile={() => navigate('assistant-monitoring')}
                         onSaved={refreshAssistant}
                       />
                     ) : null
@@ -792,6 +854,8 @@ export default function App() {
                 profile={profile}
                 mode={appConfig.dataMode}
                 onOpen={setSelected}
+                onOpenAlert={openAlert}
+                openingAlertId={openingAlertId}
                 onProfileDeleted={discardGuidance}
                 onProfileChanged={discardGuidance}
                 refreshKey={monitoringRefresh}

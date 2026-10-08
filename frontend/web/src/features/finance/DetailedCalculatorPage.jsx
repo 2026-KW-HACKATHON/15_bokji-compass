@@ -7,6 +7,7 @@ import {
   emptyFinancialProfile,
   emptyMember,
   emptyVehicle,
+  preparePrivateTransferEdit,
   MAX_HOUSEHOLD_SIZE,
   toFinancialProfile,
 } from './financeModel.js';
@@ -200,6 +201,7 @@ export default function DetailedCalculatorPage({
   }
   function update(path, value) {
     const next = structuredClone(draft);
+    preparePrivateTransferEdit(next, path, value);
     if (path === 'region') {
       next.region = value;
       next.region_subdivision = null;

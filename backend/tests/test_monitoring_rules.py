@@ -238,6 +238,100 @@ def scan(repository, member=MEMBER, profile=None):
                                   public.derive_needs(member, profile, today=TODAY), today=TODAY)
 
 
+def unparsed_requirement(identifier, quote, role="eligibility"):
+    return CanonicalCondition(
+        condition_id=identifier, field_key="unmapped", source_field_key=identifier,
+        subject="applicant", state_code=9, operator=None, value=None, unit=None,
+        reference_basis=None, role=role, group_id=None, source_field="text",
+        evidence_quote=quote, unknown_reason="UNMAPPED_FIELD", review_note="")
+
+
+def guidance_notice(key, extra, logic=None):
+    notice = record(key, conditions=[condition(), *extra])
+    notice["source_json"]["fields"]["text"] += "\n" + "\n".join(
+        item.evidence_quote for item in extra)
+    notice["canonical_json"]["logic"] = logic or {
+        "op": "all", "condition_id": None, "reason": None, "children": [
+            {"op": "condition", "condition_id": item.condition_id,
+             "children": [], "reason": None}
+            for item in [condition(), *extra] if item.role == "eligibility"]}
+    if any(item.state_code == 9 for item in extra):
+        notice["canonical_json"]["coverage"] = "partial"
+    return notice
+
+
+def test_candidate_guidance_quotes_actual_requirements_and_skips_priority_and_personal_questions(
+        repository):
+    extra = [
+        unparsed_requirement("regular_income_status", "정기소득이 없는 사람"),
+        unparsed_requirement("employment_vulnerability", "취업 취약계층 우선 선발", "priority"),
+        unparsed_requirement("local_geography_knowledge", "지역 지리를 잘 아는 사람 우대",
+                             "priority"),
+    ]
+    notice = guidance_notice("readable", extra)
+    save(repository, [notice])
+    candidate = scan(repository)[0]
+    assert candidate["questions"] == [
+        "지원 대상 안내: 정기소득이 없는 사람",
+        "세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요."]
+    assert candidate["status"] == "needs_review"
+    assert candidate["eligibility_decided"] is False
+    compared = matching.compare_policy(notice, matching.build_facts(MEMBER, None), today=TODAY)
+    assert [check["label"] for check in compared["checks"]][1:] == [
+        "지원 대상", "우대사항", "우대사항"]
+
+
+def test_satisfied_alternative_does_not_ask_about_unused_unknown_branch(repository):
+    extra = [condition(key="employment_status", identifier="employment", operator="EQ",
+                       value={"kind": "CATEGORY", "code": "UNEMPLOYED"})]
+    notice = guidance_notice("alternative", extra, {
+        "op": "any", "condition_id": None, "reason": None, "children": [
+            {"op": "condition", "condition_id": key, "children": [], "reason": None}
+            for key in ("age", "employment")]})
+    save(repository, [notice])
+    candidate = scan(repository)[0]
+    assert candidate["questions"] == []
+    assert candidate["status"] == "potential_match"
+
+
+def test_upcoming_notice_still_explains_unknown_target_requirement(repository):
+    employment = condition(key="employment_status", identifier="employment", operator="EQ",
+                           value={"kind": "CATEGORY", "code": "UNEMPLOYED"})
+    employment = employment.model_copy(update={"evidence_quote": "미취업자"})
+    period = condition(key="application_period", identifier="period", operator="RANGE", value={
+        "kind": "DATE_RANGE", "date_min": "2026-11-01", "date_max": "2026-11-30",
+        "min_inclusive": True, "max_inclusive": True})
+    save(repository, [guidance_notice("future-target", [employment, period])])
+    candidate = scan(repository)[0]
+    assert candidate["schedule_status"] == "upcoming"
+    assert candidate["questions"] == ["지원 대상 안내: 미취업자"]
+
+
+def test_unresolved_exclusion_remains_visible_without_extraction_labels(repository):
+    extra = [unparsed_requirement("existing_participation", "동일 사업 참여자는 제외", "exclusion")]
+    notice = guidance_notice("exclusion", extra, {
+        "op": "all", "condition_id": None, "reason": None, "children": [
+            {"op": "condition", "condition_id": "age", "children": [], "reason": None},
+            {"op": "not", "condition_id": None, "reason": None, "children": [
+                {"op": "condition", "condition_id": "existing_participation",
+                 "children": [], "reason": None}]}]})
+    save(repository, [notice])
+    assert scan(repository)[0]["questions"] == [
+        "신청 제외 대상 안내: 동일 사업 참여자는 제외",
+        "세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요."]
+
+
+def test_incomplete_or_oversized_evidence_has_one_official_action_without_truncating_conditions(
+        repository):
+    quote = "정기소득이 없는 사람 " * 40 + "단, 별도 예외는 담당 기관 확인"
+    notice = guidance_notice("long", [unparsed_requirement("regular_income_status", quote)])
+    notice["matching_enabled"] = False
+    notice["canonical_json"]["coverage"] = "partial"
+    save(repository, [notice])
+    assert scan(repository)[0]["questions"] == [
+        "세부 신청 조건은 공식 공고의 지원 대상·신청 제외 대상 안내를 확인해 주세요."]
+
+
 def test_scan_pages_entire_catalog_beyond_home_recommendation_limit(repository):
     save(repository, [record(f"page-{number:04}") for number in range(605)])
     candidates = scan(repository)
@@ -366,7 +460,7 @@ def test_unlinked_multiple_application_periods_keep_ambiguous_relationship_visib
     assert len(candidates) == 1
     assert candidates[0]["schedule_status"] == "unknown"
     assert candidates[0]["status"] == "needs_review"
-    assert any("신청 기간" in question for question in candidates[0]["questions"])
+    assert any("현재 신청을 받고 있는지" in question for question in candidates[0]["questions"])
 
 
 def test_explicit_home_owner_and_job_preparing_facts_compare_boolean_conditions():
@@ -453,8 +547,11 @@ def test_local_disaster_notice_is_discovered_before_personal_damage_is_entered(r
     assert candidate["need_id"] == "disaster_watch" and candidate["status"] == "needs_review"
     assert "공고를 발견했어요" in candidate["reason"]
     assert "새로 올라" not in candidate["reason"] and "재난이 발생" not in candidate["reason"]
-    assert any("실제로" in question for question in candidate["questions"])
-    assert any("발생일" in question for question in candidate["questions"])
+    need = next(item for item in public.derive_needs(MEMBER, profile, today=TODAY)
+                if item["id"] == "disaster_watch")
+    assert any("실제로" in question for question in need["questions"])
+    assert any("발생일" in question for question in need["questions"])
+    assert any("피해 확인 요건" in question for question in candidate["questions"])
     assert any(evidence["keyword"] == "서울특별시" for evidence in candidate["evidence"])
     assert profile.disaster_damage is None and profile.disaster_occurred_on is None
     assert profile.disaster_type is None and candidate["eligibility_decided"] is False
@@ -463,7 +560,9 @@ def test_local_disaster_notice_is_discovered_before_personal_damage_is_entered(r
     recovery = scan(repository, profile=recovery_profile)
     assert len(recovery) == 1 and recovery[0]["need_id"] == "disaster_recovery"
     assert recovery[0]["status"] == "needs_review"
-    assert any("발생한 날짜" in question for question in recovery[0]["questions"])
+    recovery_need = next(item for item in public.derive_needs(MEMBER, recovery_profile, today=TODAY)
+                         if item["id"] == "disaster_recovery")
+    assert any("발생한 날짜" in question for question in recovery_need["questions"])
     assert recovery_profile.disaster_occurred_on is None
 
 

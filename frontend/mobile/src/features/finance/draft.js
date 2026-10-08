@@ -2,10 +2,12 @@ import {
   emptyMember,
   emptyVehicle,
   MAX_HOUSEHOLD_SIZE,
+  preparePrivateTransferEdit,
 } from "@bokji/core/finance-model";
 
 export function updateDraft(draft, path, value, cache = {}) {
   const next = JSON.parse(JSON.stringify(draft));
+  preparePrivateTransferEdit(next, path, value);
   const keys = path.split(".");
   const last = keys.pop();
   keys.reduce((node, key) => node[key], next)[last] = value;

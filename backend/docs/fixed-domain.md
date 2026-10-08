@@ -19,7 +19,10 @@ Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론�
 같은 고정 주소의 터널이 이미 실행 중이면 터널을 유지하면서 API·QR·웹을 다시 실행합니다.
 관리자 콘솔에서 서버를 중지하여 터널만 남은 경우에도 같은 실행 파일로 복구할 수 있습니다.
 창을 닫아도 실행을 유지합니다. 종료는 루트에서 `start-server-prod.bat stop`, 상태 확인은
-`start-server-prod.bat status`를 실행합니다. 종료·상태 확인 명령은 MySQL을 제어하지 않습니다.
+`start-server-prod.bat status`를 실행합니다. `stop`은 API·웹·QR·터널·MySQL을 모두 중지합니다.
+`restart`는 프론트 빌드 후 전체 서비스를 순서대로 다시 실행합니다. 개별 제어는
+`start-server-prod.bat mysql start/stop/restart/status`, `start-server-prod.bat tunnel start/stop/restart/status`입니다.
+상태 조회는 서비스를 변경하지 않습니다.
 로컬 API만 실행할 때는 `start-server-dev.bat`를 사용하며 이 파일도 MySQL을 먼저 켭니다.
 
 저장소 루트에서:
@@ -42,6 +45,12 @@ Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론�
 - 터널 연결 로그만으로 DNS·사이트 정상 동작을 확인했다고 보지 않습니다. 휴대폰 데이터망에서 웹 로그인·공고 목록·질문 응답을 확인합니다.
 - APK를 배포하기 전에 고정 API 주소로 별도 release 빌드·서명·설치 검증을 수행합니다. 도메인 연결만으로 APK가 생성되지는 않습니다.
 - 도메인 연결과 서버 가동은 별개입니다. PC·API·Caddy·cloudflared·필요한 MySQL이 실행되어 있어야 합니다.
+
+2026-10-08: HTTP/2 연결의 반복 단절과 실제 브라우저 502를 확인했습니다. 동일 터널의 QUIC 연결로
+전환한 뒤 프로필 페이지와 공개 웹·API·DB 준비 응답을 확인했습니다. 실행 스크립트는 IPv4·
+QUIC 우선 자동 프로토콜을 사용하며 잘못된 진단 결과를 내던 시작 전 연결 사전 검사는 생략합니다.
+터널 상태는 `/ready`로 별도 확인하며 콘솔 **서비스 관리**에서 DB·터널 개별 제어와 전체 제어를 제공합니다.
+[Cloudflare 프로토콜 선택](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/#protocol).
 
 2026-10-02 연결 완료: Cloudflare Free 플랜과 구매처 네임서버 변경을 적용했습니다. 공개 DNS에서 배정된 두 네임서버와 `bokji.commitnaru.com`의 Cloudflare 주소를 확인했습니다. 승인 후 `bokji-compass` 터널(ID `76dd27d0-a928-480e-a6e2-266b505fa948`)과 `bokji.commitnaru.com` → `http://127.0.0.1:8080` 경로·CNAME을 만들었고, 사용자가 저장한 로컬 토큰으로 PC 연결을 완료했습니다. 현재 backend·QR·web·tunnel 프로세스가 실행 중입니다.
 

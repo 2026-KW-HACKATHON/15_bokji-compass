@@ -209,7 +209,11 @@ try {
     Wait-Local 'http://127.0.0.1:8080/api/health'
     if ($TunnelMode -eq 'fixed') {
         # Only the ignored token-file path appears in the process command line.
-        Start-OwnedProcess 'tunnel' $cloudflared ('tunnel --no-autoupdate --no-prechecks --protocol auto --edge-ip-version 4 run --token-file "' + $TunnelTokenFile + '"')
+        & (Join-Path $PSScriptRoot 'tunnel.ps1') start -PublicUrl $PublicUrl -TunnelTokenFile $TunnelTokenFile | Out-Null
+        $saved = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+        $state = @{ processes = @($saved.processes); url = $saved.url }
+        Write-Output "Fixed tunnel connected: $($state.url)"
+        exit 0
     } else {
         Start-OwnedProcess 'tunnel' $cloudflared 'tunnel --no-autoupdate --no-prechecks --url http://127.0.0.1:8080 --protocol auto --edge-ip-version 4'
     }

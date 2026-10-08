@@ -12,9 +12,11 @@
 - 직접 입력: 공개 HTTPS 도메인을 입력하고 ‘QR 주소 적용’. 별도 APK 주소도 지정할 수 있습니다. 입력값은 브라우저 메모리에만 유지하며 새로고침하면 자동 모드로 돌아갑니다.
 - 다른 고정 주소로 실행: `EXHIBITION_PUBLIC_URL` 환경 변수로 기본 주소를 변경할 수 있습니다. 주소 등록/DNS/Tunnel 설정을 대신하지 않습니다.
 - 포트 충돌 시 `EXHIBITION_PORT`로 다른 1024~65535 포트를 지정합니다. 바인딩 주소는 변경할 수 없으며 항상 `127.0.0.1`입니다.
-- 두 QR은 서비스 소개 `/#guide`와 `/downloads/bokji-compass.apk`를 가리킵니다. 기본 웹 접속 주소는 `https://bokji.commitnaru.com/#guide`입니다. 화면에 적용된 URL로 1024px PNG 저장 및 안내판 인쇄/PDF 저장이 가능합니다.
+- 두 QR은 일반 화면의 서비스 소개 `/#guide?easy=0`와 `/downloads/bokji-compass.apk`를 가리킵니다. 기본 웹 접속 주소는 `https://bokji.commitnaru.com/#guide?easy=0`입니다. 브라우저에 쉬운 모드 ON이 저장되어 있어도 QR 접속 시 OFF로 초기화해 기억합니다. 화면에 적용된 URL로 1024px PNG 저장 및 안내판 인쇄/PDF 저장이 가능합니다.
 
-기존 메인 페이지나 임시 주소로 저장·인쇄한 웹 QR은 서비스 소개로 연결되는 새 PNG로 교체합니다. 이미 출력한 QR 이미지의 주소는 자동으로 바뀌지 않습니다.
+기존 `/#guide`, 메인 페이지나 임시 주소로 저장·인쇄한 웹 QR은 새 일반 모드 주소의 PNG로 교체합니다. 관리자 페이지를 새로고침한 뒤 웹 QR PNG 저장을 사용하세요. 이미 출력한 QR 이미지의 주소는 자동으로 바뀌지 않습니다.
+
+2026-10-08 일반 모드 QR 검증: QR 판독 단위 4개, PC·모바일 가이드/QR E2E 16개와 관리자 화면 미리보기 통과. 운영 웹 빌드와 QR 서버에 반영하고 실제 공개 HTTPS에서 저장된 쉬운 모드 ON 상태로 접속·새로고침해 OFF와 가이드 표시를 확인했습니다. API health 200·비로그인 QR 관리자 401 유지. 새 웹 QR PNG는 저장소의 `output/exhibition-web-guide-qr.png`, 공개 화면 검증 기록은 `tmp/qr-guide-public/`에 있습니다.
 
 ## APK 파일 연결
 
@@ -34,7 +36,7 @@
 ## 접근 제한과 역할
 
 - `server.mjs`: loopback 전용 HTTP 서버, 정해진 HTML/CSS/JS/로고만 제공. 모든 화면·자산·API·QR 요청에서 `bokji_session`을 고정된 로컬 `/v1/admin/session`에 검증합니다. 비로그인 401, 일반 회원 403, 인증 서버 장애 503. Host·Origin·교차 사이트 검사, no-store/CSP/frame 차단, GET만 허용. 사용자 입력 URL로 외부 서버에 접속하지 않습니다.
-- `urls.mjs`: 공개 HTTPS 주소 검증, 서비스 소개 URL 및 APK URL 생성. 입력의 인증정보·쿼리·fragment·임의 포트·로컬 주소 차단. `destinations(origin, apkOverride?)`는 검증한 도메인에 `/#guide`를 붙여 `{web, android, temporary}`를 반환합니다.
+- `urls.mjs`: 공개 HTTPS 주소 검증, 서비스 소개 URL 및 APK URL 생성. 입력의 인증정보·쿼리·fragment·임의 포트·로컬 주소 차단. `destinations(origin, apkOverride?)`는 검증한 도메인에 `/#guide?easy=0`를 붙여 `{web, android, temporary}`를 반환합니다.
 - `page.js`: 자동 상태 갱신, 적용된 주소와 QR 일치, APK 다운로드 버튼·등록 상태 연동, 주소 오류/권한 만료 시 링크 제거, PNG 저장·복사·인쇄.
 - `/api/status`: `{detectedUrl, source, recordedAt, apkPresent, apkBytes}`. 내부 프로세스 경로/키/로그를 응답하지 않습니다.
 - `/api/targets?origin=...&apk=...`: 검증된 `{web, android, temporary}`.

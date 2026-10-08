@@ -326,7 +326,8 @@ def test_near_poor_uses_separate_finance_rate_and_still_requires_expense_review(
     member = profile.members[0].model_dump()
     member["private_transfer_income"] = 1_000_000
     with_transfer = facts(members=[member])
-    assert assessment(with_transfer)["checks"][0]["value"] is None
+    assert assessment(with_transfer)["checks"][0]["value"] == 0
+    assert assessment(with_transfer)["checks"][0]["state"] == "unknown"
     assert assessment(with_transfer, 1)["checks"][0]["value"] == 0
 
 

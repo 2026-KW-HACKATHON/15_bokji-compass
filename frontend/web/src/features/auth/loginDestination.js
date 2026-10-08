@@ -1,5 +1,10 @@
 const returnPages = new Set([
-  'calculator-details', 'calculator', 'profile', 'assistant', 'assistant-monitoring', 'new-notices',
+  'calculator-details',
+  'calculator',
+  'profile',
+  'assistant',
+  'assistant-monitoring',
+  'new-notices',
 ]);
 
 export function loginDestination(value) {

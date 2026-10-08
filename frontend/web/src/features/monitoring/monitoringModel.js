@@ -2,6 +2,7 @@ import { categories, parsePolicy } from '../policies/policyModel.js';
 import { occupations, households } from '../profile/profileModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
 import { userReviewQuestions } from '../assistant/reviewQuestions.js';
+import { parseApplicationPreparation } from '../policies/applicationGuideModel.js';
 
 export const housingTenures = [
   ['owner', '본인 소유 주택'],
@@ -27,6 +28,30 @@ export const candidateStates = [
   ['dismissed', '내게 해당 없음'],
   ['completed', '지원 확인 완료'],
 ];
+export const recommendationFeedbackReasons = [
+  ['not_eligible', '지원 대상이 아니에요'],
+  ['not_interested', '관심 없는 공고예요'],
+];
+
+function parseRecommendationFeedback(value) {
+  if (
+    !record(value) ||
+    !nonempty(value.policy_id) ||
+    !nonempty(value.need_id) ||
+    !nonempty(value.title) ||
+    !recommendationFeedbackReasons.some(([reason]) => reason === value.reason) ||
+    !nonempty(value.updated_at) ||
+    !Number.isFinite(Date.parse(value.updated_at))
+  )
+    throw invalid();
+  return {
+    policy_id: value.policy_id,
+    need_id: value.need_id,
+    title: value.title,
+    reason: value.reason,
+    updated_at: value.updated_at,
+  };
+}
 export const monitoringOccupations = [...occupations.slice(1), '은퇴 후'];
 export const emptyMonitoringProfile = {
   occupation: null,
@@ -128,6 +153,10 @@ export function parseMonitoringSnapshot(value) {
     value.unread_count < 0
   )
     throw invalid();
+  if (value.recommendation_feedback !== undefined && !Array.isArray(value.recommendation_feedback))
+    throw invalid();
+  const feedback = (value.recommendation_feedback || []).map(parseRecommendationFeedback);
+  if (new Set(feedback.map((item) => item.policy_id)).size !== feedback.length) throw invalid();
   const needs = value.needs.map((need) => {
     if (
       !record(need) ||
@@ -160,6 +189,11 @@ export function parseMonitoringSnapshot(value) {
       throw invalid();
     const policy = parsePolicy(candidate.policy);
     if (policy.id !== candidate.policy_id) throw invalid();
+    const preference =
+      candidate.recommendation_feedback == null
+        ? feedback.find((item) => item.policy_id === candidate.policy_id) || null
+        : parseRecommendationFeedback(candidate.recommendation_feedback);
+    if (preference && preference.policy_id !== candidate.policy_id) throw invalid();
     return {
       need_id: candidate.need_id,
       policy_id: candidate.policy_id,
@@ -171,6 +205,12 @@ export function parseMonitoringSnapshot(value) {
         needs.find((need) => need.id === candidate.need_id)?.questions,
       ),
       state: candidate.state,
+      recommendation_feedback: preference,
+      application_preparation: parseApplicationPreparation(
+        candidate.application_preparation,
+        policy.applicationGuide,
+        policy.revisionId,
+      ),
       active: candidate.active ?? true,
       schedule_status: ['open', 'upcoming', 'unknown'].includes(candidate.schedule_status)
         ? candidate.schedule_status
@@ -214,6 +254,7 @@ export function parseMonitoringSnapshot(value) {
     last_checked_at: value.last_checked_at,
     needs,
     candidates,
+    recommendation_feedback: feedback,
     alerts,
     unread_count: value.unread_count,
     scan_status: value.scan_status === 'unavailable' ? 'unavailable' : null,

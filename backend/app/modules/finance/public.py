@@ -4,6 +4,7 @@ Missing facts stop the affected comparison; calculations never grant eligibility
 Every rule consumes the original profile, rather than another rule's result.
 """
 
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlparse
 
@@ -122,7 +123,7 @@ def context_missing(profile):
     return missing
 
 
-def assessed_earnings(profile, *, exclude_private=False, allow_approximation=False):
+def assessed_earnings(profile, *, allow_approximation=False):
     total = D(0)
     missing, breakdown = [], []
     for index, member in enumerate(profile.members, 1):
@@ -134,8 +135,6 @@ def assessed_earnings(profile, *, exclude_private=False, allow_approximation=Fal
         if earnings is None or member.other_income is None:
             missing.append(f"{index}번째 가구원의 소득을 입력해 주세요. 없는 항목은 0원이에요.")
             continue
-        if not exclude_private and member.private_transfer_income != 0:
-            missing.append(f"{index}번째 가구원의 사적이전소득 산입 기준을 확인해야 해요.")
         if earnings and member.age is None:
             missing.append(f"{index}번째 가구원의 만 나이가 필요해요.")
         if earnings and member.deduction in {
@@ -165,6 +164,74 @@ def assessed_earnings(profile, *, exclude_private=False, allow_approximation=Fal
             }
         )
     return (None if missing else total), missing, breakdown
+
+
+def private_transfer_assessment(profile):
+    """Apply the household allowance once, then average the annual excess over 12."""
+    history = profile.private_transfer_history
+    current = [member.private_transfer_income for member in profile.members]
+    if history is None:
+        if all(amount == 0 for amount in current):
+            return D(0), [], []
+        return None, ["가족·지인 지원금의 최근 12개월 내역·횟수·용도를 확인해 주세요."], []
+    current_month = (datetime.now(UTC) + timedelta(hours=9)).strftime("%Y-%m")
+    if history.as_of_month != current_month:
+        return None, ["가족·지인 지원 내역을 이번 달 기준 최근 12개월로 갱신해 주세요."], []
+    if history.status == "unknown":
+        return None, ["최근 12개월 동안 가구가 받은 가족·지인 지원 여부를 확인해 주세요."], []
+    if history.status == "none":
+        if any(amount and amount > 0 for amount in current) or any(
+            month.amount or month.count for month in history.months
+        ):
+            return (
+                None,
+                ["지원금 없음 선택과 입력한 지원 금액·횟수가 달라요. 내역을 확인해 주세요."],
+                [],
+            )
+        return D(0), [], [{"label": "최근 12개월 가족·지인 지원금 없음", "amount": 0}]
+    missing = []
+    if history.source not in {"family_friends", "sponsor"}:
+        missing.append(
+            "지원한 사람의 관계를 확인해야 해요. 외국인 배우자 등은 별도 산정이 필요해요."
+        )
+    if history.purpose != "living":
+        missing.append(
+            "학비·의료비·보증금 등 용도가 정해진 지원금은 사용처·증빙을 추가 확인해야 해요."
+        )
+    amounts, counts = [], []
+    for month in history.months:
+        amount = month.amount
+        if amount is None and history.unentered_months_zero:
+            amount = 0
+        count = month.count
+        if amount == 0 and count is None:
+            count = 0
+        if amount is None or count is None or (amount > 0) != (count > 0):
+            missing.append("최근 12개월의 월별 지원금 합계와 받은 횟수를 확인해 주세요.")
+            continue
+        amounts.append(amount)
+        counts.append(count)
+    if missing:
+        return None, list(dict.fromkeys(missing)), []
+    if not sum(counts):
+        return None, ["지원받음 선택과 내역이 달라요. 받은 달의 금액·횟수를 입력해 주세요."], []
+    # The guide's printed examples use a rounded whole-won 15% allowance.
+    allowance = won(D(median_base(profile.household_size)) * D("0.15"))
+    annual_excess = sum(max(0, amount - allowance) for amount in amounts)
+    if sum(counts) < 6:
+        if annual_excess > D(median_base(profile.household_size)) * D("0.5"):
+            return None, ["6회 미만의 큰 금액 지원은 중위소득 50% 예외·사용처 확인이 필요해요."], []
+        annual_excess = 0
+    monthly = D(annual_excess) / 12
+    return (
+        monthly,
+        [],
+        [
+            {"label": "가구 월별 가족·지인 지원금 공제 기준 (중위소득 15%)", "amount": allowance},
+            {"label": "최근 12개월 가족·지인 지원금 반영 대상 합계", "amount": annual_excess},
+            {"label": "가족·지인 지원금 월 소득 반영액 (12개월 평균)", "amount": won(monthly)},
+        ],
+    )
 
 
 def vehicle_basis_missing(car, index, *, allow_commercial=False):
@@ -324,7 +391,12 @@ def basic_assessment(profile, *, allow_approximation=False, approximated=False):
     assets, assets_missing, assets_breakdown = recognized_assets(
         profile, allow_approximation=allow_approximation
     )
+    transfer, transfer_missing, transfer_breakdown = private_transfer_assessment(profile)
     missing.extend(income_missing + assets_missing)
+    missing.extend(transfer_missing)
+    partial = transfer is None
+    if income is not None and transfer is not None:
+        income += transfer
     value = None if income is None or assets is None else won(income + assets)
     limit = benefit_limit(profile.household_size, 32) if profile.reference_year == 2026 else None
     if income is not None and assets is not None and limit is not None:
@@ -339,10 +411,12 @@ def basic_assessment(profile, *, allow_approximation=False, approximated=False):
         "status": "needs_review" if missing or approximated else "estimated",
         "checks": [
             check(
-                "소득인정액 (월)",
+                "지원금 미반영 참고액 (월)" if partial else "소득인정액 (월)",
                 value,
                 limit,
-                ready=not approximated and not any("원 미만 차이" in reason for reason in missing),
+                ready=not partial
+                and not approximated
+                and not any("원 미만 차이" in reason for reason in missing),
             )
         ],
         "missing": list(dict.fromkeys(missing)),
@@ -351,14 +425,20 @@ def basic_assessment(profile, *, allow_approximation=False, approximated=False):
             "부양의무자·공적 소득 제외항목·장기저축·처분재산 등은 별도 심사가 필요해요.",
             "의료급여·차상위·기초연금에는 이 계산값을 그대로 적용하지 않아요.",
         ],
-        "breakdown": income_breakdown + assets_breakdown,
+        "notice": (
+            "가족·지인 지원금이 반영되지 않은 참고액이에요. 지원금 반영 후 기준 비교가 필요해요."
+            if partial
+            else None
+        ),
+        "comparison_note": "지원금 반영 후 비교 필요" if partial else None,
+        "breakdown": income_breakdown + transfer_breakdown + assets_breakdown,
     }
 
 
 def near_poor_assessment(profile, *, allow_approximation=False):
     missing = context_missing(profile)
     income, income_missing, income_breakdown = assessed_earnings(
-        profile, exclude_private=True, allow_approximation=allow_approximation
+        profile, allow_approximation=allow_approximation
     )
     assets, assets_missing, assets_breakdown = recognized_assets(
         profile,

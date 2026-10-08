@@ -66,7 +66,7 @@ def status():
     result = subprocess.run(
         command("Status"),
         capture_output=True,
-        timeout=15,
+        timeout=25,
         creationflags=subprocess.CREATE_NO_WINDOW,
         shell=False,
     )
@@ -127,6 +127,19 @@ def latest_job():
 
 def refresh_pending(state):
     job_id = getattr(state, "server_control_job", None)
+    if not job_id:
+        try:
+            job_id = (CONTROL_ROOT / "active.lock").read_text(encoding="ascii")
+            job = read_job(job_id)
+            if job.get("target") in {"backend", "mysql", "all"} and (
+                job.get("status") in {"accepted", "running"}
+            ):
+                state.server_control_job = job_id
+                state.server_control_pending = True
+            else:
+                job_id = None
+        except (OSError, RuntimeErrorCode):
+            job_id = None
     if job_id:
         try:
             job = read_job(job_id)

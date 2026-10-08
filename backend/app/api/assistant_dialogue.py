@@ -15,6 +15,7 @@ from app.contracts.parsing import StrictModel
 from app.modules.assistant.dialogue import respond
 from app.modules.assistant.dialogue_models import DialogueError, DialogueInput
 from app.modules.auth.service import digest
+from app.modules.monitoring.feedback import personalize
 from app.modules.monitoring.models import MonitoringProfile
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"],
@@ -69,7 +70,8 @@ def dialogue(data: DialogueInput, request: Request, member: Member,
              service: Service, store: Store):
     service.throttle("assistant-dialogue:" + member["id"], 60, 60, account_id=member["id"])
     context = request.app.state.dialogue_store
-    saved = store.read(member["id"])["profile"]
+    preferences = store.read(member["id"])
+    saved = preferences["profile"]
     try:
         repository = get_repository(request)
     except HTTPException as exc:
@@ -81,9 +83,14 @@ def dialogue(data: DialogueInput, request: Request, member: Member,
         repository = None
     try:
         result = respond(repository, member, data, context,
-                         saved_profile=MonitoringProfile.model_validate(saved) if saved else None)
+                         saved_profile=MonitoringProfile.model_validate(saved) if saved else None,
+                         feedback=preferences.get("recommendation_feedback", []))
         # A catalog scan may outlive account withdrawal. Drop its temporary facts too.
-        store.read(member["id"])
+        latest = store.read(member["id"])
+        prior_count = len(result["candidates"])
+        result["candidates"] = personalize(
+            result["candidates"], latest.get("recommendation_feedback", []))
+        result["candidate_count"] -= prior_count - len(result["candidates"])
         return result
     except DialogueError as exc:
         raise HTTPException(exc.status_code, exc.message) from None
@@ -105,4 +112,4 @@ def save_dialogue_profile(data: SaveDialogueProfile, request: Request, member: M
     except DialogueError as exc:
         raise HTTPException(exc.status_code, exc.message) from None
     return (refresh_snapshot(request, store, member) if result["enabled"]
-            else snapshot(store, member))
+            else snapshot(store, member, request))

@@ -57,9 +57,25 @@ test("detail keeps five input sections plus review regardless of household and v
   draft = updateDraft(draft, "vehicle_status", "owned");
   const sections = financeSections(draft);
   assert.equal(sections.length, 5);
-  assert.equal(sections[1].questions.length, 48);
+  assert.equal(sections[1].questions.length, 49);
   assert.equal(sections[4].questions.length, 4);
   assert.equal(validateSection(sections[0], draft), null);
+});
+
+test("legacy native drafts initialize transfer history and clear conflicting counts", () => {
+  const legacy = emptyFinancialProfile();
+  delete legacy.private_transfer_history;
+  let draft = updateDraft(
+    legacy,
+    "private_transfer_history.status",
+    "received",
+  );
+  assert.equal(draft.private_transfer_history.months.length, 12);
+  draft = updateDraft(draft, "private_transfer_history.months.0.count", 2);
+  draft = updateDraft(draft, "private_transfer_history.months.0.amount", 0);
+  assert.equal(draft.private_transfer_history.months[0].count, 0);
+  draft = updateDraft(draft, "household_size", 2);
+  assert.equal(draft.private_transfer_history.status, "unknown");
 });
 
 test("positive-income basis and explicitly selected empty amount block next step", () => {

@@ -171,6 +171,11 @@ export default function ResultView({ calculation, onRecommend, easy }) {
               {assessment.status === 'estimated' ? t('입력값으로 추정') : t('추가 확인 필요')}
             </span>
           </div>
+          {assessment.notice && (
+            <p className="finance-approximation-notice" role="status">
+              {assessment.notice}
+            </p>
+          )}
           <details className="finance-details finance-assessment-details" open={!easy}>
             <summary>{t('기준 비교와 확인할 내용 보기')}</summary>
             {assessment.checks.length > 0 && (
@@ -180,13 +185,12 @@ export default function ResultView({ calculation, onRecommend, easy }) {
                     <div>
                       <strong>{check.label}</strong>
                       <span className={'finance-check-state ' + check.state}>
-                        {
+                        {assessment.comparison_note ??
                           {
                             within: t('입력값은 기준 이내'),
                             over: t('입력값은 기준 초과'),
                             unknown: t('확인 필요'),
-                          }[check.state]
-                        }
+                          }[check.state]}
                       </span>
                     </div>
                     <p>

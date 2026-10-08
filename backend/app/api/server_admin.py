@@ -311,11 +311,15 @@ def processes_control(data: runtime.ControlInput, request: Request, user: Admin)
         return runtime.start(request.app.state, data)
     except runtime.RuntimeErrorCode as error:
         messages = {
-            "collection_busy": "수집·분석 작업이 실행 중입니다. 완료 또는 중지 후 서버·DB를 제어해 주세요.",
+            "collection_busy": (
+                "수집·분석 작업이 실행 중입니다. 완료 또는 중지 후 서버·DB를 제어해 주세요."
+            ),
             "control_busy": "서비스 제어 작업이 이미 진행 중입니다.",
             "windows_required": "프로세스 제어는 Windows 서버에서 사용할 수 있습니다.",
             "unmanaged_runtime": "개발 또는 운영 실행 BAT로 서버를 시작한 뒤 사용해 주세요.",
-            "mysql_unmanaged": "현재 DB는 프로젝트 MySQL 제어 대상이 아닙니다. DB 연결 설정을 확인해 주세요.",
+            "mysql_unmanaged": (
+                "현재 DB는 프로젝트 MySQL 제어 대상이 아닙니다. DB 연결 설정을 확인해 주세요."
+            ),
             "tunnel_unmanaged": "운영 실행 BAT와 고정 도메인 터널 구성을 확인해 주세요.",
         }
         code = error.args[0]

@@ -12,9 +12,13 @@ import { households } from '../profile/profileModel.js';
 import EconomicActivityFields from '../profile/EconomicActivityFields.jsx';
 import { householdLabel } from '../profile/economicActivityModel.js';
 import { createMonitoringApi } from './monitoringApi.js';
+import { subscribeMonitoringChanges } from './monitoringEvents.js';
 import AssistantProfileForm, { AssistantMemberSummary } from './AssistantProfileForm.jsx';
+import RecommendationFeedbackForm from './RecommendationFeedbackForm.jsx';
+import ApplicationGuide from '../policies/ApplicationGuide.jsx';
 import {
   candidateStates,
+  recommendationFeedbackReasons,
   disasterTypes,
   housingTenures,
   housingTypes,
@@ -38,6 +42,8 @@ export default function MonitoringPanel({
   profile,
   mode,
   onOpen,
+  onOpenAlert,
+  openingAlertId,
   onProfile,
   onStartConversation,
   onProfileDeleted,
@@ -73,34 +79,41 @@ export default function MonitoringPanel({
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [reload, setReload] = useState(0);
+  const [inboxRevision, setInboxRevision] = useState(0);
   const [candidateLimit, setCandidateLimit] = useState(3);
   const [view, setView] = useState('candidates');
   const assistant = variant === 'assistant';
   const notices = variant === 'notices';
   const standalone = notices || variant === 'guidance';
   const loginHref = `#login?return=${notices ? 'new-notices' : assistant ? 'assistant' : 'assistant-monitoring'}`;
-  const refreshVersion = useRef(refreshKey);
+  const refreshToken = `${refreshKey}:${inboxRevision}`;
+  const refreshVersion = useRef(refreshToken);
   const handledProfileEntry = useRef(0);
   const detail = useRef(null);
   const editingRef = useRef(editing);
   editingRef.current = editing;
   const available = !!owner && mode === 'api';
   const overview = snapshot ? assistantOverview(snapshot, user) : null;
-  const activeCandidates = snapshot?.candidates.filter((candidate) => candidate.active) || [];
+  const activeCandidates =
+    snapshot?.candidates.filter(
+      (candidate) => candidate.active && !candidate.recommendation_feedback,
+    ) || [];
   const previousCandidates =
     snapshot?.candidates.filter(
       (candidate) =>
         !candidate.active &&
+        !candidate.recommendation_feedback &&
         !activeCandidates.some((current) => current.policy_id === candidate.policy_id),
     ) || [];
   const id = (name) => `${prefix}-${name}`;
   const displayedCandidates =
     view === 'progress' && assistant ? overview?.progress || [] : activeCandidates;
-  const show = (section) => notices
-    ? section === 'alerts'
-    : assistant
-      ? !!snapshot?.profile && !editing && view === section
-      : section !== 'alerts';
+  const show = (section) =>
+    notices
+      ? section === 'alerts'
+      : assistant
+        ? !!snapshot?.profile && !editing && view === section
+        : section !== 'alerts';
 
   function selectView(next) {
     setView(next);
@@ -186,9 +199,11 @@ export default function MonitoringPanel({
     };
   }, [owner, available, reload]);
 
+  useEffect(() => subscribeMonitoringChanges(() => setInboxRevision((value) => value + 1)), []);
+
   useEffect(() => {
-    if (refreshVersion.current === refreshKey) return;
-    refreshVersion.current = refreshKey;
+    if (refreshVersion.current === refreshToken) return;
+    refreshVersion.current = refreshToken;
     if (!available) return;
     const controller = new AbortController();
     requests.current.add(controller);
@@ -208,7 +223,7 @@ export default function MonitoringPanel({
       })
       .finally(() => requests.current.delete(controller));
     return () => controller.abort();
-  }, [refreshKey, available, owner]);
+  }, [refreshToken, available, owner]);
 
   useEffect(() => {
     if (!available || !snapshot?.enabled || busy) return;
@@ -270,7 +285,13 @@ export default function MonitoringPanel({
       );
     } catch (failure) {
       if (!controller.signal.aborted && mounted.current && currentOwner.current === owner)
-        setError(errorMessage(failure));
+        setError(
+          action === 'preparation'
+            ? failure.status === 409
+              ? '공고가 변경되어 서류 준비 항목을 다시 확인해야 해요. 공고 다시 확인을 눌러 주세요.'
+              : '서류 준비 상태를 저장하지 못했어요. 다시 시도해 주세요.'
+            : errorMessage(failure),
+        );
     } finally {
       requests.current.delete(controller);
       if (!controller.signal.aborted && mounted.current && currentOwner.current === owner)
@@ -380,17 +401,13 @@ export default function MonitoringPanel({
           </div>
           <p className="monitoring-service-note">
             {' '}
-            {t(
-              '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요.',
-            )}{' '}
+            {t('등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요.')}{' '}
           </p>
         </>
       )}
       {!owner ? (
         <p className="notice-box">
-          <a href={loginHref}>
-            {t('로그인')}
-          </a>
+          <a href={loginHref}>{t('로그인')}</a>
           {t('하면 내 계정에 정보를 저장하고 안내를 이어갈 수 있어요.')}{' '}
         </p>
       ) : mode !== 'api' ? (
@@ -417,10 +434,7 @@ export default function MonitoringPanel({
                 </button>
               )}
               {error.includes('로그인 상태') && (
-                <a
-                  className="text-button"
-                  href={loginHref}
-                >
+                <a className="text-button" href={loginHref}>
                   {' '}
                   {t('로그인하기')}{' '}
                 </a>
@@ -447,13 +461,24 @@ export default function MonitoringPanel({
                   <span className={'monitoring-status' + (snapshot.enabled ? ' is-on' : '')}>
                     {snapshot.enabled ? t('지속 안내 켜짐') : t('지속 안내 꺼짐')}
                   </span>
-                  {notices && <span>{t('최근 공고 확인')} · {monitoringDate(snapshot.last_checked_at)}</span>}
+                  {notices && (
+                    <span>
+                      {t('최근 공고 확인')} · {monitoringDate(snapshot.last_checked_at)}
+                    </span>
+                  )}
                 </div>
+              )}
+              {variant === 'guidance' && (
+                <p className="monitoring-service-note">
+                  {t('등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요.')}
+                </p>
               )}
               {notices && !snapshot.enabled && (
                 <p className="monitoring-service-note">
                   {t('새 공고 알림이 꺼져 있어요.')}{' '}
-                  <a className="text-button" href="#assistant-monitoring">{t('지속 복지 안내 설정')}</a>
+                  <a className="text-button" href="#assistant-monitoring">
+                    {t('지속 복지 안내 설정')}
+                  </a>
                 </p>
               )}
               {assistant && editing && (
@@ -883,6 +908,25 @@ export default function MonitoringPanel({
                               candidate={candidate}
                               disabled={!!busy}
                               onOpen={onOpen}
+                              manageProgress={assistant && view === 'progress'}
+                              onPrepared={
+                                candidate.active && !candidate.recommendation_feedback
+                                  ? (documentId, prepared) =>
+                                      void change(
+                                        'preparation',
+                                        (options) =>
+                                          api.preparation(candidate, documentId, prepared, options),
+                                        '서류 준비 상태를 저장했어요.',
+                                      )
+                                  : undefined
+                              }
+                              onFeedback={(reason) =>
+                                void change(
+                                  'feedback',
+                                  (options) => api.feedback(candidate, reason, options),
+                                  '추천에서 제외했어요. 선택한 이유를 다음 추천에 반영할게요.',
+                                )
+                              }
                               onState={(state) =>
                                 void change(
                                   'state',
@@ -896,20 +940,20 @@ export default function MonitoringPanel({
                       ) : (
                         <p className="monitoring-empty">
                           {assistant && view === 'progress'
-                            ? t(
-                                '아직 신청 진행 기록이 없어요. 관련 지원 후보에서 신청 준비 중 또는 신청 완료로 표시하면 여기에 모아볼 수 있어요.',
-                              )
+                            ? t('아직 저장된 신청 기록이 없어요.')
                             : assistant && !snapshot.enabled && !snapshot.last_checked_at
                               ? t(
                                   '내 정보가 저장됐어요. 새 공고 안내를 켜면 관련 지원을 찾아드려요.',
                                 )
-                              : !snapshot.profile
-                                ? t(
-                                    '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.',
-                                  )
-                                : t(
-                                    '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.',
-                                  )}
+                              : snapshot.recommendation_feedback.length
+                                ? t('추천에서 제외한 공고 외에 현재 안내할 지원 후보가 없어요.')
+                                : !snapshot.profile
+                                  ? t(
+                                      '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.',
+                                    )
+                                  : t(
+                                      '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.',
+                                    )}
                         </p>
                       )}
                       {assistant &&
@@ -982,6 +1026,7 @@ export default function MonitoringPanel({
                                   candidate={candidate}
                                   disabled={!!busy}
                                   onOpen={onOpen}
+                                  manageProgress
                                   onState={(state) =>
                                     void change(
                                       'state',
@@ -996,6 +1041,42 @@ export default function MonitoringPanel({
                         </>
                       )}
                     </>
+                  )}
+                  {show('candidates') && snapshot.recommendation_feedback.length > 0 && (
+                    <details className="monitoring-history recommendation-excluded">
+                      <summary>
+                        {t('추천에서 제외한 공고')} ({snapshot.recommendation_feedback.length})
+                      </summary>
+                      <ul>
+                        {snapshot.recommendation_feedback.map((item) => (
+                          <li key={item.policy_id}>
+                            <div>
+                              <strong>{item.title}</strong>
+                              <p>
+                                {t(
+                                  recommendationFeedbackReasons.find(
+                                    ([value]) => value === item.reason,
+                                  )?.[1],
+                                )}
+                              </p>
+                            </div>
+                            <button
+                              className="text-button"
+                              disabled={!!busy}
+                              onClick={() =>
+                                void change(
+                                  'feedback',
+                                  (options) => api.feedback(item, null, options),
+                                  '이 공고를 다시 추천받도록 변경했어요.',
+                                )
+                              }
+                            >
+                              {t('다시 추천받기')}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
                   {show('alerts') && (
                     <>
@@ -1035,14 +1116,28 @@ export default function MonitoringPanel({
                         <ul className="monitoring-alerts">
                           {snapshot.alerts.map((alert) => (
                             <li key={alert.id} className={alert.read ? 'is-read' : ''}>
-                              <div>
+                              <button
+                                type="button"
+                                className="monitoring-alert-open"
+                                disabled={!!busy || !!openingAlertId || !onOpenAlert}
+                                onClick={() => void onOpenAlert(alert)}
+                                aria-label={t('{title} 관련 공고 보기', { title: alert.title })}
+                              >
                                 <span className="monitoring-alert-label">
                                   {alert.read ? t('읽음') : t('새 안내')}
                                 </span>
                                 <strong>{alert.title}</strong>
-                                <p>{alert.body}</p>
+                                <span className="monitoring-alert-body">{alert.body}</span>
                                 <small>{monitoringDate(alert.created_at)}</small>
-                              </div>
+                                <span className="monitoring-alert-link">
+                                  {t(
+                                    openingAlertId === alert.id
+                                      ? '관련 공고를 여는 중이에요.'
+                                      : '관련 공고 보기',
+                                  )}
+                                  <Icon name="right" size={16} />
+                                </span>
+                              </button>
                               {!alert.read && (
                                 <button
                                   className="text-button"
@@ -1205,7 +1300,15 @@ function Questions({ questions, label = '신청 전 확인사항' }) {
     </div>
   );
 }
-function Candidate({ candidate, disabled, onOpen, onState }) {
+function Candidate({
+  candidate,
+  disabled,
+  onOpen,
+  onState,
+  onFeedback,
+  onPrepared,
+  manageProgress = false,
+}) {
   const { t, intlLocale } = useI18n();
 
   const fieldId = useId();
@@ -1267,23 +1370,25 @@ function Candidate({ candidate, disabled, onOpen, onState }) {
         {t('지원 후보는 신청 자격 확정이 아니에요. 담당 기관과 공식 공고에서 확인해 주세요.')}{' '}
       </p>
       <div className="monitoring-candidate-actions">
-        <label className="field-label" htmlFor={fieldId}>
-          {' '}
-          {t('지원 진행 상태')}{' '}
-          <select
-            id={fieldId}
-            aria-label={t('{value1} 지원 진행 상태', { value1: policy.title })}
-            value={state}
-            disabled={disabled}
-            onChange={(event) => onState(event.target.value)}
-          >
-            {candidateStates.map(([value, text]) => (
-              <option key={value} value={value}>
-                {t(text)}
-              </option>
-            ))}
-          </select>
-        </label>
+        {manageProgress && (
+          <label className="field-label" htmlFor={fieldId}>
+            {' '}
+            {t('지원 진행 상태')}{' '}
+            <select
+              id={fieldId}
+              aria-label={t('{value1} 지원 진행 상태', { value1: policy.title })}
+              value={state}
+              disabled={disabled}
+              onChange={(event) => onState(event.target.value)}
+            >
+              {candidateStates.map(([value, text]) => (
+                <option key={value} value={value}>
+                  {t(text)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="monitoring-actions">
           <button className="button secondary" onClick={() => onOpen(original)}>
             {' '}
@@ -1298,6 +1403,16 @@ function Candidate({ candidate, disabled, onOpen, onState }) {
           )}
         </div>
       </div>
+      <ApplicationGuide
+        policy={original}
+        preparation={candidate.application_preparation}
+        onPrepared={onPrepared}
+        disabled={disabled}
+        applicationUnavailable={!active}
+      />
+      {active && !manageProgress && onFeedback && (
+        <RecommendationFeedbackForm disabled={disabled} onSave={onFeedback} />
+      )}
     </article>
   );
 }

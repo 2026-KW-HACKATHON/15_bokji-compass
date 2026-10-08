@@ -44,7 +44,6 @@ const empty = { items: [], total: 0, undatedItems: [], undatedTotal: 0, truncate
 function CalendarPolicyRow({
   policy: original,
   undated = false,
-  today,
   selected,
   type,
   searching,
@@ -66,14 +65,12 @@ function CalendarPolicyRow({
         windows.some((window) => window.applicationStart === selected) ? '신청 시작' : '',
         windows.some((window) => window.applicationEnd === selected) ? '신청 마감' : '',
       ].filter(Boolean);
-  if (selectedPolicy.applicationEnd && selectedPolicy.applicationEnd < today)
-    labels.push('접수 마감');
   return (
     <article ref={translation.ref} className="calendar-policy-row">
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
-          <PolicyDeadline policy={selectedPolicy} target="start" easy={easy} />
-          <PolicyDeadline policy={selectedPolicy} showContext easy={easy} />
+          <PolicyDeadline policy={selectedPolicy} target="start" />
+          <PolicyDeadline policy={selectedPolicy} />
           {(labels.length ? labels : ['접수 기간']).map((label) => (
             <span
               key={label}
@@ -234,7 +231,6 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         key={policy.id}
         policy={policy}
         undated={undated}
-        today={today}
         selected={selected}
         type={type}
         searching={Boolean(displayedFilters.query.trim())}

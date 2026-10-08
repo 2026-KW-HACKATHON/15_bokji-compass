@@ -26,6 +26,10 @@
 - `FinanceHelp.jsx`: 가구 범위·기간·소득·부채·차량의 기존 근거 안내를 보관합니다.
 - `FinanceResult.jsx`: 기존 서버 결과·추가 확인 사항·공식 출처 UI를 렌더링합니다.
 
+지원받음 선택 시 가구 전체의 최근 12개월 지원자 관계·용도·월별 합계와 횟수를 입력합니다. 현재 월 지원금은 단순 월소득 합계에, 최근 내역은 생계급여 산정에 사용합니다. 12개월 내내 같은 지원을 받았다면 첫 달 금액·횟수를 반복 적용할 수 있습니다. `repeatPrivateTransferMonths(history)`는 유효한 첫 달 입력으로 새 내역을 만들거나 null을 반환합니다. `preparePrivateTransferEdit(next,path,value)`는 구버전 초안 초기화·명시적 없음·가구 변경 시 확인 무효화를 웹과 모바일에 공통 적용합니다. 월별 금액은 만원 입력·원 단위 전송을 유지합니다. 미입력 달은 사용자가 받은 돈이 없었다고 확인한 경우에만 0으로 처리합니다. 기간이 지난 내역은 이번 달 기준으로 다시 입력할 수 있습니다.
+
+`FinanceResult`는 서버의 `notice`를 쉬운 화면에서도 항상 표시하고 `comparison_note`가 있으면 기준 이내 표시 대신 비교 보류 문구를 표시합니다. 관련 검증은 `private-transfer.test.js`, `e2e/private-transfer.spec.js`와 백엔드 `test_private_transfer_income.py`입니다.
+
 입력 계약은 [FinancialProfile](../../../../../backend/app/contracts/finance.py)입니다. `financeModel.js`는 전송 필드를 제한하고 금액·나이·차량 제원의 안전 정수와 범위를 검증합니다. 전월세 보증금은 소유 주택 가액과 분리하고 가구원별 근로·사업·기타 소득과 정기적으로 받는 사적이전소득을 나누어 전송합니다. 상세 계산의 공제·재산 환산·사업별 기준은 서버에서 계산합니다. 빠른 확인의 공식 기준 중위소득 표와 단순 비율은 `medianIncome.js`에서 처리합니다.
 
 소득이 양수일 때 `earned_income_basis`(세전/실수령액/모름), `business_income_basis`(필요경비 차감 후/매출/모름)를 묻습니다. 차량은 `ownership`, `registration_use`, `value_basis`, `eco_subsidy`를 실제 사용 목적 `use`와 분리합니다. 기존 저장 정보에 새 필드가 없으면 `unknown`으로 정규화하며 공제 가능 여부를 추측하지 않습니다. 금액·기준을 바꾸면 이전 계산 결과를 지우고 다시 계산하도록 합니다. 공식 정의·기간과 차량 예외의 근거는 [입력 근거 조사](../../../../../backend/docs/finance-input-evidence-2026.md)에 있습니다.

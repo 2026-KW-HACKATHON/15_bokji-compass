@@ -290,7 +290,15 @@ def _comparison_states(canonical: CanonicalPolicy, comparisons: dict, *,
 def _logic_state(canonical: CanonicalPolicy, comparisons: dict, *, upcoming=False,
                  today: date | None = None) -> bool | None:
     states = _comparison_states(canonical, comparisons, upcoming=upcoming, today=today)
-    return matching.evaluate_logic(canonical.logic, states)
+    logical = matching.evaluate_logic(canonical.logic, states)
+    # A source-backed target omitted from extraction still constrains personal guidance.
+    # Upcoming application dates must not turn a known audience mismatch into a candidate.
+    gender_guard = comparisons.get("gender_guard")
+    if gender_guard and gender_guard["state"] == "mismatch":
+        return False
+    if gender_guard and gender_guard["state"] == "unknown" and logical is not False:
+        return None
+    return logical
 
 
 def _viable_period_ids(node, states: dict, periods: dict) -> set[str]:
@@ -383,7 +391,8 @@ def _fingerprint(need_id: str, policy: dict, canonical: CanonicalPolicy, status:
 
     content = {key: policy.get(key) for key in (
         "id", "title", "organization", "benefit", "region", "audience", "otherConditions",
-        "applicationPeriod", "applicationMethod", "applicationUrl", "sourceUrl", "contact")}
+        "applicationPeriod", "applicationMethod", "applicationUrl", "sourceUrl", "contact",
+        "applicationGuide")}
     content.update(need_id=need_id, status=status, schedule=schedule, logic=logic(canonical.logic),
                    conditions=sorted(conditions.values(), key=lambda item: json.dumps(item,
                                      sort_keys=True, ensure_ascii=False)),
@@ -450,7 +459,9 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
                 if schedule == "unknown":
                     status = "needs_review"
                 questions = matching.review_questions(
-                    comparisons, canonical, source, schedule_status=schedule)
+                    comparisons, canonical, source, schedule_status=schedule,
+                    logic_states=_comparison_states(
+                        canonical, comparisons, upcoming=schedule == "upcoming", today=today))
                 for need, evidence in linked:
                     candidate_status = status
                     candidate_questions = questions.copy()

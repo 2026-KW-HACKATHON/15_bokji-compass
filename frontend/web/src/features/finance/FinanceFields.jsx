@@ -2,7 +2,15 @@ import useFinanceI18n from './useFinanceI18n.js';
 import FinanceHelp from './FinanceHelp.jsx';
 import CountField from './CountField.jsx';
 import { fieldValue, visibleFields } from './financeFlow.js';
-import { moneyInput, moneyInputValue, parseMoney, MAX_HOUSEHOLD_SIZE } from './financeModel.js';
+import {
+  moneyInput,
+  moneyInputValue,
+  parseMoney,
+  MAX_HOUSEHOLD_SIZE,
+  currentTransferMonth,
+  emptyPrivateTransferHistory,
+  repeatPrivateTransferMonths,
+} from './financeModel.js';
 
 function renderHint(text) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
@@ -234,6 +242,42 @@ export function QuestionFields({ question, draft, onChange, onAddVehicle, onRemo
         >
           {easy ? t('모든 부채를 없음으로 선택') : t('부채가 모두 없어요')}
         </button>
+      )}
+      {question.id === 'private-transfer' &&
+        draft.private_transfer_history &&
+        draft.private_transfer_history.as_of_month !== currentTransferMonth() && (
+          <div className="finance-approximation-notice">
+            <p>
+              저장된 지원 내역의 기간이 지났어요. 이번 달 기준 최근 12개월로 다시 입력해 주세요.
+            </p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => onChange('private_transfer_history', emptyPrivateTransferHistory())}
+            >
+              이번 달 기준으로 다시 입력
+            </button>
+          </div>
+        )}
+      {question.id === 'private-transfer-months' && (
+        <div className="finance-help">
+          <p>
+            12개월 내내 같은 지원을 받았다면 첫 달의 금액·횟수를 입력한 뒤 아래 버튼을 누르세요.
+          </p>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={!repeatPrivateTransferMonths(draft.private_transfer_history)}
+            onClick={() =>
+              onChange(
+                'private_transfer_history',
+                repeatPrivateTransferMonths(draft.private_transfer_history),
+              )
+            }
+          >
+            첫 달 금액·횟수를 12개월에 동일하게 적용
+          </button>
+        </div>
       )}
       <div className="finance-grid">
         {visibleFields(question, draft).map((field) => (

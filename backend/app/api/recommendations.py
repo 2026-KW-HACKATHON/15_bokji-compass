@@ -13,6 +13,7 @@ from app.contracts.matching import RecommendationInput
 from app.modules.finance.schema import initialize_finance_schema
 from app.modules.finance.storage import FinancialProfileStore
 from app.modules.matching import public
+from app.modules.monitoring.storage import load_recommendation_feedback
 
 router = APIRouter(prefix="/v1/recommendations", tags=["recommendations"],
                    dependencies=[Depends(guard)])
@@ -54,7 +55,9 @@ def recommendations(data: RecommendationInput, request: Request, member: Optiona
             raise HTTPException(409, "저장한 금융정보가 없어요. 먼저 입력·저장해 주세요.")
         financial = stored.profile
     facts = public.build_facts(member, data.profile, financial)
-    result = public.recommend(repository, facts, data.profile, limit=data.limit)
+    feedback = (load_recommendation_feedback(get_service(request).engine, member["id"])
+                if member is not None else [])
+    result = public.recommend(repository, facts, data.profile, limit=data.limit, feedback=feedback)
     result["profile_source"] = "account" if member is not None else "request"
     result["financial_source"] = (
         "account" if data.use_saved_financial_profile else "request" if financial else "none")

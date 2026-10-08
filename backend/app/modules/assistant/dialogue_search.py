@@ -8,6 +8,7 @@ from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import SourcePolicy
 from app.modules.matching import public as matching
 from app.modules.monitoring import public as monitoring
+from app.modules.monitoring.feedback import personalize
 from app.modules.monitoring.models import seoul_today
 from app.modules.presentation.public import policy_signals
 from app.modules.search.interpretation import interpret_query
@@ -28,7 +29,7 @@ def prepare_search(text, repository=None):
     return replace(plan, original_query="", normalized_query="", corrections=(), summary="")
 
 
-def general_candidates(repository, plan, member, profile):
+def general_candidates(repository, plan, member, profile, *, feedback=()):
     """Search all latest public notices, then exclude known mismatches and closed notices."""
     if plan is None:
         return []
@@ -43,7 +44,12 @@ def general_candidates(repository, plan, member, profile):
     facts = monitoring.monitoring_facts(member, profile)
     today = seoul_today()
     candidates = []
-    for record, relevance in matches:
+    ranked = personalize([{
+        "policy": {"id": record["policy_key"], "title": record["title"],
+                   "category": record["category"]}, "record": record, "relevance": relevance,
+    } for record, relevance in matches], feedback)
+    for item in ranked:
+        record, relevance = item["record"], item["relevance"]
         comparison = matching.compare_policy(record, facts, today=today)
         canonical = CanonicalPolicy.model_validate(record["canonical_json"])
         policy = card(record)
@@ -61,7 +67,9 @@ def general_candidates(repository, plan, member, profile):
                   and not missing_targets and logical is True and schedule != "unknown"
                   else "needs_review")
         questions = matching.review_questions(
-            comparison, canonical, source, schedule_status=schedule)
+            comparison, canonical, source, schedule_status=schedule,
+            logic_states=monitoring._comparison_states(
+                canonical, comparison, upcoming=schedule == "upcoming", today=today))
         # Ranking is based on an immutable revision. Recheck access after evaluation.
         current = repository.get_revision(record["revision_id"])
         if current is None or current.get("review_status") != "published":

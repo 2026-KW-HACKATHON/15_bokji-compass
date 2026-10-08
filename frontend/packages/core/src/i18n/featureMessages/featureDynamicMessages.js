@@ -1,29 +1,5 @@
 export const featureDynamicMessages = {
-  "신청 시작까지 D-{count}": {
-    en: "Until applications open: D-{count}",
-    zh: "距申请开始 D-{count}",
-    vi: "Đến ngày mở đăng ký D-{count}",
-    ja: "申請開始まで D-{count}",
-  },
-  "신청 마감까지 D-{count}": {
-    en: "Until applications close: D-{count}",
-    zh: "距申请截止 D-{count}",
-    vi: "Đến hạn đăng ký D-{count}",
-    ja: "申請締切まで D-{count}",
-  },
-  "신청 시작 D-Day": {
-    en: "Applications open today · D-Day",
-    zh: "申请今天开始 · D-Day",
-    vi: "Hôm nay mở đăng ký · D-Day",
-    ja: "本日申請開始 · D-Day",
-  },
-  "신청 마감 D-Day": {
-    en: "Applications close today · D-Day",
-    zh: "申请今天截止 · D-Day",
-    vi: "Hôm nay hết hạn đăng ký · D-Day",
-    ja: "本日申請締切 · D-Day",
-  },
-  "신청 시작까지 {count}일 남음": {
+  "신청일까지 {count}일 남음": {
     en: "{count} days until applications open",
     zh: "距申请开始还有{count}天",
     vi: "Còn {count} ngày đến khi mở đăng ký",
@@ -41,19 +17,13 @@ export const featureDynamicMessages = {
     vi: "Nguồn xác minh lịch đăng ký",
     ja: "日程の確認元",
   },
-  "접수 마감 D+{count}": {
-    en: "Applications closed D+{count}",
-    zh: "已截止 D+{count}",
-    vi: "Đã hết hạn D+{count}",
-    ja: "締切済み D+{count}",
-  },
   "마감일 확인 필요": {
     en: "Check the deadline",
     zh: "需要确认截止日期",
     vi: "Cần kiểm tra hạn đăng ký",
     ja: "締切日の確認が必要",
   },
-  "신청 마감까지 {count}일 남음": {
+  "마감일까지 {count}일 남음": {
     en: "{count} days until the application deadline",
     zh: "距申请截止还有{count}天",
     vi: "Còn {count} ngày đến hạn đăng ký",
@@ -64,12 +34,6 @@ export const featureDynamicMessages = {
     zh: "申请今天截止",
     vi: "Hôm nay hết hạn đăng ký",
     ja: "本日申請締切",
-  },
-  "신청 마감 후 {count}일 지남": {
-    en: "{count} days since applications closed",
-    zh: "申请截止已过{count}天",
-    vi: "Đã qua {count} ngày kể từ hạn đăng ký",
-    ja: "申請締切から{count}日経過",
   },
   "{value1} 공고 일정을 불러오는 중이에요.": {
     en: "Loading notice schedules for {value1}.",

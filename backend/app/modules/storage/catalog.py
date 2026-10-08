@@ -8,6 +8,7 @@ from sqlalchemy import JSON, String, and_, func, inspect, literal, or_, select
 from app.modules.ingestion.models import records as collection_records
 from app.modules.ingestion.popularity import listing_popularity, view_count_expression
 from app.modules.normalization.source_urls import policy_source_url
+from app.modules.presentation.application import application_guide
 from app.modules.presentation.public import (
     format_notice_text,
     format_source_field,
@@ -183,6 +184,11 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
             for name, field in (("applicationMethod", "application_method"), ("contact", "contact"))
         },
         "applicationUrl": section("application_url", fields.get("application_url") or None),
+        "applicationGuide": application_guide(
+            raw_fields, overview, source_url=policy_source_url(
+                record["policy_key"], source.get("source_url"), record.get("popularity_listing")
+            ),
+        ),
         "sourceFields": fields if full else {},
         "publishedDate": section("published_date", fields.get("published_date") or ""),
         "modifiedDate": section("modified_date", fields.get("modified_date") or ""),

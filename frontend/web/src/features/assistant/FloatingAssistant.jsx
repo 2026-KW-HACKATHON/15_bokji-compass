@@ -340,7 +340,7 @@ function AssistantDialog({
             key={`${user?.id || 'guest'}:${policy?.revisionId || 'general'}`}
             user={user}
             policy={policy}
-            onProfile={() => go('profile')}
+            onProfile={() => go('assistant-monitoring')}
             session={guidedSession}
             onSessionChange={onGuidedSessionChange}
             onOpenAssistant={openAssistant}

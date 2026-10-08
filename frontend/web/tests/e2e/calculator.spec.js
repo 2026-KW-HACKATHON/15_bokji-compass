@@ -229,14 +229,33 @@ test('results group missing information once and keep one footer notice in both 
   await expect(page.locator('.finance-disclaimer')).toHaveCount(0);
 
   const disclaimerText =
-    'AI는 실수할 수 있어요. 안내와 계산 결과는 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따라 달라질 수 있어요.';
+    'AI는 실수할 수 있습니다. 안내·계산은 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따릅니다.';
   const footerNotice = page.locator('.page-footer').getByText(disclaimerText, { exact: true });
   await expect(page.getByText(disclaimerText, { exact: true })).toHaveCount(1);
   await expect(footerNotice).toBeVisible();
+  if (page.viewportSize().width >= 1200) {
+    expect(
+      await footerNotice.evaluate((notice) => {
+        const textRange = document.createRange();
+        textRange.selectNodeContents(notice);
+        return textRange.getClientRects().length;
+      }),
+    ).toBe(1);
+  }
   await easySwitch.click();
   await expect(easySwitch).toBeChecked();
   await expect(page.getByText(disclaimerText, { exact: true })).toHaveCount(1);
   await expect(footerNotice).toBeVisible();
+  if (page.viewportSize().width >= 1200) {
+    expect(
+      await footerNotice.evaluate((notice) => {
+        const textRange = document.createRange();
+        textRange.selectNodeContents(notice);
+        return textRange.getClientRects().length;
+      }),
+    ).toBe(1);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(unknownChecks).toHaveText(['확인 필요', '확인 필요']);
   await expect(incomplete.locator('li')).toHaveCount(1);
 });

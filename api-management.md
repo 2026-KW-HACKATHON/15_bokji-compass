@@ -1,5 +1,40 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 신청 안내·계정별 서류 준비 (2026-10-08)
+
+공개 공고 목록·상세·추천·대화 후보의 policy에 `applicationGuide`를 추가한다.
+계약은 `{methodText, onlineUrl, phones:[{number,label,kind:application|inquiry}], visitText,
+documents:[{id,label}], documentsStatus:listed|none|unknown, documentsNote}`다. 원문과
+유효한 신청 문맥 인용으로 구성하며 공고/홈/문의 페이지는 신청 주소로 쓰지 않는다.
+신청 전화와 문의 전화를 구분하고 팩스를 전화로 연결하지 않는다. 서류 ID는 원문 문장의
+안정적 해시다. ‘신청서 해당없음’과 ‘구비서류 없음’을 구분한다.
+
+`POST /v1/monitoring/candidates/preparation`은 로그인한 계정의 현재 후보만 수정한다.
+웹은 기존 동일 출처·`X-Auth-Request: 1` 보호를 따르며 입력은
+`{policy_id, need_id, revision_id, document_id, prepared:bool}`다. prepared는 엄격한 boolean,
+계정 ID·문서 내용은 받지 않는다. 후보 소유권은 404, 비활성/제외·revision 불일치·
+없는 문서는 409, 입력 오류는 422, 계정별 분당 120회 제한은 429다. 반환은 monitoring
+snapshot이며 후보의 `application_preparation:{revision_id, prepared_document_ids}`
+또는 null을 추가한다. 기존 JSON 저장을 사용해 테이블 변경은 없다. 공고 변경 시 체크가
+초기화되고 안내 삭제·탈퇴 시 함께 삭제된다. 파일 제출·문서 심사·정부 신청은 수행하지 않는다.
+
+## 계정별 추천 제외 이유 (2026-10-08)
+
+`POST /v1/monitoring/candidates/feedback` (`/api` 프록시 아래 동일 경로)은 로그인,
+동일 출처 및 `X-Auth-Request: 1`을 요구합니다. JSON은
+`{policy_id, need_id, reason}`이며 `reason`은 필수이고 `not_eligible`, `not_interested`,
+`null`만 허용합니다. null은 복원입니다. 계정 ID·제목·분야를 요청으로 받지 않습니다.
+계정 내 실제 추천 후보가 없으면 404, 입력 오류는 422, 계정별 분당 30회를 넘으면 429입니다.
+
+반환값은 기존 monitoring snapshot에 `recommendation_feedback:[{policy_id, need_id,
+reason, title, category, tokens, updated_at}]`와 후보별 동일 필드 또는 null을 추가합니다.
+비활성 후보가 화면에서 빠져도 제외 목록은 유지됩니다. 기존 후보 JSON에 저장해 별도
+테이블 초기화·마이그레이션은 없습니다. 안내 삭제·탈퇴는 설정도 제거합니다.
+
+홈 `/v1/recommendations`와 인증된 `/v1/assistant/dialogue`는 해당 계정의 설정을 읽어
+결과 개수 제한 전에 제외·정렬합니다. 지원 대상 아님은 해당 공고만 제외하고, 관심 없음은
+동일 분야와 제목 유사도에 따라 순위를 낮춥니다. 회원 사실·자격 비교·신청 상태는 유지합니다.
+
 ## 공개 공고 JSON 표시 정제 (2026-10-08)
 
 공개 공고 상세 `GET /v1/policies/{id}`의 `sourceFields: dict[str,str]`은 법령·문의처·
@@ -170,8 +205,8 @@ PATCH는 JSON·같은 출처·`X-Auth-Request: 1`을 요구하며 본문 1MiB �
 | POST | `/operations` | `action=check/tick/seed/analyze-all/schedule-enable/schedule-remove`와 실행 입력 → 202 `{operation}`. 백그라운드 실행 |
 | POST | `/operations/{operation_id}/stop` | UUID 분석 작업 ID → 202 상태. 해당 AI 작업의 진행 결과 저장 후 중지 요청 |
 | GET | `/schedule` | Windows 작업의 등록·활성 상태·실행 결과 코드 조회. 등록/해제하지 않음 |
-| GET | `/processes` | 관리 가능한 개발/운영 모드, 백엔드·프론트 상태, 최근 제어 결과 조회 |
-| POST | `/processes` | `{target:backend/frontend/all,action:stop/restart}` → 202 `{operation}`. 고정 관리 스크립트를 별도 숨김 프로세스로 실행 |
+| GET | `/processes` | 개발/운영 모드, 백엔드·프론트, MySQL의 running/ready/controllable, 터널의 running/connected/controllable/url, 최근 제어 결과 조회 |
+| POST | `/processes` | `{target:backend/frontend/mysql/tunnel/all,action:start/stop/restart}` → 202 `{operation}`. 고정 관리 스크립트를 별도 숨김 프로세스로 실행. all은 프로젝트 DB까지 포함 |
 | GET | `/processes/{job_id}` | UUID 작업 ID → 재시작 후에도 남는 `{operation}`. 없으면 404 |
 
 POST/PATCH는 같은 출처, JSON과 `X-Auth-Request: 1`이 필요하며 요청 본문은 64KB까지입니다.

@@ -78,11 +78,15 @@
   min-width: 0;
 }
 
-/* Cards keep the action separate from the information, without clipping text. */
+/* Each card shares the same content and action columns, without clipping text. */
 .easy-mode .easy-policy-card {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
-  padding: 28px;
+  grid-template-columns: minmax(0, 1fr) var(--easy-action-width);
+  gap: 24px;
+  padding: 24px;
+}
+.easy-mode .easy-card-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .easy-mode .easy-policy-card .card-summary {
   display: block;
@@ -112,9 +116,11 @@
   border-radius: 10px;
 }
 .easy-mode .easy-card-action {
-  justify-self: start;
+  width: 100%;
+  justify-self: stretch;
 }
 .easy-mode .easy-card-action .detail-link {
+  width: 100%;
   min-height: 56px;
   padding: 12px 20px;
   border-color: var(--green);
@@ -420,7 +426,10 @@
   display: flex;
   align-items: stretch;
   gap: 12px;
-  width: min(1072px, calc(100% - 48px));
+  width: min(
+    calc(var(--easy-page-width) - 2 * var(--easy-page-gutter)),
+    calc(100% - 2 * var(--easy-page-gutter))
+  );
   margin: 24px auto;
   padding: 12px;
   border: 1px solid var(--line);
@@ -662,8 +671,11 @@
 }
 
 @media (max-width: 680px) {
+  .easy-mode .easy-policy-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
   .easy-mode .chat-launcher {
-    width: calc(100% - 32px);
     padding: 8px;
     gap: 8px;
   }

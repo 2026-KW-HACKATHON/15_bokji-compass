@@ -1,6 +1,43 @@
 // UI copy added by the assistant and service-introduction merge.
 // Server dialogue, policy text, form values and user input remain original content.
 const rows = `
+신청 방법과 서류 확인|Check application instructions and documents|查看申请方法与材料|Xem cách đăng ký và giấy tờ|申請方法と書類を確認する
+접수가 마감된 공고예요. 최신 접수 여부는 담당 기관에 확인해 주세요.|Applications have closed. Ask the responsible office about current availability.|此公告的申请已截止。请向负责机构确认最新受理情况。|Thông báo đã hết hạn nhận hồ sơ. Hãy hỏi cơ quan phụ trách về tình trạng hiện tại.|受付が終了した公示です。最新の受付状況は担当機関へ確認してください。
+이 공고 신청하기|Apply for this notice|申请此公告|Đăng ký thông báo này|この公示に申請する
+신청 방법과 서류 준비|How to apply and prepare documents|申请方法与材料准备|Cách đăng ký và chuẩn bị hồ sơ|申請方法と書類の準備
+현재 접수 상태를 먼저 확인해 주세요.|Check whether applications are currently open.|请先确认目前是否接受申请。|Hãy kiểm tra tình trạng tiếp nhận hồ sơ hiện tại.|現在の受付状況を先に確認してください。
+신청 방법은 공식 공고에서 확인해 주세요.|Check the official notice for application instructions.|请查看官方公告中的申请方法。|Xem cách đăng ký trong thông báo chính thức.|申請方法は公式の公示で確認してください。
+온라인으로 신청하기|Apply online|在线申请|Đăng ký trực tuyến|オンラインで申請する
+온라인 신청 주소를 확인하지 못했어요. 공식 공고의 신청 방법을 확인해 주세요.|The online application address has not been confirmed. Check the official application instructions.|尚未确认在线申请地址。请查看官方公告中的申请方法。|Chưa xác nhận được địa chỉ đăng ký trực tuyến. Hãy xem hướng dẫn đăng ký chính thức.|オンライン申請先を確認できませんでした。公式の公示で申請方法を確認してください。
+전화로 신청하기|Apply by phone|电话申请|Đăng ký qua điện thoại|電話で申請する
+신청 방법 전화 문의|Call about how to apply|电话咨询申请方法|Gọi để hỏi cách đăng ký|申請方法を電話で問い合わせる
+방문 신청 안내|Applying in person|现场申请指南|Hướng dẫn đăng ký trực tiếp|窓口での申請案内
+공식 공고에서 신청 방법 확인|Check the official application instructions|查看官方申请指南|Xem hướng dẫn đăng ký chính thức|公式の公示で申請方法を確認する
+필요한 서류|Documents to prepare|所需材料|Giấy tờ cần chuẩn bị|必要な書類
+준비한 서류 {count}/{total}|Documents prepared {count}/{total}|已准备材料 {count}/{total}|Giấy tờ đã chuẩn bị {count}/{total}|準備済み書類 {count}/{total}
+준비한 서류를 직접 확인해 주세요. 파일을 제출하거나 신청한 것으로 처리하지 않아요.|Confirm which documents you have prepared. This does not submit files or an application.|请自行确认已准备的材料。勾选不会提交文件或申请。|Hãy xác nhận giấy tờ bạn đã chuẩn bị. Thao tác này không gửi tệp hay nộp đơn.|準備した書類を自分で確認してください。ファイルの提出や申請は行われません。
+서류 준비를 확인했어요. 신청 완료를 뜻하지 않아요.|Your document preparation is checked. The application has not been submitted.|已确认材料准备情况。这并不代表申请已提交。|Đã xác nhận việc chuẩn bị hồ sơ. Điều này không có nghĩa là đã nộp đơn.|書類の準備を確認しました。申請完了を意味するものではありません。
+공고에 제출 서류가 없다고 안내되어 있어요.|The notice states that no documents are required.|公告说明无需提交材料。|Thông báo ghi rằng không cần nộp giấy tờ.|公示には提出書類が不要と記載されています。
+필요한 서류가 원문에 명확히 안내되지 않았어요. 신청 전에 담당 기관에 확인해 주세요.|The original notice does not clearly list required documents. Ask the responsible office before applying.|原文未明确列出所需材料。请在申请前向负责机构确认。|Thông báo gốc chưa nêu rõ giấy tờ cần thiết. Hãy hỏi cơ quan phụ trách trước khi đăng ký.|原文に必要な書類が明記されていません。申請前に担当機関へ確認してください。
+공고가 변경되어 서류 준비 항목을 다시 확인해야 해요.|The notice has changed. Review the document checklist again.|公告已更新，请重新确认材料准备清单。|Thông báo đã thay đổi. Hãy kiểm tra lại danh sách giấy tờ.|公示が変更されたため、書類の準備項目を再確認してください。
+공고가 변경되어 서류 준비 항목을 다시 확인해야 해요. 공고 다시 확인을 눌러 주세요.|The notice has changed. Select Check notices again to update your checklist.|公告已更新。请点击重新查看公告以更新材料清单。|Thông báo đã thay đổi. Chọn kiểm tra lại thông báo để cập nhật danh sách hồ sơ.|公示が変更されました。公示を再確認して書類の準備項目を更新してください。
+서류 준비 상태를 저장하지 못했어요. 다시 시도해 주세요.|Could not save document preparation. Please try again.|无法保存材料准备状态，请重试。|Không lưu được tình trạng chuẩn bị hồ sơ. Vui lòng thử lại.|書類の準備状況を保存できませんでした。もう一度お試しください。
+서류 준비 상태를 저장했어요.|Document preparation saved.|已保存材料准备状态。|Đã lưu tình trạng chuẩn bị hồ sơ.|書類の準備状況を保存しました。
+준비할 서류 정보를 다시 확인해 주세요.|Check the document information again.|请重新确认所需材料信息。|Vui lòng kiểm tra lại thông tin giấy tờ cần chuẩn bị.|準備する書類の情報をもう一度確認してください。
+신청 안내 정보의 형식을 확인하지 못했어요.|Could not read the application guidance.|无法读取申请指南。|Không đọc được hướng dẫn đăng ký.|申請案内を読み取れませんでした。
+추천에서 제외한 공고 외에 현재 안내할 지원 후보가 없어요.|Aside from the notices you excluded, there are no support recommendations right now.|除您排除的公告外，目前没有可推荐的援助公告。|Ngoài những thông báo bạn đã loại, hiện không có đề xuất hỗ trợ nào.|除外した公示以外に、現在案内できる支援候補はありません。
+이 공고 추천하지 않기|Do not recommend this notice|不再推荐此公告|Không đề xuất thông báo này|この公示をおすすめしない
+이 공고를 추천하지 않는 이유|Why should we stop recommending this notice?|为什么不再推荐此公告？|Vì sao bạn không muốn nhận đề xuất này?|この公示をおすすめしない理由
+지원 대상이 아니에요|I am not eligible|我不符合申请条件|Tôi không thuộc đối tượng hỗ trợ|支援対象ではありません
+관심 없는 공고예요|I am not interested|我不感兴趣|Tôi không quan tâm|興味がありません
+이 공고를 제외하고, 비슷한 공고의 추천 순위를 낮춰요.|We will exclude this notice and rank similar notices lower.|我们将排除此公告并降低类似公告的推荐顺序。|Chúng tôi sẽ loại thông báo này và giảm thứ hạng của các thông báo tương tự.|この公示を除外し、似た公示のおすすめ順位を下げます。
+이 공고를 다시 추천하지 않아요. 제외한 공고는 언제든 다시 추천받을 수 있어요.|We will stop recommending this notice. You can restore it at any time.|我们将不再推荐此公告。您可以随时恢复推荐。|Chúng tôi sẽ không đề xuất thông báo này nữa. Bạn có thể khôi phục bất cứ lúc nào.|この公示をおすすめから除外します。いつでも元に戻せます。
+추천에서 제외|Exclude from recommendations|从推荐中排除|Loại khỏi đề xuất|おすすめから除外
+추천에서 제외한 공고|Excluded notices|已排除的公告|Thông báo đã loại khỏi đề xuất|おすすめから除外した公示
+다시 추천받기|Restore recommendations|恢复推荐|Khôi phục đề xuất|おすすめに戻す
+추천에서 제외했어요. 선택한 이유를 다음 추천에 반영할게요.|Notice excluded. Your reason will inform future recommendations.|已从推荐中排除。您的理由将用于调整后续推荐。|Đã loại khỏi đề xuất. Lý do bạn chọn sẽ được áp dụng cho các đề xuất tiếp theo.|おすすめから除外しました。選んだ理由を今後のおすすめに反映します。
+이 공고를 다시 추천받도록 변경했어요.|Recommendations for this notice restored.|已恢复此公告的推荐。|Đã khôi phục đề xuất cho thông báo này.|この公示のおすすめを再開しました。
+아직 저장된 신청 기록이 없어요.|No saved application records yet.|尚无保存的申请记录。|Chưa có hồ sơ đăng ký đã lưu.|保存された申請記録はまだありません。
 공고 질문과 챗봇은 로그인 없이 이용할 수 있어요. AI 복지비서는 로그인이 필요해요.|You can use policy questions and the chatbot without signing in. The AI welfare assistant requires sign-in.|公告提问和聊天机器人无需登录即可使用。AI福利助手需要登录。|Bạn có thể hỏi về thông báo và dùng chatbot mà không cần đăng nhập. Trợ lý phúc lợi AI yêu cầu đăng nhập.|公示への質問とチャットボットはログインせずに利用できます。AI福祉アシスタントにはログインが必要です。
 맞춤 지원 탐색|Find relevant support|查找适合的支持|Tìm hỗ trợ phù hợp|自分に合う支援を探す
 거주 지역과 생활정보를 바탕으로 관련 지원 공고를 확인합니다.|Find relevant support notices based on your location and circumstances.|根据您的居住地区和生活信息，查找相关支持公告。|Tìm thông báo hỗ trợ liên quan dựa trên nơi cư trú và hoàn cảnh của bạn.|居住地域や生活情報を基に、関連する支援の公示を確認します。

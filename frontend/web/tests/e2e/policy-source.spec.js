@@ -45,6 +45,15 @@ test('notice details expose original links and Korean labels in both display mod
     audience: '장애인기업 중 1인 중증장애인 사업주',
     sourceUrl: 'https://www.gov.kr/portal/rcvfvrSvc/dtlEx/142100000001',
     applicationUrl: 'https://example.gov/apply',
+    applicationGuide: {
+      methodText: '온라인 신청',
+      onlineUrl: 'https://example.gov/apply',
+      phones: [],
+      visitText: '',
+      documents: [],
+      documentsStatus: 'unknown',
+      documentsNote: '',
+    },
     sourceFields: {
       laws: '장애인기업활동 촉진법 시행령(제10조, 제2항)',
       support_type: '현금',
@@ -75,7 +84,8 @@ test('notice details expose original links and Korean labels in both display mod
     await expect(scheduleSource).toHaveAttribute('href', policy.sourceFields['일정 확인 출처']);
     await expect(scheduleSource).toHaveAttribute('target', '_blank');
     await expect(scheduleSource).toHaveAttribute('rel', 'noopener noreferrer');
-    await expect(dialog.getByRole('link', { name: /신청 페이지 열기/ })).toHaveAttribute(
+    await dialog.getByRole('button', { name: '이 공고 신청하기', exact: true }).click();
+    await expect(dialog.getByRole('link', { name: /온라인으로 신청하기/ })).toHaveAttribute(
       'href',
       policy.applicationUrl,
     );

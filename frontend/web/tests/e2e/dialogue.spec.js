@@ -132,7 +132,7 @@ test('missing facts are answered in the conversation and storing only confirmed 
   expect(saved).toBe(0);
   await panel.getByRole('checkbox', { name: /표시된 정보가 본인 정보임/ }).check();
   await save.click();
-  await expect(panel.getByText(/내 정보에서 지속 복지 안내를 켜면/)).toBeVisible();
+  await expect(panel.getByText(/AI 비서의 지속 복지 안내를 켜면/)).toBeVisible();
   expect(saved).toBe(1);
   expect(calls).toHaveLength(4);
   const bounds = await panel.boundingBox();
@@ -304,6 +304,6 @@ test('easy mode supports unknown answers and a direct route to correct saved fac
   await expect(panel).toHaveClass(/chat-dialog-easy/);
   await page.screenshot({ path: testInfo.outputPath('guided-easy.png') });
   await panel.getByRole('button', { name: '저장한 생활정보 수정하기' }).click();
-  await expect(page).toHaveURL(/#profile$/);
+  await expect(page).toHaveURL(/#assistant-monitoring$/);
   await expect(panel).toHaveCount(0);
 });

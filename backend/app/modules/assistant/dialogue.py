@@ -17,6 +17,7 @@ from app.modules.assistant.dialogue_models import (
 from app.modules.assistant.dialogue_search import general_candidates, prepare_search
 from app.modules.matching import public as matching
 from app.modules.monitoring import public as monitoring
+from app.modules.monitoring.feedback import personalize
 from app.modules.monitoring.models import MonitoringProfile, seoul_today
 from app.modules.presentation.public import policy_signals
 from app.modules.regions.public import default_catalog
@@ -245,7 +246,7 @@ def _selected(record, member, state):
             "schedule_status": monitoring._schedule(policy, canonical, seoul_today(), comparison)}
 
 
-def _compare(repository, state, member):
+def _compare(repository, state, member, feedback=()):
     requested = "subject" in state.answered
     if state.topic == "housing_leak" and state.support_interest is not True:
         requested = False
@@ -259,7 +260,8 @@ def _compare(repository, state, member):
     try:
         selected = (_selected(_read_revision(repository, state.revision_id), context, state)
                     if state.revision_id else None)
-        candidates = (general_candidates(repository, state.search_plan, context, state.profile)
+        candidates = (general_candidates(repository, state.search_plan, context, state.profile,
+                                         feedback=feedback)
                       if state.topic == "general" else
                       monitoring.scan_candidates(
                           repository, context, state.profile, [_need(state)]))
@@ -268,7 +270,7 @@ def _compare(repository, state, member):
         # Do not expose a revision withdrawn while its conditions were being evaluated.
         if state.revision_id:
             _read_revision(repository, state.revision_id)
-        return candidates, selected, "ready"
+        return personalize(candidates, feedback), selected, "ready"
     except DialogueError:
         raise
     except (SQLAlchemyError, ValidationError, ValueError, KeyError, TypeError,
@@ -322,7 +324,8 @@ def _message(state, pending, candidates, catalog_status, *, acknowledged=None, s
 
 
 def respond(repository, member: dict, data: DialogueInput, store: DialogueStore, *,
-            saved_profile: MonitoringProfile | None = None, practical_guidance: dict | None = None):
+            saved_profile: MonitoringProfile | None = None, practical_guidance: dict | None = None,
+            feedback=()):
     """Never persist conversation answers to a member or monitoring profile here."""
     account_id = member["id"]
     acknowledged = None
@@ -383,7 +386,7 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
                 state.needs_search_details = value is None
             acknowledged = pending if value is not None else None
             store.update(token, account_id, state, version)
-    candidates, selected, catalog_status = _compare(repository, state, member)
+    candidates, selected, catalog_status = _compare(repository, state, member, feedback)
     if unavailable_selected:
         catalog_status = "unavailable"
     if (state.topic == "general" and catalog_status == "ready" and not candidates

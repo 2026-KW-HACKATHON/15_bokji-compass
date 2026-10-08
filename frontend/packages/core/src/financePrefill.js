@@ -5,6 +5,7 @@ import {
   parseMoney,
   moneyInputValue,
   MAX_HOUSEHOLD_SIZE,
+  emptyPrivateTransferHistory,
 } from './financeModel.js';
 
 const metropolitan = new Set(['인천', '부산', '대구', '광주', '대전', '울산', '세종', '창원']);
@@ -19,7 +20,11 @@ export function financeRegionFor(value) {
 
 export function knownHouseholdSize(value) {
   try {
-    return parseInteger(value, '가구원 수', { min: 1, max: MAX_HOUSEHOLD_SIZE, required: true });
+    return parseInteger(value, '가구원 수', {
+      min: 1,
+      max: MAX_HOUSEHOLD_SIZE,
+      required: true,
+    });
   } catch {
     return null;
   }
@@ -93,6 +98,7 @@ export function financialDraftDefaults({
 } = {}) {
   // Financial drafts contain only JSON values; this also works in Hermes.
   const draft = JSON.parse(JSON.stringify(saved ?? emptyFinancialProfile()));
+  draft.private_transfer_history ??= emptyPrivateTransferHistory();
   if (!saved) {
     draft.region = financeRegionFor(user?.region ?? recommendation?.region);
     if (Number.isInteger(user?.age) && user.age >= 0 && user.age <= 120)
@@ -107,6 +113,7 @@ export function financialDraftDefaults({
       (_, index) => draft.members[index] ?? emptyMember(),
     );
     draft.household_scope_confirmed = false;
+    if (draft.private_transfer_history) draft.private_transfer_history.status = 'unknown';
     if (draft.minor_children > count) draft.minor_children = null;
   }
   return draft;

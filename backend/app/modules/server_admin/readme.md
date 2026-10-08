@@ -18,7 +18,7 @@
 `operations.py`의 `Operations`는 앱별 백그라운드 작업을 관리하며 앱 상태의
 `server_operations`에 보관합니다. 서버 종료 시 진행 중인 수동 작업을 기다립니다.
 
-`runtime.py`의 `ControlInput`은 `target=backend/frontend/all`, `action=stop/restart`만 받습니다.
+`runtime.py`의 `ControlInput`은 `target=backend/frontend/mysql/tunnel/all`, `action=start/stop/restart`만 받습니다.
 `status()`는 고정 PowerShell 스크립트로 프로젝트 소유 프로세스를 조회합니다.
 `start(state, data)`는 수집 상태와 파일 잠금을 확인해 `{operation}`을 접수하고 별도 숨김
 프로세스로 명령을 처리합니다. `read_job(UUID)`는 허용된 작업 메타데이터만 반환합니다.
@@ -26,6 +26,12 @@
 `refresh_pending(state)`는 완료된 백엔드 제어의 수집 시작 제한을 해제합니다.
 수집 시작과 제어 접수는 같은 `server_config_lock` 아래 검사하므로 서로의 실행을 가로채지 않습니다.
 작업과 제어 잠금은 `backend/data/server-control/`에 보관하며 API 재시작으로 지워지지 않습니다.
+전체 제어는 프로젝트 MySQL까지 포함합니다. 운영 전체 중지는 터널 → 웹·QR → API → DB,
+시작은 DB → API → 웹·QR → 터널 순서입니다. 개별 DB 제어는 현재 설정의 로컬 주소·포트가
+프로젝트 인스턴스와 일치할 때만 허용합니다. 터널 개별 제어는 고정 도메인 운영 모드를 지원합니다.
+`tunnel.ps1 status`는 소유 프로세스의 loopback `/ready` 응답으로 실제 연결 상태도 확인합니다.
+DB 중지 후에는 관리자 인증도 중단되므로 서버 PC의 `start-server-prod.bat mysql start`로 복구합니다.
+백엔드 관리 페이지의 **서비스 관리**는 10초마다 읽기 전용 상태를 갱신하며 제어 전 영향을 안내합니다.
 
 | 호출 | 반환·효과 |
 | --- | --- |
@@ -90,6 +96,11 @@ HttpOnly·SameSite=Strict·최대 7일이며 production은 Secure입니다.
 [접속·계정 생성·설정 적용](../../../docs/server-admin.md),
 [HTTP 관리대장](../../../../api-management.md), [수집·스케줄 안내](../../../docs/server-ingestion.md).
 상태 새로고침·설정 저장은 수집·모델·검색·Windows 작업을 실행하지 않습니다.
+
+서버 개요는 화면이 보이는 동안 5초 간격으로 조회하며 요청이 겹치지 않습니다. 가동 시간은
+서버 응답과 브라우저의 단조 증가 시간을 기준으로 매초 표시합니다. 메뉴 전환·로그아웃·창
+숨김 시 타이머를 해제하고 복귀 시 즉시 조회합니다. 연결 실패 시 마지막 상태를 표시하고
+시계 증가를 멈춘 뒤 재시도하며 새 서버 응답으로 가동 시간을 다시 맞춥니다.
 
 ## 공고 DB 편집 (2026-10-07)
 

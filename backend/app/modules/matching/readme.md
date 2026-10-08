@@ -10,12 +10,24 @@ LLM·네트워크 외부 호출·회원/금융정보 저장·신청 자격 확�
   범위로 비교합니다. 직업은 이번 요청의 직장인/자영업자만 명시적으로 연결합니다.
 - `compare_policy(record, facts, catalog=None, today=None) -> dict`: 원문 근거와 공식 지역코드를
   재검증한 뒤 `checks`, `notes`, `status`, `matching_enabled`, `eligibility_decided=false` 반환.
-- `recommend(repository, facts, profile=None, limit=3, today=None) -> dict`: 공고별 최신 공개
+- `review_questions(comparison, canonical, source, schedule_status=..., logic_states=None)`
+  → `list[str]`:
+  검증된 비교 결과에서 아직 해소되지 않은 신청 대상·제외 조건의 원문을 안내한다.
+  충족한 OR 분기의 다른 조건과 우대·참고사항은 필수 확인으로 표시하지 않는다.
+  내부 추출 키를 반환하지 않으며, 긴 원문은 예외를 잘라내지 않고 공식 안내 확인으로 연결한다.
+  부분 해석은 공식 공고의 대상·제외 안내, 일정 미확인은 담당 기관의 접수 여부·마감일 문의로
+  각각 한 번만 안내한다. 비교 상태·원문·자격 논리는 변경하지 않는다.
+  접수 예정 공고는 호출자가 비교에 사용한 예정일 논리 상태를 전달해 신청 대상의 미확인
+  조건도 안내한다. 아직 접수 시작 전이라는 이유로 대상 조건을 숨기지 않는다.
+- `recommend(repository, facts, profile=None, limit=3, today=None, feedback=()) -> dict`: 공고별 최신 공개
   개정만 조회합니다. 최근 최대 500건의 자격 논리·원문 대상·신청 기간을 검증하고 최대 3건을
   정렬합니다. 충분한 정보로 비교한 공고가 있으면 개인 추천, 없으면 원문에 누구나 이용할 수
   있다고 명시된 신청 중 공고만 일반 안내로 제공합니다. 안전한 후보가 없으면 빈 배열입니다.
   `items:[{policy,reason,matching}]`, `summary`, `truncated`, `eligibility_decided=false`,
   `mode`, `profile_sufficient`, `guidance`, `missing_fields`를 반환합니다.
+  인증된 계정의 추천 제외 이유는 안전한 후보의 정렬 뒤, 반환 개수 제한 전에 적용합니다.
+  제외한 공고는 빼고 관심 없는 분야·제목의 유사 공고는 뒤로 배치해 다음 후보로 채웁니다.
+  자격 비교 결과는 유지합니다. 모든 후보가 제외되면 해당 사실을 빈 목록 안내에 표시합니다.
 
 `compare_policy`의 잘못된 계약/인용/스냅샷은 ValueError입니다. 추천에서는 해당 공고를 제외하고
 요약에 알립니다. DB 오류는 전파되어 API에서 개인정보 없는 503으로 응답합니다.

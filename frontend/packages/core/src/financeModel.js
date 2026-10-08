@@ -106,6 +106,115 @@ export const emptyVehicle = () => ({
   age_years: null,
   seats: null,
 });
+export const privateTransferSources = [
+  ["unknown", "모름"],
+  ["family_friends", "가족·친척·지인"],
+  ["sponsor", "후원자·민간단체"],
+  ["foreign_spouse", "외국인 배우자"],
+  ["other", "그 밖의 사람·기관 또는 여러 종류"],
+];
+export const privateTransferPurposes = [
+  ["unknown", "모름"],
+  ["living", "생활비·용돈처럼 자유롭게 사용"],
+  ["restricted", "학비·의료비·보증금 등 정해진 용도로 사용"],
+  ["mixed", "여러 용도가 섞여 있음"],
+];
+export const currentTransferMonth = (date = new Date()) =>
+  new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7);
+export const emptyPrivateTransferHistory = () => ({
+  as_of_month: currentTransferMonth(),
+  status: "unknown",
+  source: "unknown",
+  purpose: "unknown",
+  unentered_months_zero: false,
+  months: Array.from({ length: 12 }, () => ({ amount: null, count: null })),
+});
+export function transferMonthLabels(asOfMonth) {
+  if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(asOfMonth)) return [];
+  const [year, month] = asOfMonth.split("-").map(Number);
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(Date.UTC(year, month - 1 - index, 1));
+    return `${date.getUTCFullYear()}년 ${date.getUTCMonth() + 1}월`;
+  });
+}
+// Shared edit semantics for web/native, including older saved profiles without history.
+export function preparePrivateTransferEdit(next, path, value) {
+  if (path.startsWith("private_transfer_history."))
+    next.private_transfer_history ??= emptyPrivateTransferHistory();
+  if (path === "private_transfer_history.status" && value === "none") {
+    next.private_transfer_history = {
+      ...emptyPrivateTransferHistory(),
+      status: "none",
+      unentered_months_zero: true,
+    };
+  }
+  const monthAmount = path.match(
+    /^private_transfer_history\.months\.(\d+)\.amount$/,
+  );
+  if (monthAmount && (value === 0 || value === null))
+    next.private_transfer_history.months[Number(monthAmount[1])].count =
+      value === 0 ? 0 : null;
+  if (
+    path === "household_size" &&
+    Number(value) !== Number(next.household_size) &&
+    next.private_transfer_history
+  )
+    next.private_transfer_history.status = "unknown";
+}
+export function repeatPrivateTransferMonths(history) {
+  try {
+    const amount = parseMoney(
+      history?.months?.[0]?.amount,
+      "첫 달 지원금 합계",
+    );
+    const count = parseInteger(history?.months?.[0]?.count, "첫 달 받은 횟수", {
+      max: 10000,
+    });
+    if (!(amount > 0) || !(count > 0)) return null;
+    return {
+      ...history,
+      months: Array.from({ length: 12 }, () => ({ amount, count })),
+      unentered_months_zero: true,
+    };
+  } catch {
+    return null;
+  }
+}
+function normalizePrivateTransferHistory(history) {
+  if (history == null) return null;
+  if (
+    !transferMonthLabels(history.as_of_month).length ||
+    !Array.isArray(history.months) ||
+    history.months.length !== 12
+  )
+    throw new Error(
+      "가족·지인 지원금의 기준 월과 12개월 내역을 확인해 주세요.",
+    );
+  const status = choice(
+    history.status,
+    [["none"], ["received"], ["unknown"]],
+    "지원 여부",
+  );
+  return {
+    as_of_month: history.as_of_month,
+    status,
+    source: choice(
+      history.source ?? "unknown",
+      privateTransferSources,
+      "지원한 사람",
+    ),
+    purpose: choice(
+      history.purpose ?? "unknown",
+      privateTransferPurposes,
+      "지원금 사용 용도",
+    ),
+    unentered_months_zero: history.unentered_months_zero === true,
+    months: history.months.map((month) => ({
+      amount: parseMoney(month.amount, "월별 지원금 합계"),
+      count: parseInteger(month.count, "지원받은 횟수", { max: 10000 }),
+    })),
+  };
+}
 export const emptyFinancialProfile = () => ({
   schema_version: 1,
   reference_year: 2026,
@@ -116,6 +225,7 @@ export const emptyFinancialProfile = () => ({
   minor_children: null,
   recipient_status: "unknown",
   members: [emptyMember()],
+  private_transfer_history: emptyPrivateTransferHistory(),
   assets: {
     housing: null,
     rental_deposit: null,
@@ -271,6 +381,9 @@ export function toFinancialProfile(draft) {
         "사업소득 금액 기준",
       ),
     })),
+    private_transfer_history: normalizePrivateTransferHistory(
+      draft.private_transfer_history,
+    ),
     assets: moneyGroup(draft.assets, [
       ["housing", "거주 중인 소유 주택"],
       ["rental_deposit", "전월세 보증금"],
@@ -366,6 +479,9 @@ export function parseCalculation(value) {
         typeof item.rule_id === "string" &&
         typeof item.label === "string" &&
         ["estimated", "needs_review"].includes(item.status) &&
+        (item.notice == null || typeof item.notice === "string") &&
+        (item.comparison_note == null ||
+          typeof item.comparison_note === "string") &&
         Array.isArray(item.checks) &&
         item.checks.every(
           (check) =>

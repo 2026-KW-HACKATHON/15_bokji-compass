@@ -7,6 +7,7 @@
   const viewLabels = { overview: "서버 개요", processes: "서비스 관리", operations: "수집 실행", collection: "데이터 수집", policies: "공고 DB 편집", settings: "서버 설정" };
   let controlTimer = null, processStatusTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
   let operationTimer = null, operationLoading = false, operationSubmitting = false, operationActive = false;
+  let overviewTimer = null, uptimeTimer = null, overviewRequest = null, overviewReceivedAt = null, overviewConnected = false;
   const runFields = ["page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls", "max_model_calls", "max_tokens"];
   const providerLabels = { bokjiro: "복지로", gov24: "정부24", notice: "외부 공고 원문", model: "Codex 모델" };
   const statusLabels = { completed: "완료", budget_reached: "처리 한도 도달", busy: "작업 중", failed: "실패", paused: "대기", pending: "대기", running: "처리 중", done: "완료", dead: "재확인 필요", needs_review: "검토 대기", queued: "수집 대기", disabled: "비활성", reachable: "연결 확인", unavailable: "확인 필요" };
@@ -82,15 +83,16 @@
     use.setAttribute("href", `#i-${name}`); node.append(use); return node;
   }
   function number(value) { return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("ko-KR") : "—"; }
-  function date(value) {
+  function date(value, withSeconds = false) {
     if (value == null || value === "") return "기록 없음";
     const parsed = new Date(typeof value === "number" && value < 1e12 ? value * 1000 : value);
-    return Number.isNaN(parsed.getTime()) ? "기록 없음" : parsed.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+    return Number.isNaN(parsed.getTime()) ? "기록 없음" : parsed.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", ...(withSeconds ? { second: "2-digit" } : {}), hour12: false });
   }
   function duration(value) {
-    if (typeof value !== "number") return "—";
-    const days = Math.floor(value / 86400), hours = Math.floor(value / 3600) % 24, minutes = Math.floor(value / 60) % 60;
-    return `${days ? `${days}일 ` : ""}${hours ? `${hours}시간 ` : ""}${minutes}분`;
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    const total = Math.max(0, Math.floor(value));
+    const days = Math.floor(total / 86400), hours = Math.floor(total / 3600) % 24, minutes = Math.floor(total / 60) % 60, seconds = total % 60;
+    return `${days ? `${days}일 ` : ""}${hours ? `${hours}시간 ` : ""}${minutes}분 ${seconds}초`;
   }
   function errorMessage(error) {
     if (error.code === "session_changed") return "";
@@ -108,7 +110,7 @@
     node.className = id === "login-message" ? "form-message" : `notice ${type}`;
     if (text) node.append(element("span", "", text));
   }
-  function refreshed() { $("last-refreshed").textContent = `최근 확인 · ${date(Date.now())}`; }
+  function refreshed() { $("last-refreshed").textContent = `최근 확인 · ${date(Date.now(), true)}`; }
   async function api(path, options = {}) {
     const generation = state.generation;
     const controller = new AbortController();
@@ -131,6 +133,7 @@
   }
   function showLogin(text = "") {
     policyEditor.reset();
+    stopOverviewRefresh(); overviewRequest = null; overviewReceivedAt = null; overviewConnected = false;
     window.clearTimeout(controlTimer); window.clearTimeout(processStatusTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
     message("process-message", ""); $("process-job-result").replaceChildren();
     window.clearTimeout(operationTimer); operationTimer = null; operationActive = false; operationSubmitting = false;
@@ -154,12 +157,10 @@
     $("login-screen").hidden = true; $("console-screen").hidden = false; $("account-name").textContent = user.username || "관리자";
     $("password").value = ""; message("login-message", ""); selectView("overview", false);
     loading($("overview-content"));
-    const results = await Promise.allSettled([api("/overview"), api("/settings")]);
+    const results = await Promise.allSettled([loadOverview(), api("/settings")]);
     if (!state.user) return;
     if (results[1].status === "fulfilled") { state.settings = results[1].value; renderSettings(); }
     else settingsError(results[1].reason);
-    if (results[0].status === "fulfilled") { state.overview = results[0].value; renderOverview(); refreshed(); }
-    else showError($("overview-content"), results[0].reason);
   }
   function loading(container) { const node = element("div", "loading-state"); node.append(element("span", "spinner"), document.createTextNode("불러오는 중입니다")); container.replaceChildren(node); }
   function empty(container, title, description) { const node = element("div", "empty-state"); node.append(icon("layers"), element("h3", "", title), element("p", "", description)); container.replaceChildren(node); }
@@ -219,7 +220,10 @@
     $("environment-label").textContent = { development: "개발 환경", production: "운영 환경", test: "테스트 환경" }[server.app_env] || "서버 환경";
     const container = $("overview-content"); container.replaceChildren();
     container.append(inventoryMetrics(collection));
-    const metrics = element("div", "metric-grid"); metrics.append(metric("서버 가동 시간", duration(server.uptime_seconds), `시작 · ${date(server.started_at)}`, "server", true), metric("대기 중인 작업", collection.available ? number(jobs.pending || 0) : "—", `처리 중 ${collection.available ? number(jobs.running || 0) : "—"}건`, "layers"), metric("사용 가능 메모리", resources.available_memory_mb == null ? "—" : `${number(Math.round(resources.available_memory_mb))} MB`, "현재 서버의 남은 메모리", "grid"), metric("남은 디스크", resources.free_disk_mb == null ? "—" : `${number(Math.round(resources.free_disk_mb / 1024))} GB`, "수집 원문 저장 공간", "server")); container.append(metrics, tickBanner(collection.state?.last_tick, collection.available));
+    const uptime = metric("서버 가동 시간", duration(server.uptime_seconds), `시작 · ${date(server.started_at)}`, "server", true);
+    uptime.querySelector(".metric-value").id = "server-uptime";
+    uptime.setAttribute("aria-live", "off");
+    const metrics = element("div", "metric-grid"); metrics.append(uptime, metric("대기 중인 작업", collection.available ? number(jobs.pending || 0) : "—", `처리 중 ${collection.available ? number(jobs.running || 0) : "—"}건`, "layers"), metric("사용 가능 메모리", resources.available_memory_mb == null ? "—" : `${number(Math.round(resources.available_memory_mb))} MB`, "현재 서버의 남은 메모리", "grid"), metric("남은 디스크", resources.free_disk_mb == null ? "—" : `${number(Math.round(resources.free_disk_mb / 1024))} GB`, "수집 원문 저장 공간", "server")); container.append(metrics, tickBanner(collection.state?.last_tick, collection.available));
     const grid = element("div", "overview-grid"); const readiness = panel("서버 준비 상태", "현재 실행 중인 서버의 연결 상태입니다.");
     statusRow(readiness.body, "백엔드 서버", `${server.host || ""}${server.port ? ` : ${server.port}` : ""}`, "실행 중");
     statusRow(readiness.body, "MySQL 데이터베이스", database.enabled ? "수집 이력과 공고 저장" : "연결 설정이 비활성 상태입니다.", statusLabels[database.status] || "확인 필요", database.status === "reachable" ? "" : database.status === "disabled" ? "muted" : "error");
@@ -227,12 +231,52 @@
     statusRow(readiness.body, "관리자 인증 저장소", server.auth_database === "mysql" ? "MySQL 계정 저장소" : "로컬 계정 저장소", server.auth_database === "mysql" ? "MySQL" : "SQLite", "muted");
     const pending = data.configuration?.restart_required || []; if (pending.length) statusRow(readiness.body, "재시작 적용 대기", "저장한 DB 설정은 서버 재시작 후 반영됩니다.", `${pending.length}개 설정`, "warn");
     grid.append(readiness.node, quotaPanel(collection)); container.append(grid);
+    updateUptime();
+  }
+  function overviewVisible() { return state.user && state.view === "overview" && !document.hidden; }
+  function stopOverviewRefresh() {
+    window.clearTimeout(overviewTimer); window.clearInterval(uptimeTimer);
+    overviewTimer = null; uptimeTimer = null;
+  }
+  function updateUptime() {
+    const node = $("server-uptime"), base = state.overview?.server?.uptime_seconds;
+    if (!node || !overviewConnected || overviewReceivedAt === null || !overviewVisible()) return;
+    const value = duration(base + Math.max(0, performance.now() - overviewReceivedAt) / 1000);
+    if (node.textContent !== value) node.textContent = value;
+  }
+  function scheduleOverviewRefresh() {
+    stopOverviewRefresh();
+    if (!overviewVisible()) return;
+    if (overviewConnected) uptimeTimer = window.setInterval(updateUptime, 1000);
+    overviewTimer = window.setTimeout(loadOverview, 5000);
   }
   async function loadOverview() {
-    if (!state.user) return; $("refresh-overview").disabled = true;
-    try { state.overview = await api("/overview"); if (!state.user) return; renderOverview(); refreshed(); message("global-message", ""); }
-    catch (error) { if (state.user) message("global-message", errorMessage(error), "error"); }
-    finally { $("refresh-overview").disabled = false; }
+    if (!state.user) return;
+    const generation = state.generation;
+    if (overviewRequest?.generation === generation) return overviewRequest.promise;
+    window.clearTimeout(overviewTimer); overviewTimer = null; $("refresh-overview").disabled = true;
+    const request = { generation, promise: null }; overviewRequest = request;
+    request.promise = (async () => {
+      try {
+        const data = await api("/overview");
+        if (!state.user || state.generation !== generation) return;
+        state.overview = data; overviewReceivedAt = performance.now(); overviewConnected = true;
+        if (state.view === "overview") { renderOverview(); refreshed(); message("global-message", ""); }
+      } catch (error) {
+        if (!state.user || state.generation !== generation) return;
+        overviewConnected = false;
+        if (state.view === "overview") {
+          if (!state.overview) showError($("overview-content"), error);
+          message("global-message", `${errorMessage(error)} 자동으로 다시 확인합니다.`, "error");
+          $("last-refreshed").textContent = "연결 확인 필요 · 마지막 확인 값 표시 중";
+        }
+      } finally {
+        if (overviewRequest === request) {
+          overviewRequest = null; $("refresh-overview").disabled = false; scheduleOverviewRefresh();
+        }
+      }
+    })();
+    return request.promise;
   }
   function table(headers, rows) { const wrap = element("div", "table-wrap"); const node = element("table", "data-table"); const head = element("thead"), tr = element("tr"); for (const name of headers) { const cell = element("th", "", name); cell.scope = "col"; tr.append(cell); } head.append(tr); const body = element("tbody"); for (const values of rows) { const row = element("tr"); for (const value of values) { const cell = element("td"); if (value instanceof Node) cell.append(value); else cell.textContent = String(value ?? "—"); row.append(cell); } body.append(row); } node.append(head, body); wrap.append(node); return wrap; }
   function detailList(pairs) { const list = element("ul", "detail-list"); for (const [key, value] of pairs) { const row = element("li"); row.append(element("span", "", key), element("span", "", value)); list.append(row); } return list; }
@@ -458,7 +502,7 @@
     const labels = { accepted: "접수 완료", running: "처리 중", completed: "완료", failed: "실패" };
     container.append(element("strong", "", `${processTargets[job.target] || "서비스"} ${processActions[job.action] || "제어"} · ${labels[job.status] || "상태 확인"}`), element("p", "operation-caption", `${date(job.started_at)} 요청${job.finished_at ? ` · ${date(job.finished_at)} 종료` : ""}`));
     if (job.status === "failed") {
-      const errors = { process_identity_changed: "실행 프로세스가 바뀌어 작업을 중단했습니다. 상태를 새로 확인하세요.", startup_failed: "다시 실행한 서비스가 준비되지 않았습니다. 서버 실행 로그와 포트 사용 여부를 확인하세요.", runtime_missing: "실행 파일 또는 프론트 의존성이 없습니다. 서버 환경을 확인하세요.", configuration_invalid: "운영 프론트 설정을 확인해 주세요.", unmanaged_runtime: "프로젝트 실행 BAT로 서버를 시작한 뒤 사용하세요." };
+      const errors = { process_identity_changed: "실행 프로세스가 바뀌어 작업을 중단했습니다. 상태를 새로 확인하세요.", startup_failed: "다시 실행한 서비스가 준비되지 않았습니다. 서버 실행 로그와 포트 사용 여부를 확인하세요.", runtime_missing: "실행 파일 또는 프론트 의존성이 없습니다. 서버 환경을 확인하세요.", configuration_invalid: "운영 프론트 설정을 확인해 주세요.", unmanaged_runtime: "프로젝트 실행 BAT로 서버를 시작한 뒤 사용하세요.", mysql_unmanaged: "현재 DB는 프로젝트 MySQL 제어 대상이 아닙니다.", tunnel_unmanaged: "운영 고정 도메인 터널 구성을 확인하세요.", origin_unavailable: "프론트를 먼저 시작한 뒤 터널을 켜 주세요." };
       container.append(element("p", "operation-caption", errors[job.error_code] || "작업을 완료하지 못했습니다. 서버의 프로세스 제어 로그와 실행 권한을 확인하세요."));
     }
   }
@@ -502,7 +546,7 @@
       controlDisconnected = true; updateProcessButtons();
       if (job.action === "stop" && ["backend", "mysql", "all"].includes(job.target)) {
         controlBusy = false;
-        message("process-message", job.target === "mysql" ? "DB 응답이 중단되어 관리자 인증도 사용할 수 없습니다. 서버 PC에서 start-server-prod.bat mysql-start로 DB를 켜 주세요." : "서버 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
+        message("process-message", job.target === "mysql" ? "DB 응답이 중단되어 관리자 인증도 사용할 수 없습니다. 서버 PC에서 start-server-prod.bat mysql start로 DB를 켜 주세요." : "서버 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
       } else {
         retry = true; message("process-message", "서비스를 다시 실행하는 중입니다. 백엔드 연결 복구를 기다리고 있습니다.");
       }
@@ -517,8 +561,8 @@
   async function startProcessControl(target, action) {
     if (!state.user || controlBusy) return;
     if (Object.keys(changes()).length) { message("process-message", "서버 설정을 먼저 저장하거나 변경을 취소해 주세요.", "warn"); return; }
-    const effect = target === "mysql" ? "로그인·저장·수집이 영향을 받습니다. DB 중지 후에는 관리자 인증도 중단되므로 서버 PC에서 start-server-prod.bat mysql-start로 복구해야 합니다." : target === "tunnel" ? "공개 사이트의 연결에 영향을 줍니다. 이 로컬 관리 페이지는 계속 사용할 수 있습니다." : target === "frontend" ? "웹·QR 서비스 연결에 영향을 줍니다." : target === "all" ? "API·웹·QR·터널·MySQL을 함께 제어합니다. 전체 중지 후에는 서버 PC에서 운영 BAT로 다시 시작해야 합니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
-    if (!window.confirm(`${processTargets[target]}를 ${processActions[action]}할까요?\n\n${effect}`)) return;
+    const effect = target === "mysql" ? "로그인·저장·수집이 영향을 받습니다. DB 중지 후에는 관리자 인증도 중단되므로 서버 PC에서 start-server-prod.bat mysql start로 복구해야 합니다." : target === "tunnel" ? "공개 사이트의 연결에 영향을 줍니다. 이 로컬 관리 페이지는 계속 사용할 수 있습니다." : target === "frontend" ? "웹·QR 서비스 연결에 영향을 줍니다." : target === "all" ? "API·웹·QR·터널·MySQL을 함께 제어합니다. 전체 중지 후에는 서버 PC에서 운영 BAT로 다시 시작해야 합니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
+    if (!window.confirm(`${processTargets[target]} ${processActions[action]}을 실행할까요?\n\n${effect}`)) return;
     controlBusy = true; window.clearTimeout(processStatusTimer); updateProcessButtons(); message("process-message", "명령을 전달하는 중입니다.");
     try {
       const data = await api("/processes", { method: "POST", body: { target, action } }); if (!state.user) return;
@@ -526,7 +570,7 @@
       pollProcessJob(data.operation, Date.now(), state.generation);
     } catch (error) { controlBusy = false; updateProcessButtons(); if (state.user) message("process-message", errorMessage(error), "error"); }
   }
-  function selectView(view, load = true) { state.view = view; window.clearTimeout(operationTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "policies") policyEditor.load(); if (view === "settings" && !state.settings) loadSettings(); } }
+  function selectView(view, load = true) { state.view = view; stopOverviewRefresh(); window.clearTimeout(operationTimer); window.clearTimeout(processStatusTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "policies") policyEditor.load(); if (view === "settings" && !state.settings) loadSettings(); } }
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault(); if (!$("login-form").reportValidity()) return; const button = $("login-submit"); button.disabled = true; button.querySelector("span").textContent = "로그인 중"; message("login-message", "");
@@ -553,6 +597,11 @@
   document.querySelector(".tab-bar").addEventListener("keydown", (event) => { const tabs = [...document.querySelectorAll("[data-collection]")]; const current = tabs.indexOf(document.activeElement); if (current < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; tabs[next].focus(); tabs[next].click(); });
   $("refresh-overview").addEventListener("click", loadOverview); $("refresh-collection").addEventListener("click", loadCollection); $("settings-form").addEventListener("submit", saveSettings); $("reset-settings").addEventListener("click", () => { renderSettings(); message("settings-message", ""); });
   const policyEditor = window.PolicyEditor.create({ request: api, onError: errorMessage });
+  document.addEventListener("visibilitychange", () => {
+    stopOverviewRefresh();
+    if (overviewVisible()) loadOverview();
+  });
+  window.addEventListener("focus", () => { if (overviewVisible()) loadOverview(); });
   window.addEventListener("beforeunload", (event) => { if (Object.keys(changes()).length || policyEditor.isDirty()) { event.preventDefault(); event.returnValue = ""; } });
   api("/session").then((data) => showConsole(data.user)).catch((error) => { if (error.status !== 401) message("login-message", errorMessage(error)); });
 })();

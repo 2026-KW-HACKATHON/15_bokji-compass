@@ -107,7 +107,8 @@ function Save-ShareState($saved) {
 }
 
 function Stop-Shared($saved, $names) {
-    foreach ($entry in @($saved.processes | Where-Object { $_.name -in $names })) {
+    foreach ($name in $names) {
+      foreach ($entry in @($saved.processes | Where-Object { $_.name -eq $name })) {
         if (Get-OwnedProcess $entry) {
             # Stop the known root and its validated API child individually, keeping this helper alive.
             if ($entry.name -eq 'backend') {
@@ -121,6 +122,7 @@ function Stop-Shared($saved, $names) {
         } elseif (Get-Process -Id $entry.id -ErrorAction SilentlyContinue) {
             throw 'process_identity_changed'
         }
+      }
     }
     $saved.processes = @($saved.processes | Where-Object { $_.name -notin $names })
     Save-ShareState $saved
@@ -228,7 +230,7 @@ try {
                 }
             } else {
                 $names = @()
-                if ($Target -in @('frontend', 'all')) { $names += @('web', 'qr') }
+                if ($Target -in @('frontend', 'all')) { $names += @('qr', 'web') }
                 if ($Target -in @('backend', 'all')) { $names += 'backend' }
                 Stop-Shared $profile.saved $names
             }
@@ -237,43 +239,36 @@ try {
         if ($Action -in @('Start', 'Restart')) {
             if ($Target -eq 'all') { & $mysqlScript start | Out-Null }
             if ($profile.mode -eq 'development') {
-            if ($Target -in @('backend', 'all')) {
-                if ($Action -ne 'Start' -or !$profile.backend.Count) {
-                $env:SERVER_HOST = [string]$job.host
-                $env:SERVER_PORT = [string]$job.port
-                $process = Start-Managed 'backend' $python ('"' + $devScript + '"') $backendRoot
-                $expectedPort = [int]$job.port
-                Wait-Local "http://127.0.0.1:$expectedPort/health" $process
+                if ($Target -in @('backend', 'all') -and ($Action -ne 'Start' -or !$profile.backend.Count)) {
+                    $env:SERVER_HOST = [string]$job.host
+                    $env:SERVER_PORT = [string]$job.port
+                    $process = Start-Managed 'backend' $python ('"' + $devScript + '"') $backendRoot
+                    Wait-Local "http://127.0.0.1:$([int]$job.port)/health" $process
                 }
-            }
-            if ($Target -in @('frontend', 'all')) {
-                if ($Action -ne 'Start' -or !$profile.frontend.Count) {
-                $process = Start-Managed 'frontend' $node ('"' + $viteScript + '" --host 127.0.0.1') $webRoot
-                Wait-Local 'http://127.0.0.1:5173/' $process
+                if ($Target -in @('frontend', 'all') -and ($Action -ne 'Start' -or !$profile.frontend.Count)) {
+                    $process = Start-Managed 'frontend' $node ('"' + $viteScript + '" --host 127.0.0.1') $webRoot
+                    Wait-Local 'http://127.0.0.1:5173/' $process
                 }
-            }
             } else {
-            if ($Target -in @('backend', 'all')) {
-                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
-                    $_.name -eq 'backend' -and (Get-OwnedProcess $_) }).Count) {
-                $process = Start-Managed 'backend' $python ('"' + $shareScript + '"') $repoRoot $profile.saved
-                Wait-Local 'http://127.0.0.1:8001/health' $process
+                if ($Target -in @('backend', 'all') -and ($Action -ne 'Start' -or
+                    !@($profile.saved.processes | Where-Object { $_.name -eq 'backend' -and (Get-OwnedProcess $_) }).Count)) {
+                    $process = Start-Managed 'backend' $python ('"' + $shareScript + '"') $repoRoot $profile.saved
+                    Wait-Local 'http://127.0.0.1:8001/health' $process
                 }
-            }
-            if ($Target -in @('frontend', 'all')) {
-                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
-                    $_.name -eq 'qr' -and (Get-OwnedProcess $_) }).Count) {
-                $env:EXHIBITION_AUTH_API_URL = 'http://127.0.0.1:8001'
-                $qrProcess = Start-Managed 'qr' $node ('"' + $qrScript + '"') $repoRoot $profile.saved
-                Wait-QR $qrProcess
+                if ($Target -in @('frontend', 'all')) {
+                    if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
+                        $_.name -eq 'qr' -and (Get-OwnedProcess $_) }).Count) {
+                        $env:EXHIBITION_AUTH_API_URL = 'http://127.0.0.1:8001'
+                        $qrProcess = Start-Managed 'qr' $node ('"' + $qrScript + '"') $repoRoot $profile.saved
+                        Wait-QR $qrProcess
+                    }
+                    if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
+                        $_.name -eq 'web' -and (Get-OwnedProcess $_) }).Count) {
+                        $process = Start-Managed 'web' $caddy ('run --config "' + $caddyConfig + '" --adapter caddyfile') $repoRoot $profile.saved
+                        Wait-Local 'http://127.0.0.1:8080/' $process
+                    }
                 }
-                if ($Action -ne 'Start' -or !@($profile.saved.processes | Where-Object {
-                    $_.name -eq 'web' -and (Get-OwnedProcess $_) }).Count) {
-                $process = Start-Managed 'web' $caddy ('run --config "' + $caddyConfig + '" --adapter caddyfile') $repoRoot $profile.saved
-                Wait-Local 'http://127.0.0.1:8080/' $process
-                }
-            }
-            if ($Target -eq 'all') { & $tunnelScript start | Out-Null }
+                if ($Target -eq 'all') { & $tunnelScript start | Out-Null }
             }
         }
     }

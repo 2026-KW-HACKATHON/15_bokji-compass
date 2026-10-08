@@ -52,7 +52,10 @@ export function createFinanceState(api) {
   const apply = (data, force, incomingRevision, incomingQuick) => {
     if (data.profile) {
       const untouched = !state.edited && incomingRevision === revision;
-      const draft = force || untouched ? data.profile : state.draft;
+      const draft =
+        force || untouched
+          ? financialDraftDefaults({ saved: data.profile })
+          : state.draft;
       emit({
         saved: true,
         ...(force || untouched

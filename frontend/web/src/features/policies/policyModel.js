@@ -3,6 +3,7 @@ import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
 import { emptyTranslationFields } from './policyTranslationModel.js';
 import { safeWebUrl } from '../../../../packages/core/src/safeUrl.js';
 import { isCalendarDate } from '../calendar/calendarModel.js';
+import { parseApplicationGuide } from './applicationGuideModel.js';
 export const categories = [
   '전체',
   '생활·금융',
@@ -191,6 +192,7 @@ export function parsePolicy(item) {
     contact: text('contact', ''),
     applicationMethod: text('applicationMethod', ''),
     applicationUrl: safeSourceUrl(item.applicationUrl),
+    applicationGuide: parseApplicationGuide(item.applicationGuide, item),
     publishedDate: text('publishedDate', ''),
     modifiedDate: text('modifiedDate', ''),
     sourceFields:

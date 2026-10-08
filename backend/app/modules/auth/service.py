@@ -126,6 +126,11 @@ class AuthService:
             )
             if changed.rowcount != 1:
                 raise HTTPException(401, "로그인이 필요해요.")
+            if any(field in values and values[field] != account[field]
+                   for field in ("age", "gender", "region")):
+                from app.modules.monitoring.storage import invalidate_member_candidates
+
+                invalidate_member_candidates(connection, account_id, {**account, **values})
         return self.public_account({**account, **values})
 
     def request_email_code(self, email: str, ip: str, previous: str = ""):
