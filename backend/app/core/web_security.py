@@ -99,9 +99,10 @@ def trusted_browser_read(request: Request, cors_origins: list[str]) -> bool:
 class WebSecurityMiddleware:
     """Check read isolation first; buffer only bounded writes before JSON parsing."""
 
-    def __init__(self, app, *, cors_origins: list[str]):
+    def __init__(self, app, *, cors_origins: list[str], require_https: bool = False):
         self.app = app
         self.cors_origins = cors_origins
+        self.require_https = require_https
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or not scope["path"].startswith("/v1/"):
@@ -116,6 +117,12 @@ class WebSecurityMiddleware:
                 headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
             )
             await response(scope, receive, send)
+
+        # Only the ASGI server's trusted-proxy handling may establish the scheme.
+        # Reading X-Forwarded-Proto here would let an untrusted client spoof HTTPS.
+        if self.require_https and scope.get("scheme") != "https":
+            await reject(403, "HTTPS 연결로 요청해 주세요.")
+            return
 
         origins = [] if scope["path"].startswith("/v1/server-admin/") else self.cors_origins
         if scope["method"] in {"GET", "HEAD"}:

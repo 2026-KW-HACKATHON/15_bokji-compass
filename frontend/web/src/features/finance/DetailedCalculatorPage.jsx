@@ -656,11 +656,11 @@ export default function DetailedCalculatorPage({
                 onChange={(event) => setAllowApproximation(event.target.checked)}
                 disabled={Boolean(busy)}
               />
-              <span>{t('미지원 기준을 임시 대체해 근사 계산')}</span>
+              <span>{t('세후 근로소득을 입력액 그대로 근사 계산')}</span>
             </label>
             <p className="finance-help">
               {t(
-                '선택하면 전남광주통합특별시는 ‘그 밖의 지역’ 기준을, 세후 근로소득은 입력액 그대로 임시 적용합니다. 공식 기준으로 환산한 값이 아니며 자격 판단에 사용할 수 없습니다.',
+                '선택하면 세후 근로소득을 세전으로 환산하지 않고 입력액 그대로 참고 산식에 적용합니다. 공식 기준으로 환산한 값이 아니며 자격 판단에 사용할 수 없습니다.',
               )}
             </p>
             <div className="finance-actions finance-step-actions">

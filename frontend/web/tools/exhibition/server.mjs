@@ -37,7 +37,13 @@ async function authorize(cookie, endpoint) {
   if (!token) return 401;
   try {
     const response = await fetch(endpoint, {
-      headers: { Cookie: `bokji_session=${token}`, Accept: 'application/json' },
+      // This gateway originates a private loopback check, not a forwarded browser request.
+      // authEndpoint restricts the destination and Uvicorn trusts only this local proxy.
+      headers: {
+        Cookie: `bokji_session=${token}`,
+        Accept: 'application/json',
+        'X-Forwarded-Proto': 'https',
+      },
       redirect: 'error',
       signal: AbortSignal.timeout(4000),
     });

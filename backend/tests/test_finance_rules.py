@@ -117,18 +117,25 @@ def test_request_for_more_benefits_preserves_actual_missing_input():
 
 
 @pytest.mark.parametrize(
-    ("subdivision", "expected_allowance"),
-    [("gwangju", 77_000_000), ("other", 53_000_000)],
+    ("subdivision", "expected_allowance", "expected_basis"),
+    [
+        ("gwangju", 77_000_000, "다른 광역시 기준"),
+        ("other", 53_000_000, "그 밖의 지역 기준"),
+    ],
 )
-def test_unified_region_uses_selected_subdivision_allowance(subdivision, expected_allowance):
+def test_unified_region_uses_selected_subdivision_rules_without_approximation(
+    subdivision, expected_allowance, expected_basis
+):
     profile = facts(region="jeonnam_gwangju", region_subdivision=subdivision)
     result = assessment(profile)
-    allowance = next(
-        item["amount"]
+    rule = next(
+        item
         for item in result["breakdown"]
-        if item["label"] == "지역별 기본재산 공제 한도"
+        if item["label"].startswith("지역별 기본재산 공제 한도")
     )
+    allowance = rule["amount"]
     assert allowance == expected_allowance
+    assert expected_basis in rule["label"]
     assert calculate(profile, allow_approximation=True)["approximations"] == []
 
 

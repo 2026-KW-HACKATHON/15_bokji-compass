@@ -48,7 +48,7 @@ result = calculate(profile)
 
 `additional_review`는 추가 혜택을 알아보고 싶다는 선호이며 계산 누락사항이 아닙니다. 이 값만으로 `missing`이나 `needs_review`를 추가하지 않습니다. 실제 미입력 정보와 미지원 계산 조건은 계속 반환하되, 서버에 없는 기준을 사용자에게 기관 확인 요청으로 전달하지 않습니다.
 
-`GET /v1/finance/rules`의 `regional_property_rules`에는 서버에서 사용하는 지역별 기본재산 공제와 주거용재산 한도가 있습니다. 등록된 지역은 `status=supported`이며, 아직 기준이 등록되지 않은 전남광주통합특별시는 `status=unavailable`과 금액 `null`을 반환합니다. 계산 API는 기본적으로 미등록 지역을 다른 지역의 수치로 대체하지 않습니다. 사용자가 `{profile, allow_approximation: true}`를 명시해 요청한 경우에만 해당 통합지역에 `other` 기준을 임시 적용하며, 응답의 `approximations`에 가정을 기록하고 해당 비교는 `needs_review`/`unknown`으로 유지합니다.
+`GET /v1/finance/rules`의 `regional_property_rules`에는 서버에서 사용하는 지역별 기본재산 공제와 주거용재산 한도가 있습니다. 전남광주통합특별시는 `status=requires_subdivision`이며 실제 거주 권역을 선택해야 합니다. `gwangju`는 다른 광역시 기준, `other`는 그 밖의 지역 기준의 공제액과 주거용재산 한도를 사용합니다. 두 권역 모두 입력한 실제 지역에 따른 지원 기준이며 `approximations`에 추가되지 않습니다. 권역이 없는 기존 입력은 지역 기준을 계산하지 않고 확인이 필요합니다.
 
 근로소득이 세후(`earned_income_basis=net`)로 입력된 경우도 기본 계산에서는 생계급여·차상위·국민임대 소득 비교에 사용하지 않습니다. 명시적 근사 요청에서만 세후 입력액을 세전으로 환산하지 않고 그대로 참고 산식에 넣습니다. 계산 API의 근사 옵션은 계정에 저장하지 않으며, `POST /v1/finance/profile`은 이 필드를 허용하지 않습니다.
 

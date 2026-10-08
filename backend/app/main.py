@@ -86,7 +86,11 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.assistant_slots = BoundedSemaphore(2)
     application.state.policy_translation_slots = BoundedSemaphore(1)
     application.state.dialogue_store = DialogueStore()
-    application.add_middleware(WebSecurityMiddleware, cors_origins=configuration.cors_origins)
+    application.add_middleware(
+        WebSecurityMiddleware,
+        cors_origins=configuration.cors_origins,
+        require_https=configuration.app_env == "production",
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configuration.cors_origins,

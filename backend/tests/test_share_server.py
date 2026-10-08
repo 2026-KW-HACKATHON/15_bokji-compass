@@ -91,7 +91,9 @@ def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
         db_password="test-only",
         auth_sqlite_path=account_path,
     )
-    with TestClient(create_app(settings), headers={"X-Auth-Request": "1"}) as client:
+    with TestClient(
+        create_app(settings), headers={"X-Auth-Request": "1"}, base_url="https://shared.example"
+    ) as client:
         response = client.post(
             "/v1/auth/login",
             json={

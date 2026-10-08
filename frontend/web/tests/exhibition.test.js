@@ -83,6 +83,11 @@ test('operator server enforces isolation, updates tunnel addresses and generates
     writeFile(statePath, JSON.stringify({ url, processes: [{ id: process.pid, name: 'tunnel' }] }));
   const getStatus = async () => JSON.parse((await request(port, '/api/status')).body);
   assert.equal((await getStatus()).detectedUrl, '');
+  assert.equal(auth.requests[0].url, '/v1/admin/session');
+  assert.equal(auth.requests[0].headers['x-forwarded-proto'], 'https');
+  // Local checks retain compatibility; a client header cannot alter the private auth hop.
+  assert.equal((await request(port, '/api/status', { 'X-Forwarded-Proto': 'http' })).status, 200);
+  assert.equal(auth.requests.at(-1).headers['x-forwarded-proto'], 'https');
   await state('https://first.trycloudflare.com');
   assert.equal((await getStatus()).detectedUrl, 'https://first.trycloudflare.com');
   await state('https://second.trycloudflare.com');

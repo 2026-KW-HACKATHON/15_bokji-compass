@@ -10,6 +10,20 @@ boolean·정확한 revision/서류 ID, 저장·해제·다른 분야 공유·지
 신청 기록 보존, 알림 억제, 복원·삭제와 지연 worker 버전 보호, 인증 API의 이유·소유권
 검증 및 홈·대화 API로 저장 설정 전달을 확인합니다. 임시 SQLite만 사용합니다.
 
+`test_https_transport.py`는 production HTTP API의 403, 전달 헤더 위조 차단,
+신뢰하는 루프백 프록시의 HTTPS 허용, 직접 HTTPS·개발 HTTP·health 호환성을 검사합니다.
+요청 본문과 인증·저장소를 처리하기 전에 차단하는지도 확인합니다.
+`test_tunnel_transport.py`는 실제 Caddy 설정을 임시 포트에서 실행하고 합성 upstream으로
+HTTP 화면의 308, HTTP API·쓰기 요청의 403, HTTPS 전달·쿠키·CSP·HSTS,
+관리자 경로 차단과 로컬 상태 점검을 확인합니다. 운영 서버·DB에 접근하지 않습니다.
+Caddy는 `BOKJI_TEST_CADDY`, PATH 또는 `tmp/tunnel-tools/caddy/caddy.exe`에서 찾으며
+없으면 Caddy 검사만 제외합니다. backend에서 실행합니다.
+
+```powershell
+$env:BOKJI_TEST_CADDY = 'C:\tools\caddy.exe'
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_https_transport.py tests/test_tunnel_transport.py
+```
+
 `test_schedule_repairs.py`는 신청 일정만 보강할 때 원문 인용/필드 이름, 담당기관·지역·회차
 불일치 거절, 검색 요약만으로 날짜 저장 금지, 다른 조건·원천 항목 보존, 원문 참고 출처,
 내부 주소·정확한 도메인 허용 목록·DNS·redirect 공통 6회/45초 예산, 미기재 개요 오류,

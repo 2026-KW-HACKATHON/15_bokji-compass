@@ -1,5 +1,40 @@
 # 배포 구성 예시
 
+## 2026-10-08 HTTP 전송 보완
+
+공개 사이트 점검에서 HTTP도 화면과 API를 제공하는 것을 확인했습니다.
+`Caddyfile.tunnel`은 이제 Cloudflare가 덮어쓴 실제 접속 방식의
+`X-Forwarded-Proto`를 검사합니다. 외부 HTTP의 GET·HEAD 화면 요청은 같은 경로·쿼리의
+HTTPS로 308 전환하며, HTTP API와 나머지 메서드는 upstream 호출 없이 403으로 거부합니다.
+API의 전달 헤더를 무조건 `https`로 바꾸던 설정을 제거했습니다. production FastAPI도
+신뢰 프록시를 거친 ASGI scheme이 HTTPS가 아니면 `/v1/`을 본문 처리 전에 거부합니다.
+전시 QR 게이트웨이의 별도 내부 권한 확인은 고정 루프백 주소에만 HTTPS 프록시 정보를
+명시하며 방문자의 헤더를 복사하지 않습니다. 기존 쿠키·관리자 권한 검사를 유지합니다.
+
+이 신뢰는 Caddy의 `127.0.0.1` 수신과 관리하는 Cloudflare 터널을 전제로 합니다.
+공개 인터페이스에 수신 포트를 열거나 클라이언트가 제공한 전달 헤더를 그대로 신뢰하면
+안 됩니다. 전달 헤더와 Cloudflare 방문자 정보가 없는 localhost 직접 요청은 시작 시
+상태 점검을 위해 허용하며, localhost로 들어온 전달 HTTP 요청은 예외가 아닙니다.
+외부 TLS 게이트웨이에서 처음 HTTP 요청부터 HTTPS로 전환하는 설정도 적용합니다.
+터널 내부 연결이 HTTP라는 이유로 모든 요청을 전환하면 HTTPS 접속도 반복 전환될 수 있습니다.
+[Cloudflare의 전달 헤더](https://developers.cloudflare.com/fundamentals/reference/http-headers/).
+
+nginx 예시는 http 범위의 `map`으로 HTTPS 전달 값을 검사하고 `127.0.0.1:8080`에서만
+수신하며, 누락·잘못된 값은 403으로 거부합니다. 앞단 TLS 게이트웨이가 클라이언트의
+전달 헤더를 교체하고 HTTP 화면 전환을 처리해야 합니다. API·QR upstream에도 검사한
+전달 값을 보냅니다. Caddy/nginx의 HSTS를 1년으로 늘렸으며 기존 엄격한 CSP·COOP·CORP를
+함께 적용합니다. HSTS는 HTTPS 응답을 받은 뒤에 효력이 생깁니다.
+
+실제 Caddy 2.11.7을 임시 포트에서 실행한 회귀 검사 14개와 웹 단위 검사 158개,
+웹 빌드, 배포 CSP의 데스크톱·모바일 보안 검사 6개가 통과했습니다.
+nginx 실행 파일 검사는 수행하지 않았습니다. 재현 방법은
+[백엔드 테스트 안내](../../../backend/tests/readme.md)를 따릅니다.
+이번 HTTP 보완은 로컬 소스와 빌드에 반영했으며 공개 서버를 재시작하지 않았습니다.
+운영 적용 시 API와 Caddy를 함께 다시 불러오고 HTTP 화면의 308·HTTP API의 403·
+HTTPS 화면과 API의 정상 응답을 확인합니다.
+
+## 기존 배포 보안 설정
+
 웹 공격 방어의 요청 출처 검사·JSON 본문 한도·CSP 변경은 [웹 보안 안내](../../../backend/docs/web-security.md)를 따릅니다. 공유 API는 공개 실행 시 production 설정으로 Secure 쿠키를 사용하며, 빌드 후 공유 API와 Caddy를 다시 불러와야 새 코드와 헤더가 적용됩니다.
 
 2026-10-08 추가 보완: API GET·HEAD도 교차 사이트 조회를 검사하며 Caddy/nginx에 CORP·COOP와

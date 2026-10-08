@@ -133,9 +133,25 @@ def test_guest_rules_and_calculation_do_not_create_a_database(tmp_path, auth_ena
         }
         assert regional_rules["jeonnam_gwangju"] == {
             "region": "jeonnam_gwangju",
-            "status": "unavailable",
+            "status": "requires_subdivision",
             "basic_property_allowance": None,
             "residential_property_limit": None,
+            "subdivisions": [
+                {
+                    "region_subdivision": "gwangju",
+                    "based_on_region": "metropolitan",
+                    "status": "supported",
+                    "basic_property_allowance": 77_000_000,
+                    "residential_property_limit": 146_000_000,
+                },
+                {
+                    "region_subdivision": "other",
+                    "based_on_region": "other",
+                    "status": "supported",
+                    "basic_property_allowance": 53_000_000,
+                    "residential_property_limit": 112_000_000,
+                },
+            ],
         }
         assert response.headers["cache-control"] == catalog.headers["cache-control"] == "no-store"
         assert app.state.auth_service is None and app.state.auth_engine is None

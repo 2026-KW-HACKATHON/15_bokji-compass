@@ -85,7 +85,7 @@ export function financeQuestions(draft) {
           "거주 지역",
           financeRegions,
           draft.region === "jeonnam_gwangju"
-            ? "전남광주통합특별시를 선택하면 실제 거주 권역을 추가로 선택해 주세요. 통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요."
+            ? "전남광주통합특별시 안에서 실제 거주 권역을 선택하면 해당 권역 기준으로 계산해요."
             : "전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.",
         ),
         {
@@ -97,7 +97,7 @@ export function financeQuestions(draft) {
               ["gwangju", "광주광역시"],
               ["other", "그 외 지역"],
             ],
-            "거주지에 해당하는 권역을 선택해 주세요.",
+            "광주광역시는 다른 광역시 기준을, 그 외 지역은 그 밖의 지역 기준을 적용해요.",
             (profile) => profile.region === "jeonnam_gwangju",
           ),
           required: true,

@@ -7,6 +7,9 @@
 - `config.load_settings() -> Settings`: 환경변수와 backend 기준 `.env`를 읽는 동기 함수. 지정 파일 누락과 필수 DB 설정 누락은 오류입니다. 비밀번호는 `SecretStr`입니다.
 - `database.create_database_engine(settings) -> Engine`: MySQL 풀을 생성하는 동기 함수. 생성만으로 연결하지 않습니다. 호출자가 `dispose()`로 해제합니다.
 - `Settings.auth_uses_mysql -> bool`: `DB_ENABLED`를 따릅니다. true이면 MySQL, false이면 기본 SQLite 회원 저장소를 사용합니다. 공고 DB 연결과는 별도로 회원 로그인은 MySQL 없이도 사용할 수 있습니다.
+- `WebSecurityMiddleware(app, *, cors_origins, require_https=False)`: `/v1/` 요청의 전송 방식·출처·본문을 검사하는 ASGI 미들웨어입니다. `main.create_app`은 production에서 `require_https=True`를 전달합니다. HTTPS가 아닌 요청은 본문 수신·인증·DB 접근 전에 403으로 거부합니다. 클라이언트의 원시 `X-Forwarded-Proto`를 직접 신뢰하지 않고 ASGI 서버가 신뢰할 프록시를 검사한 `scope.scheme`을 사용합니다. 개발·테스트 HTTP와 별도 health 경로는 지원합니다.
+
+전송 보안은 `tests/test_https_transport.py`로 검증합니다. HTTPS 종료 게이트웨이·신뢰 프록시 설정과 실제 Caddy 회귀 검사는 [웹 보안 안내](../../docs/web-security.md)를 따릅니다.
 
 DB 데이터를 변경하지 않습니다. 설정 예시는 [개발환경 문서](../../docs/development.md)를 따릅니다. backend에서 `.venv/Scripts/python.exe -m pytest tests/test_bootstrap.py`로 검증합니다. 수정 시 진입점·health API·환경 예시·테스트를 함께 점검합니다. 업무 로직은 넣지 않습니다.
 

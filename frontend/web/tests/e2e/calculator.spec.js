@@ -139,7 +139,7 @@ test('household choices explain unified region, optional checks and actual large
   });
   await start(page);
   await page.getByLabel('거주 지역', { exact: true }).selectOption('jeonnam_gwangju');
-  await expect(page.locator('#finance-region-hint')).toContainText('실제 거주 권역');
+  await expect(page.locator('#finance-region-hint')).toContainText('해당 권역 기준으로 계산');
   const subregion = page.getByLabel('전남광주통합특별시 거주 권역', { exact: true });
   await expect(subregion.locator('option')).toHaveText([
     '선택해 주세요',
@@ -149,9 +149,10 @@ test('household choices explain unified region, optional checks and actual large
   await page.getByRole('button', { name: '다음', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('전남광주통합특별시 거주 권역');
   await subregion.selectOption('gwangju');
+  await expect(page.locator('#finance-region-subdivision-hint')).toContainText('다른 광역시 기준');
   await expect(page.getByText('(선택)', { exact: true })).toHaveCount(2);
-  await expect(page.locator('#finance-region-hint')).toContainText(
-    '통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요.',
+  await expect(page.locator('#finance-region-hint')).not.toContainText(
+    '아직 계산에 반영되지 않아요',
   );
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   await expect(page.getByRole('checkbox').nth(0)).not.toBeChecked();
@@ -265,18 +266,20 @@ test('approximation requires opt-in and is visibly labeled in results', async ({
   await page.route('**/v1/finance/calculate', (route) => {
     submitted = route.request().postDataJSON();
     const result = calculation();
-    result.approximations = ['전남광주통합특별시에 그 밖의 지역 기준을 임시 적용했어요.'];
+    result.approximations = ['세후 근로소득을 입력액 그대로 참고 산식에 적용했어요.'];
     return route.fulfill({ json: result });
   });
   await start(page);
   await review(page);
-  const option = page.getByRole('checkbox', { name: '미지원 기준을 임시 대체해 근사 계산' });
+  const option = page.getByRole('checkbox', {
+    name: '세후 근로소득을 입력액 그대로 근사 계산',
+  });
   await expect(option).not.toBeChecked();
   await option.check();
   await page.getByRole('button', { name: '계산하기', exact: true }).click();
   await expect(page.locator('.finance-approximation-notice')).toContainText('근사 계산 참고값');
   await expect(page.locator('.finance-approximation-notice')).toContainText(
-    '그 밖의 지역 기준을 임시 적용',
+    '세후 근로소득을 입력액 그대로',
   );
   expect(submitted.allow_approximation).toBe(true);
 });
