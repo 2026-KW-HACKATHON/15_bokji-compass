@@ -63,7 +63,7 @@ function CalendarPolicyRow({
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
           <PolicyDeadline policy={original} />
-          {(labels.length ? labels : ['접수 기간 중']).map((label) => (
+          {(labels.length ? labels : ['접수 기간']).map((label) => (
             <span
               key={label}
               className={
