@@ -1,3 +1,26 @@
+export function translateFinanceHint(hint, t) {
+  if (typeof hint !== "string") return t(hint);
+  const entry = hint.match(
+    /^(\d{4})년 (\d{1,2})월부터 (\d{4})년 (\d{1,2})월까지 가구원 모두가 받은 돈을 합산해 주세요\. 가구원 사이에 주고받은 돈은 중복 입력하지 않아요\.$/,
+  );
+  if (!entry) return t(hint);
+  return t(
+    "{start}부터 {end}까지 가구원 모두가 받은 돈을 합산해 주세요. 가구원 사이에 주고받은 돈은 중복 입력하지 않아요.",
+    {
+      start: t("{year}년 {month}월", { year: entry[1], month: entry[2] }),
+      end: t("{year}년 {month}월", { year: entry[3], month: entry[4] }),
+    },
+  );
+}
+
+export function translateFinanceLabel(label, t) {
+  if (typeof label !== "string") return t(label);
+  const entry = label.match(/^(\d{4})년 (\d{1,2})월 (지원금 합계|받은 횟수)$/);
+  if (!entry) return t(label);
+  const month = t("{year}년 {month}월", { year: entry[1], month: entry[2] });
+  return t("{month} " + entry[3], { month });
+}
+
 // Only for messages produced by the local finance model/flow, never arbitrary policy text.
 const suffixes = [
   "을(를) 입력해 주세요.",
@@ -18,7 +41,7 @@ export function translateFinanceError(message, t) {
       ? t("가구원 {index} 나이", { index: member[1] })
       : vehicle
         ? t("차량 {index} 가액", { index: vehicle[1] })
-        : t(label);
+        : translateFinanceLabel(label, t);
     return t("{label}" + suffix, { label: localized });
   }
   return t(message);

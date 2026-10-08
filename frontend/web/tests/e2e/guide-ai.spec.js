@@ -92,3 +92,28 @@ test('the conversation preview animates locally and respects reduced motion duri
   ).toBeHidden();
   expect(aiRequests).toEqual([]);
 });
+
+test('updated guide and home copy follow every foreign language at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const locale of ['en', 'zh', 'vi', 'ja']) {
+    await page.locator('.language-selector select').selectOption(locale);
+    await expect(page.locator('.guide-page')).not.toContainText(/[가-힣]/);
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
+  await page.goto('/#home');
+  for (const locale of ['en', 'zh', 'vi', 'ja']) {
+    await page.locator('.language-selector select').selectOption(locale);
+    const entry = page.locator('.home-assistant-entry');
+    await expect(entry).toBeVisible();
+    await expect(entry).not.toContainText(/[가-힣]/);
+    await expect(entry).not.toHaveAttribute('aria-label', /[가-힣]/);
+  }
+  await page.goto('/#assistant-chat');
+  await expect(page.locator('.guided-conversation')).toBeVisible();
+  await expect(page.locator('.guided-conversation button[type="submit"]')).not.toContainText(
+    /[가-힣]/,
+  );
+});

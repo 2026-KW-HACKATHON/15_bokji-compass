@@ -93,7 +93,7 @@ function MotionReplay({ sequence, label }) {
     <button
       type="button"
       className="guide-motion-replay"
-      aria-label={t(`${label} 소개 애니메이션 다시 보기`)}
+      aria-label={t('{label} 소개 애니메이션 다시 보기', { label: t(label) })}
       onClick={sequence.replay}
       hidden={!sequence.canAnimate}
     >
@@ -319,10 +319,10 @@ export default function GuidePage({
                 </span>
                 <div key={`${category.name}-copy`}>
                   <span className="guide-result-category">
-                    {category.name} {t('· 공고 예시')}
+                    {t(category.name)} {t('· 공고 예시')}
                   </span>
-                  <h3>{category.title}</h3>
-                  <p>{category.summary}</p>
+                  <h3>{t(category.title)}</h3>
+                  <p>{t(category.summary)}</p>
                 </div>
                 <ChevronRight className="guide-result-chevron" size={22} aria-hidden="true" />
               </div>

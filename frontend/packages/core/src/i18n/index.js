@@ -1,3 +1,4 @@
+import { guideMessages } from "./guideMessages.js";
 import { assistantMessages } from "./assistantMessages.js";
 import { commonMessages } from "./commonMessages.js";
 import { accountMessages } from "./accountMessages.js";
@@ -8,7 +9,11 @@ import { policyMessages } from "./policyMessages.js";
 import { explorerMessages } from "./explorerMessages.js";
 import { navigationMessages } from "./navigationMessages.js";
 import { localMessages } from "./localMessages.js";
-export { translateFinanceError } from "./financeErrors.js";
+export {
+  translateFinanceError,
+  translateFinanceLabel,
+  translateFinanceHint,
+} from "./financeErrors.js";
 
 export const localeStorageKey = "bokji.locale.v1";
 export const locales = Object.freeze(
@@ -22,6 +27,7 @@ export const locales = Object.freeze(
 );
 
 export const messageCatalogs = Object.freeze({
+  guideMessages,
   assistantMessages,
   commonMessages,
   accountMessages,
@@ -36,6 +42,7 @@ export const messageCatalogs = Object.freeze({
 export const messages = Object.freeze(
   Object.assign(
     Object.create(null),
+    guideMessages,
     accountMessages,
     featureMessages,
     mobileMessages,
