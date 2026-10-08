@@ -1,0 +1,758 @@
+{
+  "target": "https://bokji.commitnaru.com",
+  "checkedAtUtc": "2026-10-08T08:45:44.235Z",
+  "checkedAtKst": "2026-10-08 17:45:44 KST",
+  "scope": "공개 HTTP/HTTPS의 소량 응답 확인, 합성·잘못된 인증 입력, 로컬 소스 검토. 실제 계정 인증·데이터 변경·서비스 재시작 없음.",
+  "requestCount": 35,
+  "findings": [
+    {
+      "id": "TRANSPORT-01",
+      "priority": "높음",
+      "status": "공개 서비스에서 확인됨",
+      "title": "HTTP 화면과 인증 API의 HTTPS 강제 적용 누락",
+      "evidence": [
+        "http-root",
+        "http-auth-me",
+        "http-invalid-web-login",
+        "http-invalid-mobile-login",
+        "http-forged-mobile-me",
+        "http-proto-spoof"
+      ],
+      "impact": "HTTP를 사용하는 클라이언트에서는 로그인 입력과 Bearer 토큰이 평문으로 전달될 수 있으며 페이지 변조 위험이 있다. 실제 계정 탈취·트래픽 가로채기는 수행하거나 입증하지 않았다.",
+      "localFix": "기존 Caddyfile.tunnel 및 production WebSecurityMiddleware에 차단 코드가 있으나 공개 응답은 해당 HTTP 차단과 일치하지 않는다."
+    },
+    {
+      "id": "CSP-01",
+      "priority": "낮음 / 보강",
+      "status": "헤더 차이 확인됨; 주입 취약점은 입증하지 않음",
+      "title": "정적 페이지의 엄격한 스타일 CSP가 공개 서버에 미반영",
+      "evidence": "HTTPS 루트 style-src는 unsafe-inline을 허용. 로컬 Caddy 구성은 style-src-elem self, style-src-attr unsafe-inline으로 구분.",
+      "impact": "HTML 주입점이 별도로 존재할 때 방어 수준 차이. 이번 점검에서 XSS/CSS 주입 취약점은 확인하지 않았다."
+    }
+  ],
+  "sourceEvidence": [
+    {
+      "file": "frontend/web/deploy/Caddyfile.tunnel",
+      "lines": [
+        {
+          "line": 16,
+          "text": "\t\tStrict-Transport-Security \"max-age=31536000\""
+        },
+        {
+          "line": 17,
+          "text": "\t\tContent-Security-Policy \"default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'\""
+        },
+        {
+          "line": 24,
+          "text": "\t@insecurePublic {"
+        },
+        {
+          "line": 34,
+          "text": "\thandle @insecurePublic {"
+        },
+        {
+          "line": 42,
+          "text": "\t\trespond \"HTTPS is required.\" 403"
+        },
+        {
+          "line": 66,
+          "text": "\t\t\t\theader_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}"
+        }
+      ]
+    },
+    {
+      "file": "backend/app/core/web_security.py",
+      "lines": [
+        {
+          "line": 102,
+          "text": "    def __init__(self, app, *, cors_origins: list[str], require_https: bool = False):"
+        },
+        {
+          "line": 105,
+          "text": "        self.require_https = require_https"
+        },
+        {
+          "line": 123,
+          "text": "        if self.require_https and scope.get(\"scheme\") != \"https\":"
+        },
+        {
+          "line": 124,
+          "text": "            await reject(403, \"HTTPS 연결로 요청해 주세요.\")"
+        }
+      ]
+    },
+    {
+      "file": "backend/app/main.py",
+      "lines": [
+        {
+          "line": 92,
+          "text": "        require_https=configuration.app_env == \"production\","
+        }
+      ]
+    },
+    {
+      "file": "frontend/web/deploy/readme.md",
+      "lines": [
+        {
+          "line": 32,
+          "text": "이번 HTTP 보완은 로컬 소스와 빌드에 반영했으며 공개 서버를 재시작하지 않았습니다."
+        },
+        {
+          "line": 33,
+          "text": "운영 적용 시 API와 Caddy를 함께 다시 불러오고 HTTP 화면의 308·HTTP API의 403·"
+        },
+        {
+          "line": 47,
+          "text": "소스·배포 예시에 반영했으며 실행 중인 공개 서버를 재시작하지 않았습니다."
+        },
+        {
+          "line": 76,
+          "text": "일반 회원가입은 전화번호 인증 없이 이메일 인증 후 진행하며 카카오 설정 완료 시 카카오 로그인도 제공합니다. 신규 카카오 가입은 직접 입력한 이메일을 요구합니다. 일반 가입에는 서버의 SMTP 설정이 필요합니다. MySQL 배포 전 `python -m app.modules.auth init`으로 이메일 열과 인증 대기 테이블을 준비합니다. 기존 계정·세션은 보존하며 회원 암호화 키는 필수 설정이 아닙니다. [이메일·SMTP 설정](../../../backend/docs/email-signup.md), [회원 저장·기존 암호화 데이터 복원](../../../backend/docs/member-privacy.md)을 따릅니다. CLI 실행·DB 파일·원본 파일은 HTTP로 제공하지 않습니다. HTTPS 응답의 세션 쿠키에는 Caddy가 Secure 속성을 추가합니다. `share.ps1 reload`로 터널 URL을 유지하며 설정을 적용할 수 있습니다."
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "https-root-baseline",
+      "url": "https://bokji.commitnaru.com/",
+      "status": 200,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Thu, 08 Oct 2026 08:42:20 GMT",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 1315,
+      "body": "<!doctype html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"theme-color\" content=\"#0068b7\" />\n    <meta\n      name=\"description\"\n      content=\"나에게 맞는 공고를 추천하고 이유까지 알려주는 개인 복지 비서, 복지나침반.\"\n    />\n "
+    },
+    {
+      "name": "anonymous-auth-me",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 401,
+      "milliseconds": 652,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "http-root",
+      "url": "http://bokji.commitnaru.com/",
+      "status": 200,
+      "milliseconds": 655,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 1315,
+      "body": "<!doctype html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"theme-color\" content=\"#0068b7\" />\n    <meta\n      name=\"description\"\n      content=\"나에게 맞는 공고를 추천하고 이유까지 알려주는 개인 복지 비서, 복지나침반.\"\n    />\n "
+    },
+    {
+      "name": "http-auth-me",
+      "url": "http://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 401,
+      "milliseconds": 656,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "api-config",
+      "url": "https://bokji.commitnaru.com/app-config.js",
+      "status": 200,
+      "milliseconds": 689,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "content-type": "application/javascript",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 61,
+      "body": "window.__BOKJI_CONFIG__ = {dataMode:'api',apiBaseUrl:'/api'};"
+    },
+    {
+      "name": "server-admin-exposure",
+      "url": "https://bokji.commitnaru.com/api/v1/server-admin/settings",
+      "status": 404,
+      "milliseconds": 943,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "openapi-exposure",
+      "url": "https://bokji.commitnaru.com/api/openapi.json",
+      "status": 404,
+      "milliseconds": 982,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "anonymous-admin-accounts",
+      "url": "https://bokji.commitnaru.com/api/v1/admin/accounts",
+      "status": 401,
+      "milliseconds": 1199,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "https-health",
+      "url": "https://bokji.commitnaru.com/api/health",
+      "status": 200,
+      "milliseconds": 1846,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 49,
+      "body": "{\"status\":\"ok\",\"service\":\"bokji-compass-backend\"}"
+    },
+    {
+      "name": "forged-admin-cookie",
+      "url": "https://bokji.commitnaru.com/api/v1/admin/session",
+      "status": 401,
+      "milliseconds": 267,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "anonymous-monitoring",
+      "url": "https://bokji.commitnaru.com/api/v1/monitoring",
+      "status": 401,
+      "milliseconds": 1959,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "anonymous-admin-policies",
+      "url": "https://bokji.commitnaru.com/api/v1/admin/policies",
+      "status": 401,
+      "milliseconds": 1975,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "anonymous-finance",
+      "url": "https://bokji.commitnaru.com/api/v1/finance/profile",
+      "status": 401,
+      "milliseconds": 2361,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "dotenv-exposure",
+      "url": "https://bokji.commitnaru.com/.env",
+      "status": 404,
+      "milliseconds": 146,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "forged-mobile-bearer",
+      "url": "https://bokji.commitnaru.com/api/v1/mobile/auth/me",
+      "status": 401,
+      "milliseconds": 461,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "git-config-exposure",
+      "url": "https://bokji.commitnaru.com/.git/config",
+      "status": 404,
+      "milliseconds": 1436,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "exhibition-status-anonymous",
+      "url": "https://bokji.commitnaru.com/admin/exhibition/api/status",
+      "status": 401,
+      "milliseconds": 1962,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "text/plain; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 46,
+      "body": "관리자 계정으로 로그인해 주세요."
+    },
+    {
+      "name": "cross-origin-read",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 403,
+      "milliseconds": 166,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 59,
+      "body": "{\"detail\":\"허용된 사이트에서 요청해 주세요.\"}"
+    },
+    {
+      "name": "cross-origin-write",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 403,
+      "milliseconds": 466,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 59,
+      "body": "{\"detail\":\"허용된 사이트에서 요청해 주세요.\"}"
+    },
+    {
+      "name": "database-exposure",
+      "url": "https://bokji.commitnaru.com/data/auth.sqlite3",
+      "status": 404,
+      "milliseconds": 467,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "backend-dotenv-exposure",
+      "url": "https://bokji.commitnaru.com/backend/.env",
+      "status": 404,
+      "milliseconds": 745,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "invalid-password-redaction",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "milliseconds": 215,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 92,
+      "body": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "untrusted-cors-preflight",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 400,
+      "milliseconds": 479,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "access-control-allow-headers": "Accept, Accept-Language, Authorization, Content-Language, Content-Type, X-Auth-Request",
+        "access-control-allow-methods": "GET, POST",
+        "access-control-max-age": "600",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "text/plain; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 22,
+      "body": "Disallowed CORS origin"
+    },
+    {
+      "name": "missing-write-marker",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 403,
+      "milliseconds": 484,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 53,
+      "body": "{\"detail\":\"올바른 인증 요청이 아니에요.\"}"
+    },
+    {
+      "name": "duplicate-json",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "milliseconds": 510,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 55,
+      "body": "{\"detail\":\"JSON 요청 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "http-proto-spoof",
+      "url": "http://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 401,
+      "milliseconds": 292,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "http-forged-mobile-me",
+      "url": "http://bokji.commitnaru.com/api/v1/mobile/auth/me",
+      "status": 401,
+      "milliseconds": 434,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 39,
+      "body": "{\"detail\":\"로그인이 필요해요.\"}"
+    },
+    {
+      "name": "http-invalid-web-login",
+      "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "milliseconds": 634,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 92,
+      "body": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "http-invalid-mobile-login",
+      "url": "http://bokji.commitnaru.com/api/v1/mobile/auth/login",
+      "status": 422,
+      "milliseconds": 907,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 92,
+      "body": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "extra-role-in-login",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "milliseconds": 533,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 92,
+      "body": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "invalid-login-sql-shape",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "milliseconds": 598,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 92,
+      "body": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}"
+    },
+    {
+      "name": "json-content-type-enforcement",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 415,
+      "milliseconds": 696,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 51,
+      "body": "{\"detail\":\"JSON 형식으로 요청해 주세요.\"}"
+    },
+    {
+      "name": "public-search-sql-shape",
+      "url": "https://bokji.commitnaru.com/api/v1/policies?limit=1&q='%20OR%20'1'%3D'1'%20--",
+      "status": 200,
+      "milliseconds": 1090,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bytes": 2209,
+      "body": "{\"items\":[{\"id\":\"gov24:174000000013\",\"revisionId\":\"4650320a-d27f-4bf6-b2ee-c87f4f01e310\",\"title\":\"사망자 및 피후견인 재산조회 통합처리 신청(안심상속서비스)\",\"organization\":\"행정안전부\",\"summary\":\"20종 재산내역 조회\",\"benefit\":\"20종 재산내역 조회\",\"region\":\"지역 확인 필요\",\"audience\":\"○  사망자 재산조회 \\n  - 민법에 따른 상속인, 상속재산 관리인\\n\\n○  피후견인 재산조회\\n  - 성년후견인"
+    },
+    {
+      "name": "path-normalization-to-admin",
+      "url": "https://bokji.commitnaru.com/api/v1/auth/%2e%2e/server-admin/settings",
+      "status": 404,
+      "milliseconds": 195,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    },
+    {
+      "name": "source-map-exposure",
+      "url": "https://bokji.commitnaru.com/assets/index-B_u4Vshd.js.map",
+      "status": 404,
+      "milliseconds": 217,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bytes": 0,
+      "body": ""
+    }
+  ],
+  "limitations": [
+    "로그인된 두 계정 간 수평 권한 검증과 실제 OAuth 공급자 흐름은 검증하지 않았다.",
+    "SQL 형태 검색의 200 응답만으로 SQL 주입 성공 여부를 판단하지 않았다.",
+    "셸 런타임 경로 오류와 Node 자식 프로세스 실행 제한으로 로컬 pytest는 실행하지 않았다.",
+    "전체 침투 테스트나 취약점 부재를 보증하는 결과가 아니다."
+  ],
+  "references": [
+    {
+      "title": "MDN HSTS",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+    },
+    {
+      "title": "Cloudflare Always Use HTTPS",
+      "url": "https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/"
+    }
+  ]
+}
