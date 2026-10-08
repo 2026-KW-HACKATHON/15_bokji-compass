@@ -310,7 +310,7 @@ const rows = `
 없음|None|无|Không có|なし
 있어요|Has an amount|有|Có|あり
 없어요 (0원)|None (₩0)|无（0韩元）|Không có (0 won)|なし（0ウォン）
-선택 · 필수 아님|Optional|可选 · 非必填|Tùy chọn · không bắt buộc|任意・必須ではありません
+선택 사항|Optional|选填|Tùy chọn|任意
 금액 (만원)|Amount (₩10,000 units)|金额（万韩元）|Số tiền (đơn vị 10.000 won)|金額（万ウォン）
 만원|₩10,000|万韩元|10.000 won|万ウォン
 모르면 비워두세요|Leave blank if unknown|不知道请留空|Để trống nếu không rõ|不明なら空欄にしてください

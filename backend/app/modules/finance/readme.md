@@ -11,7 +11,7 @@
 | 함수 | 입력 | 반환·책임 |
 |---|---|---|
 | `rules_catalog()` | 없음 | 기준연도, 규칙 버전, 출처, 지원하는 산정 방식 목록 |
-| `calculate(profile)` | `FinancialProfile` | 중위소득 기준·비율, 차량 포함/제외 자산, 사업별 비교·계산 과정·확인 항목 |
+| `calculate(profile, allow_approximation=False)` | `FinancialProfile` | 중위소득 기준·비율, 차량 포함/제외 자산, 사업별 비교·계산 과정·확인 항목. 근사 적용은 명시적으로 허용된 경우에 한정 |
 | `evaluate_policy(profile, criteria)` | `FinancialProfile`, 서버가 검토한 `PolicyFinancialCriteria` | 공고의 검토된 재무 기준과 비교. 지원하지 않거나 미확정이면 `needs_review` |
 
 ```python
@@ -40,11 +40,13 @@ result = calculate(profile)
 
 소득·차량의 추가 선택 필드는 생략 시 `unknown`이므로 기존 스키마 버전 1 저장 JSON도 읽을 수 있습니다. 기존 금액의 기준을 소급 추정하지 않으므로 조회 시 결과가 `needs_review`로 바뀔 수 있습니다. 이는 일반적인 데이터 이관 체계를 구현했다는 의미는 아닙니다.
 
-`calculate`의 반환 키는 `reference_year`, `rules_version`, `median`, `assets`, `assessments`, `sources`, `notes`입니다. 각 사업의 `checks`는 금액·한도와 `within`/`over`/`unknown`을 담습니다. 입력 부족·공제 특례·적용 범위 미확정은 해당 비교를 `unknown`으로 만듭니다. `estimated`도 입력 기준 참고 계산을 의미합니다.
+`calculate`의 반환 키는 `reference_year`, `rules_version`, `approximations`, `median`, `assets`, `assessments`, `sources`, `notes`입니다. 각 사업의 `checks`는 금액·한도와 `within`/`over`/`unknown`을 담습니다. 입력 부족·공제 특례·적용 범위 미확정은 해당 비교를 `unknown`으로 만듭니다. 근사값도 금액은 제공할 수 있지만 상태는 `unknown`, 사업은 `needs_review`로 유지합니다. `estimated`도 입력 기준 참고 계산을 의미합니다.
 
 `additional_review`는 추가 혜택을 알아보고 싶다는 선호이며 계산 누락사항이 아닙니다. 이 값만으로 `missing`이나 `needs_review`를 추가하지 않습니다. 실제 미입력 정보와 미지원 계산 조건은 계속 반환하되, 서버에 없는 기준을 사용자에게 기관 확인 요청으로 전달하지 않습니다.
 
-`GET /v1/finance/rules`의 `regional_property_rules`에는 서버에서 사용하는 지역별 기본재산 공제와 주거용재산 한도가 있습니다. 등록된 지역은 `status=supported`이며, 아직 기준이 등록되지 않은 전남광주통합특별시는 `status=unavailable`과 금액 `null`을 반환합니다. 미등록 지역을 다른 지역의 수치로 대체하지 않습니다.
+`GET /v1/finance/rules`의 `regional_property_rules`에는 서버에서 사용하는 지역별 기본재산 공제와 주거용재산 한도가 있습니다. 등록된 지역은 `status=supported`이며, 아직 기준이 등록되지 않은 전남광주통합특별시는 `status=unavailable`과 금액 `null`을 반환합니다. 계산 API는 기본적으로 미등록 지역을 다른 지역의 수치로 대체하지 않습니다. 사용자가 `{profile, allow_approximation: true}`를 명시해 요청한 경우에만 해당 통합지역에 `other` 기준을 임시 적용하며, 응답의 `approximations`에 가정을 기록하고 해당 비교는 `needs_review`/`unknown`으로 유지합니다.
+
+근로소득이 세후(`earned_income_basis=net`)로 입력된 경우도 기본 계산에서는 생계급여·차상위·국민임대 소득 비교에 사용하지 않습니다. 명시적 근사 요청에서만 세후 입력액을 세전으로 환산하지 않고 그대로 참고 산식에 넣습니다. 계산 API의 근사 옵션은 계정에 저장하지 않으며, `POST /v1/finance/profile`은 이 필드를 허용하지 않습니다.
 
 월소득의 단순 중위소득 비율과 사업별 소득인정액은 서로 다릅니다. 차상위 입력 여부로 중위소득 표를 높이지 않습니다. 비율표의 산술 반올림과 사업별 선정기준의 반올림 방식이 다를 수 있습니다. 2026년 외 기준은 등록되지 않아 사업별 비교 금액·한도를 확정하지 않습니다.
 
@@ -52,7 +54,7 @@ result = calculate(profile)
 
 [api/finance.py](../../api/finance.py)의 계약은 [루트 API 관리대장](../../../../api-management.md)을 따릅니다.
 
-- 공개: `GET /v1/finance/rules`, `POST /v1/finance/calculate`의 `{profile}`. 인증·DB가 비활성 상태여도 계산하며 인증 테이블을 만들지 않습니다.
+- 공개: `GET /v1/finance/rules`, `POST /v1/finance/calculate`의 `{profile, allow_approximation?}`. 근사 옵션 기본값은 false이며 명시적으로 true인 단일 계산에만 적용합니다. 인증·DB가 비활성 상태여도 계산하며 인증 테이블을 만들지 않습니다.
 - 회원: `GET /v1/finance/profile`, `POST /v1/finance/profile`의 `{profile, consent: true}`, `POST /v1/finance/profile/delete`의 `{}`.
 - 회원 저장·삭제는 세션 쿠키와 `X-Auth-Request: 1` 헤더를 요구합니다. 저장 동의는 JSON boolean true만 허용합니다. 요청 본문에서 소유자 ID·계산 결과·기타 미정의 필드를 받지 않습니다.
 - 조회·저장 응답은 `{profile, calculation, updated_at}`입니다. 미저장은 모두 null, 삭제 응답은 `{deleted: true}`입니다.

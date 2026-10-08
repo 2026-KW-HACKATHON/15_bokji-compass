@@ -4,6 +4,13 @@ import CountField from './CountField.jsx';
 import { fieldValue, visibleFields } from './financeFlow.js';
 import { moneyInput, moneyInputValue, parseMoney, MAX_HOUSEHOLD_SIZE } from './financeModel.js';
 
+function renderHint(text) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (!part.startsWith('**') || !part.endsWith('**')) return part;
+    return <strong key={index}>{part.slice(2, -2)}</strong>;
+  });
+}
+
 function FinanceField({ field, draft, onChange, easy }) {
   const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
 
@@ -37,7 +44,7 @@ function FinanceField({ field, draft, onChange, easy }) {
           />
           <span>
             {t(field.label)}
-            {field.optional && <small className="finance-optional">{t('선택 · 필수 아님')}</small>}
+            {field.optional && <small className="finance-optional">(선택)</small>}
           </span>
         </label>
         {field.hint && (
@@ -53,10 +60,15 @@ function FinanceField({ field, draft, onChange, easy }) {
         <label htmlFor={field.id}>{t(field.label)}</label>
         <select
           id={field.id}
-          value={value ?? 'unknown'}
+          value={value ?? (field.required ? '' : 'unknown')}
           aria-describedby={hintId}
           onChange={(event) => onChange(field.path, event.target.value)}
         >
+          {field.required && (
+            <option value="" disabled>
+              선택해 주세요
+            </option>
+          )}
           {field.options.map(([key, label]) => (
             <option key={key} value={key}>
               {t(label)}
@@ -184,7 +196,7 @@ function FinanceField({ field, draft, onChange, easy }) {
               : t('확인 필요로 남겨두고 다음으로 갈 수 있어요.')}
         </small>
       )}
-      {field.hint && <small id={hintId}>{t(field.hint)}</small>}
+      {field.hint && <small id={hintId}>{renderHint(t(field.hint))}</small>}
     </div>
   );
 }

@@ -319,7 +319,7 @@ API 프로세스가 응답한다는 의미입니다. DB 연결, 정책 데이터
 | Method | 백엔드 경로 | 입력 | 인증·성공 | 오류 |
 |---|---|---|---|---|
 | GET | `/v1/finance/rules` | 없음 | 비회원 가능, 산정 규칙 목록 객체 | 연결 실패 |
-| POST | `/v1/finance/calculate` | `{profile}` | 비회원 가능, 계산 결과 객체. DB 저장 없음 | 422 |
+| POST | `/v1/finance/calculate` | `{profile, allow_approximation?}` | 비회원 가능. 기본은 공식 기준 계산, 명시적으로 true면 가정을 표시한 근사 참고값. DB 저장 없음 | 422 |
 | GET | `/v1/finance/profile` | 세션 쿠키 | `{profile, calculation, updated_at}`. 미저장 시 셋 모두 null | 401, 503 |
 | POST | `/v1/finance/profile` | `{profile, consent: true}` | 세션 쿠키, 저장 후 조회와 같은 응답 | 401, 403, 422, 503 |
 | POST | `/v1/finance/profile/delete` | 빈 JSON `{}` | 세션 쿠키, `{deleted: true}`. 이미 없어도 동일 | 401, 403, 422, 503 |

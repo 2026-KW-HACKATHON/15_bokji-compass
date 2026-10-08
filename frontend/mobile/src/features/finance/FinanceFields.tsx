@@ -78,13 +78,13 @@ function FinanceField({
   if (field.type === "check")
     return (
       <View style={{ gap: 6 }}>
-          <Toggle
-            label={field.label}
-            disabled={busy}
-            value={value === true}
-            onValueChange={(next) => edit(field.path, next)}
-          />
-          {field.optional && <Copy muted>선택 · 필수 아님</Copy>}
+        <Toggle
+          label={field.label}
+          disabled={busy}
+          value={value === true}
+          onValueChange={(next) => edit(field.path, next)}
+        />
+        {field.optional && <Copy muted>선택 사항</Copy>}
         {hint}
       </View>
     );

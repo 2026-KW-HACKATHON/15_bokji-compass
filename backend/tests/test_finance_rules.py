@@ -74,6 +74,33 @@ def test_unified_region_requires_review_without_assuming_regional_allowance():
         assert item["checks"][0]["state"] == "unknown"
 
 
+def test_opt_in_approximation_uses_other_region_and_net_income_without_claiming_exact_comparison():
+    member = facts().members[0].model_dump()
+    member.update(earned_income=2_000_000, earned_income_basis="net")
+    profile = facts(region="jeonnam_gwangju", members=[member])
+
+    exact = calculate(profile)
+    assert exact["assessments"][0]["checks"][0]["value"] is None
+    assert exact["assessments"][2]["checks"][0]["state"] == "unknown"
+    assert exact["approximations"] == []
+
+    approximate = calculate(profile, allow_approximation=True)
+    assert len(approximate["approximations"]) == 2
+    assert all(item["status"] == "needs_review" for item in approximate["assessments"])
+    assert approximate["assessments"][0]["checks"][0]["value"] == 1_400_000
+    assert approximate["assessments"][0]["checks"][0]["state"] == "unknown"
+    assert approximate["assessments"][1]["checks"][0]["value"] == 1_400_000
+    assert approximate["assessments"][1]["checks"][0]["state"] == "unknown"
+    assert approximate["assessments"][2]["checks"][0]["value"] == 2_000_000
+    assert approximate["assessments"][2]["checks"][0]["state"] == "unknown"
+    assert any("그 밖의 지역" in item for item in approximate["approximations"])
+    assert any("세후 근로소득" in item for item in approximate["approximations"])
+    assert any(
+        "그 밖의 지역 기준 임시 적용" in item["label"]
+        for item in approximate["assessments"][0]["breakdown"]
+    )
+
+
 def test_interest_in_additional_benefits_is_not_a_missing_calculation_fact():
     profile = facts(additional_review=True)
     assert calculate(profile) == calculate(facts())
@@ -87,6 +114,22 @@ def test_request_for_more_benefits_preserves_actual_missing_input():
     assert basic["checks"][0]["value"] is None
     assert any("재산 금액을 입력" in message for message in basic["missing"])
     assert all("담당 기관" not in message for message in basic["missing"])
+
+
+@pytest.mark.parametrize(
+    ("subdivision", "expected_allowance"),
+    [("gwangju", 77_000_000), ("other", 53_000_000)],
+)
+def test_unified_region_uses_selected_subdivision_allowance(subdivision, expected_allowance):
+    profile = facts(region="jeonnam_gwangju", region_subdivision=subdivision)
+    result = assessment(profile)
+    allowance = next(
+        item["amount"]
+        for item in result["breakdown"]
+        if item["label"] == "지역별 기본재산 공제 한도"
+    )
+    assert allowance == expected_allowance
+    assert calculate(profile, allow_approximation=True)["approximations"] == []
 
 
 def car(**changes):

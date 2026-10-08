@@ -78,9 +78,23 @@ export function financeQuestions(draft) {
           "거주 지역",
           financeRegions,
           draft.region === "jeonnam_gwangju"
-            ? "통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요."
+            ? "전남광주통합특별시를 선택하면 실제 거주 권역을 추가로 선택해 주세요. 통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요."
             : "전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.",
         ),
+        {
+          ...select(
+            'region_subdivision',
+            'region-subdivision',
+            '전남광주통합특별시 거주 권역',
+            [
+              ['gwangju', '광주광역시'],
+              ['other', '그 외 지역'],
+            ],
+            '거주지에 해당하는 권역을 선택해 주세요.',
+            (profile) => profile.region === 'jeonnam_gwangju',
+          ),
+          required: true,
+        },
         {
           // Keep the native client's select contract; web renders countChoices before type.
           ...select(
@@ -144,7 +158,7 @@ export function financeQuestions(draft) {
             {
               ...number(path("age"), `age-${i}`, "만 나이", "세", 120),
               placeholder: "계산한 만 나이를 입력하세요",
-              hint: "오늘 기준으로 올해 연도에서 태어난 연도를 빼세요. 올해 생일이 아직 오지 않았다면 1을 더 빼세요. 예: 연도 차이가 66이면 생일이 지났거나 오늘일 때 만 66세, 생일 전이면 만 65세예요.",
+              hint: "**만 나이 계산 방법**\n1. **올해 연도 − 출생 연도**를 계산합니다.\n2. **올해 생일이 지나지 않았다면** 결과에서 **1년**을 뺍니다.\n예) 차이가 66세인 경우: 생일 지남 → **만 66세** / 생일 전 → **만 65세**",
             },
             select(
               path("deduction"),
@@ -374,6 +388,12 @@ export function validateQuestion(question, draft) {
           min: field.min ?? 0,
           max: field.max ?? MAX_MONEY,
         });
+      } else if (
+        field.type === "select" &&
+        field.required &&
+        (value === null || value === undefined || value === "")
+      ) {
+        throw new Error(`${field.label}을(를) 선택해 주세요.`);
       } else if (
         field.type === "select" &&
         !field.options.some(
