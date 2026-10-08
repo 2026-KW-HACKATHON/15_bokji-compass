@@ -217,6 +217,12 @@ def test_public_api_contract_without_account_or_database(catalog, monkeypatch, t
         empty = client.get("/v1/local-services?region=제주&district=제주시&category=transport")
         assert empty.status_code == 200
         assert empty.json()["items"] == []
+        for region in ["전남광주통합특별시", "전남광주"]:
+            integrated = client.get("/v1/local-services", params={
+                "region": region, "district": "서구", "category": "transport",
+            })
+            assert integrated.status_code == 200, integrated.text
+            assert integrated.json()["items"] == []
         (catalog / "services.json").write_text('{"broken":true}', encoding="utf-8")
         failed = client.get("/v1/local-services")
         assert failed.status_code == 503

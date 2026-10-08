@@ -1,5 +1,16 @@
 # 개발환경 테스트
 
+2026-10-08 주소 지역: `test_member_address.py`는 통합 지역의 회원 주소 저장·서버
+재시작 후 복원, 추천 프로필 계약·공식 코드 해석과 통합 지역 이름 검색을 검증합니다.
+
+2026-10-08 성별 추천: `test_gender_recommendation_matching.py`는 원문 성별 대상·동반
+아동·우대/혼합 대상·기관명·대상 문맥 인용·canonical OR/NOT/다른 수혜자 경계를 검사한다.
+`test_gender_recommendation_paths.py`는 홈·지속 안내·일반 대화·타인/가정 상담·선택 공고,
+기존 오추천·알림을 거르는 인증 API와 원문 장애 시 이력 보존을 검사한다.
+`test_member_recommendation_refresh.py`는 회원정보 변경의 원자적 무효화·지연 scan 차단,
+최신 원문 일괄 조회·화면 알림 개수 밖의 배지·신청/준비/제외 복원 이력 보존을 검사한다.
+운영 데이터 없이 합성 공고와 격리 SQLite 계정을 사용한다.
+
 2026-10-08 신청 단계: `test_application_guidance.py`는 원문 메타데이터, 신청 경로와
 공고·홈·문의 경로 구분, 전화/문의/팩스·번호 검증, 신청 문맥 인용, 양식 없음과 서류 없음,
 조건부·대체 서류를 확인한다. `test_application_preparation.py`는 인증·소유권·strict

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memberAddressError, selectedMemberAddress } from '../src/features/auth/postcode.js';
 import { profileRows } from '../src/features/profile/profileSummary.js';
-import { defaultProfile } from '../src/features/profile/profileModel.js';
+import { defaultProfile, recommendationProfile } from '../src/features/profile/profileModel.js';
+import { financeRegionFor } from '../src/features/finance/financePrefill.js';
 
 const selected = {
   zonecode: '03000',
@@ -29,11 +30,23 @@ test('selected road or lot addresses preserve postcode zeros and normalize provi
     ['전북특별자치도', '전북'],
     ['세종특별자치시', '세종'],
     ['제주특별자치도', '제주'],
+    ['제주도', '제주'],
+    ['제주', '제주'],
+    ['전남광주통합특별시', '전남광주통합특별시'],
+    [' 전남광주 ', '전남광주통합특별시'],
+    ['전라남도', '전남'],
+    ['광주광역시', '광주'],
   ]) {
     assert.equal(selectedMemberAddress({ ...selected, sido }).region, region);
   }
   assert.throws(() => selectedMemberAddress({ ...selected, sido: '알 수 없는 지역' }));
   assert.throws(() => selectedMemberAddress({ ...selected, zonecode: '3000' }));
+});
+
+test('the integrated province remains usable in recommendation and finance profiles', () => {
+  const { region } = selectedMemberAddress({ ...selected, sido: '전남광주통합특별시' });
+  assert.equal(recommendationProfile({ ...defaultProfile, region }).region, region);
+  assert.equal(financeRegionFor(region), 'jeonnam_gwangju');
 });
 
 test('old region-only members remain valid but partial and malformed addresses cannot save', () => {

@@ -45,6 +45,7 @@ export default function MemberAddressFields({
             try {
               const address = selectedMemberAddress(data);
               changeRef.current(address);
+              setError('');
               setSearching(false);
               requestAnimationFrame(() => detailRef.current?.focus());
             } catch (err) {

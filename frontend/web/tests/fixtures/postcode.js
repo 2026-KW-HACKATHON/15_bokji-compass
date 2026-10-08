@@ -17,6 +17,24 @@ export const postcodeResults = {
     roadAddress: '부산 연제구 중앙대로 1001',
     jibunAddress: '부산 연제구 연산동 1000',
   },
+  전남광주통합특별시: {
+    zonecode: '61945',
+    sido: '전남광주통합특별시',
+    sigungu: '서구',
+    userSelectedType: 'R',
+    address: '전남광주통합특별시 서구 내방로 111',
+    roadAddress: '전남광주통합특별시 서구 내방로 111',
+    jibunAddress: '전남광주통합특별시 서구 치평동 1200',
+  },
+  제주: {
+    zonecode: '63303',
+    sido: '제주특별자치도',
+    sigungu: '제주시',
+    userSelectedType: 'R',
+    address: '제주특별자치도 제주시 화삼북로2길 9',
+    roadAddress: '제주특별자치도 제주시 화삼북로2길 9',
+    jibunAddress: '제주특별자치도 제주시 삼양이동 2319',
+  },
 };
 
 function installMock(results) {
@@ -44,17 +62,20 @@ function installMock(results) {
 }
 
 // Simulated provider results exercise the application callback without a network dependency.
-export async function mockPostcode(page, { preload = true, failedLoads = 0 } = {}) {
+export async function mockPostcode(
+  page,
+  { preload = true, failedLoads = 0, results = postcodeResults } = {},
+) {
   const state = { loads: 0 };
   await page.route('**/postcode.v2.js**', (route) => {
     state.loads += 1;
     if (state.loads <= failedLoads) return route.abort('failed');
     return route.fulfill({
       contentType: 'application/javascript',
-      body: `(${installMock.toString()})(${JSON.stringify(postcodeResults)});`,
+      body: `(${installMock.toString()})(${JSON.stringify(results)});`,
     });
   });
-  if (preload) await page.addInitScript(installMock, postcodeResults);
+  if (preload) await page.addInitScript(installMock, results);
   return state;
 }
 

@@ -1,5 +1,14 @@
 # 프론트 검증
 
+2026-10-08 회원 추천 문맥: `e2e/member-recommendation-context.spec.js`는 같은 회원의
+성별을 여성→남성으로 수정한 뒤 홈 추천과 AI 지속 안내를 다시 조회하고 이전 상담을
+초기화하는 흐름을 PC/모바일에서 검증한다. API 응답은 대역이며 실제 원문의 성별 대상
+판정은 백엔드 gender recommendation 회귀에서 검증한다.
+
+2026-10-08 주소 지역: `member-address.test.js`와 `e2e/member-address.spec.js`는
+전남광주통합특별시·제주 이름 정규화, 추천·계산기 연결, 선택·저장·새로고침 및
+지역 인식 실패 뒤 정상 선택 시 오류 제거를 검증합니다. 외부 SDK는 E2E에서 대역으로 처리합니다.
+
 2026-10-08 신청 단계: `application-guide.test.js`는 경로·전화·조건부 서류와 긴 원문,
 `application-preparation.test.js`는 snapshot/API 계약과 변경 공고의 오래된 체크를 검증한다.
 `e2e/application-guide.spec.js`는 직접 신청 href·전화 목적, 저장·새로고침·해제·실패 재시도·

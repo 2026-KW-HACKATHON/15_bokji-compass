@@ -133,6 +133,31 @@ def test_overview_gender_uses_actual_supported_audience_citation(field, quote, e
     assert (guard["state"] if guard else None) == expected
 
 
+@pytest.mark.parametrize("quote,expected", [
+    ("담당자: 여성", None), ("여성 담당자가 응대합니다", None), ("여성 지원 홍보", None),
+    ("여성만 신청 가능", "mismatch"), ("이주여성 보호 대상", "mismatch"),
+])
+def test_overview_body_citation_requires_actual_recipient_context(quote, expected):
+    row = matching_tests.record(text="조건 검증\n" + quote)
+    row["draft_json"] = {"overview": {"gender_conditions": {
+        "status": "specified", "text": "여성 대상",
+        "evidence": [{"source_field": "text", "quote": quote}],
+    }}}
+    guard = public.source_gender_guard(row, public.MatchingFacts(gender="MALE"))
+    assert (guard["state"] if guard else None) == expected
+
+
+@pytest.mark.parametrize("draft", [
+    None, {"overview": "여성 대상"}, {"overview": {"gender_conditions": "여성 대상"}},
+    {"overview": {"gender_conditions": {"status": "specified", "evidence": ["여성"]}}},
+])
+def test_untrusted_overview_shape_does_not_hide_valid_original_gender_constraint(draft):
+    row = audience_record("여성 대상")
+    row["draft_json"] = draft
+    guard = public.source_gender_guard(row, public.MatchingFacts(gender="MALE"))
+    assert guard["state"] == "mismatch"
+
+
 def gender_condition(*, identifier="gender", subject="applicant", role="eligibility", state=1):
     return matching_tests.condition("gender", identifier=identifier, subject=subject, role=role,
                                     operator="EQ", state=state,
@@ -191,6 +216,17 @@ def test_home_recommendations_exclude_missing_extraction_women_only_for_known_ma
     result = public.recommend(repository, public.MatchingFacts(age_range=(40, 40), gender="MALE"),
                               today=TODAY)
     assert [item["policy"]["id"] for item in result["items"]] == ["notice:age-only"]
+
+
+@pytest.mark.parametrize("audience", ["여성 대상", "저소득 여성", "장애인 여성"])
+def test_home_gender_mismatch_does_not_request_unrelated_information(repository, audience):
+    row = audience_record(audience, conditions=[matching_tests.condition(state=0)])
+    matching_tests.save_record(repository, row)
+    result = public.recommend(repository, public.MatchingFacts(gender="MALE"), today=TODAY)
+    assert result["items"] == []
+    assert result["mode"] == "personalized" and result["profile_sufficient"] is True
+    assert result["missing_fields"] == []
+    assert "현재 입력한 조건에 맞는" in result["guidance"]
 
 
 def test_unreported_gender_does_not_become_male_from_name_or_other_profile_fields():

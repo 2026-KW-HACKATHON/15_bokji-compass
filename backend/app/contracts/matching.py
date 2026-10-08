@@ -11,6 +11,7 @@ from app.contracts.parsing import StrictModel
 RegionName = Literal[
     "전국", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종",
     "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+    "전남광주통합특별시",
 ]
 AgeBand = Literal["19세 미만", "19~34세", "35~49세", "50~64세", "65세 이상"]
 Category = PolicyDisplayCategory

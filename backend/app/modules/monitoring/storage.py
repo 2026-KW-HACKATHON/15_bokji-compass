@@ -316,10 +316,12 @@ class MonitoringStore:
         by_policy = {item["policy_id"]: item for item in feedback}
         candidate_list = []
         for candidate in found:
-            # Preserve submitted applications even when a policy leaves the current catalog.
-            if not candidate["active"] and candidate["application_state"] == "watching":
-                continue
             data = json.loads(candidate["candidate_json"])
+            # Preserve submitted applications even when a policy leaves the current catalog.
+            # Excluded candidates remain available for undo after account/source changes.
+            if (not candidate["active"] and candidate["application_state"] == "watching"
+                    and data["policy_id"] not in by_policy):
+                continue
             candidate_list.append({**data,
                                    "recommendation_feedback": by_policy.get(data["policy_id"]),
                                    "application_preparation": _preparation_view(data),

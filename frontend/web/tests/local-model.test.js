@@ -17,6 +17,8 @@ test('local area parsing normalizes provinces and preserves city/district hierar
     ['전북특별자치도 완주군 삼례읍', ['전북', '완주군', '삼례읍']],
     ['세종특별자치시 한솔동', ['세종', '', '한솔동']],
     ['부산 강서구 대저1동', ['부산', '강서구', '대저1동']],
+    ['전남광주통합특별시 서구 치평동', ['전남광주통합특별시', '서구', '치평동']],
+    ['전남광주 서구 내방로 111', ['전남광주통합특별시', '서구', '']],
   ]) {
     const [region, district, neighborhood] = expected;
     assert.deepEqual(parseLocalArea(text), { region, district, neighborhood });

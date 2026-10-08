@@ -44,6 +44,56 @@ async function openMemberForm(page) {
   return page.getByRole('form', { name: '회원 정보 수정' });
 }
 
+for (const region of ['전남광주통합특별시', '제주']) {
+  test(`${region} addresses can be selected, saved and restored`, async ({ page }) => {
+    const state = await mockMember(page);
+    await mockPostcode(page);
+    await page.goto('/#profile');
+    let form = await openMemberForm(page);
+    await selectPostcode(form, region);
+    await expect(form.getByRole('alert')).toHaveCount(0);
+    await expect(form.getByRole('button', { name: '주소 검색 닫기', exact: true })).toHaveCount(0);
+    await expect(form.getByLabel('상세 주소', { exact: true })).toBeFocused();
+    await form.getByRole('button', { name: '회원 정보 저장', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: '기본 정보를 저장했어요' }),
+    ).toBeVisible();
+    expect(state.bodies[0]).toMatchObject(addressPayload(region));
+    await page.reload();
+    form = await openMemberForm(page);
+    await expect(form.getByLabel('우편번호', { exact: true })).toHaveValue(
+      postcodeResults[region].zonecode,
+    );
+    await expect(form.getByLabel('기본 주소', { exact: true })).toHaveValue(
+      postcodeResults[region].roadAddress,
+    );
+    await expect(form).toContainText(`거주 지역 · ${region}`);
+  });
+}
+
+test('a successful selection clears a previous region error', async ({ page }) => {
+  await mockMember(page, addressPayload('서울', '101호'));
+  await mockPostcode(page, {
+    results: {
+      ...postcodeResults,
+      unknown: { ...postcodeResults.서울, sido: '알 수 없는 지역' },
+    },
+  });
+  await page.goto('/#profile');
+  const form = await openMemberForm(page);
+  await selectPostcode(form, 'unknown');
+  await expect(form.getByRole('alert')).toContainText('선택한 주소의 지역을 확인하지 못했어요');
+  await expect(form.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.서울.roadAddress,
+  );
+  await form.getByRole('button', { name: '테스트 주소 선택: 제주', exact: true }).click();
+  await expect(form.getByRole('alert')).toHaveCount(0);
+  await expect(form.getByLabel('기본 주소', { exact: true })).toHaveValue(
+    postcodeResults.제주.roadAddress,
+  );
+  await expect(form.getByLabel('상세 주소', { exact: true })).toHaveValue('');
+});
+
 test('members select an exact address and restore it from their account after reload', async ({
   page,
 }) => {

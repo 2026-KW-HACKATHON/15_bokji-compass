@@ -3,13 +3,17 @@
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import literal, select
 
 from app.api.auth import ProfileInput
+from app.contracts.matching import RecommendationProfile
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.auth.consent import NOTICE_VERSION
 from app.modules.auth.models import ADDRESS_FIELDS, accounts
+from app.modules.matching.public import build_facts
+from app.modules.regions.public import default_catalog
+from app.modules.storage.catalog import region_matches
 from tests.email_helpers import SIGNUP_CONSENT, verify_email
 from tests.test_auth import PASSWORD, signup_body
 from tests.test_signup_consent import pending_kakao
@@ -82,8 +86,9 @@ def test_signup_address_obeys_optional_profile_consent(client, path, profile_con
     assert response.status_code == 201, response.text
     if path == "/signup":
         assert (
-            client.post("/v1/auth/login", json={"username": "tester", "password": PASSWORD})
-            .status_code
+            client.post(
+                "/v1/auth/login", json={"username": "tester", "password": PASSWORD}
+            ).status_code
             == 200
         )
     user = client.get("/v1/auth/me").json()["user"]
@@ -116,6 +121,38 @@ def test_profile_rejects_invalid_address(invalid):
 def test_profile_empty_address_is_optional():
     value = ProfileInput(postal_code="  ", address="", address_detail="  ")
     assert all(value.model_dump()[key] is None for key in ADDRESS_FIELDS)
+
+
+def test_integrated_province_address_saves_and_remains_a_recommendation_fact(client):
+    sign_in(client)
+    address = {
+        "region": "전남광주통합특별시",
+        "postal_code": "61945",
+        "address": "전남광주통합특별시 서구 내방로 111",
+        "address_detail": "101호",
+    }
+    response = client.post("/v1/auth/profile", json=address)
+    assert response.status_code == 200, response.text
+    user = client.get("/v1/auth/me").json()["user"]
+    assert {key: user[key] for key in address} == address
+    preference = RecommendationProfile(region=address["region"])
+    assert build_facts(user, preference).region == address["region"]
+    assert build_facts(None, preference).region == address["region"]
+    assert default_catalog().resolve(address["region"]).status == "resolved"
+    with client.app.state.auth_service.engine.connect() as connection:
+        for text, expected in [
+            ("전남광주통합특별시 주민", True),
+            ("전남광주 주민", True),
+            ("광주광역시 주민", False),
+        ]:
+            assert (
+                bool(connection.scalar(select(region_matches(literal(text), address["region"]))))
+                is expected
+            )
+    with TestClient(create_app(client.app.state.settings), headers=HEADERS) as restarted:
+        restarted.cookies.update(client.cookies)
+        restored = restarted.get("/v1/auth/me").json()["user"]
+        assert {key: restored[key] for key in address} == address
 
 
 def test_withdrawal_removes_saved_address_and_keeps_other_account_address(client):

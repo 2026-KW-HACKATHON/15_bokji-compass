@@ -1,6 +1,7 @@
 """A changed account fact immediately retires recommendations from the old facts."""
 
 import json
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import event, insert, select, update
@@ -93,6 +94,20 @@ def test_gender_becoming_undisclosed_does_not_permanently_exclude_a_policy(store
     refreshed = scan(store)
     assert refreshed["candidates"][0]["active"] is True
     assert refreshed["candidates"][0]["policy_id"] == before["candidates"][0]["policy_id"]
+
+
+def test_gender_change_keeps_excluded_watching_candidate_available_for_undo(store):
+    saved(store)
+    scan(store)
+    store.set_candidate_feedback(ACCOUNT, "policy-1", "housing_repair", "not_eligible")
+    store.auth_service.update_profile(ACCOUNT, ProfileInput(gender="male"), token=TOKEN)
+    after = store.read(ACCOUNT)
+    assert len(after["candidates"]) == 1
+    assert after["candidates"][0]["active"] is False
+    assert after["candidates"][0]["recommendation_feedback"]["reason"] == "not_eligible"
+    restored = store.set_candidate_feedback(ACCOUNT, "policy-1", "housing_repair", None)
+    assert restored["candidates"] == []
+    assert restored["recommendation_feedback"] == []
 
 
 def test_matching_account_fact_edit_keeps_monitoring_paused(store):
@@ -188,7 +203,7 @@ def test_unknown_gender_never_hides_or_permanently_excludes_saved_candidates(sto
     assert before["recommendation_feedback"] == []
 
 
-def test_gender_filter_preserves_viable_alternative_and_child_or_household_subject(store, repository):
+def test_gender_filter_preserves_viable_alternative_and_other_subjects(store, repository):
     gender = matching_tests.condition("gender", operator="EQ", value={
         "kind": "CATEGORY", "code": "FEMALE"})
     age = matching_tests.condition("age", identifier="age")
@@ -268,3 +283,29 @@ def test_older_wrong_gender_alert_is_rechecked_after_the_candidate_was_retired(s
     assert after["candidates"] == before["candidates"]
     assert after["alerts"] == before["alerts"]
     assert after["unread_count"] == 101
+
+
+def test_saved_candidate_is_compared_with_the_latest_published_revision(store, repository):
+    old = matching_tests.record(key="changing")
+    before, member = snapshot_candidates(store, repository, [old])
+    latest = women_source(key="changing")
+    latest["revision_id"] = "updated-gender-restriction"
+    latest["created_at"] += timedelta(days=1)
+    matching_tests.save_record(repository, latest)
+    after = storage.filter_snapshot_gender(before, member, repository, store=store)
+    assert after["candidates"] == after["alerts"] == []
+    assert after["unread_count"] == 0
+
+
+def test_withdrawn_source_retires_recommendations_without_erasing_history(store, repository):
+    row = women_source()
+    before, member = snapshot_candidates(store, repository, [row])
+    store.set_candidate_state(ACCOUNT, row["policy_key"], "housing_repair", "applied")
+    before = store.read(ACCOUNT)
+    with repository.engine.begin() as connection:
+        table = repository.tables["condition_documents"]
+        connection.execute(update(table).values(review_status="draft"))
+    after = storage.filter_snapshot_gender(before, member, repository, store=store)
+    assert after["candidates"][0]["active"] is False
+    assert after["candidates"][0]["application_state"] == "applied"
+    assert after["alerts"] == [] and after["unread_count"] == 0

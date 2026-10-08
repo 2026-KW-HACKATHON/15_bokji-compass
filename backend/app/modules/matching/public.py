@@ -25,6 +25,7 @@ REGION_NAMES = {
     "세종": "세종특별자치시", "강원": "강원특별자치도", "충북": "충청북도",
     "충남": "충청남도", "전북": "전북특별자치도", "전남": "전라남도",
     "경북": "경상북도", "경남": "경상남도", "제주": "제주특별자치도",
+    "전남광주통합특별시": "전남광주통합특별시",
 }
 AGE_RANGES = {
     "19세 미만": (0, 18), "19~34세": (19, 34), "35~49세": (35, 49),
@@ -438,6 +439,11 @@ def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile |
                 continue
         except (ValueError, KeyError, TypeError):
             skipped_invalid += 1
+            continue
+        if (matching.get("gender_guard") or {}).get("state") == "mismatch":
+            # A known source audience mismatch is enough to exclude this notice;
+            # asking for age/region cannot resolve an incompatible gender audience.
+            classified_with_profile = True
             continue
         missing_targets = missing_target_requirements(canonical, source)
         missing.update(missing_targets)

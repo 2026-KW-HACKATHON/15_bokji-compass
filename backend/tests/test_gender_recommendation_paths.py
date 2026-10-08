@@ -4,18 +4,23 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import update
 
+from app.api import monitoring as monitoring_api
 from app.contracts.conditions import CanonicalPolicy
 from app.modules.assistant import dialogue_search
 from app.modules.assistant.dialogue_models import DialogueStore
+from app.modules.auth.models import accounts
 from app.modules.matching import public as matching
 from app.modules.monitoring import public as monitoring
 from app.modules.monitoring.models import MonitoringProfile
 from tests import test_assistant_dialogue as dialogue_tests
 from tests import test_matching as matching_tests
+from tests import test_monitoring_api as monitoring_api_tests
 
 repository = dialogue_tests.repository
 stable_date = dialogue_tests.stable_date
+client = monitoring_api_tests.client
 TODAY = dialogue_tests.TODAY
 MALE = {**dialogue_tests.MEMBER, "gender": "male", "age": 30}
 FEMALE = {**MALE, "gender": "female"}
@@ -117,3 +122,66 @@ def test_upcoming_schedule_cannot_override_source_gender_mismatch():
     comparison = matching.compare_policy(row, matching.build_facts(MALE, None), today=TODAY)
     canonical = CanonicalPolicy.model_validate(deepcopy(row["canonical_json"]))
     assert monitoring._logic_state(canonical, comparison, upcoming=True, today=TODAY) is False
+
+
+def legacy_snapshot(client, repository):
+    """Seed a prior implementation's mistake without touching any operational account."""
+    row = notice()
+    repository.save(row)
+    assert monitoring_api_tests.save(client).status_code == 200
+    store = client.app.state.monitoring_store
+    with store.engine.begin() as connection:
+        connection.execute(update(accounts).where(accounts.c.id == "monitor-0")
+                           .values(gender="male", age=30))
+    profile = MonitoringProfile(job_seeking=True)
+    saved = store.save("monitor-0", profile, enabled=True)
+    found = scan(repository, FEMALE)
+    store.record_scan("monitor-0", [{**NEED, "reason": "취업 지원 탐색", "questions": []}], found,
+                      expected_version=saved["version"])
+    assert store.read("monitor-0")["unread_count"] == 1
+    return store, row
+
+
+@pytest.mark.parametrize("progressed", [False, True])
+def test_monitoring_api_filters_legacy_gender_mismatch_and_preserves_application_history(
+        client, repository, monkeypatch, progressed):
+    store, row = legacy_snapshot(client, repository)
+    if progressed:
+        store.set_candidate_state("monitor-0", row["policy_key"], NEED["id"], "preparing")
+    monkeypatch.setattr(monitoring_api, "get_repository", lambda request: repository)
+    response = client.get("/v1/monitoring")
+    assert response.status_code == 200
+    result = response.json()
+    assert not any(item["active"] for item in result["candidates"])
+    assert result["alerts"] == [] and result["unread_count"] == 0
+    if progressed:
+        assert result["candidates"][0]["application_state"] == "preparing"
+    else:
+        assert result["candidates"] == []
+    # This is a presentation safeguard; a GET does not rewrite saved application data.
+    assert store.read("monitor-0")["candidates"][0]["active"] is True
+
+
+def test_successful_refresh_does_not_repeat_old_wrong_gender_alert(client, repository, monkeypatch):
+    store, _ = legacy_snapshot(client, repository)
+    monkeypatch.setattr(monitoring_api, "get_repository", lambda request: repository)
+    response = client.post("/v1/monitoring/refresh", json={})
+    assert response.status_code == 200
+    assert response.json()["scan_status"] == "ready"
+    assert response.json()["candidates"] == []
+    assert response.json()["alerts"] == []
+    assert response.json()["unread_count"] == 0
+    assert store.read("monitor-0")["candidates"] == []
+
+
+def test_unavailable_source_temporarily_withholds_known_gender_recommendation(client, repository):
+    store, row = legacy_snapshot(client, repository)
+    store.set_candidate_state("monitor-0", row["policy_key"], NEED["id"], "preparing")
+    response = client.get("/v1/monitoring")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["scan_status"] == "unavailable"
+    assert not result["candidates"][0]["active"]
+    assert result["candidates"][0]["application_state"] == "preparing"
+    assert result["unread_count"] == 0
+    assert store.read("monitor-0")["candidates"][0]["active"] is True

@@ -1,5 +1,8 @@
 # contracts
 
+2026-10-08: `matching.RegionName`은 주소 선택·회원 저장과 같은
+`전남광주통합특별시` 값을 허용합니다. 기존 전남·광주 약칭의 호환성을 유지합니다.
+
 2026-10-07: `categories.PolicyCategory`/`POLICY_CATEGORIES`는 8개 분야를,
 `PolicyDisplayCategory`/`POLICY_DISPLAY_CATEGORIES`는 `기타`를 포함한 9개 값을 정의합니다.
 농림축산·어업과 사업·창업을 추가했으며 파싱·관리자·추천 계약이 공유합니다.

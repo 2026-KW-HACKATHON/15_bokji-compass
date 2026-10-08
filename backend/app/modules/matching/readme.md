@@ -1,5 +1,8 @@
 # 사용자 정보와 공고 조건 비교
 
+2026-10-08: 회원·추천 프로필의 `전남광주통합특별시`를 같은 공식 지역명으로
+비교합니다. 저장소의 2026-07-20 지역코드 스냅샷으로 해석하며 전남·광주로 추정하지 않습니다.
+
 담당: 백엔드. 회원 DB 정보와 공개 공고의 정규화 조건을 연결하는 읽기 전용 모듈입니다.
 LLM·네트워크 외부 호출·회원/금융정보 저장·신청 자격 확정은 수행하지 않습니다.
 
@@ -10,6 +13,12 @@ LLM·네트워크 외부 호출·회원/금융정보 저장·신청 자격 확�
   범위로 비교합니다. 직업은 이번 요청의 직장인/자영업자만 명시적으로 연결합니다.
 - `compare_policy(record, facts, catalog=None, today=None) -> dict`: 원문 근거와 공식 지역코드를
   재검증한 뒤 `checks`, `notes`, `status`, `matching_enabled`, `eligibility_decided=false` 반환.
+  `gender_guard`는 정규화에서 빠진 공식 성별 대상의 원문 비교 또는 null이다. 성별 전용
+  원천 항목·지원 대상/선정기준·대상 본문 블록·지원 대상 문맥이 확인된 개요 인용만 사용한다.
+  제목·기관명·혜택·담당자 성별은 제한 근거로 사용하지 않는다. 알려진 불일치는 부분 해석
+  공고도 `not_matched`, 미공개 성별은 `needs_review`로 처리한다. 성별이 이미 필수 논리에
+  표현되어 있으면 기존 OR/NOT과 대상 주체를 따른다. 여성과 동반 아동이 함께 대상이면
+  성인 남성만 제외하고, 남아·나이 미상은 실제 수혜 대상의 추가 확인을 유지한다.
 - `review_questions(comparison, canonical, source, schedule_status=..., logic_states=None)`
   → `list[str]`:
   검증된 비교 결과에서 아직 해소되지 않은 신청 대상·제외 조건의 원문을 안내한다.
@@ -46,7 +55,8 @@ LLM·네트워크 외부 호출·회원/금융정보 저장·신청 자격 확�
 - all/any/not은 참/거짓/미상으로 평가합니다. exclusion은 저장된 논리의 not을 통해 적용하며,
   priority/application/reference를 필수 자격 조건으로 바꾸지 않습니다.
 
-자동 매칭이 꺼져 있거나 coverage가 partial이면 상태는 항상 needs_review입니다.
+자동 매칭이 꺼져 있거나 coverage가 partial이면 기본 상태는 needs_review입니다.
+원문의 명확한 성별 대상과 회원 성별이 불일치하는 경우에는 not_matched로 제외합니다.
 공개 상태·matching_enabled·완전한 논리가 모두 준비된 경우에도 potential_match는 조건 비교
 결과일 뿐 기관의 자격 판정이 아닙니다. 비교 상세와 메인 추천의 기준을 구분합니다.
 메인 추천은 needs_review·not_matched를 제외하고 potential_match만 사용합니다.

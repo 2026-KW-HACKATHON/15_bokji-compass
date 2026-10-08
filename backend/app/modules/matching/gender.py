@@ -34,6 +34,11 @@ _MIXED_AUDIENCE = re.compile(
     r"(?:여성|여자|여아|남성|남자|남아)(?:\s*대상(?:자)?)?\s*(?:및|과|와|[,/·ㆍ])\s*"
     r"(?!동반\s*(?:아동|자녀|어린이)|그\s*(?:의\s*)?자녀)\S"
 )
+_RECIPIENT_CONTEXT = re.compile(
+    r"(?:여성|여자|여아|남성|남자|남아)[^\n.。]{0,80}"
+    r"(?:대상|자격|(?:신청|이용|참여)\s*(?:가능|할\s*수))"
+)
+_REFERENCE_CONTEXT = re.compile(r"담당자|담당\s*(?:직원|부서)|문의처|상담원|홍보|예시|사례")
 
 
 def _referenced(node: LogicNode) -> set[str]:
@@ -70,18 +75,33 @@ def _audience_evidence(record: dict, source: SourcePolicy) -> list[tuple[str, st
                         if line.strip() and not _PRIORITY.search(line))
     evidence.extend(("text", line) for line in _body_targets(source.fields.get("text", ""))
                     if not _PRIORITY.search(line))
-    overview = (record.get("draft_json") or {}).get("overview") or {}
-    section = overview.get("gender_conditions") or {}
+    draft = record.get("draft_json")
+    overview = draft.get("overview") if isinstance(draft, dict) else None
+    section = overview.get("gender_conditions") if isinstance(overview, dict) else None
+    section = section if isinstance(section, dict) else {}
     if section.get("status") == "specified":
         for citation in section.get("evidence") or []:
+            if not isinstance(citation, dict):
+                continue
             field, quote = citation.get("source_field"), citation.get("quote")
             # A translated/inferred summary, a title or an organization name cannot
             # establish a restriction. Use the actual cited audience/source wording.
-            if (field in {"text", "eligibility", "selection", "gender", "gender_conditions"}
+            if (isinstance(field, str)
+                    and field in {"text", "eligibility", "selection", "gender", "gender_conditions"}
                     and isinstance(quote, str) and quote
-                    and quote in source.fields.get(field, "") and not _PRIORITY.search(quote)):
+                    and quote in source.fields.get(field, "") and not _PRIORITY.search(quote)
+                    and (field != "text" or _is_text_target_citation(quote, source))):
                 evidence.append((field, quote))
     return list(dict.fromkeys(evidence))
+
+
+def _is_text_target_citation(quote: str, source: SourcePolicy) -> bool:
+    """A body citation must identify recipients, rather than staff or promotional content."""
+    target_lines = [line for line in _body_targets(source.fields.get("text", ""))
+                    if not _PRIORITY.search(line)]
+    if quote in "\n".join(target_lines):
+        return True
+    return bool(_RECIPIENT_CONTEXT.search(quote)) and not _REFERENCE_CONTEXT.search(quote)
 
 
 def source_gender_guard(record: dict, facts: GenderFacts,
