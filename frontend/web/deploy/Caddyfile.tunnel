@@ -13,11 +13,33 @@ http://:8080 {
 		Cross-Origin-Resource-Policy same-origin
 		Cross-Origin-Opener-Policy same-origin
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		Strict-Transport-Security "max-age=86400"
+		Strict-Transport-Security "max-age=31536000"
 		Content-Security-Policy "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 	}
 	request_body {
 		max_size 256KB
+	}
+	# Cloudflare overwrites this header with the visitor's actual protocol.
+	# Trust it only on this loopback listener behind the managed tunnel.
+	@insecurePublic {
+		not header X-Forwarded-Proto https
+		# Direct loopback checks have no tunnel metadata; forwarded HTTP is never exempt.
+		not {
+			host localhost 127.0.0.1 [::1]
+			not header X-Forwarded-Proto *
+			not header CF-Connecting-IP *
+		}
+	}
+	# Keep this before every content handle, including the API and QR gateway.
+	handle @insecurePublic {
+		header Cache-Control no-store
+		@navigation {
+			method GET HEAD
+			not path /api /api/*
+		}
+		redir @navigation https://{host}{uri} 308
+		# Never redirect credentials/bodies or process any API request over HTTP.
+		respond "HTTPS is required." 403
 	}
 	handle /app-config.js {
 		header Content-Type application/javascript
@@ -41,7 +63,7 @@ http://:8080 {
 		handle @publicApi {
 			reverse_proxy 127.0.0.1:8001 {
 				header_up X-Forwarded-For {http.request.header.Cf-Connecting-Ip}
-				header_up X-Forwarded-Proto https
+				header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
 				header_down Set-Cookie "^(.*)$" "$1; Secure"
 				transport http {
 					dial_timeout 5s

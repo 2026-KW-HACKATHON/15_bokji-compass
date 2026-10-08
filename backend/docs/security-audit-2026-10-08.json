@@ -1,0 +1,1157 @@
+{
+  "target": "https://bokji.commitnaru.com",
+  "date": "2026-10-08",
+  "generatedAt": "2026-10-08T07:36:07.001Z",
+  "scope": "Owner-authorized, non-destructive production security check and read-only local source review",
+  "productionChanged": false,
+  "testAccountsCreated": false,
+  "authenticatedTestingPerformed": false,
+  "limitations": [
+    "No valid member/admin test credentials were provided, so cross-account IDOR and live role escalation were not exercised.",
+    "No brute-force, load testing, stored payloads, email/OTP sends, or account/data modification was performed.",
+    "Local shell execution was unavailable; source review and direct bounded HTTP probes were used.",
+    "Frontend main asset fingerprints changed during the session, so findings are deployment snapshots."
+  ],
+  "findings": [
+    {
+      "id": "BC-01",
+      "severity": "medium",
+      "classification": "Confirmed insecure HTTP application delivery",
+      "evidence": [
+        "HTTP / returns 200 with no Location header.",
+        "HTTP and HTTPS root document SHA-256 were equal in the final paired sample.",
+        "HTTP /app-config.js returns 200.",
+        "HTTP /api/v1/auth/login returns 422 for an invalid, non-executable login payload, not a redirect or transport rejection."
+      ],
+      "impact": "An HTTP client without effective HSTS/HTTPS upgrade protection may load a page or send an authentication request over an unencrypted connection. A network attacker could alter the page or intercept inputs. No real credentials were sent or stolen in this audit.",
+      "remediation": "At the public Cloudflare edge, force HTTPS for bokji.commitnaru.com before serving app/API content. Return a permanent HTTPS redirect for navigation and reject insecure authentication API requests. Retain Secure cookies. Confirm the external result; redirecting all internal Caddy HTTP traffic can loop behind a TLS-terminating tunnel."
+    },
+    {
+      "id": "BC-02",
+      "severity": "low",
+      "classification": "Confirmed deployment hardening gap; exploitation not demonstrated",
+      "evidence": [
+        "Production HTML CSP includes style-src self unsafe-inline and has no style-src-elem override.",
+        "Local Caddy/nginx snippets use style-src-elem self and allow inline style attributes separately.",
+        "HTML response lacks COOP/CORP while private API responses contain them."
+      ],
+      "impact": "The deployed policy allows inline style elements, increasing impact if an independent HTML injection exists. This audit did not establish an HTML injection, CSS-based data theft, or a working XSS.",
+      "remediation": "Deploy the current reviewed CSP/header configuration, using style-src-elem self and style-src-attr unsafe-inline where React requires attributes; verify address search and layout in a browser."
+    }
+  ],
+  "passedChecks": [
+    "Protected member, finance, monitoring and admin GETs reject absent or fabricated credentials.",
+    "Spoofed administrator headers do not grant access.",
+    "Cross-site and null-Origin reads/writes are rejected; untrusted preflight has no ACAO.",
+    "Missing X-Auth-Request rejected; duplicate JSON and malformed inputs rejected without reflecting the password marker.",
+    "Inspected .env, .git and main-source-map paths returned 404.",
+    "Bounded literal SQL-style search produced zero matches and no database error.",
+    "Browser SVG/onload search payload remained input text, title unchanged and no injected SVG node."
+  ],
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security",
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src-elem",
+    "https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/"
+  ],
+  "probes": [
+    {
+      "path": "/app-config.js",
+      "method": "GET",
+      "status": 200,
+      "ms": 710,
+      "type": "application/javascript",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 61,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/health",
+      "method": "GET",
+      "status": 200,
+      "ms": 760,
+      "type": "application/json",
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "status",
+          "service"
+        ]
+      },
+      "bodyBytesAtLeast": 49,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/health/ready",
+      "method": "GET",
+      "status": 200,
+      "ms": 1089,
+      "type": "application/json",
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "status",
+          "database"
+        ]
+      },
+      "bodyBytesAtLeast": 41,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET",
+      "status": 401,
+      "ms": 221,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/admin/session",
+      "method": "GET",
+      "status": 401,
+      "ms": 294,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/admin/accounts",
+      "method": "GET",
+      "status": 401,
+      "ms": 952,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/finance/profile",
+      "method": "GET",
+      "status": 401,
+      "ms": 188,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/admin/policies",
+      "method": "GET",
+      "status": 401,
+      "ms": 193,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/monitoring",
+      "method": "GET",
+      "status": 401,
+      "ms": 321,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/mobile/auth/me",
+      "method": "GET",
+      "status": 401,
+      "ms": 107,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/server-admin/settings",
+      "method": "GET",
+      "status": 404,
+      "ms": 169,
+      "type": null,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/docs",
+      "method": "GET",
+      "status": 404,
+      "ms": 297,
+      "type": null,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/openapi.json",
+      "method": "GET",
+      "status": 404,
+      "ms": 109,
+      "type": null,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/.env",
+      "method": "GET",
+      "status": 404,
+      "ms": 174,
+      "type": null,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/backend/.env",
+      "method": "GET",
+      "status": 404,
+      "ms": 315,
+      "type": null,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/.git/HEAD",
+      "method": "GET",
+      "status": 404,
+      "ms": 94,
+      "type": null,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/.env",
+      "method": "GET",
+      "status": 404,
+      "ms": 170,
+      "type": null,
+      "headers": {
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/assets/index-Ba0DSsv5.js.map",
+      "method": "GET",
+      "status": 404,
+      "ms": 574,
+      "type": null,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/admin/exhibition/",
+      "method": "GET",
+      "status": 401,
+      "ms": 181,
+      "type": "text/html; charset=utf-8",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "no-referrer",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bodyBytesAtLeast": 363,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/security-check-missing.css",
+      "method": "GET",
+      "status": 404,
+      "ms": 189,
+      "type": null,
+      "headers": {
+        "cache-control": "max-age=14400",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET",
+      "status": 403,
+      "ms": 349,
+      "type": "application/json",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "허용된 사이트에서 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 59,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "cross-site member read"
+    },
+    {
+      "path": "/api/v1/finance/profile",
+      "method": "GET",
+      "status": 403,
+      "ms": 668,
+      "type": "application/json",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "허용된 사이트에서 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 59,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "null origin"
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET",
+      "status": 403,
+      "ms": 979,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "허용된 사이트에서 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 59,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "external navigation"
+    },
+    {
+      "path": "/api/v1/admin/accounts",
+      "method": "GET",
+      "status": 401,
+      "ms": 146,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "spoof admin role"
+    },
+    {
+      "path": "/api/v1/mobile/auth/me",
+      "method": "GET",
+      "status": 401,
+      "ms": 362,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "forged mobile token"
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET",
+      "status": 401,
+      "ms": 416,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "forged cookie"
+    },
+    {
+      "path": "/api/v1/policies?limit=1&q=audit-no-match",
+      "method": "GET",
+      "status": 403,
+      "ms": 268,
+      "type": "application/json",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "허용된 사이트에서 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 59,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "cross-site public query"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "OPTIONS",
+      "status": 400,
+      "ms": 324,
+      "type": "text/plain; charset=utf-8",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "bodyBytesAtLeast": 22,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "CORS preflight"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 403,
+      "ms": 434,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "올바른 인증 요청이 아니에요."
+      },
+      "bodyBytesAtLeast": 53,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "login missing custom header"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 403,
+      "ms": 101,
+      "type": "application/json",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "허용된 사이트에서 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 59,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "cross-site malformed login"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 422,
+      "ms": 369,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "JSON 요청 형식을 확인해 주세요."
+      },
+      "bodyBytesAtLeast": 55,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "duplicate JSON key"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 422,
+      "ms": 384,
+      "type": "application/json",
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요."
+      },
+      "bodyBytesAtLeast": 92,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "invalid login format"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "POST",
+      "status": 415,
+      "ms": 207,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "JSON 형식으로 요청해 주세요."
+      },
+      "bodyBytesAtLeast": 51,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "unsupported content type"
+    },
+    {
+      "path": "/api/v1/policies?limit=1&cursor=-1",
+      "method": "GET",
+      "status": 422,
+      "ms": 236,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": [
+          {
+            "type": "string_pattern_mismatch",
+            "loc": [
+              "query",
+              "cursor"
+            ],
+            "msg": "String should match pattern '^(0|[1-9][0-9]{0,5})$'",
+            "input": "-1",
+            "ctx": {
+              "pattern": "^(0|[1-9][0-9]{0,5})$"
+            }
+          }
+        ]
+      },
+      "bodyBytesAtLeast": 187,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "invalid cursor"
+    },
+    {
+      "path": "/api/v1/policies?limit=101",
+      "method": "GET",
+      "status": 422,
+      "ms": 336,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": [
+          {
+            "type": "less_than_equal",
+            "loc": [
+              "query",
+              "limit"
+            ],
+            "msg": "Input should be less than or equal to 100",
+            "input": "101",
+            "ctx": {
+              "le": 100
+            }
+          }
+        ]
+      },
+      "bodyBytesAtLeast": 144,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "invalid query bounds"
+    },
+    {
+      "path": "/api/v1/policies?limit=1&eligible_only=true",
+      "method": "GET",
+      "status": 401,
+      "ms": 122,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "로그인이 필요해요."
+      },
+      "bodyBytesAtLeast": 39,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false,
+      "check": "unauthenticated personalized query"
+    },
+    {
+      "path": "http://bokji.commitnaru.com/",
+      "method": "GET",
+      "status": 200,
+      "location": null
+    },
+    {
+      "url": "http://bokji.commitnaru.com/",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "location": null,
+      "hsts": "max-age=86400",
+      "bytes": 1315,
+      "sha256": "e40748d9047f3bd7791aebab2f2d41f56f6e84677ceacaae5bd92bda035e8ac7",
+      "sameAsHttpsHomepage": false,
+      "containsApp": false,
+      "method": "GET",
+      "check": "plain HTTP exposure"
+    },
+    {
+      "url": "http://bokji.commitnaru.com/app-config.js",
+      "status": 200,
+      "type": "application/javascript",
+      "location": null,
+      "hsts": "max-age=86400",
+      "bytes": 61,
+      "sha256": "fa63a866f5b6c06454801e7647782b0547b9751adfd02e43e4aa149b502e3a94",
+      "method": "GET",
+      "check": "plain HTTP exposure"
+    },
+    {
+      "url": "http://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 401,
+      "type": "application/json",
+      "location": null,
+      "hsts": "max-age=86400",
+      "bytes": 39,
+      "sha256": "b124e24e98619a6c0ced0fc67baad8c1a3833b00cb4afec51980d17398456aca",
+      "method": "GET",
+      "check": "plain HTTP exposure"
+    },
+    {
+      "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+      "status": 422,
+      "location": null,
+      "detail": "아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.",
+      "check": "HTTP login endpoint accepts validation request",
+      "method": "POST"
+    },
+    {
+      "url": "http://bokji.commitnaru.com/",
+      "status": 200,
+      "sha256": "151496524623099ef5cae6e145a412dc18d302041f17565fe811bdde8de380b1",
+      "mainScript": "/assets/index-CXInRWzi.js",
+      "csp": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      "coop": null,
+      "corp": null,
+      "location": null,
+      "method": "GET",
+      "check": "final document comparison"
+    },
+    {
+      "url": "https://bokji.commitnaru.com/",
+      "status": 200,
+      "sha256": "151496524623099ef5cae6e145a412dc18d302041f17565fe811bdde8de380b1",
+      "mainScript": "/assets/index-CXInRWzi.js",
+      "csp": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      "coop": null,
+      "corp": null,
+      "location": null,
+      "method": "GET",
+      "check": "final document comparison"
+    },
+    {
+      "path": "/api/v1/policies?limit=1&search_mode=literal&q='%20OR%20'1'%3D'1",
+      "method": "GET",
+      "status": 200,
+      "ms": 1714,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "items",
+          "total",
+          "nextCursor",
+          "search"
+        ]
+      },
+      "bodyBytesAtLeast": 263,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/policies?limit=1&search_mode=literal&q=%3Csvg%20onload%3D%22document.title%3D'audit-xss-marker'%22%3E",
+      "method": "GET",
+      "status": 200,
+      "ms": 819,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "items",
+          "total",
+          "nextCursor",
+          "search"
+        ]
+      },
+      "bodyBytesAtLeast": 341,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/api/v1/policies/security-audit-missing",
+      "method": "GET",
+      "status": 404,
+      "ms": 236,
+      "type": "application/json",
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "referrer-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      },
+      "sample": {
+        "keys": [
+          "detail"
+        ],
+        "detail": "공개된 공고를 찾을 수 없어요."
+      },
+      "bodyBytesAtLeast": 54,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    },
+    {
+      "path": "/assets/index-DuO2smFC.js.map",
+      "method": "GET",
+      "status": 404,
+      "ms": 195,
+      "type": null,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "strict-transport-security": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "bodyBytesAtLeast": 0,
+      "envExposed": false,
+      "gitHeadExposed": false,
+      "mapExposed": false
+    }
+  ],
+  "browserCheck": {
+    "payload": "<svg onload=\"document.title='audit-xss-marker'\">",
+    "title": "복지나침반",
+    "injectedElementCount": 0,
+    "result": "No execution observed in search route"
+  }
+}

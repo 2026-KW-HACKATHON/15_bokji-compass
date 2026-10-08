@@ -1,5 +1,16 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 공통 전송 보안 (2026-10-08)
+
+production의 `/v1/` 처리에는 HTTPS가 필요합니다. ASGI 서버가 신뢰하는 프록시에서
+확인한 scheme을 사용하며, HTTP는 본문·인증·DB 처리 전에 403으로 거부합니다.
+클라이언트가 직접 보낸 `X-Forwarded-Proto: https`만으로 허용하지 않습니다.
+공개 Caddy도 HTTP `/api`와 하위 경로의 모든 메서드를 403으로 거부하며 전환하지 않습니다.
+HTTP 화면의 GET·HEAD만 경로·쿼리를 보존해 HTTPS로 308 전환합니다.
+개발·테스트 HTTP와 별도 health 경로는 유지합니다. 프록시는 루프백으로 제한하고,
+전시 QR의 고정 로컬 관리자 권한 확인에는 별도의 신뢰 프록시 정보를 명시합니다.
+[구현·검증·배포 반영](backend/docs/web-security.md). 이번 보완은 로컬에만 반영했습니다.
+
 ## 생활반경 지역 복지 (2026-10-08)
 
 공개 `GET /v1/local-services?region=서울&district=노원구&neighborhood=월계1동`는

@@ -33,6 +33,13 @@
 
 ## 접근 제한과 역할
 
+2026-10-08 HTTPS 전송 보완: 공개 HTTP QR 요청은 Caddy에서 HTTPS로 전환하고 쓰기는
+거부합니다. QR 게이트웨이가 생성하는 별도의 관리자 권한 확인은 고정 루프백 주소에만
+전송하며 `X-Forwarded-Proto: https`를 명시해 production API의 전송 요구와 호환됩니다.
+방문자의 전달 헤더를 내부 인증 호출에 복사하지 않습니다. Uvicorn은 루프백 프록시만
+신뢰해야 하며 모든 호출에서 기존 쿠키·관리자 권한을 다시 검사합니다.
+`tests/exhibition.test.js`의 인증 대역도 HTTPS 전달 정보와 쿠키를 함께 요구합니다.
+
 - `server.mjs`: loopback 전용 HTTP 서버, 정해진 HTML/CSS/JS/로고만 제공. 모든 화면·자산·API·QR 요청에서 `bokji_session`을 고정된 로컬 `/v1/admin/session`에 검증합니다. 비로그인 401, 일반 회원 403, 인증 서버 장애 503. Host·Origin·교차 사이트 검사, no-store/CSP/frame 차단, GET만 허용. 사용자 입력 URL로 외부 서버에 접속하지 않습니다.
 - `urls.mjs`: 공개 HTTPS 주소 검증, 서비스 소개 URL 및 APK URL 생성. 입력의 인증정보·쿼리·fragment·임의 포트·로컬 주소 차단. `destinations(origin, apkOverride?)`는 검증한 도메인에 `/#guide`를 붙여 `{web, android, temporary}`를 반환합니다.
 - `page.js`: 자동 상태 갱신, 적용된 주소와 QR 일치, APK 다운로드 버튼·등록 상태 연동, 주소 오류/권한 만료 시 링크 제거, PNG 저장·복사·인쇄.
