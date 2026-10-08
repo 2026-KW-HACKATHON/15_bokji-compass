@@ -70,6 +70,11 @@ export default function MonitoringPanel({
   const requests = useRef(new Set());
   const mounted = useRef(false);
   const [snapshot, setSnapshot] = useState(null);
+  const snapshotVersion = useRef(0);
+  const feedbackRequest = useRef(null);
+  const candidateList = useRef(null);
+  const [pendingFeedback, setPendingFeedback] = useState(null);
+  const [feedbackError, setFeedbackError] = useState(null);
   const [draft, setDraft] = useState(initial.current);
   const [enabled, setEnabled] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -108,6 +113,15 @@ export default function MonitoringPanel({
   const id = (name) => `${prefix}-${name}`;
   const displayedCandidates =
     view === 'progress' && assistant ? overview?.progress || [] : activeCandidates;
+  const visibleCandidates = displayedCandidates.filter(
+    (candidate) => candidate.policy_id !== pendingFeedback,
+  );
+  // Keep the pending card mounted so a failed save restores the selected reason.
+  const renderedCandidates = displayedCandidates.filter(
+    (candidate) =>
+      candidate.policy_id === pendingFeedback ||
+      visibleCandidates.slice(0, candidateLimit).includes(candidate),
+  );
   const show = (section) =>
     notices
       ? section === 'alerts'
@@ -160,6 +174,11 @@ export default function MonitoringPanel({
 
   useEffect(() => {
     mounted.current = true;
+    snapshotVersion.current += 1;
+    const version = snapshotVersion.current;
+    feedbackRequest.current = null;
+    setPendingFeedback(null);
+    setFeedbackError(null);
     setSnapshot(null);
     setDraft(initial.current);
     setConsent(false);
@@ -179,7 +198,12 @@ export default function MonitoringPanel({
     api
       .read({ signal: controller.signal })
       .then((value) => {
-        if (controller.signal.aborted || currentOwner.current !== owner) return;
+        if (
+          controller.signal.aborted ||
+          currentOwner.current !== owner ||
+          version !== snapshotVersion.current
+        )
+          return;
         setSnapshot(value);
         setDraft(value.profile || initial.current);
         setEnabled(value.enabled);
@@ -207,10 +231,17 @@ export default function MonitoringPanel({
     if (!available) return;
     const controller = new AbortController();
     requests.current.add(controller);
+    const version = snapshotVersion.current;
     api
       .read({ signal: controller.signal })
       .then((value) => {
-        if (controller.signal.aborted || !mounted.current || currentOwner.current !== owner) return;
+        if (
+          controller.signal.aborted ||
+          !mounted.current ||
+          currentOwner.current !== owner ||
+          version !== snapshotVersion.current
+        )
+          return;
         setSnapshot(value);
         if (!editingRef.current) {
           setDraft(value.profile || initial.current);
@@ -218,7 +249,12 @@ export default function MonitoringPanel({
         }
       })
       .catch((failure) => {
-        if (!controller.signal.aborted && mounted.current && currentOwner.current === owner)
+        if (
+          !controller.signal.aborted &&
+          mounted.current &&
+          currentOwner.current === owner &&
+          version === snapshotVersion.current
+        )
           setError(errorMessage(failure));
       })
       .finally(() => requests.current.delete(controller));
@@ -234,11 +270,17 @@ export default function MonitoringPanel({
       if (pending || document.visibilityState === 'hidden') return;
       pending = true;
       const controller = new AbortController();
+      const version = snapshotVersion.current;
       controllers.add(controller);
       requests.current.add(controller);
       try {
         const value = await api.read({ signal: controller.signal });
-        if (active && !controller.signal.aborted && currentOwner.current === owner)
+        if (
+          active &&
+          !controller.signal.aborted &&
+          currentOwner.current === owner &&
+          version === snapshotVersion.current
+        )
           setSnapshot(value);
       } catch {
         // The last successful snapshot remains visible; actions expose retryable errors.
@@ -261,7 +303,8 @@ export default function MonitoringPanel({
   }, [owner, available, snapshot?.enabled, busy]);
 
   async function change(action, operation, success, apply) {
-    if (busy || !available) return;
+    if (busy || !available) return false;
+    snapshotVersion.current += 1;
     const controller = new AbortController();
     requests.current.add(controller);
     setBusy(action);
@@ -273,8 +316,10 @@ export default function MonitoringPanel({
       if (value?.updated === true) {
         const latest = await api.read({ signal: controller.signal });
         if (controller.signal.aborted || !mounted.current || currentOwner.current !== owner) return;
+        snapshotVersion.current += 1;
         setSnapshot(latest);
       } else {
+        snapshotVersion.current += 1;
         setSnapshot(value);
         apply?.(value);
       }
@@ -283,6 +328,7 @@ export default function MonitoringPanel({
           ? '지원 공고를 확인하지 못했어요. 기존 안내를 유지했어요.'
           : success,
       );
+      return true;
     } catch (failure) {
       if (!controller.signal.aborted && mounted.current && currentOwner.current === owner)
         setError(
@@ -292,11 +338,36 @@ export default function MonitoringPanel({
               : '서류 준비 상태를 저장하지 못했어요. 다시 시도해 주세요.'
             : errorMessage(failure),
         );
+      return false;
     } finally {
       requests.current.delete(controller);
       if (!controller.signal.aborted && mounted.current && currentOwner.current === owner)
         setBusy('');
     }
+  }
+
+  async function excludeCandidate(candidate, reason) {
+    if (busy || !available || feedbackRequest.current) return;
+    const attempt = { owner, policyId: candidate.policy_id };
+    feedbackRequest.current = attempt;
+    setFeedbackError(null);
+    setPendingFeedback(candidate.policy_id);
+    window.requestAnimationFrame(() => {
+      const next = candidateList.current?.querySelector(
+        '.monitoring-candidate:not([hidden]) h4 button',
+      );
+      (next || detail.current)?.focus({ preventScroll: true });
+    });
+    const saved = await change(
+      'feedback',
+      (options) => api.feedback(candidate, reason, options),
+      '추천에서 제외했어요. 선택한 이유를 다음 추천에 반영할게요.',
+    );
+    if (!mounted.current || currentOwner.current !== owner || feedbackRequest.current !== attempt)
+      return;
+    feedbackRequest.current = null;
+    setPendingFeedback(null);
+    if (!saved) setFeedbackError(candidate.policy_id);
   }
 
   function submit(event) {
@@ -895,17 +966,24 @@ export default function MonitoringPanel({
                             ? t('신청 진행 상태')
                             : t('관련 지원 후보')}{' '}
                           <span>
-                            {displayedCandidates.length}
+                            {visibleCandidates.length}
                             {t('개')}
                           </span>
                         </h3>
                       </div>
+                      {pendingFeedback && (
+                        <p className="recommendation-feedback-status" role="status">
+                          {t('추천에서 제외하는 중이에요.')}
+                        </p>
+                      )}
                       {displayedCandidates.length ? (
-                        <div className="monitoring-candidates">
-                          {displayedCandidates.slice(0, candidateLimit).map((candidate) => (
+                        <div className="monitoring-candidates" ref={candidateList}>
+                          {renderedCandidates.map((candidate) => (
                             <Candidate
                               key={`${candidate.need_id}:${candidate.policy_id}`}
                               candidate={candidate}
+                              hidden={candidate.policy_id === pendingFeedback}
+                              feedbackError={candidate.policy_id === feedbackError}
                               disabled={!!busy}
                               onOpen={onOpen}
                               manageProgress={assistant && view === 'progress'}
@@ -920,13 +998,7 @@ export default function MonitoringPanel({
                                       )
                                   : undefined
                               }
-                              onFeedback={(reason) =>
-                                void change(
-                                  'feedback',
-                                  (options) => api.feedback(candidate, reason, options),
-                                  '추천에서 제외했어요. 선택한 이유를 다음 추천에 반영할게요.',
-                                )
-                              }
+                              onFeedback={(reason) => void excludeCandidate(candidate, reason)}
                               onState={(state) =>
                                 void change(
                                   'state',
@@ -975,9 +1047,9 @@ export default function MonitoringPanel({
                             {t('새 공고 안내 켜기')}
                           </button>
                         )}
-                      {displayedCandidates.length > 3 && (
+                      {visibleCandidates.length > 3 && (
                         <div className="monitoring-actions">
-                          {candidateLimit < displayedCandidates.length && (
+                          {candidateLimit < visibleCandidates.length && (
                             <button
                               className="button secondary"
                               onClick={() => setCandidateLimit((value) => value + 3)}
@@ -993,8 +1065,8 @@ export default function MonitoringPanel({
                             </button>
                           )}
                           <span className="fine-print">
-                            {Math.min(candidateLimit, displayedCandidates.length)} /{' '}
-                            {displayedCandidates.length}
+                            {Math.min(candidateLimit, visibleCandidates.length)} /{' '}
+                            {visibleCandidates.length}
                             {t('개 표시')}{' '}
                           </span>
                         </div>
@@ -1302,6 +1374,8 @@ function Questions({ questions, label = '신청 전 확인사항' }) {
 }
 function Candidate({
   candidate,
+  hidden = false,
+  feedbackError = false,
   disabled,
   onOpen,
   onState,
@@ -1317,7 +1391,7 @@ function Candidate({
   const { policy } = translation;
   const source = safeSourceUrl(policy.sourceUrl);
   return (
-    <article ref={translation.ref} className="monitoring-candidate">
+    <article ref={translation.ref} className="monitoring-candidate" hidden={hidden}>
       <div className="monitoring-candidate-top">
         <span className="soft-badge">
           {!active
@@ -1411,7 +1485,7 @@ function Candidate({
         applicationUnavailable={!active}
       />
       {active && !manageProgress && onFeedback && (
-        <RecommendationFeedbackForm disabled={disabled} onSave={onFeedback} />
+        <RecommendationFeedbackForm disabled={disabled} onSave={onFeedback} error={feedbackError} />
       )}
     </article>
   );

@@ -3,9 +3,12 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.responses import FileResponse
 
 from app.api.mobile_auth import Credentials
 from app.contracts.translation import PolicyLanguage, PolicyTranslationResponse
+from app.modules.attachments.public import AttachmentUnavailable, attachment_file
+from app.modules.collectors.data_go_kr import CollectionTransportError
 from app.modules.policy_translation.public import TranslationError, translate_public_policy
 from app.modules.storage import catalog
 from app.modules.storage.public import PolicyRepository
@@ -125,6 +128,29 @@ def get_policy(policy_key: str, repository: Repository):
     if result is None:
         raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
     return result
+
+
+@router.get("/{policy_key}/attachments/{identifier}")
+def get_attachment(
+    policy_key: str,
+    identifier: Annotated[str, Path(pattern=r"^[a-f0-9]{64}$")],
+    repository: Repository,
+    download: bool = False,
+):
+    policy = catalog.get_policy(repository, policy_key)
+    revision = repository.get_revision(policy["revisionId"]) if policy else None
+    if revision is None:
+        raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
+    try:
+        path, name, content_type = attachment_file(revision["source_json"], identifier)
+    except KeyError:
+        raise HTTPException(404, "이 공고의 첨부 파일을 찾을 수 없어요.") from None
+    except (AttachmentUnavailable, CollectionTransportError, OSError, ValueError):
+        raise HTTPException(502,
+            "공식 첨부 파일을 가져오지 못했어요. 공고 원문에서 확인해 주세요.") from None
+    return FileResponse(path, media_type=content_type, filename=name,
+        content_disposition_type="attachment" if download or content_type != "application/pdf"
+        else "inline", headers={"Cache-Control": "private, no-cache"})
 
 
 async def validate_translation_request(request: Request):

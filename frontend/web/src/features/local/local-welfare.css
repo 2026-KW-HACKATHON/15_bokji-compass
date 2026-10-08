@@ -44,7 +44,7 @@
   border-radius: 12px;
 }
 .local-area-input > svg {
-  color: var(--green);
+  color: var(--accent);
   flex-shrink: 0;
 }
 .local-area-input input {
@@ -125,7 +125,7 @@
   font-size: 0.88rem;
 }
 .local-scope-filter button[aria-pressed='true'] {
-  color: var(--green);
+  color: var(--accent);
   border-color: #78a9cb;
   background: #edf6fd;
   font-weight: 650;
@@ -137,8 +137,8 @@
 }
 .local-neighborhood-badge {
   align-self: flex-start;
-  color: #2e674d;
-  background: #edf5ef;
+  color: var(--muted);
+  background: var(--surface-muted);
   border-radius: 5px;
   padding: 3px 8px;
   margin-top: 10px;
@@ -173,7 +173,7 @@
 }
 .local-result-count {
   font-size: 0.86rem;
-  color: var(--green);
+  color: var(--accent);
 }
 .local-scope-note {
   margin-top: 10px;
@@ -236,8 +236,8 @@
   color: #296593;
 }
 .local-icon-health {
-  background: #edf5ef;
-  color: #387051;
+  background: var(--health-soft);
+  color: var(--health-accent);
 }
 .local-icon-culture {
   background: #f6f1e5;
@@ -287,7 +287,7 @@
   padding-top: 14px;
   min-height: 44px;
   font-size: 0.9rem;
-  color: var(--green);
+  color: var(--accent);
   font-weight: 650;
 }
 .local-source a:hover {

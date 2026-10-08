@@ -14,6 +14,7 @@ export const portalSections = [
     label: 'AI 비서',
     links: [
       { id: 'assistant-intro', label: '서비스 소개' },
+      { id: 'assistant-chat', label: 'AI 비서와 대화하기' },
       { id: 'assistant-overview', label: '내 복지 현황' },
       { id: 'assistant-monitoring', label: '지속 복지 안내' },
     ],

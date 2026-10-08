@@ -25,7 +25,7 @@
 }
 .profile-tabs [aria-selected='true'] {
   background: var(--soft);
-  color: var(--green);
+  color: var(--accent);
   font-weight: 750;
 }
 .profile-draft-dot {
@@ -34,7 +34,7 @@
   height: 6px;
   margin-left: 6px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--accent);
   vertical-align: middle;
 }
 .profile-overview-heading {
@@ -67,7 +67,7 @@
   min-width: 0;
 }
 .profile-category-card:hover {
-  border-color: var(--green);
+  border-color: var(--accent);
   background: #f5fbff;
 }
 .profile-category-top {
@@ -84,7 +84,7 @@
   width: 42px;
   height: 42px;
   background: var(--soft);
-  color: var(--green);
+  color: var(--accent);
   border-radius: 12px;
 }
 .profile-status {
@@ -96,7 +96,7 @@
   background: #f1f5f9;
 }
 .profile-status.is-filled {
-  color: var(--green);
+  color: var(--accent);
   background: var(--soft);
 }
 .profile-category-card strong {
@@ -125,7 +125,7 @@
   padding-top: 14px;
   margin-top: auto;
   border-top: 1px solid var(--line);
-  color: var(--green);
+  color: var(--accent);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -176,7 +176,7 @@
 }
 .profile-recommendation-options > summary,
 .profile-finance-details > summary {
-  color: var(--green);
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.9rem;
   min-height: 44px;
@@ -218,7 +218,7 @@
   text-align: center;
 }
 .profile-finance-empty > svg {
-  color: var(--green);
+  color: var(--accent);
 }
 .profile-finance-empty p,
 .profile-finance-error {

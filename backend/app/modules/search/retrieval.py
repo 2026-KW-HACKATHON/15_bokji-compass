@@ -2,6 +2,7 @@
 
 import re
 
+from app.modules.search.geography import region_evidence
 from app.modules.search.interpretation import CONCEPT_TERMS
 from app.modules.search.relations import (
     compact,
@@ -19,7 +20,7 @@ ROLE_LABEL = {"target": "공고에 해당 학교의 대상·신청 안내가 있
               "mention": "공고 내용에 검색한 기관이 언급돼요.",
               "benefit": "찾는 지원 내용과 관련된 공고예요.",
               "literal": "공고의 주요 내용에 검색어가 있어요."}
-AUDIENCE_TERMS = {"student": ("대학생", "재학생", "학부생", "대학원생"),
+AUDIENCE_TERMS = {"student": ("대학생", "재학생", "학부생", "대학원생", "휴학생"),
                   "young": ("청년", "청소년"), "senior": ("어르신", "노인", "고령"),
                   "family": ("가족", "가구", "부모", "자녀", "양육"),
                   "disabled": ("장애",), "worker": ("근로자", "직장인", "재직자"),
@@ -103,8 +104,15 @@ def score_record(record, plan):
         evidence.append(matched[1])
         if "benefit" not in relations:
             relations.append("benefit")
+    for concept in plan.background_concepts:
+        matched = _concept_match(facts, CONCEPT_TERMS.get(concept, (concept,)))
+        if matched is not None:
+            score += matched[0] // 2
+            evidence.append(matched[1])
     for term in plan.terms:
         matched = _concept_match(facts, (term,))
+        if matched is None:
+            matched = region_evidence(record, term, facts)
         if matched is None:
             return None
         score += matched[0]
@@ -155,12 +163,55 @@ def score_record(record, plan):
             relations.append("literal")
     if not relations:
         return None
+    reason = ROLE_LABEL[relations[0]]
+    if "student_leave" in plan.contexts:
+        adjustment, proof, note = _leave_relevance(facts)
+        score += adjustment
+        if proof is not None:
+            evidence.insert(0, proof)
+            reason += " " + note
     unique = []
     for item in evidence:
         if item not in unique:
             unique.append(item)
-    return score, {"relations": relations, "reason": ROLE_LABEL[relations[0]],
+    return score, {"relations": relations, "reason": reason,
                    "evidence": unique[:3]}
+
+
+def _leave_relevance(facts):
+    """Prefer explicit leave guidance, demote exclusions, keep unknown candidates."""
+    positive = None
+    restricted = None
+    for fact in facts:
+        if fact.kind not in {"target", "body"}:
+            continue
+        excluded_section = False
+        for sentence in re.split(r"[\n。,;]|(?<=[.!?])\s+", fact.text):
+            text = compact(sentence)
+            if re.fullmatch(r"[\d.)·-]*(?:지원|신청)?제외(?:대상|조건|요건)[:：]?", text):
+                excluded_section = True
+                continue
+            if re.match(r"^[\d.)·-]*(?:지원대상|신청대상|신청방법|지원내용|제출서류|유의사항)",
+                        text):
+                excluded_section = False
+            leave = re.search(r"휴학(?:생|중|자|한학생)", text)
+            if leave:
+                window = text[max(0, leave.start() - 12):leave.end() + 24]
+                if excluded_section or re.search(
+                        r"(?:제외|불가|불가능|미포함|미지급)(?!없|아니|아님)|"
+                        r"신청할수없|지원하지않", window):
+                    return (-80, fact.evidence(leave.group()),
+                            "공고에 휴학생 제외 안내가 있어요. 신청 요건을 먼저 확인해 주세요.")
+                if re.search(r"포함|가능|대상|허용|지원", window):
+                    positive = fact.evidence(leave.group())
+            elif fact.kind == "target" and re.search(r"재학생만|재학중인학생만", text):
+                restricted = fact.evidence("재학")
+    if positive is not None:
+        return (20, positive, "공고에 휴학생 관련 신청 안내가 있어요. 세부 요건을 확인해 주세요.")
+    if restricted is not None:
+        return (-50, restricted,
+                "재학생으로 대상을 제한하는 안내가 있어 신청 요건 확인이 필요해요.")
+    return 0, None, ""
 
 
 def _contradictory_audience(facts, audience):

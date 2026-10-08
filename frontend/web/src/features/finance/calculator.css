@@ -10,8 +10,8 @@
   margin-block: 24px 18px;
   padding: clamp(20px, 4vw, 32px);
   border-radius: 14px;
-  background: #edf7ef;
-  color: #274f42;
+  background: var(--surface-muted);
+  color: var(--ink);
 }
 .median-summary > p {
   margin: 0 0 12px;
@@ -42,8 +42,8 @@
   border-radius: 12px;
 }
 .median-thresholds .median-base {
-  background: #edf7ef;
-  border-color: #bbdacd;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
 }
 .median-thresholds dt {
   color: var(--muted);
@@ -70,10 +70,10 @@
   align-items: flex-start;
   gap: 12px;
   padding: 18px 20px;
-  border: 1px solid #bbdacd;
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
-  background: #f1f8f4;
-  color: #274f42;
+  background: var(--surface-muted);
+  color: var(--ink);
 }
 .finance-input-guide {
   margin-block: 18px 24px;
@@ -98,8 +98,8 @@
   font-size: 0.88rem;
 }
 .finance-progress li[aria-current='step'] {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 750;
 }
 .finance-progress li span {
@@ -144,7 +144,7 @@
   flex: 0 0 32px;
   height: 32px;
   border-radius: 50%;
-  color: var(--green);
+  color: var(--accent);
   background: var(--soft);
   font-size: 1rem;
 }
@@ -262,11 +262,11 @@
   cursor: pointer;
 }
 .finance-presence button[aria-pressed='true'] {
-  border-color: var(--green);
+  border-color: var(--accent);
   background: var(--soft);
-  color: var(--green);
+  color: var(--accent);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--green);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .finance-presence button:disabled {
   cursor: wait;
@@ -393,7 +393,7 @@
   height: 22px;
   flex: 0 0 22px;
   margin: 3px 0 0;
-  accent-color: var(--green);
+  accent-color: var(--accent);
 }
 .finance-optional {
   display: inline-block;
@@ -518,14 +518,14 @@
   background: #eaf4fc;
 }
 .finance-result-summary > div + div {
-  background: #edf7ef;
+  background: var(--surface-muted);
 }
 .finance-result-summary span {
   color: var(--muted);
   font-size: 0.9rem;
 }
 .finance-result-summary strong {
-  color: #174f7a;
+  color: var(--ink);
   font-size: clamp(1.25rem, 2.4vw, 1.9rem);
   overflow-wrap: anywhere;
 }
@@ -596,7 +596,7 @@
   color: #506579;
 }
 .finance-check-state.within {
-  color: #286349;
+  color: var(--success);
 }
 .finance-check-state.over {
   color: #963e2d;
@@ -699,7 +699,7 @@
   color: var(--muted);
 }
 .easy-mode .finance-progress-current strong {
-  color: var(--green);
+  color: var(--accent);
   font-size: 1.125rem;
 }
 .easy-mode .finance-progress-wrap {

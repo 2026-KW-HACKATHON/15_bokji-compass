@@ -79,11 +79,9 @@ test('changing account gender refreshes recommendations and discards the previou
   await page.goto('/#assistant-overview');
   await expect(page.locator('.monitoring-candidate')).toContainText(policy.title);
   await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
-  const conversation = page.locator('.assistant-page-conversation');
-  await conversation
-    .getByRole('textbox', { name: '어떤 도움이 필요하세요?' })
-    .fill('지원 공고 안내');
-  await conversation.getByRole('button', { name: '상담 시작하기', exact: true }).click();
+  const conversation = page.getByRole('region', { name: 'AI 비서 대화', exact: true });
+  await conversation.getByRole('textbox', { name: 'AI 비서에게 물어보기' }).fill('지원 공고 안내');
+  await conversation.getByRole('button', { name: '보내기', exact: true }).click();
   await expect(conversation).toContainText('시험용 여성 지원 상담 응답');
 
   // Hash navigation keeps the tab's conversation in memory, so the saved member
@@ -113,11 +111,9 @@ test('changing account gender refreshes recommendations and discards the previou
   await expect(page.locator('.assistant-page-conversation')).toHaveCount(0);
   await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
   await expect(
-    page.locator('.assistant-page-conversation').getByRole('textbox', {
-      name: '어떤 도움이 필요하세요?',
+    conversation.getByRole('textbox', {
+      name: 'AI 비서에게 물어보기',
     }),
   ).toHaveValue('');
-  await expect(page.locator('.assistant-page-conversation')).not.toContainText(
-    '시험용 여성 지원 상담 응답',
-  );
+  await expect(conversation).not.toContainText('시험용 여성 지원 상담 응답');
 });

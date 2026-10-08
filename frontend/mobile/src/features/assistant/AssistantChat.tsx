@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   selected: {
     padding: 16,
     borderRadius: 18,
-    backgroundColor: "#E8F2ED",
+    backgroundColor: colors.assistBackground,
     gap: 10,
   },
   tag: { fontSize: 15, lineHeight: 23, color: colors.muted, fontWeight: "600" },
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   disclosure: { minHeight: 48, justifyContent: "center" },
   quote: {
     borderLeftWidth: 3,
-    borderColor: colors.green,
+    borderColor: colors.assist,
     paddingLeft: 12,
     paddingVertical: 6,
   },

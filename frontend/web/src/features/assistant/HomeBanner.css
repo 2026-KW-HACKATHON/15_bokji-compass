@@ -72,7 +72,7 @@
 }
 .home-banner-dots button[aria-pressed='true'] span {
   width: 19px;
-  background: var(--green);
+  background: var(--accent);
 }
 .home-banner-counter {
   font-size: 0.75rem;

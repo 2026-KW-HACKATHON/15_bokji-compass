@@ -1,5 +1,8 @@
 # 웹·모바일 공통 번역
 
+2026-10-08: `navigationMessages.js`에 추천 제외 저장 중 안내와 실패 후 카드 복원
+안내의 5개 언어 문구를 추가했습니다.
+
 2026-10-08: `commonMessages.js`의 공통 하단 AI 안내를 간결한 격식체로 바꾸고 네 외국어 번역도 줄였습니다. `translate(locale, source) -> string` 계약은 동일합니다.
 
 2026-10-08: `navigationMessages.js`에 종 알림 목록·미읽음 수·공고 연결·실패 안내를

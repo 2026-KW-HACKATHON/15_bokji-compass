@@ -35,8 +35,8 @@ DB 오류는 SQLAlchemyError, 입력/근거 오류는 ValueError, 모델 오류�
 프로필을 사용하지 않는다. 로그인 회원의 외부 AI 답변은 기존 AI 개인정보 동의 검사를 유지한다.
 입력은 revision_id/question만 허용하며 프로필은 서버가 로그인 계정의 지역·연령대로 구성한다.
 웹 공고 상세의 질문 화면과 연결했다. 초안 접근 옵션은 HTTP에 노출하지 않는다.
-공고 원문 질문은 회원당 또는 비로그인 접속 IP당 분당 6회다. 외부 모델은 서버 프로세스당
-동시 2회, 60초 제한이다.
+공고 원문 질문과 생활 상담에는 회원·비회원별 질문 횟수 제한이나 외부 모델 동시 답변 수
+제한을 적용하지 않는다. 입력 2,000자 검증과 외부 모델 실행 시간 60초는 유지한다.
 금융 판정이나 신청 작업은 수행하지 않는다.
 테스트: python -m pytest tests/test_assistant.py.
 [전체 안내](../../../docs/policy-storage.md) · [실증 기록](../../../docs/worklog.md).
@@ -45,13 +45,18 @@ DB 오류는 SQLAlchemyError, 입력/근거 오류는 ValueError, 모델 오류�
 
 `POST /v1/assistant/chat/dialogue`는 로그인 없이 이용하는 일반 챗봇의 별도 경로다.
 외부 AI 호출과 계정 조회 없이 결정된 질문·공개 공고로 상담한다. 무작위 HttpOnly 쿠키로
-브라우저별 임시 사실을 구분하며 최대 30분만 유지한다. 계정 저장은 제공하지 않는다.
+브라우저별 임시 사실을 구분하며 마지막 입력 후 30분 동안 유지한다. 입력을 이어가면
+만료 시간이 갱신되며 단순 조회는 연장하지 않는다. 계정 저장은 제공하지 않는다.
 AI 비서의 `/dialogue`와 `/dialogue/profile`은 기존 회원 인증과 저장 동의를 유지한다.
 
 `dialogue.respond(repository | None, member, DialogueInput, DialogueStore,
 saved_profile=MonitoringProfile | None)`은 모델 호출 없이 검토된 질문으로 필요한 정보를 모은다.
 `POST /v1/assistant/dialogue`의 첫 요청은 `{question, revision_id?}`, 이어지는 요청은
-`{continuation, answer:{slot,value}}`다. 슬롯이 가리키는 현재 질문에 직접 답한 값만 비교에 쓴다.
+`{continuation, answer:{slot,value}}` 또는 자유 후속 질문 `{continuation, question}`이다.
+현재 질문에 직접 답한 짧고 유효한 값만 사실로 확인한다. 자유 질문은 같은 대화의 문맥으로
+공고를 다시 탐색하거나 공식 신청 방법·기간·서류를 안내한다. 이전 후보가 여러 개면 제목이나
+‘첫 번째 공고’로 대상을 지정하며 후보의 공개 개정 ID만 임시 보관한다. 질문 문장에서
+여러 생활정보를 자동 추출하지 않고 다른 사람의 상황은 기존 본인 정보와 분리한다.
 일반 질문은 기존 공개공고 검색을 이용해 여러 지원 분야를 탐색한다. 주거 개선·취업·재난·누수는
 지원하는 추가 질문의 사례이며 상담 분야를 제한하는 선택지가 아니다. 질문으로 소유·실업·피해를 확정하지
 않는다. 안내 대상도 본인 현재 상황, 다른 사람, 가정·관심 상황으로 직접 확인한다.
@@ -60,7 +65,8 @@ saved_profile=MonitoringProfile | None)`은 모델 호출 없이 검토된 질�
 `continuation`, `profile_draft`, `confirmed_fields`, `can_save_profile`, `answer_accepted`,
 `candidates`, `candidate_count`, `selected_policy`, `catalog_status`, `practical_steps`,
 `source_links`, `session_notice`, `eligibility_decided:false`가 있다.
-`answer_accepted`는 새 질문에서 null, 유효 답변·건너뛰기에서 true, 다시 입력이 필요하면 false다.
+`answer_accepted`는 자유 질문에서 null, 구조화된 유효 답변·건너뛰기에서 true,
+구조화된 답변을 다시 입력해야 하면 false다.
 
 `building_year`는 `1920년 건축`처럼 제한된 짧은 표현도 받는다. 여러 연도·추측 표현·다른 사람의
 상황을 포함한 모호한 답은 같은 질문으로 재확인한다. `null`이나 `모르겠어요`는 건너뛰며 같은
@@ -88,7 +94,8 @@ saved_profile=MonitoringProfile | None)`은 모델 호출 없이 검토된 질�
 
 `DialogueStore`는 무작위 opaque 토큰으로 계정에 묶인 최소 구조화 상태만 서버 메모리에 둔다.
 질문 원문·전체 대화·공고 결과·다른 계정의 정보는 저장하지 않는다. 일반 탐색에서는 제한된
-검색 의도(분야·기관·포함/제외 검색어)를 임시 보관하며, 자격 사실이나 저장할 프로필로 승격하지 않는다. 최초 질문부터 30분 이후 접근을
+검색 의도(분야·기관·포함/제외 검색어)와 이전 후보의 공개 개정 ID를 임시 보관하며,
+자격 사실이나 저장할 프로필로 승격하지 않는다. 마지막 입력부터 30분 이후 접근을
 거절하고 앱 수명 주기의 `prune_expired()` 호출이 만료 정보를 30초 간격으로 정리한다.
 접근 시에도 만료 항목을 정리한다. 최대 2,000개 상태를 유지하며 서버 재시작이나 다른
 프로세스에서는 대화를 다시 시작해야 한다. 여러 서버 프로세스를 운영하려면 계정 범위·만료·삭제
@@ -103,3 +110,7 @@ saved_profile=MonitoringProfile | None)`은 모델 호출 없이 검토된 질�
 검증: `python -m pytest tests/test_assistant_dialogue.py tests/test_assistant.py
 tests/test_assistant_faq.py` — 54개 통과. 계정 격리·토큰 변조·만료·동시 답변·저장 재시도·1920년 응답·
 알 수 없음 건너뛰기·제3자 질문·누수 대처·공개 원문 재비교·공고 철회·DB 장애를 포함한다.
+
+## 자유 대화 모드
+
+`DialogueInput.mode="conversation"`은 설문 대신 메시지의 의도에 답합니다. `respond()`가 내부 `dialogue_conversation`으로 분기하며 같은 토큰의 파생 검색 문맥과 공개 공고 참조를 유지합니다. 반환의 `follow_up`은 null이고 저장할 생활정보를 자동 생성하지 않습니다. 호출·오류·보관·검증은 [자유 대화 계약](../../../docs/free-conversation.md)을 따릅니다. 기존 mode 생략 경로는 단계별 상담입니다.

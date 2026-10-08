@@ -72,7 +72,7 @@ async function setup(page, initial = ready(), user = member, { introSeen = true 
   await page.route('**/api/v1/finance/profile', (route) =>
     route.fulfill({ json: { profile: null, calculation: null, updated_at: null } }),
   );
-  await page.route('**/api/v1/monitoring**', (route) => {
+  await page.route('**/api/v1/monitoring**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     const body = route.request().method() === 'POST' ? route.request().postDataJSON() : null;
     state.calls.push({ path, body });
@@ -86,6 +86,7 @@ async function setup(page, initial = ready(), user = member, { introSeen = true 
     }
     if (path.endsWith('/candidates/state')) state.snapshot.candidates[0].state = body.state;
     if (path.endsWith('/candidates/feedback')) {
+      await state.feedbackWait;
       if (state.failFeedback > 0) {
         state.failFeedback--;
         return route.fulfill({ status: 503, json: {} });
@@ -235,14 +236,68 @@ test('failed recommendation feedback keeps the reason and card available for ret
 }) => {
   const state = await setup(page);
   state.failFeedback = 1;
+  let releaseFeedback;
+  state.feedbackWait = new Promise((resolve) => {
+    releaseFeedback = resolve;
+  });
   await page.goto('/#assistant');
   const card = page.locator('.monitoring-candidate');
   await card.getByRole('button', { name: '이 공고 추천하지 않기' }).click();
   await card.getByRole('radio', { name: '관심 없는 공고예요' }).check();
   await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+  await expect(card).toBeHidden();
+  await expect(
+    page.getByRole('status').filter({ hasText: '추천에서 제외하는 중이에요.' }),
+  ).toBeVisible();
+  releaseFeedback();
+  await expect(card).toBeVisible();
+  await expect(card.getByRole('alert')).toContainText('제외하지 못해 공고를 다시 표시했어요.');
   await expect(card.getByRole('radio', { name: '관심 없는 공고예요' })).toBeChecked();
   await expect(card.getByRole('button', { name: '추천에서 제외', exact: true })).toBeEnabled();
   await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+  await expect(card).toHaveCount(0);
+});
+
+test('exclusion hides the card before saving and a delayed old read cannot restore it', async ({
+  page,
+}) => {
+  const state = await setup(page);
+  let releaseFeedback;
+  let releaseRead;
+  state.feedbackWait = new Promise((resolve) => {
+    releaseFeedback = resolve;
+  });
+  await page.goto('/#assistant');
+  const card = page.locator('.monitoring-candidate');
+  await expect(card).toBeVisible();
+  const oldSnapshot = structuredClone(state.snapshot);
+  let oldReadStarted;
+  const started = new Promise((resolve) => {
+    oldReadStarted = resolve;
+  });
+  const delayed = new Promise((resolve) => {
+    releaseRead = resolve;
+  });
+  await page.route(
+    '**/api/v1/monitoring',
+    async (route) => {
+      oldReadStarted();
+      await delayed;
+      await route.fulfill({ json: oldSnapshot });
+    },
+    { times: 1 },
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event('bokji:monitoring-changed')));
+  await started;
+  await card.getByRole('button', { name: '이 공고 추천하지 않기' }).click();
+  await card.getByRole('radio', { name: '지원 대상이 아니에요' }).check();
+  await card.getByRole('button', { name: '추천에서 제외', exact: true }).click();
+  await expect(card).toBeHidden();
+  expect(state.snapshot.recommendation_feedback).toBeUndefined();
+  releaseFeedback();
+  await expect(card).toHaveCount(0);
+  releaseRead();
+  await expect(page.locator('.recommendation-excluded')).toBeVisible();
   await expect(card).toHaveCount(0);
 });
 
@@ -385,9 +440,9 @@ test('chat handoff preserves current follow-up and unsent input without repeatin
   await chat.getByRole('button', { name: '상담 시작하기', exact: true }).click();
   await chat.getByRole('textbox', { name: '건물은 몇 년에 지어졌나요?' }).fill('1920년 건축');
   await chat.getByRole('button', { name: 'AI 복지비서에서 이어보기' }).click();
-  await expect(page).toHaveURL(/#assistant$/);
+  await expect(page).toHaveURL(/#assistant-chat$/);
   await expect(chat).toHaveCount(0);
-  const conversation = page.getByRole('region', { name: '생활 상황 상담', exact: true });
+  const conversation = page.getByRole('region', { name: 'AI 비서 대화', exact: true });
   await expect(
     conversation.getByRole('textbox', { name: '건물은 몇 년에 지어졌나요?' }),
   ).toHaveValue('1920년 건축');
@@ -400,6 +455,7 @@ test('chat handoff preserves current follow-up and unsent input without repeatin
   await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
   await page.getByRole('link', { name: '전체 공고', exact: true }).click();
   await openAssistantNavigation(page);
+  await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
   await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
   expect(calls).toHaveLength(2);
   const storage = await page.evaluate(() =>
@@ -408,7 +464,8 @@ test('chat handoff preserves current follow-up and unsent input without repeatin
   expect(storage).not.toContain('opaque-session-token');
   expect(storage).not.toContain('1920년 건축');
   await page.reload();
-  await expect(conversation).toHaveCount(0);
+  await expect(conversation.getByRole('textbox', { name: 'AI 비서에게 물어보기' })).toHaveValue('');
+  await expect(conversation).not.toContainText('1920년 건축으로 확인했어요.');
 });
 
 test('selected policy and confirmed facts transfer but save consent must be checked again', async ({
@@ -439,7 +496,7 @@ test('selected policy and confirmed facts transfer but save consent must be chec
   await chat.getByRole('button', { name: '상담 시작하기', exact: true }).click();
   await chat.getByRole('checkbox', { name: /표시된 정보가 본인 정보임/ }).check();
   await chat.getByRole('button', { name: 'AI 복지비서에서 이어보기' }).click();
-  const conversation = page.getByRole('region', { name: '생활 상황 상담', exact: true });
+  const conversation = page.getByRole('region', { name: 'AI 비서 대화', exact: true });
   await expect(conversation.locator('.guided-policy-context')).toContainText(dialoguePolicy.title);
   await expect(
     conversation.getByRole('checkbox', { name: /표시된 정보가 본인 정보임/ }),
@@ -450,6 +507,8 @@ test('selected policy and confirmed facts transfer but save consent must be chec
   expect(saves).toBe(0);
   await conversation.getByRole('checkbox', { name: /표시된 정보가 본인 정보임/ }).check();
   await conversation.getByRole('button', { name: '확인한 정보 저장하기' }).click();
+  await expect(conversation).toContainText('확인한 정보를 저장했어요.');
+  await page.getByRole('button', { name: '추천 공고로 돌아가기', exact: true }).click();
   await expect(page.locator('.assistant-summary')).toContainText('1920년 준공');
   expect(saves).toBe(1);
 });
@@ -469,10 +528,10 @@ test('guest login returns to assistant and logout removes the previous account c
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page).toHaveURL(/#assistant$/);
   await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
-  await page.getByRole('textbox', { name: '어떤 도움이 필요하세요?' }).fill('내 비공개 주거 상담');
+  await page.getByRole('textbox', { name: 'AI 비서에게 물어보기' }).fill('내 비공개 주거 상담');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await openAssistantNavigation(page);
-  await expect(page.getByRole('region', { name: '생활 상황 상담', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'AI 비서 대화', exact: true })).toHaveCount(0);
   await expect(page.getByText('내 비공개 주거 상담', { exact: true })).toHaveCount(0);
 });
 
@@ -486,10 +545,11 @@ for (const action of ['edit', 'delete']) {
     );
     await page.goto('/#assistant');
     await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
-    await page.getByRole('textbox', { name: '어떤 도움이 필요하세요?' }).fill('집수리 지원');
-    await page.getByRole('button', { name: '상담 시작하기', exact: true }).click();
-    const conversation = page.getByRole('region', { name: '생활 상황 상담', exact: true });
+    await page.getByRole('textbox', { name: 'AI 비서에게 물어보기' }).fill('집수리 지원');
+    await page.getByRole('button', { name: '보내기', exact: true }).click();
+    const conversation = page.getByRole('region', { name: 'AI 비서 대화', exact: true });
     await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
+    await page.getByRole('button', { name: '추천 공고로 돌아가기', exact: true }).click();
     const panel = page.getByRole('region', { name: '나를 위한 지원 현황', exact: true });
     if (action === 'edit') {
       await panel.getByRole('button', { name: '내 정보 수정', exact: true }).click();
@@ -512,7 +572,11 @@ for (const action of ['edit', 'delete']) {
     await expect(conversation).toHaveCount(0);
     await page.getByRole('link', { name: '전체 공고', exact: true }).click();
     await openAssistantNavigation(page);
-    await expect(conversation).toHaveCount(0);
+    await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
+    await expect(conversation.getByRole('textbox', { name: 'AI 비서에게 물어보기' })).toHaveValue(
+      '',
+    );
+    await expect(conversation).not.toContainText('1920년 건축으로 확인했어요.');
   });
 }
 

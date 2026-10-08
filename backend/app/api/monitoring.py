@@ -91,18 +91,14 @@ def read_monitoring(request: Request, member: Member, store: Store):
 
 
 @router.post("/profile")
-def save_profile(data: SaveMonitoringInput, request: Request, member: Member,
-                 service: Service, store: Store):
-    service.throttle("monitoring:" + member["id"], 20, 60, account_id=member["id"])
+def save_profile(data: SaveMonitoringInput, request: Request, member: Member, store: Store):
     store.save(member["id"], data.profile, enabled=data.enabled)
     return (refresh_snapshot(request, store, member) if data.enabled
             else snapshot(store, member, request))
 
 
 @router.post("/preferences")
-def save_preferences(data: PreferencesInput, request: Request, member: Member,
-                     service: Service, store: Store):
-    service.throttle("monitoring:" + member["id"], 20, 60, account_id=member["id"])
+def save_preferences(data: PreferencesInput, request: Request, member: Member, store: Store):
     if data.enabled and store.read(member["id"])["profile"] is None:
         raise HTTPException(409, "생활 정보를 저장하고 지속 안내에 동의해 주세요.")
     store.set_enabled(member["id"], data.enabled)
@@ -111,10 +107,9 @@ def save_preferences(data: PreferencesInput, request: Request, member: Member,
 
 
 @router.post("/refresh")
-def refresh(data: EmptyInput, request: Request, member: Member, service: Service, store: Store):
+def refresh(data: EmptyInput, request: Request, member: Member, store: Store):
     if not store.read(member["id"])["enabled"]:
         raise HTTPException(409, "지속 안내를 켠 뒤 지원 공고를 확인할 수 있어요.")
-    service.throttle("monitoring-refresh:" + member["id"], 5, 60, account_id=member["id"])
     return refresh_snapshot(request, store, member)
 
 
@@ -135,17 +130,14 @@ def read_alerts(data: AlertReadInput, member: Member, store: Store):
 
 @router.post("/candidates/feedback")
 def save_candidate_feedback(data: CandidateFeedbackInput, request: Request, member: Member,
-                            service: Service, store: Store):
-    service.throttle("recommendation-feedback:" + member["id"], 30, 60, account_id=member["id"])
+                            store: Store):
     result = store.set_candidate_feedback(member["id"], data.policy_id, data.need_id, data.reason)
     return snapshot(store, member, request, result=result)
 
 
 @router.post("/candidates/preparation")
 def save_candidate_preparation(data: CandidatePreparationInput, request: Request, member: Member,
-                               service: Service, store: Store):
-    service.throttle("application-preparation:" + member["id"], 120, 60,
-                     account_id=member["id"])
+                               store: Store):
     result = store.set_candidate_preparation(
         member["id"], data.policy_id, data.need_id, data.revision_id,
         data.document_id, data.prepared)

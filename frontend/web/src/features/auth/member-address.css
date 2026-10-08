@@ -18,11 +18,11 @@
   flex: 0 0 auto;
 }
 .member-address-fields input[readonly] {
-  background: var(--soft, #f3f7f3);
+  background: var(--surface-muted);
 }
 .member-address-search {
   min-width: 0;
-  border: 1px solid var(--border, #bacabb);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   overflow: hidden;
   background: white;
@@ -33,7 +33,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border-bottom: 1px solid var(--border, #bacabb);
+  border-bottom: 1px solid var(--border-strong);
 }
 .member-address-search-heading h3 {
   margin: 0;

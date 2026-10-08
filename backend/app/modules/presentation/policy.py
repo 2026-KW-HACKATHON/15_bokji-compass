@@ -23,6 +23,11 @@ LEGACY_POLICY_DESCRIPTIONS = {
 }
 
 
+def format_notice_title(value: str) -> str:
+    """Display full-width digits normally without rewriting the original notice."""
+    return value.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+
+
 def policy_description(title: str, purpose: str | None, benefits: str) -> str:
     """Prefer source purpose, with concise display copy for legacy service records."""
     return ((purpose or "").strip() or LEGACY_POLICY_DESCRIPTIONS.get(title)

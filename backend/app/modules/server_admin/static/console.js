@@ -98,7 +98,11 @@
     if (error.code === "session_changed") return "";
     if (error.code && !["connection_failed"].includes(error.code) && error.status >= 400 && error.status !== 401 && error.status !== 403) return error.code;
     if (error.status === 401) return "아이디 또는 비밀번호를 확인하세요.";
-    if (error.status === 403) return "최고관리자 계정으로 로그인하세요.";
+    if (error.status === 403) {
+      if (error.code === "HTTPS 연결로 요청해 주세요.") return "현재 주소는 HTTP라서 운영 서버가 로그인을 차단했어요. HTTPS 관리자 주소로 접속해 주세요. 계정 권한 문제는 아닙니다.";
+      if (["같은 백엔드 주소에서 관리 페이지를 열어 주세요.", "허용된 사이트에서 요청해 주세요.", "올바른 관리자 요청이 아닙니다.", "최고 관리자 계정으로 로그인해 주세요.", "최고 관리자만 서버를 관리할 수 있습니다."].includes(error.code)) return error.code;
+      return "관리자 요청이 거부되었어요. 접속 주소와 계정 권한을 확인해 주세요.";
+    }
     if (error.status === 409) return "다른 곳에서 설정이 변경되었습니다. 최신 설정을 불러온 뒤 다시 수정하세요.";
     if (error.status === 422 || error.status === 400) return "입력값과 항목별 범위를 확인하세요. 대기열 한도는 페이지 크기 이상이어야 합니다.";
     if (error.status === 429) return "요청이 잠시 제한되었습니다. 조금 뒤 다시 시도하세요.";

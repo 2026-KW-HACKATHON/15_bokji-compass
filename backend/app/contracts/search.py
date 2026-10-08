@@ -32,6 +32,8 @@ class SearchPlan:
     corrections: tuple[Correction, ...] = ()
     ambiguities: tuple[str, ...] = ()
     summary: str = ""
+    contexts: tuple[str, ...] = ()
+    background_concepts: tuple[str, ...] = ()
 
     @property
     def interpreted_query(self) -> str:

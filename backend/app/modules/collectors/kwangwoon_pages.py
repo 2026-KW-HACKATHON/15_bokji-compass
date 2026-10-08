@@ -169,11 +169,29 @@ def fetch_kwangwoon_notice_detail(url: str, domains: list[str], http_budget):
     modified = _date(text, "수정일")
     return {"title": title, "text": text, "organization": "광운대학교",
             "source_url": source_url, "published_date": published or "",
-            "modified_date": modified or "", "attachments": json.dumps(attachments,
+            "modified_date": modified or "", "attachment_files": json.dumps(
+                parse_kwangwoon_attachment_files(html, source_url), ensure_ascii=False),
+            "attachments": json.dumps(attachments,
                 ensure_ascii=False), "attachment_status": "not_parsed" if attachments else
             "none_detected", "image_urls": json.dumps(images, ensure_ascii=False),
             "image_status": "not_parsed" if images else "none_detected",
             "links": json.dumps(links, ensure_ascii=False)}, raw
+
+
+def parse_kwangwoon_attachment_files(html: str, source_url: str) -> list[dict]:
+    """Keep real filenames and official links from the board's attachment area."""
+    boards = list(_parse_tree(html).find_class("board-view-box"))
+    if len(boards) != 1:
+        raise CollectionTransportError("kwangwoon_notice_content_missing")
+    result, seen = [], set()
+    for section in boards[0].find_class("attachment"):
+        for anchor in section.find_tag("a"):
+            url = _evidence_url(source_url, anchor.attrs.get("href", ""))
+            name = _clean(anchor.text(skip_icons=True))
+            if url and name and url not in seen:
+                result.append({"name": name, "url": url})
+                seen.add(url)
+    return result
 
 
 def _request_html(url, *, timeout, max_response_bytes, deadline):

@@ -17,6 +17,12 @@ from app.modules.monitoring.feedback import personalize
 from app.modules.presentation.public import load_popularity, policy_signals
 from app.modules.regions.public import RegionCatalog, default_catalog
 from app.modules.storage.catalog import card, published_catalog
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+    notice_stage,
+)
 from app.modules.validation.public import validate_canonical
 
 REGION_NAMES = {
@@ -322,7 +328,7 @@ def candidate_query(repository):
     return select(latest, documents.c.canonical_json, documents.c.matching_enabled,
                   documents.c.review_status).join(
         documents, documents.c.revision_id == latest.c.revision_id
-    ).order_by(latest.c.created_at.desc(), latest.c.policy_key).limit(MAX_CANDIDATES + 1)
+    ).order_by(latest.c.created_at.desc(), latest.c.policy_key)
 
 
 def target_evidence(source: SourcePolicy) -> list[str]:
@@ -422,6 +428,11 @@ def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile |
     today = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
     with repository.engine.connect() as connection:
         records = connection.execute(candidate_query(repository)).mappings().all()
+    # A later result closes the earlier application in the same source-backed cycle.
+    # Read the full public series before applying the comparison budget or result limit.
+    records = [record for record in annotate_records(deduplicate_notice_records(records))
+               if notice_stage(record) not in {"followup", "result"}
+               and (record.get("_notice_group") or {}).get("latestStage") != "result"]
     truncated = len(records) > MAX_CANDIDATES
     records = records[:MAX_CANDIDATES]
     popularity = load_popularity(repository, [record["policy_key"] for record in records])
@@ -489,12 +500,18 @@ def recommend(repository, facts: MatchingFacts, profile: RecommendationProfile |
             reasons.append(f"입력한 정보로 {', '.join(labels[:3])} 조건을 비교했어요.")
             score, bucket = (interest, len(fields), views), personalized
         reasons.append("신청 전 공식 공고와 담당 기관의 안내를 확인해 주세요.")
-        bucket.append((score, {"policy": policy, "reason": " ".join(reasons),
-                               "matching": matching}))
+        bucket.append((score, record, {"policy": policy, "reason": " ".join(reasons),
+                                       "matching": matching}))
     profile_sufficient = bool(personalized) or classified_with_profile
     candidates = personalized if profile_sufficient else general
     candidates.sort(key=lambda entry: entry[0], reverse=True)
-    items = personalize([item for _, item in candidates], feedback)[:limit]
+    excluded = {item["policy_id"] for item in feedback}
+    eligible = [(record, item) for _, record, item in candidates
+                if not excluded.intersection(notice["id"] for notice in
+                    (record.get("_notice_group") or {}).get("notices", []))]
+    grouped = group_matches(eligible)
+    # Keep account preferences ahead of the limit so other distinct opportunities fill it.
+    items = personalize([item for _, item in grouped], feedback)[:limit]
     if profile_sufficient:
         mode = "personalized"
         guidance = (("입력한 정보로 비교할 수 있는 공고를 골랐어요. "

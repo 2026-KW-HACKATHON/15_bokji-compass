@@ -17,6 +17,12 @@ from app.modules.monitoring.models import MonitoringProfile, seoul_today
 from app.modules.presentation.public import policy_signals
 from app.modules.regions.public import default_catalog
 from app.modules.storage.catalog import card, published_catalog
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+    notice_stage,
+)
 
 PAGE_SIZE = 100
 DISASTER_RECHECK_DAYS = 180
@@ -405,7 +411,7 @@ def _fingerprint(need_id: str, policy: dict, canonical: CanonicalPolicy, status:
 
 def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs: list[dict], *,
                     today: date | None = None) -> list[dict]:
-    """Page every latest public policy, retain unknowns and exclude proven mismatches."""
+    """Compare complete public series, retain unknowns and exclude proven mismatches."""
     if not needs:
         return []
     today = today or seoul_today()
@@ -417,6 +423,17 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
         documents, documents.c.revision_id == latest.c.revision_id)
     results, after = [], None
     with repository.engine.connect() as connection:
+        # The stage of a later notice can close an application in a previous page.
+        # Only source metadata is needed for the full-catalog series pass.
+        series_query = select(latest.c.policy_key, latest.c.revision_id, latest.c.created_at,
+                              latest.c.source_json, latest.c.title)
+        series = annotate_records(deduplicate_notice_records(
+            connection.execute(series_query).mappings()))
+        metadata = {record["policy_key"]: {
+            "_notice_group": record.get("_notice_group"),
+            "_notice_series_resolved": record.get("_notice_series_resolved"),
+        } for record in series}
+        del series
         while True:
             page = query
             if after is not None:
@@ -427,6 +444,12 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
                 break
             after = rows[-1]["policy_key"]
             for record in rows:
+                if record["policy_key"] not in metadata:
+                    continue
+                record = {**record, **metadata[record["policy_key"]]}
+                if (notice_stage(record) in {"followup", "result"}
+                        or (record.get("_notice_group") or {}).get("latestStage") == "result"):
+                    continue
                 try:
                     linked = [(need, _evidence(record["source_json"], need["keywords"],
                                               disaster=need["id"] in {
@@ -487,10 +510,16 @@ def scan_candidates(repository, member: dict, profile: MonitoringProfile, needs:
                         reason += " 접수 시작 전 공고로, 시작일과 신청 준비사항을 확인해 주세요."
                     fingerprint = _fingerprint(need["id"], policy, canonical, candidate_status,
                                                schedule, comparisons["checks"])
-                    results.append({"need_id": need["id"], "policy_id": record["policy_key"],
+                    results.append((record, {"need_id": need["id"],
+                                    "policy_id": record["policy_key"],
                                     "policy": policy, "status": candidate_status, "reason": reason,
                                     "questions": list(dict.fromkeys(candidate_questions)),
                                     "fingerprint": fingerprint,
                                     "schedule_status": schedule, "eligibility_decided": False,
-                                    "matched_keywords": keywords, "evidence": evidence})
-    return results
+                                    "matched_keywords": keywords, "evidence": evidence}))
+    grouped = []
+    for need in needs:
+        grouped.extend(candidate for _, candidate in group_matches([
+            (record, candidate) for record, candidate in results
+            if candidate["need_id"] == need["id"]]))
+    return grouped

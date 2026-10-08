@@ -4,6 +4,7 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from './policyModel.js';
 import { safeTelephoneUrl } from './applicationGuideModel.js';
 import { policyDeadline } from './deadlineModel.js';
+import { isApplicationNotice, noticeStagePresentation } from './noticeSeriesModel.js';
 import useSeoulToday from './useSeoulToday.js';
 import './application-guide.css';
 
@@ -21,7 +22,9 @@ export default function ApplicationGuide({
   const guide = policy.applicationGuide;
   const today = useSeoulToday();
   const closed = policyDeadline(policy, today).state === 'closed';
-  const unavailable = applicationUnavailable || closed;
+  const { note: stageNote } = noticeStagePresentation(policy);
+  const unavailable =
+    applicationUnavailable || closed || !isApplicationNotice(policy, { grouped: true });
   const source = safeSourceUrl(policy.sourceUrl);
   const documents = guide?.documents || [];
   const preparedIds =
@@ -75,9 +78,10 @@ export default function ApplicationGuide({
           {unavailable && (
             <p className="application-guide-note">
               {t(
-                closed
-                  ? '접수가 마감된 공고예요. 최신 접수 여부는 담당 기관에 확인해 주세요.'
-                  : '현재 접수 상태를 먼저 확인해 주세요.',
+                stageNote ||
+                  (closed
+                    ? '접수가 마감된 공고예요. 최신 접수 여부는 담당 기관에 확인해 주세요.'
+                    : '현재 접수 상태를 먼저 확인해 주세요.'),
               )}
             </p>
           )}

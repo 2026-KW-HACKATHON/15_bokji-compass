@@ -30,6 +30,12 @@ from app.modules.auth.account_write import account_write_transaction, require_ac
 from app.modules.auth.models import accounts
 from app.modules.monitoring.feedback import REASONS, personalize, topic_tokens
 from app.modules.monitoring.models import MonitoringProfile
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+    notice_stage,
+)
 
 metadata = MetaData()
 profiles = Table(
@@ -155,8 +161,13 @@ def _retire_snapshot_candidates(items, blocked):
     return retired
 
 
+def _series_excluded(policy, excluded):
+    return bool(excluded.intersection(notice["id"] for notice in
+                (policy.get("noticeGroup") or {}).get("notices", [])))
+
+
 def filter_snapshot_gender(result, member, repository, *, store=None):
-    """Recheck saved personal recommendations against the current public source in one query."""
+    """Recheck saved audience and notice stages without rewriting application history."""
     from app.contracts.conditions import CanonicalPolicy
     from app.modules.matching import public as matching
     from app.modules.monitoring.public import _logic_state, monitoring_facts
@@ -175,8 +186,7 @@ def filter_snapshot_gender(result, member, repository, *, store=None):
             unread_by_policy = Counter(json.loads(item)["policy_id"] for item in unread)
             policy_ids.update(unread_by_policy)
     facts = monitoring_facts(member, MonitoringProfile.model_validate(result["profile"]))
-    if facts.gender is None:
-        return result
+    excluded = {item["policy_id"] for item in result.get("recommendation_feedback", [])}
     try:
         if repository is None:
             raise ValueError("Current public sources are unavailable")
@@ -185,11 +195,21 @@ def filter_snapshot_gender(result, member, repository, *, store=None):
         query = select(latest, documents.c.canonical_json, documents.c.matching_enabled,
                        documents.c.review_status).join(
             documents, documents.c.revision_id == latest.c.revision_id
-        ).where(latest.c.policy_key.in_(policy_ids))
+        )
         with repository.engine.connect() as connection:
-            records = {row["policy_key"]: row for row in connection.execute(query).mappings()}
+            current = annotate_records(deduplicate_notice_records(
+                connection.execute(query).mappings().all()))
+        records = {row["policy_key"]: row for row in current if row["policy_key"] in policy_ids}
         blocked = policy_ids - records.keys()
         for policy_id, record in records.items():
+            group = record.get("_notice_group") or {}
+            if (notice_stage(record) in {"followup", "result"}
+                    or group.get("latestStage") == "result"
+                    or excluded.intersection(notice["id"] for notice in group.get("notices", []))):
+                blocked.add(policy_id)
+                continue
+            if facts.gender is None:
+                continue
             comparison = matching.compare_policy(record, facts)
             canonical = CanonicalPolicy.model_validate(record["canonical_json"])
             # Only a decisive gender restriction retires a saved recommendation here.
@@ -201,21 +221,59 @@ def filter_snapshot_gender(result, member, repository, *, store=None):
             ]}
             if _logic_state(canonical, gender_comparison) is False:
                 blocked.add(policy_id)
-    except (SQLAlchemyError, ValidationError, ValueError, KeyError, TypeError):
+    except (SQLAlchemyError, ValidationError, ValueError, KeyError, TypeError, AttributeError):
+        if facts.gender is None:
+            # Older installations can temporarily have no public source connection.
+            # Still honor explicit stages already retained on the public policy card.
+            blocked = {item["policy_id"] for item in result["candidates"]
+                       if item.get("policy", {}).get("noticeStage") in {"followup", "result"}
+                       or notice_stage(item.get("policy", {})) in {"followup", "result"}
+                       or (item.get("policy", {}).get("noticeGroup") or {}).get(
+                           "latestStage") == "result"
+                       or _series_excluded(item.get("policy", {}), excluded)}
+            blocked.update(item["policy_id"] for item in result["alerts"]
+                           if notice_stage(item) in {"followup", "result"})
+            if not blocked:
+                return result
+            hidden_unread = (sum(unread_by_policy[policy_id] for policy_id in blocked)
+                             if unread_by_policy is not None else sum(
+                                 not item["read"] for item in result["alerts"]
+                                 if item["policy_id"] in blocked))
+            return {**result,
+                    "candidates": _retire_snapshot_candidates(result["candidates"], blocked),
+                    "alerts": [item for item in result["alerts"]
+                               if item["policy_id"] not in blocked],
+                    "unread_count": max(0, result["unread_count"] - hidden_unread)}
         # Keep history and preferences, but do not repeat an unchecked recommendation.
         return {**result,
                 "candidates": _retire_snapshot_candidates(result["candidates"], policy_ids),
                 "alerts": [], "unread_count": 0, "scan_status": "unavailable",
                 "scan_message": "지원 공고를 확인하지 못했어요. 다시 확인해 주세요."}
-    if not blocked:
-        return result
+    # Previously saved duplicate cards do not remain separate recommendations after rollout.
+    # Choose a representative only after the source-backed audience guards have run.
+    active = [item for item in result["candidates"]
+              if item["active"] and item["policy_id"] not in blocked]
+    for need_id in {item["need_id"] for item in active}:
+        eligible = [(records[item["policy_id"]], item) for item in active
+                    if item["need_id"] == need_id]
+        selected = {item["policy_id"] for _, item in group_matches(eligible)}
+        blocked.update(item["policy_id"] for _, item in eligible
+                       if item["policy_id"] not in selected)
+    refreshed = []
+    for item in result["candidates"]:
+        record = records.get(item["policy_id"])
+        if record is not None:
+            item = {**item, "policy": {**item["policy"],
+                    "noticeStage": notice_stage(record),
+                    "noticeGroup": record.get("_notice_group")}}
+        refreshed.append(item)
     hidden_unread = sum(not item["read"] for item in result["alerts"]
                         if item["policy_id"] in blocked)
     if unread_by_policy is not None:
         # The inbox preview is capped at 100 rows; count hidden unread alerts beyond it too.
         hidden_unread = sum(unread_by_policy[policy_id] for policy_id in blocked)
     return {**result,
-            "candidates": _retire_snapshot_candidates(result["candidates"], blocked),
+            "candidates": _retire_snapshot_candidates(refreshed, blocked),
             "alerts": [item for item in result["alerts"] if item["policy_id"] not in blocked],
             "unread_count": max(0, result["unread_count"] - hidden_unread)}
 
@@ -559,6 +617,10 @@ class MonitoringStore:
             policy_states = {policy_id: _policy_state(history)
                              for policy_id, history in policy_history.items()}
             feedback = {item["policy_id"]: item for item in _feedback(existing.values())}
+            # Rejecting one notice in a known cycle must not bring back its duplicate
+            # application under a different document id on the next scan.
+            found = [candidate for candidate in found
+                     if not _series_excluded(candidate.get("policy", {}), set(feedback))]
             # A changed source invalidates checks even in hidden histories. A profile edit
             # alone does not: candidates absent from this scan retain their original data.
             source_requirements = {}

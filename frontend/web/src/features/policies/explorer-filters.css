@@ -131,14 +131,14 @@
   font-size: 0.86rem;
 }
 .explorer-age-bands label:has(:checked) {
-  color: var(--green);
-  background: var(--green-light, #eef5ff);
-  border-color: var(--green);
+  color: var(--accent);
+  background: var(--accent-soft, #eef5ff);
+  border-color: var(--accent);
 }
 .explorer-search-settings input[type='checkbox'] {
   width: 17px;
   height: 17px;
-  accent-color: var(--green);
+  accent-color: var(--accent);
   flex-shrink: 0;
 }
 .explorer-age-range {

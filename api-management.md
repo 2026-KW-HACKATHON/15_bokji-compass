@@ -1,5 +1,27 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 같은 사업의 단계별 공고 묶음 (2026-10-08)
+
+공개 공고 목록·스마트 검색은 같은 기관/사업/연도/학기/회차의 단계별 원문을 묶은 뒤
+전체 건수와 페이지를 계산한다. 원래 policy ID·원문·개정·첨부는 변경하지 않는다.
+선택 메타데이터는 `noticeStage:application|followup|result` 및
+`noticeGroup:{id,title,latestStage,noticeCount,notices:[{id,revisionId,title,stage,publishedDate,sourceUrl}]}`다.
+원래 ID의 상세 API는 선택 원문을 유지하며 관련 공개 원문 목록을 추가한다. 기존 응답에
+메타데이터가 없으면 기존 화면을 유지한다. 결과/기존 신청자 절차와 선발 종료된 묶음의
+이전 신청 공지는 새 추천에서 제외한다. [판별 기준·검증](backend/docs/notice-series.md).
+
+## AI 비서 대화 페이지·이용 횟수 제한 제거 (2026-10-08)
+
+웹 `#assistant-chat`에서 같은 대화의 자유 질문 `{continuation,question}`을
+`POST /v1/assistant/dialogue`로 보낸다. 시작 질문과 구조화 답변 계약은 유지한다.
+이전 본인 확인 정보와 공개 공고 ID를 사용해 추천·신청 방법·기간·준비 서류를 이어서
+확인한다. 마지막 입력 후 30분의 임시 상태이며 입력 성공 시 만료 시간이 갱신된다.
+
+공고 질문·회원/비회원 챗봇·추천·지속 안내의 저장/갱신·추천 제외·서류 준비에
+사용자/IP별 분당 횟수 제한을 적용하지 않는다. 외부 공고 AI 답변의 동시 실행 수 제한도
+제거했다. 입력 검증·실행 시간·인증·동의·로그인 보안 제한은 유지한다.
+[대화 계약·검증](backend/docs/assistant-dialogue.md).
+
 ## 신청 안내·계정별 서류 준비 (2026-10-08)
 
 공개 공고 목록·상세·추천·대화 후보의 policy에 `applicationGuide`를 추가한다.
@@ -13,7 +35,7 @@ documents:[{id,label}], documentsStatus:listed|none|unknown, documentsNote}`다.
 웹은 기존 동일 출처·`X-Auth-Request: 1` 보호를 따르며 입력은
 `{policy_id, need_id, revision_id, document_id, prepared:bool}`다. prepared는 엄격한 boolean,
 계정 ID·문서 내용은 받지 않는다. 후보 소유권은 404, 비활성/제외·revision 불일치·
-없는 문서는 409, 입력 오류는 422, 계정별 분당 120회 제한은 429다. 반환은 monitoring
+없는 문서는 409, 입력 오류는 422다. 사용자별 횟수 제한은 없다. 반환은 monitoring
 snapshot이며 후보의 `application_preparation:{revision_id, prepared_document_ids}`
 또는 null을 추가한다. 기존 JSON 저장을 사용해 테이블 변경은 없다. 공고 변경 시 체크가
 초기화되고 안내 삭제·탈퇴 시 함께 삭제된다. 파일 제출·문서 심사·정부 신청은 수행하지 않는다.
@@ -24,7 +46,7 @@ snapshot이며 후보의 `application_preparation:{revision_id, prepared_documen
 동일 출처 및 `X-Auth-Request: 1`을 요구합니다. JSON은
 `{policy_id, need_id, reason}`이며 `reason`은 필수이고 `not_eligible`, `not_interested`,
 `null`만 허용합니다. null은 복원입니다. 계정 ID·제목·분야를 요청으로 받지 않습니다.
-계정 내 실제 추천 후보가 없으면 404, 입력 오류는 422, 계정별 분당 30회를 넘으면 429입니다.
+계정 내 실제 추천 후보가 없으면 404, 입력 오류는 422입니다. 사용자별 횟수 제한은 없습니다.
 
 반환값은 기존 monitoring snapshot에 `recommendation_feedback:[{policy_id, need_id,
 reason, title, category, tokens, updated_at}]`와 후보별 동일 필드 또는 null을 추가합니다.
@@ -89,8 +111,9 @@ DB에 저장합니다. 캐시 조회 전과 생성 후 공개 상태·원문 개
 
 ## 생활 상황 상담 (2026-10-07)
 
-POST `/v1/assistant/dialogue`: 시작 `{question, revision_id?}` 또는 후속
-`{continuation, answer:{slot,value}}`. 부족한 정보·다음 질문·공고 비교·일상 대응을 반환하며
+POST `/v1/assistant/dialogue`: 시작 `{question, revision_id?}`, 구조화 답변
+`{continuation, answer:{slot,value}}` 또는 자유 후속 질문 `{continuation,question}`.
+부족한 정보·다음 질문·공고 비교·일상 대응을 반환하며
 자격을 확정하지 않습니다. 본인/타인/가정 상황을 구분하고 질문 원문을 장기 저장하지 않습니다.
 POST `/v1/assistant/dialogue/profile`: `{continuation, consent:true, confirmed:true}`로
 서버가 확인한 본인 정보만 병합 저장합니다. 기존 추적 켜기/중지는 유지합니다.
@@ -646,3 +669,7 @@ eligibility_decided:false,truncated}`. 로그인 정보 오류 401, DB 준비/�
 100% 소진이 명시된 공고는 메인 추천에서 제외합니다.
 [조건·정보 기준](backend/docs/recommendation-safety.md),
 [출처 조회수·갱신 방식](backend/docs/policy-popularity.md).
+
+### 자유 대화 모드 (2026-10-08)
+
+회원/비회원 dialogue API는 선택 입력 mode:conversation을 지원합니다. 전용 AI 비서 화면은 이 모드를 사용하며 follow_up:null, missing_fields:[], can_save_profile:false로 메시지를 이어갑니다. 기존 mode 생략 상담은 유지합니다. [자유 대화 계약](backend/docs/free-conversation.md).

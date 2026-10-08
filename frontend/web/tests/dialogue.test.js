@@ -71,6 +71,67 @@ test('expired dialogue prompts restart without rendering server details', () => 
   assert.doesNotMatch(dialogueError({ status: 422, message: 'private' }), /private/);
 });
 
+test('chat explicitly selects conversational mode for every message without changing profile saves', async () => {
+  const calls = [];
+  const api = createDialogueApi(
+    async (path, options) => {
+      calls.push({ path, ...options });
+      return blankDialogue({ follow_up: null, missing_fields: [] });
+    },
+    { guest: true, conversational: true },
+  );
+  await api.start(' 테스트 대화야 ');
+  await api.continue('same-session', '안녕');
+  assert.deepEqual(calls[0].body, { question: '테스트 대화야', mode: 'conversation' });
+  assert.deepEqual(calls[1].body, {
+    continuation: 'same-session',
+    question: '안녕',
+    mode: 'conversation',
+  });
+  assert.ok(calls.every((call) => call.path === '/v1/assistant/chat/dialogue'));
+});
+
+test('free text follow-ups keep the opaque session and can also continue guest conversations', async () => {
+  const calls = [];
+  const controller = new AbortController();
+  const api = createDialogueApi(
+    async (path, options) => {
+      calls.push({ path, ...options });
+      return completeDialogue();
+    },
+    { guest: true },
+  );
+  await api.continue('opaque-existing-session', ' 필요한 서류는 무엇인가요? ', {
+    signal: controller.signal,
+  });
+  assert.equal(calls[0].path, '/v1/assistant/chat/dialogue');
+  assert.deepEqual(calls[0].body, {
+    continuation: 'opaque-existing-session',
+    question: '필요한 서류는 무엇인가요?',
+  });
+  assert.equal(calls[0].signal, controller.signal);
+  assert.equal(calls[0].authenticated, true);
+});
+
+test('an unsent follow-up and all earlier exchanges survive navigation only for their account', () => {
+  const exchanges = Array.from({ length: 65 }, (_, index) => ({
+    question: `질문 ${index}`,
+    answer: `답변 ${index}`,
+  }));
+  const source = {
+    owner: 'member-one',
+    revisionId: null,
+    dialogue: completeDialogue(),
+    exchanges,
+    draft: '다음 신청 준비를 알려주세요',
+  };
+  const resumed = restoreDialogueSession(source, 'member-one');
+  assert.equal(resumed.draft, source.draft);
+  assert.deepEqual(resumed.exchanges, exchanges);
+  assert.equal(restoreDialogueSession(source, 'member-two').draft, '');
+  assert.deepEqual(restoreDialogueSession(source, 'member-two').exchanges, []);
+});
+
 test('handoff restores the pending answer and confirmed facts, but never carries consent or a request', () => {
   const dialogue = completeDialogue();
   const session = restoreDialogueSession(
@@ -101,7 +162,7 @@ test('handoff restores the pending answer and confirmed facts, but never carries
   assert.ok(!('error' in session));
 });
 
-test('handoff cannot restore another account or selected policy and never restores guest data', () => {
+test('handoff cannot restore another account or selected policy', () => {
   const source = {
     owner: 'member-one',
     revisionId: 'selected-policy',

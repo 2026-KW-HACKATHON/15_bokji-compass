@@ -8,6 +8,7 @@ import { todayInSeoul } from '../monitoring/monitoringModel.js';
 import { createDialogueApi } from './dialogueApi.js';
 import { confirmedFacts, dialogueError, restoreDialogueSession } from './dialogueModel.js';
 import ContentLanguageNotice from '../../shared/i18n/ContentLanguageNotice.jsx';
+import ConversationMessages from './ConversationMessages.jsx';
 import './guided-conversation.css';
 
 export default function GuidedConversation(props) {
@@ -27,9 +28,13 @@ function GuidedSession({
   onSessionChange,
   onOpenAssistant,
   onSaved,
+  conversational = false,
 }) {
-  const { t, intlLocale } = useI18n();
-  const api = useMemo(() => createDialogueApi(request, { guest: !user }), [user?.id]);
+  const { t } = useI18n();
+  const api = useMemo(
+    () => createDialogueApi(request, { guest: !user, conversational }),
+    [user?.id, conversational],
+  );
   const id = useId();
   const owner = user?.id || null;
   const revisionId = policy?.revisionId || null;
@@ -40,18 +45,31 @@ function GuidedSession({
   const answerPanel = useRef(null);
   const followPanel = useRef(null);
   const questionInput = useRef(null);
+  const composerInput = useRef(null);
+  const retryRequest = useRef(null);
   const [question, setQuestion] = useState(initial.question);
   const [dialogue, setDialogue] = useState(initial.dialogue);
   const [exchanges, setExchanges] = useState(initial.exchanges);
   const [input, setInput] = useState(initial.input);
+  const [draft, setDraft] = useState(initial.draft || (conversational ? initial.input : ''));
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [consent, setConsent] = useState(false);
   const [saved, setSaved] = useState(initial.saved);
   const [candidateLimit, setCandidateLimit] = useState(initial.candidateLimit);
   const snapshot = useMemo(
-    () => ({ owner, revisionId, question, dialogue, exchanges, input, saved, candidateLimit }),
-    [owner, revisionId, question, dialogue, exchanges, input, saved, candidateLimit],
+    () => ({
+      owner,
+      revisionId,
+      question,
+      dialogue,
+      exchanges,
+      input,
+      draft,
+      saved,
+      candidateLimit,
+    }),
+    [owner, revisionId, question, dialogue, exchanges, input, draft, saved, candidateLimit],
   );
   const sessionChange = useRef(onSessionChange);
   sessionChange.current = onSessionChange;
@@ -68,10 +86,10 @@ function GuidedSession({
   );
   useEffect(() => {
     if (dialogue) {
-      answerPanel.current?.focus({ preventScroll: true });
+      if (!conversational) answerPanel.current?.focus({ preventScroll: true });
       answerPanel.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
     }
-  }, [dialogue]);
+  }, [dialogue, conversational]);
 
   const cancel = () => {
     active.current?.abort();
@@ -83,34 +101,51 @@ function GuidedSession({
     setDialogue(null);
     setExchanges([]);
     setInput('');
+    setDraft('');
     setQuestion('');
     setConsent(false);
     setSaved('');
     setError('');
-    questionInput.current?.focus();
+    retryRequest.current = null;
+    (conversational ? composerInput : questionInput).current?.focus();
   };
-  async function run(action, label) {
+  async function run(action, label, clearDraft = false) {
     if (active.current) return;
     const controller = new AbortController();
     active.current = controller;
     setBusy('dialogue');
     setError('');
+    retryRequest.current = null;
     try {
       const value = await action(controller.signal);
       if (controller.signal.aborted || currentOwner.current !== owner) return;
       setDialogue(value);
-      setExchanges((items) => [...items, { question: label, answer: value.answer }]);
-      if (value.answer_accepted !== false) setInput('');
+      setExchanges((items) => [
+        ...items,
+        {
+          question: label,
+          answer: value.answer,
+          ...(conversational ? { response: value } : {}),
+        },
+      ]);
+      if (value.answer_accepted !== false) {
+        setInput('');
+        if (clearDraft) setDraft((current) => (current.trim() === label ? '' : current));
+      }
       setConsent(false);
       setSaved('');
       setCandidateLimit(3);
     } catch (failure) {
-      if (!controller.signal.aborted && currentOwner.current === owner)
+      if (!controller.signal.aborted && currentOwner.current === owner) {
         setError(dialogueError(failure));
+        retryRequest.current = { action, label, clearDraft, status: failure.status };
+      }
     } finally {
       if (active.current === controller) {
         active.current = null;
         setBusy('');
+        if (conversational && clearDraft)
+          window.requestAnimationFrame(() => composerInput.current?.focus({ preventScroll: true }));
       }
     }
   }
@@ -125,8 +160,33 @@ function GuidedSession({
   const respond = (value, label) =>
     run(
       (signal) => api.answer(dialogue.continuation, dialogue.follow_up.slot, value, { signal }),
-      `${dialogue.follow_up.question} → ${label}`,
+      conversational ? label : `${dialogue.follow_up.question} → ${label}`,
     );
+  const sendMessage = (event) => {
+    event.preventDefault();
+    if (!draft.trim() || busy) return;
+    const message = draft.trim();
+    if (!dialogue) setQuestion(message);
+    run(
+      (signal) =>
+        dialogue
+          ? api.continue(dialogue.continuation, message, { signal })
+          : api.start(message, { signal, revisionId: policy?.revisionId }),
+      message,
+      true,
+    );
+  };
+  const composerKeyDown = (event) => {
+    if (
+      event.key === 'Enter' &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing &&
+      event.nativeEvent.keyCode !== 229
+    ) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  };
   const submitFollow = (event) => {
     event.preventDefault();
     if (!input.trim()) return;
@@ -138,6 +198,7 @@ function GuidedSession({
     active.current = controller;
     setBusy('save');
     setError('');
+    retryRequest.current = null;
     try {
       const snapshot = await api.save(dialogue.continuation, {
         consent,
@@ -166,7 +227,10 @@ function GuidedSession({
   }
   const follow = dialogue?.follow_up;
   return (
-    <section className="guided-conversation" aria-label={t('생활 상황 상담')}>
+    <section
+      className={`guided-conversation${conversational ? ' guided-conversation-chat' : ''}`}
+      aria-label={t(conversational ? 'AI 비서 대화' : '생활 상황 상담')}
+    >
       <>
         {onOpenAssistant && (
           <button
@@ -184,7 +248,7 @@ function GuidedSession({
             <TranslatedPolicyTitle policy={policy} as="strong" />
           </div>
         )}
-        {!dialogue && (
+        {!dialogue && !conversational && (
           <>
             <p>{t('지금 겪는 일을 알려 주세요. 부족한 정보는 한 가지씩 여쭤볼게요.')}</p>
             <form onSubmit={start}>
@@ -217,9 +281,45 @@ function GuidedSession({
             </form>
           </>
         )}
-        {dialogue && (
+        {!dialogue && conversational && (
+          <div className="guided-chat-welcome">
+            <span className="guided-chat-avatar" aria-hidden="true">
+              ✦
+            </span>
+            <h2>{t('어떤 도움이 필요하세요?')}</h2>
+            <p>{t('지원 공고를 찾고, 신청 준비까지 함께 이야기해요.')}</p>
+            <div className="guided-chat-starters" aria-label={t('이렇게 물어보세요')}>
+              {[
+                '일자리 지원을 찾고 있어요',
+                '집수리 지원을 알아보고 싶어요',
+                '신청 방법과 필요한 서류가 궁금해요',
+              ].map((message) => (
+                <button
+                  key={message}
+                  className="button secondary"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setDraft(message);
+                    composerInput.current?.focus();
+                  }}
+                >
+                  {t(message)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {dialogue && conversational && (
           <>
-            {exchanges.length > 1 && (
+            <ConversationMessages exchanges={exchanges} latest={dialogue} answerRef={answerPanel} />
+            <button className="button secondary guided-reset" disabled={!!busy} onClick={reset}>
+              {t('새 상담 시작하기')}
+            </button>
+          </>
+        )}
+        {dialogue && !conversational && (
+          <>
+            {exchanges.length > 1 && !conversational && (
               <details className="guided-history">
                 <summary>
                   {t('이번 상담에서 확인한 대화 (')}
@@ -498,12 +598,14 @@ function GuidedSession({
                 {' '}
                 {t('새 상담 시작하기')}{' '}
               </button>
-              <p className="guided-note">
-                {' '}
-                {t(
-                  '건너뛴 답변이나 이번 상담에서 입력한 내용을 바꾸려면 새 상담을 시작해 주세요.',
-                )}{' '}
-              </p>
+              {!conversational && (
+                <p className="guided-note">
+                  {' '}
+                  {t(
+                    '건너뛴 답변이나 이번 상담에서 입력한 내용을 바꾸려면 새 상담을 시작해 주세요.',
+                  )}{' '}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -520,8 +622,24 @@ function GuidedSession({
             </button>
           </div>
         )}
-        {error && <p role="alert">{t(error)}</p>}
-        {user && (
+        {error && (
+          <div className="guided-chat-error">
+            <p role="alert">{t(error)}</p>
+            {retryRequest.current && ![404, 409, 410].includes(retryRequest.current.status) && (
+              <button
+                className="button secondary"
+                disabled={!!busy}
+                onClick={() => {
+                  const retry = retryRequest.current;
+                  if (retry) run(retry.action, retry.label, retry.clearDraft);
+                }}
+              >
+                {t('다시 시도하기')}
+              </button>
+            )}
+          </div>
+        )}
+        {user && !conversational && (
           <div className="guided-profile-action">
             <p className="guided-note">
               {' '}
@@ -535,12 +653,64 @@ function GuidedSession({
             </button>
           </div>
         )}
-        <p className="guided-note">
-          {onOpenAssistant && t('AI 복지비서로 이동하면 입력한 내용을 이어볼 수 있어요.')}{' '}
-          {t(
-            '새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 입력한 상담 정보는 서버에서 최대 30분간 임시로 사용하고, 저장을 선택한 생활정보만 계정에 남아요.',
-          )}{' '}
-        </p>
+        {!conversational && (
+          <p className="guided-note">
+            {onOpenAssistant && t('AI 복지비서로 이동하면 입력한 내용을 이어볼 수 있어요.')}{' '}
+            {t(
+              '새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 대화는 마지막 입력 후 30분 동안 임시로 이어지고, 저장을 선택한 생활정보만 계정에 남아요.',
+            )}{' '}
+          </p>
+        )}
+        {conversational && (
+          <details className="guided-chat-service-notes">
+            <summary>{t('대화 이용 안내')}</summary>
+            <p className="guided-note">
+              {t(
+                '새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 대화는 마지막 입력 후 30분 동안 임시로 이어지고, 저장을 선택한 생활정보만 계정에 남아요.',
+              )}
+            </p>
+            {user && (
+              <div className="guided-profile-action">
+                <p className="guided-note">
+                  {t(
+                    '본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 지속 복지 안내에서 수정할 수 있어요.',
+                  )}
+                </p>
+                <button className="button secondary" onClick={onProfile}>
+                  {t('저장한 생활정보 수정하기')}
+                </button>
+              </div>
+            )}
+          </details>
+        )}
+        {conversational && (
+          <div className="guided-chat-composer">
+            <form onSubmit={sendMessage}>
+              <label htmlFor={`${id}-message`}>{t('AI 비서에게 물어보기')}</label>
+              <div className="guided-chat-compose-row">
+                <textarea
+                  id={`${id}-message`}
+                  ref={composerInput}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={composerKeyDown}
+                  rows={2}
+                  maxLength={2000}
+                  disabled={!!busy}
+                  required
+                  placeholder={t('현재 상황이나 궁금한 내용을 자유롭게 적어 주세요.')}
+                  aria-describedby={`${id}-composer-note`}
+                />
+                <button type="submit" className="button primary" disabled={!!busy || !draft.trim()}>
+                  {t('보내기')}
+                </button>
+              </div>
+              <p id={`${id}-composer-note`} className="guided-note">
+                {t('Enter로 보내고, Shift+Enter로 줄을 바꿀 수 있어요.')}
+              </p>
+            </form>
+          </div>
+        )}
       </>
     </section>
   );

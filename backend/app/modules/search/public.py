@@ -3,14 +3,20 @@
 from app.modules.search.interpretation import interpret_query
 from app.modules.search.relations import institution_names
 from app.modules.search.retrieval import rank_records
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+)
 
 
 def search_records(records, query, *, sort="relevance", institutions=(), relation=None):
     """Interpret and rank a complete latest-published filtered snapshot."""
-    records = list(records)
+    records = annotate_records(deduplicate_notice_records(records))
     vocabulary = set(institutions) | set(institution_names(records))
     plan = interpret_query(query, institutions=vocabulary)
     matches = rank_records(records, plan, sort=sort)
+    matches = group_matches(matches)
     alternatives = []
     if plan.institutions and plan.intent in {"ambiguous", "related"}:
         for scope, roles, label in [

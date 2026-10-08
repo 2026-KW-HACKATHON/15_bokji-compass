@@ -14,10 +14,10 @@ from app.contracts.search import Correction, Institution, SearchPlan
 CONCEPT_TERMS = {
     "scholarship": ("장학", "장학생", "학자금지원", "학비지원", "교육비지원"),
     "tuition": ("등록금", "학비", "학자금", "수업료", "장학", "교육비"),
-    "rent": ("월세", "집세", "임차료", "임대료", "주거급여", "임차보증금"),
+    "rent": ("월세", "집세", "임차료", "임대료", "주거급여"),
     "housing": ("주거", "주택", "전세", "보증금", "임대", "기숙사", "독립", "자취"),
     "living": ("생활비", "생계", "생활안정", "생활지원", "생계비", "긴급복지"),
-    "financial": ("장학", "지원금", "보조금", "수당", "급여", "생활비", "대출", "학자금"),
+    "financial": ("장학", "지원금", "보조금", "장려금", "수당", "급여", "생활비", "대출", "학자금"),
     "employment": ("취업", "채용", "일자리", "구직", "직업", "인턴", "진로", "고용"),
     "training": ("직업훈련", "훈련", "교육", "자격증", "내일배움", "취업교육"),
     "care": ("돌봄", "간병", "요양", "보육", "방문지원", "활동지원"),
@@ -51,7 +51,7 @@ QUERY_PATTERNS = {
     "housing": r"주거|주택|전세|보증금|기숙사|자취|독립|살집|집구하|방구하",
     "living": r"생활비|생계|먹고살|살림|생활힘|생활어려|생활빠듯|생활비없",
     "financial": (r"받을(?:만한|수있는)?돈|받는돈|돈받|돈(?:이)?없|지원금|보조금|"
-                  r"수당|금전|돈좀|돈보태"),
+                  r"장려금|수당|금전|돈좀|돈보태"),
     "employment": r"취업|채용|일자리|구직|인턴|직업|일구하|일찾",
     "training": r"직업훈련|훈련|자격증|내일배움|기술배우|배우고싶|배울수",
     "care": r"돌봄|간병|요양|돌봐|돌보|보살펴",
@@ -69,7 +69,7 @@ QUERY_PATTERNS = {
     "culture": r"문화|예술|체육|여행|공연|스포츠",
 }
 AUDIENCE_PATTERNS = {
-    "student": r"대학생|대학원생|재학생|학부생|학생|대생|학교다니|학교에다니",
+    "student": r"대학생|대학원생|재학생|학부생|휴학생|학생|대생|학교다니|학교에다니",
     "young": r"청년|사회초년|취준|취업준비|20대|30대",
     "senior": r"어르신|노인|고령|시니어|할머니|할아버지|노후",
     "family": r"가족|가구|부모|자녀|아동|아이|한부모|우리애|우리엄마|우리아빠",
@@ -84,12 +84,40 @@ NEGATIVE = (r"(?:말고|제외|빼고|빼줘|싫|원치|원하지|필요없|안�
 FILLER = re.compile(
     r"(?:받을만한|받을만|관련된|찾아주라|찾아줘|찾아주세요|다니는데|다니는중|"
     r"좀|공고|정책|지원|혜택|관련|가능|필요|받을|받는|받고|신청|알려|찾아|찾을|찾고|보여|"
-    r"있나|있어|있을|없나|없어|뭐가|뭐|어떤|어떻게|해줘|해주세요|주세|주는|도와|보태|"
+    r"있나|있어|있는|있을|없나|없어|뭐가|뭐|어떤|어떻게|해줘|해주세요|주세|주는|도와|보태|"
     r"도움|너무|비싸|힘들|어렵|빠듯|궁금|방법|제도|해당|할수|수있는|수있|하는거|"
     r"할만|받을만|같은거|그런거|거없|좋겠|좋은|우리|저는|나는|제가|내가|저희|요$|"
     r"거$|것$|대상|올라온|올린|올리는|게시|올렸|하는|되는|지금|현재|최근|"
     r"싶어|싶은|싶다|중에|가운데|한테|인데|는데|주라|이나|낼|내는)"
 )
+
+
+LEAVE_PATTERN = (r"휴학(?:생|한(?:학생)?|중(?:인(?:학생)?)?|했(?:어요|어|고|는데)|"
+                 r"하고있(?:는(?:학생)?|어요|어))?")
+BACKGROUND_PATTERNS = (
+    LEAVE_PATTERN,
+    r"취업준비(?:를)?(?:중(?:인)?|하고(?:있는|있어요)|하는)",
+    r"(?:재학|거주)(?:중(?:인)?|하고(?:있는|있어요))",
+    r"살고(?:있는|있는데|있어요|있어|있고)|살(?:아요|고있)|사는",
+)
+GRAMMATICAL_ENDING = (r"(?:이고요|이고|인데요|인데|이지만|이라서|이라|이며|으로|에서|에게|"
+                      r"은|는|을|를|의|과|와|에|도|이|가)*")
+RESIDUAL_STOPWORDS = {
+    "정보", "정보가", "내용", "이고", "이며", "이라", "이라서", "아니고", "아닌", "중인",
+    "중이고", "중인데", "중이라", "있습니다", "있어요", "알고", "알고싶어요", "알려주세요",
+    "받고싶어요", "찾아주세요", "추천해주세요", "추천", "해요", "해주세요", "필요합니다",
+    "필요해요", "합니다", "있을까요", "있을까", "없을까요", "없을까", "무엇인지", "어디서",
+    "어디에", "어디", "대한", "대해", "대하여", "알아보고", "알아보려", "알아보려고",
+}
+
+
+def _life_contexts(text: str) -> tuple[str, ...]:
+    """A stated school status affects relevance, never application eligibility."""
+    for hit in re.finditer(LEAVE_PATTERN, text):
+        if not re.match(r"^(?:은|는|이|가)?(?:아니|아닌|하지않|하지안|안|제외|말고|빼고)",
+                        text[hit.end():]):
+            return ("student_leave",)
+    return ()
 
 
 def normalized(value: str) -> str:
@@ -170,6 +198,20 @@ def _unverified_affiliations(query: str, entities):
             continue
         if any(normalized(name).endswith(alias) for _, aliases, original in (*entities, *added)
                for alias in (*aliases, original)):
+            continue
+        added.append((name, institution_aliases(name), normalized(name)))
+    return added
+
+
+def _unverified_publishers(query: str, entities):
+    """Preserve explicitly requested school publishers even in an empty catalog."""
+    added = []
+    pattern = (r"([가-힣A-Za-z]{2,16}대(?:학교)?)\s*(?:에서|가|이)\s*"
+               r"(?:올린|올라온|올리는|올렸|게시|등록한|낸)")
+    for match in re.finditer(pattern, unicodedata.normalize("NFKC", query)):
+        name = match[1]
+        if any(normalized(name) in (*aliases, original)
+               for _, aliases, original in (*entities, *added)):
             continue
         added.append((name, institution_aliases(name), normalized(name)))
     return added
@@ -276,15 +318,14 @@ def _institutions(entities, text: str, default: str) -> tuple[Institution, ...]:
 
 def _residual_terms(query: str, entities, exclusions) -> tuple[str, ...]:
     cleaned = unicodedata.normalize("NFKC", query).casefold()
+    cleaned = re.sub(r"(?<=[가-힣])[!·](?=[가-힣])", "", cleaned)
     for _, aliases, original in entities:
         for alias in sorted((*aliases, original), key=len, reverse=True):
             cleaned = re.sub(r"\s*".join(re.escape(char) for char in alias), " ", cleaned)
     # Redundant money cues remain interpreted even when a more specific goal
     # replaces them in the plan; they must not become literal constraints.
-    for pattern in QUERY_PATTERNS.values():
-        cleaned = _erase_compact_matches(cleaned, pattern)
-    for pattern in AUDIENCE_PATTERNS.values():
-        cleaned = _erase_compact_matches(cleaned, pattern)
+    for pattern in (*BACKGROUND_PATTERNS, *QUERY_PATTERNS.values(), *AUDIENCE_PATTERNS.values()):
+        cleaned = _erase_compact_matches(cleaned, f"(?:{pattern}){GRAMMATICAL_ENDING}")
     cleaned = re.sub(r"우리(?:학교|대학)|본교|내학교", " ", cleaned)
     if "loan" in exclusions:
         cleaned = re.sub(r"갚[^\s,.。!?;]*|돌려[^\s,.。!?;]*|상환[^\s,.。!?;]*", " ", cleaned)
@@ -296,8 +337,13 @@ def _residual_terms(query: str, entities, exclusions) -> tuple[str, ...]:
     cleaned = FILLER.sub(" ", cleaned)
     terms = []
     for word in re.findall(r"[가-힣A-Za-z0-9_%/]+", cleaned):
-        word = re.sub(r"(?:에서|으로|에게|은|는|을|를|의|에|도|좀)$", "", word)
-        if len(word) >= 2 or word in {"%", "_"}:
+        if word in {"에서", "으로", "에게", "에는", "에도"}:
+            continue
+        stem = re.sub(r"(?:에서|으로|에게|은|는|을|를|의|에|도|좀)$", "", word)
+        # Preserve short proper nouns such as 화도; 도 is part of the name.
+        if len(stem) >= 2 or len(word) > 2:
+            word = stem
+        if (len(word) >= 2 or word in {"%", "_"}) and word not in RESIDUAL_STOPWORDS:
             terms.append(word)
     return tuple(dict.fromkeys(terms))[:12]
 
@@ -310,18 +356,28 @@ def interpret_query(query: str, institutions: Iterable[str] = ()) -> SearchPlan:
     entities, corrections = _entities(query, institutions)
     unverified = _unverified_affiliations(query, entities)
     entities.extend(unverified)
+    unverified_publishers = _unverified_publishers(query, entities)
+    entities.extend(unverified_publishers)
     for correction in corrections:
         compact = compact.replace(normalized(correction.original),
                                   normalized(correction.replacement))
     exclusions = _exclusions(compact)
     concepts = [name for name, pattern in QUERY_PATTERNS.items()
                 if re.search(pattern, compact) and name not in exclusions]
+    contexts = _life_contexts(compact)
+    background_concepts = ()
+    if "employment" in concepts and len(concepts) > 1 and re.search(
+            r"취업준비(?:중|를|하고|하는)|취준생", compact):
+        concepts.remove("employment")
+        background_concepts = ("employment",)
     if "financial" in concepts and any(concept in concepts for concept in (
             "tuition", "rent", "living", "medical", "food", "energy", "transport", "parenting")):
         concepts.remove("financial")
     if "rent" in concepts and "housing" in concepts:
         concepts.remove("housing")
     audiences = [name for name, pattern in AUDIENCE_PATTERNS.items() if re.search(pattern, compact)]
+    if "student_leave" in contexts and "student" not in audiences:
+        audiences.append("student")
     publisher = bool(re.search(r"(?:에서|가|이)(?:올린|올라온|올리는|올렸|게시|등록한|낸)|게시기관|"
                                r"학교(?:공지|게시판)|대(?:공지|게시판)|대(?:학교)?공고(?:중|가운데)",
                                compact))
@@ -341,6 +397,12 @@ def interpret_query(query: str, institutions: Iterable[str] = ()) -> SearchPlan:
             "affiliation" if intent == "target" else "related")
     institutions_parsed = _institutions(entities, compact, role)
     ambiguities = []
+    if "student_leave" in contexts:
+        ambiguities.append("휴학 중인 학생의 지원 정보를 찾았어요. 휴학생 제외 여부와 재학 요건은 "
+                           "공고마다 달라 원문 확인이 필요해요.")
+    if unverified_publishers:
+        ambiguities.append("입력한 학교가 게시한 공개 공고를 확인하지 못했어요. "
+                           "기관 이름과 공고 데이터 수집 상태를 확인해 주세요.")
     if unverified:
         ambiguities.append("입력한 학교 이름이 공개 공고에서 확인되지 않아, "
                            "학교를 특정하지 않은 전국 대학생 안내도 함께 찾았어요.")
@@ -372,6 +434,8 @@ def interpret_query(query: str, institutions: Iterable[str] = ()) -> SearchPlan:
         summary = f"{goal} 관련 공고를 찾았어요."
     else:
         summary = "입력한 표현과 공고의 내용을 함께 살펴봤어요."
+    if "student_leave" in contexts:
+        summary += " 휴학 상황을 참고해 학생 지원과 일반 지원을 함께 살펴봤어요."
     if exclusions:
         excluded = " · ".join(CONCEPT_LABELS.get(item, item) for item in exclusions)
         summary += f" 제외 조건: {excluded}."
@@ -381,4 +445,5 @@ def interpret_query(query: str, institutions: Iterable[str] = ()) -> SearchPlan:
         summary += f" 제외 기관: {excluded_schools}."
     interpreted = " ".join(filter(None, (institution_text, goal, " ".join(terms)))) or query
     return SearchPlan(query, interpreted, intent, institutions_parsed, tuple(concepts), exclusions,
-                      terms, tuple(audiences), tuple(corrections), tuple(ambiguities), summary)
+                      terms, tuple(audiences), tuple(corrections), tuple(ambiguities), summary,
+                      contexts, background_concepts)

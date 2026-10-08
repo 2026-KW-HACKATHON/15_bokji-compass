@@ -153,7 +153,7 @@
   align-self: flex-start;
 }
 .month-grid .calendar-day[aria-current='date'] .calendar-day-number {
-  background: var(--green);
+  background: var(--accent);
   color: white;
   font-weight: 700;
 }
@@ -263,7 +263,7 @@
   min-height: 44px;
 }
 .calendar-policy-title:hover {
-  color: var(--green);
+  color: var(--accent);
   text-decoration: underline;
 }
 .calendar-policy-row p {
@@ -287,7 +287,7 @@
 }
 .calendar-save[aria-pressed='true'] {
   background: var(--soft);
-  color: var(--green);
+  color: var(--accent);
 }
 .calendar-save[aria-pressed='true'] svg {
   fill: #a5d8f3;
@@ -320,7 +320,7 @@
   color: var(--muted);
 }
 .calendar-undated .section-heading > span {
-  color: var(--green);
+  color: var(--accent);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -337,7 +337,7 @@
   margin-top: 24px;
 }
 .calendar-undated .fine-print a {
-  color: var(--green);
+  color: var(--accent);
   text-decoration: underline;
 }
 .easy-mode .calendar-row-category,

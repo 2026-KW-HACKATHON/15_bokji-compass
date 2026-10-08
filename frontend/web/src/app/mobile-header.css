@@ -1,0 +1,296 @@
+/* Mobile uses a compact utility row and a vertical menu, without a swipe strip. */
+.mobile-navigation {
+  display: none;
+}
+.mobile-menu-dialog:not([open]) {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .portal-shell .portal-header,
+  .portal-shell.easy-mode .portal-header {
+    position: sticky;
+    top: 0;
+    grid-template-columns: minmax(0, 1fr) 88px 44px;
+    grid-template-rows: 60px 52px;
+    gap: 0 8px;
+    height: 112px;
+    min-height: 112px;
+    padding: 0 16px;
+    background: #fff;
+    backdrop-filter: none;
+  }
+  .portal-header::before {
+    display: none;
+  }
+  .portal-header .brand,
+  .easy-mode .portal-header .brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    gap: 8px;
+    font-size: 1rem;
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .portal-header .brand-image,
+  .easy-mode .portal-header .brand-image {
+    width: 36px;
+    height: 36px;
+  }
+  .portal-header .brand small {
+    display: none;
+  }
+  .portal-shell .portal-header .header-actions,
+  .portal-shell.easy-mode .portal-header .header-actions {
+    display: contents;
+  }
+  .portal-header .language-control,
+  .easy-mode .portal-header .language-control {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    align-self: center;
+  }
+  .portal-header .language-selector,
+  .easy-mode .portal-header .language-selector {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    width: 88px;
+    min-width: 0;
+    align-self: center;
+    margin: 0;
+  }
+  .portal-header .language-selector > svg {
+    display: none;
+  }
+  .portal-header .language-selector-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .portal-header .language-selector select,
+  .easy-mode .portal-header .language-selector select {
+    width: 100%;
+    min-width: 0;
+    max-width: 88px;
+    min-height: 44px;
+    height: 44px;
+    padding: 6px 18px 6px 8px;
+    font-size: 0.75rem;
+    border: 0;
+    background-color: transparent;
+    color: var(--ink);
+  }
+  .portal-header .mode-switch,
+  .easy-mode .portal-header .mode-switch {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    justify-content: flex-start;
+    min-width: 0;
+    min-height: 44px;
+    height: auto;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.82rem;
+    line-height: 1.3;
+    white-space: normal;
+  }
+  .portal-header .mode-label {
+    min-width: 0;
+    text-align: left;
+  }
+  .portal-header .mode-state,
+  .easy-mode .portal-header .mode-state {
+    display: none;
+  }
+  .portal-header .switch-track,
+  .easy-mode .portal-header .switch-track {
+    width: 32px;
+    height: 20px;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+  .portal-header .switch-track > span,
+  .easy-mode .portal-header .switch-track > span {
+    width: 16px;
+    height: 16px;
+  }
+  .portal-header .mode-switch[aria-checked='true'] .switch-track > span {
+    transform: translateX(12px);
+  }
+  .portal-header .account-actions,
+  .easy-mode .portal-header .account-actions {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    align-self: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-width: 0;
+    overflow: visible;
+  }
+  .portal-header .account-actions :is(.login-link, .text-button),
+  .easy-mode .portal-header .account-actions :is(.login-link, .text-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 4px;
+    font-size: 0.82rem;
+    color: var(--ink);
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .portal-header .notification-trigger {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  .portal-header .account-actions :is(.auth-username, .signup-link, .header-admin-link) {
+    display: none;
+  }
+  .portal-header :is(.portal-navigation, .easy-navigation) {
+    display: none;
+  }
+  .mobile-navigation {
+    display: block;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+  }
+  .mobile-menu-toggle,
+  .easy-mode .mobile-menu-toggle {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 10px;
+    color: var(--ink);
+  }
+  .mobile-menu-toggle:hover {
+    background: var(--soft);
+  }
+  .mobile-menu-dialog {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    color: var(--ink);
+  }
+  .mobile-menu-dialog[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-menu-dialog::backdrop {
+    background: #17324d26;
+  }
+  .mobile-menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+    min-height: 64px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .mobile-menu-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 24px max(24px, env(safe-area-inset-bottom));
+  }
+  .mobile-menu-group {
+    border-bottom: 1px solid var(--line);
+  }
+  .mobile-menu-group summary,
+  .mobile-menu-destination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 60px;
+    padding: 12px 0;
+    font-size: 1.1rem;
+    font-weight: 650;
+    line-height: 1.5;
+    list-style: none;
+    cursor: pointer;
+  }
+  .mobile-menu-group summary::-webkit-details-marker {
+    display: none;
+  }
+  .mobile-menu-group[open] summary > svg {
+    transform: rotate(180deg);
+  }
+  .mobile-menu-destination {
+    border-bottom: 1px solid var(--line);
+  }
+  .mobile-menu-group[data-active='true'] summary,
+  .mobile-menu-dialog a[aria-current='page'] {
+    color: var(--accent);
+  }
+  .mobile-menu-children {
+    display: grid;
+    padding: 0 0 12px 12px;
+  }
+  .mobile-menu-children a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 48px;
+    padding: 10px 0;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .mobile-menu-account {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-top: 24px;
+  }
+  .mobile-menu-account p {
+    width: 100%;
+    color: var(--muted);
+  }
+  .mobile-menu-account a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .portal-shell.easy-mode .portal-header {
+    grid-template-rows: 64px 60px;
+    height: 124px;
+  }
+  .easy-mode .mobile-menu-group summary,
+  .easy-mode .mobile-menu-destination {
+    min-height: 64px;
+  }
+  .easy-mode .mobile-menu-children a {
+    min-height: 56px;
+  }
+}

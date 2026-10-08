@@ -1,5 +1,20 @@
 # 공고 저장소
 
+2026-10-08 단계별 공고: `notice_series.py`는 같은 기관·사업·명시된 연도/기간/차수를
+읽기 모델에서 묶는다. `annotate_records`는 원본 ID마다 전체 묶음 메타데이터를 붙이고
+`group_records`/`group_matches`는 대표 원문을 선택한다. 공개 목록은 묶음 이후 건수와
+페이지를 계산하며 상세는 원래 제목·본문·첨부와 관련 공개 원문을 제공한다. 원문 저장·
+개정·공개 상태는 변경하지 않는다. [계약·한계·검증](../../../docs/notice-series.md).
+
+2026-10-08 필수 지역·학교 데이터: 명시적 `python -m app.modules.storage init`은
+스키마 초기화 뒤 공식 광운대 공고 190건과 검증된 지역 서비스 20건의 누락을 보충한다.
+기존 DB는 `ensure-focus-data`, 읽기 전용 검사는 `ensure-focus-data --check`를 사용한다.
+`public.ensure_focus_data(repository)`는 `{added,skipped,coverage}`,
+`public.focus_coverage(repository)`는 `{ready,checks}`를 반환한다. 기존 정책 키·공식
+광운대 DUID가 있으면 공개 상태와 관계없이 보존하며 자격 자동 판정은 비활성이다.
+조회·서버 시작·외부 HTTP·LLM 호출에는 쓰기가 없다.
+[입력·반환·오류·실제 적재와 검증](../../../docs/focus-search-data.md).
+
 2026-10-08: 공고 지역 필터는 `전남광주통합특별시`와 원문 약칭 `전남광주`를
 함께 인식합니다. 새 회원 주소에서 도출된 통합 지역명을 그대로 사용할 수 있습니다.
 

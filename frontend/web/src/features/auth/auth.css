@@ -25,7 +25,7 @@
   align-items: center;
   padding: 36px 24px;
   text-align: center;
-  background: linear-gradient(150deg, #edf7ff, #f0f8f1);
+  background: linear-gradient(150deg, var(--accent-soft), var(--surface-muted));
   border-right: 1px solid var(--line);
 }
 .auth-story-brand {
@@ -56,7 +56,7 @@
 }
 .auth-orbit-inner {
   inset: 20px;
-  border-color: #c4ded5;
+  border-color: var(--line);
 }
 .auth-orbit-point {
   position: absolute;
@@ -64,9 +64,9 @@
   right: 23px;
   width: 10px;
   height: 10px;
-  border: 2px solid #f0f8f1;
+  border: 2px solid var(--surface-muted);
   border-radius: 50%;
-  background: #087b52;
+  background: var(--assist-accent);
 }
 .auth-story p {
   font-size: 1.5rem;
@@ -102,9 +102,9 @@
   font-size: 0.88rem;
 }
 .auth-route-nav a[aria-current='page'] {
-  color: var(--green);
+  color: var(--accent);
   font-weight: 650;
-  border-bottom-color: var(--green);
+  border-bottom-color: var(--accent);
 }
 .auth-heading {
   margin-bottom: 24px;
@@ -471,7 +471,7 @@
   height: 22px;
   min-width: 22px;
   margin: 0;
-  accent-color: var(--green);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 .privacy-choice-open {
@@ -488,7 +488,7 @@
   line-height: 1.55;
 }
 .privacy-choice-open:hover {
-  color: var(--green);
+  color: var(--accent);
 }
 .privacy-choice-name {
   display: grid;
@@ -502,7 +502,7 @@
   font-weight: 650;
 }
 .privacy-choice-badge.required {
-  color: var(--green);
+  color: var(--accent);
 }
 .privacy-choice-view {
   display: inline-flex;

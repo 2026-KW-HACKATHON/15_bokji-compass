@@ -78,6 +78,29 @@ def test_direct_https_is_accepted_without_forwarding_headers(tmp_path):
         assert client.get("/v1/finance/rules").status_code == 200
 
 
+@pytest.mark.parametrize("base_url,client_ip,headers,expected", [
+    ("http://127.0.0.1:8001", "127.0.0.1", {}, 401),
+    ("http://localhost:8001", "127.0.0.1", {}, 401),
+    ("http://localhost:8001", "::1", {"Host": "[::1]:8001"}, 401),
+    ("http://127.0.0.1:8001", "203.0.113.10", {}, 403),
+    ("http://attacker.example", "127.0.0.1", {}, 403),
+    ("http://127.0.0.1:8001", "127.0.0.1", {"X-Forwarded-For": "203.0.113.10"}, 403),
+    ("http://127.0.0.1:8001", "127.0.0.1", {"X-Forwarded-Proto": "http"}, 403),
+    ("http://127.0.0.1:8001", "127.0.0.1", {"X-Forwarded-Host": "localhost"}, 403),
+    ("http://127.0.0.1:8001", "127.0.0.1", {"Forwarded": "for=127.0.0.1"}, 403),
+    ("http://127.0.0.1:8001", "127.0.0.1", {"Origin": "https://attacker.example"}, 403),
+])
+def test_production_console_allows_only_direct_loopback_http(
+        tmp_path, base_url, client_ip, headers, expected):
+    with TestClient(production_app(tmp_path), base_url=base_url,
+                    client=(client_ip, 12345)) as client:
+        response = client.get("/v1/server-admin/session", headers=headers)
+        assert response.status_code == expected
+        assert "set-cookie" not in response.headers
+        # The local-console exception never changes the public account API.
+        assert client.get("/v1/auth/me", headers=headers).status_code == 403
+
+
 @pytest.mark.anyio
 async def test_http_body_is_not_consumed_before_transport_rejection():
     async def forbidden(*args):

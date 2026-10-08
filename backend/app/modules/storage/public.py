@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from app.contracts.public import RawDocument
+from app.modules.storage.focus_data import ensure_focus_data, focus_coverage
 from app.modules.storage.publication import (
     PublicationConflict,
     auto_publish_pending,
@@ -16,6 +17,7 @@ from app.modules.storage.repository import PolicyRepository, validate_draft
 from app.modules.storage.schema import initialize_policy_schema
 
 __all__ = ["PolicyRepository", "initialize_policy_schema", "validate_draft",
+           "ensure_focus_data", "focus_coverage",
            "auto_publish_pending",
            "PublicationConflict", "list_publication_revisions", "review_publication_revision",
            "set_publication_status",

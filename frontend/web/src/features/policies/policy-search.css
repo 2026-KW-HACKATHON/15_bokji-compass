@@ -76,8 +76,8 @@
 }
 
 .search-alternatives button[aria-pressed='true'] {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 700;
 }
 

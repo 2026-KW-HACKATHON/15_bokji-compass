@@ -57,8 +57,8 @@
 .easy-mode .interest-options label.selected,
 .easy-mode .monitoring-interests label:has(:checked),
 .easy-mode .search-alternatives button[aria-pressed='true'] {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 1px var(--green);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
   font-weight: 700;
   background: var(--soft);
 }
@@ -123,8 +123,8 @@
   width: 100%;
   min-height: 56px;
   padding: 12px 20px;
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
   background: white;
   font-size: 1rem;
   font-weight: 700;
@@ -168,7 +168,7 @@
   min-width: 0;
   min-height: 56px;
   padding: 12px;
-  border: 1px solid var(--green);
+  border: 1px solid var(--accent);
   border-radius: 10px;
   color: var(--ink);
   background: white;
@@ -187,7 +187,7 @@
 }
 .calendar-easy-month > summary {
   padding-block: 12px;
-  color: var(--green);
+  color: var(--accent);
   font-weight: 650;
   cursor: pointer;
 }
@@ -213,10 +213,10 @@
   font-size: 0.94rem;
 }
 .calendar-easy-days > button[aria-pressed='true'] {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 2px var(--green);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
   background: var(--soft);
-  color: var(--green);
+  color: var(--accent);
 }
 .calendar-easy-days > button[aria-current='date'] strong {
   text-decoration: underline;
@@ -272,8 +272,8 @@
   font-size: 0.94rem;
 }
 .easy-mode .calendar-save[aria-pressed='true'] {
-  border-color: var(--green);
-  box-shadow: inset 0 0 0 1px var(--green);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* Forms group one decision at a time; help stays large enough to read. */
@@ -308,7 +308,7 @@
 }
 .easy-mode .profile-tabs [aria-selected='true'],
 .easy-mode .monitoring-dashboard-nav button[aria-pressed='true'] {
-  box-shadow: inset 0 -3px 0 var(--green);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 .easy-mode
   :is(
@@ -325,7 +325,7 @@
   padding: 12px 16px;
 }
 .easy-mode .assistant-profile-interests input:checked + span {
-  box-shadow: inset 0 0 0 1px var(--green);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .easy-mode .assistant-profile-grid :is(select, input) {
   min-height: 56px;
@@ -444,7 +444,7 @@
   justify-content: flex-start;
   padding: 12px;
   border-radius: 8px;
-  color: var(--green);
+  color: var(--accent);
   text-align: left;
 }
 .easy-mode .chat-launcher-open > svg {

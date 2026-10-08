@@ -8,6 +8,7 @@ import usePolicyRefresh from './usePolicyRefresh.js';
 import { SearchInterpretation, searchScopeLabels } from './PolicySearchFeedback.jsx';
 import PolicyExplorerFilters from './PolicyExplorerFilters.jsx';
 import { effectivePolicySort } from './searchMetadata.js';
+import SearchConversationSuggestion from './SearchConversationSuggestion.jsx';
 const initialFilters = {
   query: '',
   searchScope: 'all',
@@ -41,6 +42,7 @@ export default function PolicyExplorer({
   onSave,
   onOpen,
   onTag,
+  onAskAssistant,
   initialQuery = '',
   initialRegion = '전국',
   initialCategory = '전체',
@@ -204,6 +206,7 @@ export default function PolicyExplorer({
           {t('검색')}{' '}
         </button>
       </form>
+      <SearchConversationSuggestion query={filters.query} onAskAssistant={onAskAssistant} />
       <PolicyExplorerFilters
         repository={repository}
         filters={filters}

@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.auth import LoginInput, Service, get_service, ip
 from app.api.policies import get_repository
 from app.core.config import BACKEND_ROOT
-from app.core.web_security import WRITE_METHODS, origin_key
+from app.core.web_security import WRITE_METHODS, direct_local_console, origin_key
 from app.modules.admin.access import admin_role
 from app.modules.auth.service import SESSION_SECONDS
 from app.modules.server_admin import public as console
@@ -144,7 +144,8 @@ def login(data: ConsoleLogin, request: Request, response: Response, service: Ser
         token,
         max_age=SESSION_SECONDS,
         httponly=True,
-        secure=request.app.state.settings.app_env == "production",
+        secure=(request.app.state.settings.app_env == "production"
+                and not (request.url.scheme == "http" and direct_local_console(request))),
         samesite="strict",
         path="/",
     )

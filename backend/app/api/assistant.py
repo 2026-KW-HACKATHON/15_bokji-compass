@@ -1,11 +1,11 @@
-"""Member Q&A: account-scoped limits and a fresh, minimal model context per request."""
+"""Public and member Q&A with a fresh, minimal model context per request."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import Field, field_validator
 
-from app.api.auth import Service, guard, ip
+from app.api.auth import Service, guard
 from app.api.members import OptionalMember
 from app.api.policies import get_repository
 from app.contracts.assistance import GuidanceProfile
@@ -52,18 +52,12 @@ def question(data: QuestionInput, request: Request, member: OptionalMember, serv
         record = repository.get_revision(data.revision_id)
         if record is None or record["review_status"] != "published":
             raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
-        service.throttle("assistant:guest:" + ip(request), 6, 60)
         return answer_public_question(record, data.revision_id, data.question)
     # Authenticate before even reflecting the policy database or invoking the model.
     require_member_ai_consent(service, member["id"], request.app.state.settings)
     repository = get_repository(request)
     if repository.get_revision(data.revision_id) is None:
         raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
-    service.throttle("assistant:" + member["id"], 6, 60, account_id=member["id"])
-    slots = request.app.state.assistant_slots
-    if not slots.acquire(blocking=False):
-        raise HTTPException(429, "다른 질문에 답하고 있어요. 잠시 후 다시 질문해 주세요.",
-                            headers={"Retry-After": "30"})
     try:
         age = member["age"]
         age_band = None if age is None else (f"{age // 10 * 10}대" if age >= 10 else "10세 미만")
@@ -79,5 +73,3 @@ def question(data: QuestionInput, request: Request, member: OptionalMember, serv
     except (CodexRunError, ValueError, OSError):
         raise HTTPException(
             503, "원문 근거를 확인한 답변을 만들지 못했어요. 다시 질문해 주세요.") from None
-    finally:
-        slots.release()

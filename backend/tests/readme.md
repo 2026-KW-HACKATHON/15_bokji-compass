@@ -1,5 +1,22 @@
 # 개발환경 테스트
 
+2026-10-08 단계별 공고: `test_notice_series.py`는 실제 광운대 3건, 단계/사업/연도/
+기간/기관/차수 구분과 원문·검색 근거 보존을 검사한다. `test_notice_series_catalog.py`는
+묶음 전 건수·페이지, 검색·상태·HTTP·원래 상세·비공개 제외·캘린더를 검증한다.
+`test_notice_series_recommendations.py`는 홈·대화·지속 안내·기존 추천/알림과 계정별
+제외를 검사한다. 격리 데이터만 사용한다. [동작 계약](../docs/notice-series.md).
+
+2026-10-08 연속 대화·횟수 제한 제거: `test_continuing_dialogue.py`는 같은 토큰의 자유
+후속 질문, 현재 질문에 대한 짧은 답, 본인/타인 문맥, 제목·순서로 공고 지정, 공식 신청
+방법·기간·서류, 조회 장애/철회, 동시 선택·저장 이후 덮어쓰기 차단, 활동 중 만료 갱신과
+회원/비회원 격리를 검증한다.
+`test_assistant_usage.py`와 공고 API 회귀는 기존 분당 질문·저장·갱신 한도를 넘는 요청과
+동시 답변의 성공을 확인하고 로그인 보안 제한의 보존도 검사한다. 합성 공고·임시 SQLite와
+모델 대역을 사용하며 외부 AI·운영 DB를 호출하지 않는다.
+
+2026-10-08 배포 확인: `test_bootstrap.py`의 OpenAPI 경로 목록에 추천 제외·서류 준비
+저장 API를 포함합니다. 운영 프로세스의 실제 경로 반영은 재시작 후 별도로 확인합니다.
+
 2026-10-08 주소 지역: `test_member_address.py`는 통합 지역의 회원 주소 저장·서버
 재시작 후 복원, 추천 프로필 계약·공식 코드 해석과 통합 지역 이름 검색을 검증합니다.
 
@@ -21,9 +38,12 @@ boolean·정확한 revision/서류 ID, 저장·해제·다른 분야 공유·지
 신청 기록 보존, 알림 억제, 복원·삭제와 지연 worker 버전 보호, 인증 API의 이유·소유권
 검증 및 홈·대화 API로 저장 설정 전달을 확인합니다. 임시 SQLite만 사용합니다.
 
-`test_https_transport.py`는 production HTTP API의 403, 전달 헤더 위조 차단,
+`test_https_transport.py`는 production 공개 HTTP API의 403, 전달 헤더 위조 차단,
 신뢰하는 루프백 프록시의 HTTPS 허용, 직접 HTTPS·개발 HTTP·health 호환성을 검사합니다.
 요청 본문과 인증·저장소를 처리하기 전에 차단하는지도 확인합니다.
+직접 loopback·로컬 Host·프록시 헤더 없음 조건의 서버 콘솔 HTTP만 허용하며,
+외부 접속자·외부 Host·전달 헤더·다른 Origin은 계속 차단합니다. `test_server_admin.py`는
+production 로컬 HTTP/HTTPS 로그인·쿠키·세션 유지와 QR 관리자 거부를 격리 계정으로 확인합니다.
 `test_tunnel_transport.py`는 실제 Caddy 설정을 임시 포트에서 실행하고 합성 upstream으로
 HTTP 화면의 308, HTTP API·쓰기 요청의 403, HTTPS 전달·쿠키·CSP·HSTS,
 관리자 경로 차단과 로컬 상태 점검을 확인합니다. 운영 서버·DB에 접근하지 않습니다.
@@ -128,3 +148,7 @@ Windows 작업 호출은 subprocess 대역으로 인수 배열과 등록 제약�
 64KB를 넘는 일반·청크 요청을 인증 전에 차단하며, `test_ingestion_disabled.py`는
 수집 중지 설정 시 `tick --live`도 DB·네트워크·모델을 접근하지 않는지 확인합니다.
 실제 MySQL, 수집 API, 모델, 운영 설정 파일은 접근하지 않습니다.
+
+test_conversational_search.py는 휴학생 지원금 상황형 문장·거주지역 보존·취업 준비 배경·휴학 부정과 제외 문맥을 검증합니다. python -m pytest tests/test_conversational_search.py tests/test_smart_search.py tests/test_tunnel_transport.py로 실행합니다.
+
+`test_conversation_mode.py`는 자유 대화의 설문 생략, 휴학·지역 문맥, 감사 후 공고 상세, 긴 문장, 주제 변경·정정, 비회원 쿠키 격리와 공고 철회를 검증합니다.

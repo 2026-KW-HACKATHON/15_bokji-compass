@@ -4,6 +4,8 @@ import { emptyTranslationFields } from './policyTranslationModel.js';
 import { safeWebUrl } from '../../../../packages/core/src/safeUrl.js';
 import { isCalendarDate } from '../calendar/calendarModel.js';
 import { parseApplicationGuide } from './applicationGuideModel.js';
+import { parseAttachments } from './attachmentModel.js';
+import { parseNoticeGroup, parseNoticeStage } from './noticeSeriesModel.js';
 export const categories = [
   '전체',
   '생활·금융',
@@ -141,6 +143,8 @@ export function parsePolicy(item) {
     id: item.id,
     revisionId: typeof item.revisionId === 'string' ? item.revisionId : null,
     title: item.title,
+    noticeStage: parseNoticeStage(item.noticeStage),
+    noticeGroup: parseNoticeGroup(item.noticeGroup, item.id),
     summary: item.summary,
     ...(translationSourceEmptyFields.length ? { translationSourceEmptyFields } : {}),
     searchMatch: parseSearchMatch(item.searchMatch),
@@ -189,6 +193,7 @@ export function parsePolicy(item) {
         : null,
     sourceUrl: safeSourceUrl(item.sourceUrl),
     content: text('content', ''),
+    attachments: parseAttachments(item.attachments, item.id),
     gender: text('gender', ''),
     contact: text('contact', ''),
     applicationMethod: text('applicationMethod', ''),

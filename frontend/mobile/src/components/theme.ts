@@ -13,6 +13,10 @@ export const colors = {
   easyIcon: "#0068B7",
   easyIconBackground: "#E0F2FE",
   danger: "#A12622",
+  assist: "#695491",
+  assistBackground: "#F3EFF8",
+  overlay: "rgba(23,35,59,0.55)",
+  overlayLight: "rgba(23,35,59,0.35)",
 };
 
 export const typography = {

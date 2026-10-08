@@ -8,6 +8,7 @@ test('login resumes supported input pages and ignores external or privileged des
     'calculator',
     'profile',
     'assistant',
+    'assistant-chat',
     'assistant-monitoring',
     'new-notices',
   ]) {

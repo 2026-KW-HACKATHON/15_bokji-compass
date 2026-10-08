@@ -2,6 +2,7 @@
 
 import re
 from datetime import datetime
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -68,7 +69,10 @@ def repository():
 def add_notice(repository, key, *, title, organization="광운대학교", fields=None,
                category="교육", day=1, revision=None, published=True, region="전국"):
     source = {"title": title, "organization": organization,
-        "source_url": ("https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID=53017"
+        # Distinct synthetic originals need distinct board IDs; revisions of one
+        # policy keep the same source identity as real notices do.
+        "source_url": ("https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID="
+                       + str(int(sha256(key.encode()).hexdigest()[:8], 16))
                        if organization == "광운대학교" else "https://example.org/notice"),
         "fields": {"application_period": "2026-10-01 ~ 2026-10-31", **(fields or {})}}
     revision = revision or key + "-revision"
@@ -619,3 +623,98 @@ def test_smart_relation_facets_round_trip_through_http(paired_catalog):
                         assert "publisher-repost" not in ids(result)
             assert client.get(path, params={**extra, "q": "광운대",
                 "search_relation": "guess"}).status_code == 422
+
+
+@pytest.fixture
+def official_focus_catalog(repository):
+    from app.modules.storage.focus_data import focus_drafts
+
+    with repository.engine.begin() as connection:
+        for draft in focus_drafts():
+            source = draft["source"]
+            revision = source["policy_key"] + "-official"
+            connection.execute(insert(repository.tables["condition_documents"]).values(
+                revision_id=revision, policy_key=source["policy_key"],
+                created_at=datetime(2026, 10, 8), source_json=source,
+                review_status="published"))
+            connection.execute(insert(repository.tables["policy_revision_details"]).values(
+                revision_id=revision, title=source["title"], category=draft["overview"]["category"],
+                draft_json=draft))
+            repository.sources[revision] = source
+    return repository
+
+
+@pytest.mark.parametrize("query", [
+    "광운대에서 올린 장학금을 찾아줘",
+    "광운대학교에서 올린 장학금을 찾아주세요",
+    "kwangwoon에서 올린 장학금",
+])
+def test_actual_official_bundle_answers_publisher_request(official_focus_catalog, query):
+    result = catalog.list_policies(official_focus_catalog, q=query, limit=300)
+    assert result["total"] >= 150
+    assert any("2026학년도 2학기 화도 및 동해장학금" in item["title"]
+               for item in result["items"])
+    assert all(item["organization"] == "광운대학교" for item in result["items"])
+    assert all("publisher" in item["searchMatch"]["relations"] for item in result["items"])
+    for item in result["items"]:
+        assert_grounded(official_focus_catalog, item)
+
+
+@pytest.mark.parametrize("name", ["화도", "동해"])
+def test_short_scholarship_names_remain_constraints(official_focus_catalog, name):
+    result = catalog.list_policies(official_focus_catalog, q=name + " 장학금 찾아줘", limit=300)
+    assert result["total"] > 0
+    assert any("2026학년도 2학기 화도 및 동해장학금" in item["title"]
+               for item in result["items"])
+    assert name in result["search"]["interpretedQuery"]
+    assert all(any(name in proof["quote"] for proof in item["searchMatch"]["evidence"])
+               for item in result["items"])
+
+
+@pytest.mark.parametrize("query", [
+    "월계동 지원", "월계!동에서 받을 수 있는 지원을 찾아줘",
+])
+def test_neighborhood_search_finds_verified_district_services(official_focus_catalog, query):
+    result = catalog.list_policies(official_focus_catalog, q=query, limit=100)
+    assert "local:wolgye-lifelong-health" in ids(result)
+    assert "local:wolgye-culture-ihyu" in ids(result)
+    assert "local:dobong-mobile-healthcare" not in ids(result)
+    # A different administrative neighborhood is not inferred to cover this legal one.
+    assert "local:wolgye1-welfare-desk" not in ids(result)
+    health = next(item for item in result["items"] if item["id"] == "local:wolgye-lifelong-health")
+    assert any(proof == {"field": "text", "quote": "서울 노원구"}
+               for proof in health["searchMatch"]["evidence"])
+    for item in result["items"]:
+        assert_grounded(official_focus_catalog, item)
+
+
+def test_focus_bundle_passes_coverage_checks_and_http(official_focus_catalog):
+    from app.modules.storage.focus_data import focus_coverage
+
+    assert focus_coverage(official_focus_catalog)["ready"] is True
+    app = create_app(Settings(_env_file=None, db_enabled=False))
+    app.dependency_overrides[get_repository] = lambda: official_focus_catalog
+    with TestClient(app) as client:
+        result = client.get("/v1/policies", params={
+            "q": "광운대에서 올린 장학금을 찾아줘"})
+        assert result.status_code == 200
+        assert result.json()["total"] >= 150
+        assert client.get("/v1/policies", params={"q": "월계동 지원"}).json()["total"] > 0
+
+
+def test_absent_publisher_is_preserved_and_missing_data_explained(repository):
+    add_notice(repository, "national", organization="한국장학재단",
+               title="전국 대학생 장학금", fields={"text": "전국 대학생 장학금 지원"})
+    result = catalog.list_policies(repository, q="광운대에서 올린 장학금을 찾아줘")
+    assert result["total"] == 0
+    assert "광운대" in result["search"]["interpretedQuery"]
+    assert "게시기관: 광운대" in result["search"]["summary"]
+    assert result["search"]["warnings"]
+
+
+def test_geography_requires_actual_region_citation(repository):
+    add_notice(repository, "metadata-region", organization="외부 기관", title="건강 지원",
+               region="서울특별시 노원구", fields={"text": "전국 일반 건강 지원"})
+    add_notice(repository, "elsewhere", organization="외부 기관", title="건강 지원",
+               region="서울특별시 도봉구", fields={"text": "도봉구 주민 대상"})
+    assert catalog.list_policies(repository, q="월계동 지원")["total"] == 0

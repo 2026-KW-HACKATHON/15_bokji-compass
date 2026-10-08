@@ -3,6 +3,7 @@ const returnPages = new Set([
   'calculator',
   'profile',
   'assistant',
+  'assistant-chat',
   'assistant-monitoring',
   'new-notices',
 ]);

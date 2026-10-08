@@ -41,7 +41,7 @@
   background: var(--white);
 }
 .notice-source-list a:hover {
-  border-color: var(--green);
+  border-color: var(--accent);
   background: #f0f9ff;
 }
 .notice-source-list img {

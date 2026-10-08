@@ -5,12 +5,14 @@ from typing import Literal
 
 from sqlalchemy import JSON, String, and_, func, inspect, literal, or_, select
 
+from app.modules.attachments.public import clean_notice_content, public_attachments
 from app.modules.ingestion.models import records as collection_records
 from app.modules.ingestion.popularity import listing_popularity, view_count_expression
 from app.modules.normalization.source_urls import policy_source_url
 from app.modules.presentation.application import application_guide
 from app.modules.presentation.public import (
     format_notice_text,
+    format_notice_title,
     format_source_field,
     format_source_fields,
     payment_schedule,
@@ -23,6 +25,13 @@ from app.modules.storage.application_dates import (
 )
 from app.modules.storage.audience import audience_text, other_conditions
 from app.modules.storage.categories import effective_category, effective_category_expression
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+    group_records,
+    notice_stage,
+)
 from app.modules.storage.schedule_rules import resolve_calendar_schedule
 from app.modules.storage.search import SearchScope, search_predicates
 
@@ -125,6 +134,8 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
     source = record["source_json"]
     raw_fields = source["fields"]
     fields = format_source_fields(raw_fields)
+    if full and "text" in fields:
+        fields["text"] = clean_notice_content(fields["text"])
     overview = record["draft_json"].get("overview") or {}
     editorial = record["draft_json"].get("editorial") or {}
 
@@ -141,7 +152,7 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
     return {
         "id": record["policy_key"],
         "revisionId": record["revision_id"],
-        "title": source["title"],
+        "title": format_notice_title(source["title"]),
         "organization": source["organization"],
         "summary": format_source_field(editorial.get("summary") or "", field="purpose_summary")
         or policy_description(
@@ -175,6 +186,7 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
             record.get("popularity_provider"), record.get("popularity_listing")
         ),
         "content": (fields.get("text") or fields.get("eligibility") or "") if full else "",
+        "attachments": public_attachments(source, record["policy_key"]) if full else [],
         "gender": format_notice_text(section("gender_conditions", "")),
         "otherConditions": [
             format_notice_text(format_source_field(text, field="eligibility"))
@@ -193,6 +205,8 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
         "sourceFields": fields if full else {},
         "publishedDate": section("published_date", fields.get("published_date") or ""),
         "modifiedDate": section("modified_date", fields.get("modified_date") or ""),
+        **({"noticeStage": notice_stage(record)} if notice_stage(record) else {}),
+        **({"noticeGroup": record["_notice_group"]} if record.get("_notice_group") else {}),
     }
 
 
@@ -250,6 +264,33 @@ def filtered_catalog(
             )
         )
     return catalog, query
+
+
+def _notice_snapshot(connection, catalog, query):
+    """Keep query ordering while resolving notice history from all public originals."""
+    records = list(connection.execution_options(yield_per=100).execute(query).mappings())
+    if not records:
+        return []
+    # A keyword/facet may match only the old application. Resolve current source
+    # aliases and full series before applying that subset, so neither an old alias
+    # nor a missing result notice can make an ended opportunity look open.
+    complete = connection.execution_options(yield_per=100).execute(select(
+        catalog.c.policy_key, catalog.c.revision_id, catalog.c.created_at,
+        catalog.c.source_json, catalog.c.title, catalog.c.popularity_listing,
+    )).mappings()
+    current = {record["revision_id"]: record for record in
+               annotate_records(deduplicate_notice_records(complete))}
+    result = []
+    for record in records:
+        latest = current.get(record["revision_id"])
+        if latest is None:
+            continue
+        metadata = latest.get("_notice_group")
+        result.append({**record,
+                       **({"_notice_series_resolved": latest["_notice_series_resolved"]}
+                          if "_notice_series_resolved" in latest else {}),
+                       **({"_notice_group": metadata} if metadata else {})})
+    return result
 
 
 def list_policies(
@@ -314,9 +355,7 @@ def list_policies(
             if sort == "popular":
                 order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
             records = filter_records(
-                connection.execution_options(yield_per=100)
-                .execute(query.order_by(*order))
-                .mappings(),
+                _notice_snapshot(connection, catalog, query.order_by(*order)),
                 status=status,
                 age_bands=age_bands,
                 age_min=age_min,
@@ -331,13 +370,9 @@ def list_policies(
                 total = len(matches)
                 page = matches[offset : offset + limit]
             else:
-                # SQL already orders these rows. Count the complete filtered
-                # stream, but retain only the requested page's large JSON rows.
-                page, metadata, total = [], None, 0
-                for record in records:
-                    if offset <= total < offset + limit:
-                        page.append((record, None))
-                    total += 1
+                matches = group_matches((record, None) for record in records)
+                total = len(matches)
+                page, metadata = matches[offset : offset + limit], None
             return {
                 "items": [
                     {**card(record), **({"searchMatch": match} if match else {})}
@@ -355,7 +390,7 @@ def list_policies(
             # No popular/recent shortlist: every filtered published revision is
             # interpreted before count, ordering and pagination.
             vocabulary = search_institution_vocabulary(repository, connection)
-            records = connection.execution_options(yield_per=100).execute(query).mappings()
+            records = _notice_snapshot(connection, catalog, query)
             matches, metadata = search_records(
                 records, q, sort=sort, institutions=vocabulary, relation=search_relation
             )
@@ -375,10 +410,12 @@ def list_policies(
             # A measured zero precedes an unknown count. Deterministic ties keep
             # offset pagination stable while the underlying catalog is unchanged.
             order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
-        # Both statements share MySQL's repeatable-read snapshot.
-        total = connection.scalar(select(func.count()).select_from(query.subquery()))
-        records = connection.execute(query.order_by(*order).limit(limit).offset(offset)).mappings()
-        items = [card(row) for row in records]
+        # Group the complete ordered snapshot before counting or pagination, so
+        # follow-up notices cannot repeat across pages or inflate the result count.
+        records = _notice_snapshot(connection, catalog, query.order_by(*order))
+        grouped = group_records(records)
+        total = len(grouped)
+        items = [card(row) for row in grouped[offset : offset + limit]]
     result = {
         "items": items,
         "total": total,
@@ -424,16 +461,15 @@ def list_calendar(
             connection=connection,
         )
         vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
-        records = (
-            connection.execution_options(yield_per=100)
-            .execute(query.order_by(catalog.c.title, catalog.c.policy_key))
-            .mappings()
-        )
+        records = _notice_snapshot(connection, catalog,
+                                   query.order_by(catalog.c.title, catalog.c.policy_key))
         if smart:
             matches, metadata = search_records(records, q, institutions=vocabulary)
         else:
-            matches = ((record, None) for record in records)
+            matches = group_matches((record, None) for record in records)
         for record, match in matches:
+            if notice_stage(record) in {"followup", "result"}:
+                continue
             item = card(record, reference_year=year, reference_month=number)
             if match is not None:
                 item["searchMatch"] = match
@@ -523,7 +559,20 @@ def get_policy(repository, policy_key):
             .mappings()
             .first()
         )
-        return card(row, full=True) if row else None
+        if row is None:
+            return None
+        if notice_stage(row):
+            organization = row["source_json"].get("organization")
+            related = connection.execution_options(yield_per=100).execute(
+                select(catalog).where(
+                    json_text(catalog.c.source_json, "$.organization") == organization)
+            ).mappings()
+            for group in group_records(related):
+                metadata = group.get("_notice_group")
+                if metadata and any(item["id"] == policy_key for item in metadata["notices"]):
+                    row = {**row, "_notice_group": metadata}
+                    break
+        return card(row, full=True)
 
 
 def explorer_options(repository):

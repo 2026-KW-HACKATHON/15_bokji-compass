@@ -1,6 +1,7 @@
 """Isolate browser API reads/writes and bound bodies before JSON parsing."""
 
 import json
+from ipaddress import ip_address
 from urllib.parse import urlsplit
 
 from starlette.requests import Request
@@ -10,6 +11,22 @@ WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 OAUTH_NAVIGATIONS = frozenset(
     {"/v1/auth/kakao/callback", "/v1/mobile/auth/kakao/authorize"}
 )
+
+
+def direct_local_console(request: Request) -> bool:
+    """Allow the server PC's console, never a forwarded/public HTTP request."""
+    if not request.url.path.startswith("/v1/server-admin/"):
+        return False
+    if request.url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        return False
+    if any(name in request.headers for name in (
+        "forwarded", "x-forwarded-for", "x-forwarded-proto", "x-forwarded-host",
+    )):
+        return False
+    try:
+        return bool(request.client and ip_address(request.client.host).is_loopback)
+    except ValueError:
+        return False
 
 
 def unique_json_fields(pairs):
@@ -120,7 +137,8 @@ class WebSecurityMiddleware:
 
         # Only the ASGI server's trusted-proxy handling may establish the scheme.
         # Reading X-Forwarded-Proto here would let an untrusted client spoof HTTPS.
-        if self.require_https and scope.get("scheme") != "https":
+        if (self.require_https and scope.get("scheme") != "https"
+                and not direct_local_console(request)):
             await reject(403, "HTTPS 연결로 요청해 주세요.")
             return
 

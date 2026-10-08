@@ -31,7 +31,12 @@ for (const easy of [false, true]) {
       user = null;
       return route.fulfill({ json: { message: '로그아웃했어요.' } });
     });
-    const navSelector = easy ? '.easy-navigation' : '.portal-nav';
+    const navSelector = () =>
+      page.viewportSize().width <= 1000
+        ? '.mobile-navigation'
+        : easy
+          ? '.easy-navigation'
+          : '.portal-nav';
     const geometry = () =>
       page.evaluate((selector) => {
         const bounds = (selector) => {
@@ -39,7 +44,7 @@ for (const easy of [false, true]) {
           return { x, y, width, height };
         };
         return { header: bounds('.portal-header'), nav: bounds(selector) };
-      }, navSelector);
+      }, navSelector());
     const expectHeaderLayout = async (before, label) => {
       const current = await geometry();
       if (!easy) {
@@ -79,11 +84,20 @@ for (const easy of [false, true]) {
         .locator('.portal-header')
         .getByRole('button', { name: '로그아웃', exact: true });
       await expect(logout).toBeVisible();
-      await expect(page.locator('.account-actions .auth-username')).toBeVisible();
+      if (width <= 1000) await expect(page.locator('.account-actions .auth-username')).toBeHidden();
+      else await expect(page.locator('.account-actions .auth-username')).toBeVisible();
       await expect(page.locator('.notification-trigger')).toBeVisible();
-      if (easy) await page.getByRole('button', { name: '전체 메뉴', exact: true }).click();
-      await page.locator(`${navSelector} a[href="#assistant"]`).click();
-      await expect(page).toHaveURL(/#assistant$/);
+      if (width <= 1000) {
+        await page.getByRole('button', { name: '메뉴 열기', exact: true }).click();
+        await page.locator('.mobile-menu-dialog summary').filter({ hasText: 'AI 비서' }).click();
+        await page.locator('.mobile-menu-dialog a[href="#assistant-chat"]').click();
+        await expect(page).toHaveURL(/#assistant-chat$/);
+      } else {
+        if (easy) await page.getByRole('button', { name: '전체 메뉴', exact: true }).click();
+        else await page.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
+        await page.locator(`${navSelector()} a[href="#assistant-chat"]`).click();
+        await expect(page).toHaveURL(/#assistant-chat$/);
+      }
       await expectHeaderLayout(before, `login geometry at ${width}px`);
       if (!easy && width >= 1280) {
         expect(

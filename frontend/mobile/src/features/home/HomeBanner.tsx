@@ -15,7 +15,7 @@ const banners = [
     action: "복지 지원 알아보기",
     route: "/policies" as const,
     image: require("../../../assets/home/support.png"),
-    color: "#E7F0E7",
+    color: colors.paper,
   },
   {
     title: "우리 집 소득,\n어느 정도일까요?",
@@ -193,7 +193,7 @@ export function HomeBanner() {
 }
 
 const styles = StyleSheet.create({
-  frame: { borderRadius: 24, overflow: "hidden", backgroundColor: "#E7F0E7" },
+  frame: { borderRadius: 24, overflow: "hidden", backgroundColor: colors.paper },
   easyFrame: {
     borderRadius: 10,
     borderWidth: 1.5,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   category: {
-    color: "#486353",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   dots: { flexDirection: "row", gap: 5, alignItems: "center" },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#C0CCC4" },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.easyLine },
   activeDot: { width: 20, backgroundColor: colors.green },
   paging: { flexDirection: "row", alignItems: "center" },
   arrow: {

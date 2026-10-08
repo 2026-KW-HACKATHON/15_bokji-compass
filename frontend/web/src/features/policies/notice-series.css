@@ -1,0 +1,108 @@
+.notice-series {
+  min-width: 0;
+  margin: 10px 0 14px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.notice-series-status,
+.notice-series-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 9px;
+}
+.notice-series-status > span:not(.notice-stage-badge),
+.notice-series-meta time {
+  color: var(--muted);
+}
+.notice-stage-badge {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #edf6fd;
+  color: #174e80;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.notice-stage-badge.followup {
+  background: #fff6df;
+  color: #775006;
+}
+.notice-stage-badge.result {
+  background: #eef1f4;
+  color: #465666;
+}
+.notice-series .notice-series-note {
+  margin: 7px 0;
+  color: var(--muted);
+  font-size: inherit;
+}
+.notice-series-disclosure > summary {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 5px 0;
+  color: var(--accent);
+  font-weight: 650;
+  cursor: pointer;
+}
+.notice-series-list {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+  border-left: 2px solid var(--line);
+}
+.notice-series-list > li {
+  min-width: 0;
+}
+.notice-series-list a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  max-width: 100%;
+  padding: 5px 0;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.notice-series-list a span {
+  min-width: 0;
+}
+.notice-series-list a svg {
+  flex: 0 0 auto;
+}
+.notice-series-list p {
+  margin: 5px 0 0;
+  font-size: inherit;
+}
+.notice-series-current {
+  font-weight: 650;
+}
+.notice-series-detail {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+.notice-series-detail h3 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.easy-mode .notice-series,
+.easy-mode .notice-stage-badge {
+  font-size: 0.95rem;
+}
+.easy-mode .notice-series-disclosure > summary,
+.easy-mode .notice-series-list a {
+  min-height: 44px;
+}

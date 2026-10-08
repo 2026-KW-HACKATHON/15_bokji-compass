@@ -14,6 +14,12 @@ from app.modules.presentation.public import policy_signals
 from app.modules.search.interpretation import interpret_query
 from app.modules.search.retrieval import rank_records
 from app.modules.storage.catalog import card, published_catalog, search_institution_vocabulary
+from app.modules.storage.notice_series import (
+    annotate_records,
+    deduplicate_notice_records,
+    group_matches,
+    notice_stage,
+)
 
 MAX_GENERAL_CANDIDATES = 12
 
@@ -40,14 +46,20 @@ def general_candidates(repository, plan, member, profile, *, feedback=()):
         documents, documents.c.revision_id == latest.c.revision_id)
     with repository.engine.connect() as connection:
         records = connection.execute(query).mappings().all()
+    records = [record for record in annotate_records(deduplicate_notice_records(records))
+               if notice_stage(record) not in {"followup", "result"}
+               and (record.get("_notice_group") or {}).get("latestStage") != "result"]
     matches = rank_records(records, plan)
     facts = monitoring.monitoring_facts(member, profile)
     today = seoul_today()
     candidates = []
+    excluded = {item["policy_id"] for item in feedback}
     ranked = personalize([{
         "policy": {"id": record["policy_key"], "title": record["title"],
                    "category": record["category"]}, "record": record, "relevance": relevance,
-    } for record, relevance in matches], feedback)
+    } for record, relevance in matches
+        if not excluded.intersection(notice["id"] for notice in
+            (record.get("_notice_group") or {}).get("notices", []))], feedback)
     for item in ranked:
         record, relevance = item["record"], item["relevance"]
         comparison = matching.compare_policy(record, facts, today=today)
@@ -81,12 +93,10 @@ def general_candidates(repository, plan, member, profile, *, feedback=()):
         reason += " 알려진 정보로 비교한 확인 후보이며 신청 자격을 확정한 결과는 아니에요."
         if schedule == "upcoming":
             reason += " 접수 시작 전이므로 시작일과 준비사항을 확인해 주세요."
-        candidates.append({
+        candidates.append((record, {
             "need_id": "general_support", "policy_id": record["policy_key"],
             "policy": policy, "status": status, "reason": reason,
             "questions": list(dict.fromkeys(questions)), "schedule_status": schedule,
             "eligibility_decided": False, "evidence": proof,
-        })
-        if len(candidates) >= MAX_GENERAL_CANDIDATES:
-            break
-    return candidates
+        }))
+    return [candidate for _, candidate in group_matches(candidates)][:MAX_GENERAL_CANDIDATES]

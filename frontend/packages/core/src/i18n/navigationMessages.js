@@ -1,4 +1,6 @@
 const rows = `
+추천에서 제외하는 중이에요.|Removing this notice from recommendations…|正在从推荐中移除此公告…|Đang loại thông báo này khỏi đề xuất…|おすすめからこの公示を除外しています…
+제외하지 못해 공고를 다시 표시했어요. 다시 시도해 주세요.|We could not remove this notice, so it is shown again. Please try again.|未能移除此公告，已重新显示。请重试。|Chưa thể loại thông báo nên đã hiển thị lại. Vui lòng thử lại.|除外できなかったため、公示を再表示しました。もう一度お試しください。
 알림|Notifications|通知|Thông báo|通知
 새 알림|New|新通知|Mới|新着
 알림, 안 읽은 알림 {count}개|Notifications, {count} unread|通知，{count}条未读|Thông báo, {count} chưa đọc|通知、未読{count}件
@@ -29,6 +31,7 @@ const rows = `
 본인 상담은 저장한 생활정보도 참고해요. 상황이 바뀌었다면 지속 복지 안내에서 수정할 수 있어요.|Personal consultations also use saved life information. Update it in ongoing welfare guidance if your situation changes.|个人咨询也会参考已保存的生活信息。情况有变时，可在持续福利指引中修改。|Tư vấn cá nhân cũng tham khảo thông tin cuộc sống đã lưu. Nếu hoàn cảnh thay đổi, hãy cập nhật trong hướng dẫn phúc lợi liên tục.|ご本人の相談には保存した生活情報も参考にします。状況が変わった場合は、継続福祉案内で修正できます。
 {menu} 하위 메뉴|{menu} submenu|{menu}子菜单|Menu con {menu}|{menu}のサブメニュー
 메뉴 닫기|Close menu|关闭菜单|Đóng menu|メニューを閉じる
+메뉴 열기|Open menu|打开菜单|Mở menu|メニューを開く
 끄기|Turn off|关闭|Tắt|オフ
 날짜 선택|Choose a date|选择日期|Chọn ngày|日付を選択
 이전 날짜|Previous day|前一天|Ngày trước|前の日

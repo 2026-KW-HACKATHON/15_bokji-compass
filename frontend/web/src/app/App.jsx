@@ -33,12 +33,16 @@ import { recommendationFailure } from '../features/assistant/recommendationFeedb
 import SourceFooter from './SourceFooter.jsx';
 import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 import PortalNavigation from './PortalNavigation.jsx';
+import MobileNavigation from './MobileNavigation.jsx';
 import EasyNavigation from './EasyNavigation.jsx';
 import { portalRoutes } from './portalNavigation.js';
 import NotificationBell from '../features/monitoring/NotificationBell.jsx';
 import useAlertNavigation from '../features/monitoring/useAlertNavigation.js';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
 const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
+const AssistantConversationPage = lazy(
+  () => import('../features/assistant/AssistantConversationPage.jsx'),
+);
 const LocalWelfarePage = lazy(() => import('../features/local/LocalWelfarePage.jsx'));
 const AuthPage = lazy(() => import('../features/auth/AuthPage.jsx'));
 const AdminPage = lazy(() => import('../features/auth/AdminPage.jsx'));
@@ -286,11 +290,13 @@ export default function App() {
   const rememberGuidance = useCallback(
     (session) => {
       if (session.owner !== financeOwner.current) return;
-      setGuidance((current) =>
-        current?.key === guidance?.key && current.owner === session.owner
+      setGuidance((current) => {
+        if (!current)
+          return { owner: session.owner, key: ++guidanceSequence.current, policy: null, session };
+        return current.key === guidance?.key && current.owner === session.owner
           ? { ...current, session }
-          : current,
-      );
+          : current;
+      });
     },
     [guidance?.key],
   );
@@ -506,7 +512,7 @@ export default function App() {
       });
     }
     setAssistant(null);
-    navigate('assistant');
+    navigate(policy || session ? 'assistant-chat' : 'assistant');
   };
   const startGuidance = (question) => {
     const owner = user?.id || null;
@@ -522,8 +528,10 @@ export default function App() {
         },
       });
     }
+    setAssistant(null);
+    navigate('assistant-chat');
     requestAnimationFrame(() => {
-      const region = document.querySelector('.assistant-page-conversation');
+      const region = document.querySelector('.assistant-conversation-page');
       region?.scrollIntoView({ block: 'start', behavior: 'instant' });
       region?.querySelector('textarea, input, button')?.focus({ preventScroll: true });
     });
@@ -622,19 +630,19 @@ export default function App() {
               <span className="switch-track" aria-hidden="true">
                 <span />
               </span>{' '}
-              {t('쉬운 화면')}
+              <span className="mode-label">{t('쉬운 화면')}</span>
               <span className="mode-state">{easy ? t('켜짐') : t('꺼짐')}</span>
             </button>
             {user ? (
               <div className="account-actions">
                 {user.admin_role === 'superadmin' && (
-                  <a className="text-button" href="#admin">
+                  <a className="text-button header-admin-link" href="#admin">
                     {' '}
                     {t('관리자 관리')}{' '}
                   </a>
                 )}
                 {user.is_admin === true && (
-                  <a className="text-button" href="/admin/exhibition/">
+                  <a className="text-button header-admin-link" href="/admin/exhibition/">
                     {' '}
                     {t('전시 QR 관리')}{' '}
                   </a>
@@ -673,6 +681,7 @@ export default function App() {
               </div>
             )}
           </div>
+          <MobileNavigation page={route.page} savedCount={saved.length} user={user} />
           {easy ? (
             <EasyNavigation page={route.page} savedCount={saved.length} />
           ) : (
@@ -770,6 +779,20 @@ export default function App() {
                 />
               </Suspense>
             )}
+            {route.page === 'assistant-chat' && (
+              <Suspense fallback={<p role="status">{t('AI 복지비서를 불러오고 있어요.')}</p>}>
+                <AssistantConversationPage
+                  key={`${user?.id || 'guest'}:${guidance?.key || 'general'}`}
+                  user={user}
+                  policy={guidance?.owner === (user?.id || null) ? guidance.policy : null}
+                  session={guidance?.owner === (user?.id || null) ? guidance.session : null}
+                  onSessionChange={rememberGuidance}
+                  onProfile={() => navigate('assistant-monitoring')}
+                  onSaved={refreshAssistant}
+                  onOverview={() => navigate('assistant-overview')}
+                />
+              </Suspense>
+            )}
             {route.page === 'guide' && (
               <Suspense
                 fallback={
@@ -809,6 +832,7 @@ export default function App() {
                 repository={policyRepository}
                 tag={route.tag}
                 onClearTag={() => navigate('explore')}
+                onAskAssistant={startGuidance}
               />
             )}
             {route.page === 'profile' && !route.setup && (
@@ -1040,9 +1064,13 @@ export default function App() {
         easy={easy}
         user={user}
         repository={policyRepository}
-        hideLauncher={['guide', 'assistant', 'assistant-intro', 'assistant-overview'].includes(
-          route.page,
-        )}
+        hideLauncher={[
+          'guide',
+          'assistant',
+          'assistant-intro',
+          'assistant-overview',
+          'assistant-chat',
+        ].includes(route.page)}
         blocked={
           Boolean(selected) ||
           ['login', 'signup', 'admin'].includes(route.page) ||

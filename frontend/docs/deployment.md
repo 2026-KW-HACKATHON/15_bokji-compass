@@ -1,6 +1,20 @@
 # 웹 배포와 서버 연결
 담당: 프론트/운영. 배포 구성 예시이며 실제 운영 호스트는 미정입니다.
 
+## 현재 공유 서버의 API 반영 확인
+
+이 PC의 공유 서버는 `frontend/web/dist`를 제공하며 백엔드는 코드 변경을 자동으로
+불러오지 않습니다. 새 화면이 사용하는 API가 추가·변경되었다면 웹 파일 반영만으로
+배포가 끝나지 않습니다. 실행 중인 API의 로컬 `/openapi.json`에서 필요한 경로를 확인하고,
+누락되면 `backend/scripts/share.ps1 reload`로 최신 서버를 반영합니다. 이 명령은 고정
+터널 주소를 유지하고 API·QR·웹을 재시작합니다.
+
+추천 제외는 POST `/v1/monitoring/candidates/feedback`, 서류 준비는 POST
+`/v1/monitoring/candidates/preparation`이 필요합니다. 배포 후 공개 HTTPS의 readiness와
+각 경로의 비로그인 401 경계를 확인합니다. 이는 실제 계정 저장 성공 검증과 구분합니다.
+
+## 정적 웹 배포 절차
+
 1. frontend/web에서 npm ci → npm test → npm run build.
 2. dist/ 전체를 정적 호스트에 배포합니다. 루트 경로 배포 기준이며 하위 경로 배포는 Vite base와 app-config script 주소를 함께 변경합니다.
 3. /api/*를 backend로 전달하고 /api 접두사를 제거합니다. Vite 개발 proxy는 운영에 포함되지 않습니다.

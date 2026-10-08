@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import create_engine, delete, func, select, update
 
+from app.api.auth import get_service
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.admin.access import admin_grants
@@ -144,6 +145,29 @@ def test_non_superadmin_login_never_leaves_an_issued_session(console, username):
     with engine.connect() as connection:
         assert connection.execute(select(func.count()).select_from(sessions)).scalar_one() == 0
     assert client.get(SESSION).status_code == 401
+
+
+@pytest.mark.parametrize("base_url,secure", [
+    ("http://127.0.0.1:8001", False),
+    ("https://localhost:8001", True),
+])
+def test_production_local_console_login_session_and_role_boundary(console, base_url, secure):
+    existing, _, admin_id, config_file = console
+    assert login(existing).status_code == 200
+    service = existing.app.state.auth_service
+    settings = existing.app.state.settings.model_copy(update={"app_env": "production"})
+    application = create_app(settings, config_path=config_file)
+    application.dependency_overrides[get_service] = lambda: service
+    with TestClient(application, base_url=base_url, client=("127.0.0.1", 12345),
+                    headers={**HEADERS, "Origin": base_url}) as client:
+        result = login(client)
+        assert result.status_code == 200
+        assert ("; secure" in result.headers["set-cookie"].lower()) is secure
+        assert "httponly" in result.headers["set-cookie"].lower()
+        assert client.get(SESSION).json()["user"]["id"] == admin_id
+        assert client.post("/v1/server-admin/logout").status_code == 200
+        assert login(client, "qr_operator").status_code == 403
+        assert client.get(SESSION).status_code == 401
 
 
 def test_web_login_does_not_grant_server_console_access(console):

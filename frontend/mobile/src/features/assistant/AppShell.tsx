@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   headerAction: { color: colors.green, fontSize: 16, fontWeight: "600" },
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(12,35,28,0.35)",
+    backgroundColor: colors.overlayLight,
     alignItems: "flex-end",
   },
   drawer: {
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dialogBackdrop: {
-    backgroundColor: "rgba(12,35,28,0.55)",
+    backgroundColor: colors.overlay,
     justifyContent: "center",
     alignItems: "center",
   },

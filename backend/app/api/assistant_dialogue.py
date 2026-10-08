@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import Field, StrictBool, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api.auth import Service, guard, ip
+from app.api.auth import guard
 from app.api.members import Member
 from app.api.monitoring import Store, refresh_snapshot, snapshot
 from app.api.policies import get_repository
@@ -36,7 +36,7 @@ class SaveDialogueProfile(StrictModel):
 
 
 @router.post("/chat/dialogue")
-def guest_chat(data: DialogueInput, request: Request, response: Response, service: Service):
+def guest_chat(data: DialogueInput, request: Request, response: Response):
     """Ordinary guest chatbot: deterministic guidance, no AI or account/profile access.
 
     The authenticated AI-assistant dialogue and profile-save routes stay unchanged.
@@ -45,7 +45,6 @@ def guest_chat(data: DialogueInput, request: Request, response: Response, servic
     guest = request.cookies.get("bokji_chat", "")
     if not re.fullmatch(r"[A-Za-z0-9_-]{43}", guest):
         guest = secrets.token_urlsafe(32)
-    service.throttle("assistant-dialogue:guest:" + ip(request), 60, 60)
     try:
         repository = get_repository(request)
     except HTTPException as exc:
@@ -66,9 +65,7 @@ def guest_chat(data: DialogueInput, request: Request, response: Response, servic
 
 
 @router.post("/dialogue")
-def dialogue(data: DialogueInput, request: Request, member: Member,
-             service: Service, store: Store):
-    service.throttle("assistant-dialogue:" + member["id"], 60, 60, account_id=member["id"])
+def dialogue(data: DialogueInput, request: Request, member: Member, store: Store):
     context = request.app.state.dialogue_store
     preferences = store.read(member["id"])
     saved = preferences["profile"]
@@ -102,9 +99,7 @@ def dialogue(data: DialogueInput, request: Request, member: Member,
 
 @router.post("/dialogue/profile")
 def save_dialogue_profile(data: SaveDialogueProfile, request: Request, member: Member,
-                          service: Service, store: Store):
-    service.throttle("assistant-dialogue-save:" + member["id"], 20, 60,
-                     account_id=member["id"])
+                          store: Store):
     try:
         result = request.app.state.dialogue_store.save_confirmed(
             member["id"], data.continuation,

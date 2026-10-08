@@ -9,6 +9,27 @@ from app.main import create_app
 from app.modules.storage.application_dates import application_period, application_schedule
 
 
+@pytest.mark.parametrize("line, expected", [
+    ("가. 신청기한 : 2025.11.18.(화) 15:00 까지(기간연장)", "2025-11-18"),
+    ("- 신청기간 : ~2026.7.6.(화) 17:00까지", "2026-07-06"),
+    ("나. 접수마감일 : 2026년 7월 6일 17시까지 [기간 연장]", "2026-07-06"),
+])
+def test_reissued_notice_deadline_is_read_without_inventing_start(line, expected):
+    period = application_period({"text": "작성일: 2026-06-22\n" + line})
+    schedule = application_schedule(period)
+    assert schedule["applicationEnd"] == expected
+    assert schedule["applicationStart"] is None
+    assert schedule["scheduleStatus"] == "dated"
+
+
+def test_lettered_unrelated_dates_and_conflicting_extension_periods_remain_unknown():
+    assert application_period({"text": "가. 지급기한: 2026-07-06까지"}) == ""
+    assert application_period({"text": "가. 신청기한: 2026-07-06까지\n"
+                                      "나. 접수기한: 2026-07-07까지"}) == ""
+    assert application_schedule("신청시작일: ~2026-07-06")["scheduleStatus"] == "unknown"
+    assert application_schedule("~2026-07-01~2026-07-06")["scheduleStatus"] == "unknown"
+
+
 @pytest.mark.parametrize(
     "period,start,end",
     [

@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
 test('each section shows only its own destinations, including guidance and new notices', async ({
   page,
 }, info) => {
+  test.skip(info.project.name !== 'desktop', 'Mobile uses the full-screen hamburger menu.');
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1466, height: 643 });
@@ -34,6 +35,10 @@ test('each section shows only its own destinations, including guidance and new n
   await expect(ai.getByRole('link', { name: '내 복지 현황', exact: true })).toHaveAttribute(
     'href',
     '#assistant-overview',
+  );
+  await expect(ai.getByRole('link', { name: 'AI 비서와 대화하기', exact: true })).toHaveAttribute(
+    'href',
+    '#assistant-chat',
   );
   await nav.getByRole('button', { name: '홈 하위 메뉴', exact: true }).click();
   const home = panel.getByRole('region', { name: '홈', exact: true });
@@ -72,7 +77,11 @@ test('each section shows only its own destinations, including guidance and new n
 
 test('keyboard and touch controls close the menu and keep destinations accessible', async ({
   page,
-}) => {
+}, info) => {
+  test.skip(
+    info.project.name !== 'desktop',
+    'Mobile dialog keyboard controls have separate coverage.',
+  );
   await page.goto('/#home');
   const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
   const toggle = nav.getByRole('button', { name: '홈 하위 메뉴', exact: true });
@@ -126,7 +135,8 @@ test('hover switches between sections and keeps the panel open while entering it
 
 test('service introduction and current workspace have independent URLs and preserve a conversation draft', async ({
   page,
-}) => {
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'Mobile destinations have separate coverage.');
   await page.route('**/api/v1/auth/me', (route) =>
     route.fulfill({
       json: {
@@ -173,7 +183,8 @@ test('service introduction and current workspace have independent URLs and prese
   await expect(page.locator('.assistant-workspace')).toBeVisible();
   await expect(page.locator('.assistant-profile-form')).toBeVisible();
   await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
-  const input = page.locator('.assistant-page-conversation textarea').first();
+  await expect(page).toHaveURL(/#assistant-chat$/);
+  const input = page.getByRole('textbox', { name: 'AI 비서에게 물어보기' });
   await input.fill('작성 중인 상담 내용을 유지합니다');
   const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
   await nav.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
@@ -183,10 +194,11 @@ test('service introduction and current workspace have independent URLs and prese
   await nav.getByRole('button', { name: 'AI 비서 하위 메뉴', exact: true }).click();
   await nav.getByRole('link', { name: '내 복지 현황', exact: true }).click();
   await expect(page).toHaveURL(/#assistant-overview$/);
+  await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
   await expect(input).toHaveValue('작성 중인 상담 내용을 유지합니다');
 });
 
-test('all languages and easy mode fit narrow viewports with a scrollable submenu', async ({
+test('all languages and easy mode fit narrow viewports with a vertical mobile menu', async ({
   page,
 }, info) => {
   await page.setViewportSize({ width: 320, height: 740 });
@@ -194,10 +206,8 @@ test('all languages and easy mode fit narrow viewports with a scrollable submenu
   const selector = page.locator('.language-selector select');
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch').click();
-    const toggle = easy
-      ? page.locator('.easy-menu-toggle')
-      : page.locator('.portal-submenu-toggle').first();
-    const panel = page.locator(easy ? '.easy-menu-panel' : '.portal-mega-menu');
+    const toggle = page.locator('.mobile-navigation > button');
+    const panel = page.locator('.mobile-menu-dialog');
     for (const language of ['ko', 'en', 'zh', 'vi', 'ja']) {
       await selector.selectOption(language);
       await toggle.click();
@@ -209,8 +219,7 @@ test('all languages and easy mode fit narrow viewports with a scrollable submenu
       );
       if (language === 'en')
         await page.screenshot({ path: info.outputPath(`menu-320-easy-${easy}.png`) });
-      if (easy) await toggle.click();
-      else await page.locator('.portal-menu-footer button').click();
+      await panel.locator('.mobile-menu-heading button').click();
       await expect(panel).toBeHidden();
     }
   }

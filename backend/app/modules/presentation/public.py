@@ -2,12 +2,20 @@
 
 from typing import Any
 
-from app.modules.presentation.policy import format_notice_text, payment_schedule, policy_description
+from app.modules.presentation.policy import (
+    format_notice_text,
+    format_notice_title,
+    payment_schedule,
+    policy_description,
+)
 from app.modules.presentation.signals import load_popularity, policy_signals
 from app.modules.presentation.source_fields import format_source_field, format_source_fields
 
-__all__ = ["format_notice_text", "format_public_services", "payment_schedule", "policy_description",
-           "load_popularity", "policy_signals", "format_source_field", "format_source_fields"]
+__all__ = [
+    "format_notice_text", "format_notice_title", "format_public_services", "payment_schedule",
+    "policy_description", "load_popularity", "policy_signals", "format_source_field",
+    "format_source_fields",
+]
 
 
 def format_public_services(services: list[dict[str, Any]]) -> str:

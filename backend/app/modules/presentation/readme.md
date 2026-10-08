@@ -1,5 +1,9 @@
 # 콘솔 표시
 
+`format_notice_title(value: str) -> str`는 공개 공고 제목의 전각 숫자만 일반 숫자로
+표시합니다. 예: `202６년도` → `2026년도`. 목록·상세 카드에 공통 적용하며 원문·인용·
+저장 데이터는 변경하지 않습니다. 문자 전체 NFKC 변환이나 숫자 사이 공백 삭제는 하지 않습니다.
+
 ## 신청 경로·서류 안내 (2026-10-08)
 
 `application.application_guide(fields: dict[str,str], overview=None, source_url=None) -> dict`는

@@ -9,6 +9,9 @@ import { safeSourceUrl } from './policyModel.js';
 import PolicyQuestion from '../assistant/PolicyQuestion.jsx';
 import PolicyDeadline from './PolicyDeadline.jsx';
 import ApplicationGuide from './ApplicationGuide.jsx';
+import PolicyAttachments from './PolicyAttachments.jsx';
+import NoticeSeries, { NoticeStageBadge } from './NoticeSeries.jsx';
+import { isApplicationNotice } from './noticeSeriesModel.js';
 export default function PolicyDetail({
   policy: original,
   saved,
@@ -19,7 +22,7 @@ export default function PolicyDetail({
   user,
   onAsk,
 }) {
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
   const translation = useTranslatedPolicy(original, { priority: 10 });
   const { policy } = translation;
 
@@ -70,7 +73,8 @@ export default function PolicyDetail({
       <div className="detail-badges">
         <span className="soft-badge">{t(policy.category)}</span>
         <span className="soft-badge">{t(policy.region)}</span>
-        <PolicyDeadline policy={original} />
+        <NoticeStageBadge stage={original.noticeStage} title={original.title} />
+        {isApplicationNotice(original, { grouped: true }) && <PolicyDeadline policy={original} />}
       </div>
       <p className="modal-description">{policy.summary}</p>
       {source && (
@@ -89,11 +93,16 @@ export default function PolicyDetail({
           </a>
         </p>
       )}
+      <NoticeSeries policy={original} detail />
       <div className="detail-highlight">
         <h3>{t('지원 내용')}</h3>
         <p>{policy.benefit}</p>
       </div>
-      <ApplicationGuide key={`${original.id}:${original.revisionId}`} policy={original} />
+      <ApplicationGuide
+        key={`${original.id}:${original.revisionId}`}
+        policy={original}
+        applicationUnavailable={!isApplicationNotice(original, { grouped: true })}
+      />
       {easy && (
         <dl className="policy-detail detail-key-facts">
           <div>
@@ -175,6 +184,7 @@ export default function PolicyDetail({
           )}
         </dl>
       </details>
+      <PolicyAttachments attachments={original.attachments} />
       {policy.content && (
         <details className="detail-more">
           <summary>{t('공고 본문 보기')}</summary>
@@ -185,12 +195,22 @@ export default function PolicyDetail({
         <details className="detail-more">
           <summary>{t('공고의 전체 항목 확인')}</summary>
           <dl className="policy-detail">
-            {Object.entries(policy.sourceFields).map(([key, value]) => (
-              <div key={key}>
-                <dt>{t(Object.hasOwn(sourceLabels, key) ? sourceLabels[key] : key)}</dt>
-                <dd style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</dd>
-              </div>
-            ))}
+            {Object.entries(policy.sourceFields)
+              .filter(
+                ([key]) =>
+                  ![
+                    'attachments',
+                    'attachment_files',
+                    'attachment_urls',
+                    'attachment_status',
+                  ].includes(key),
+              )
+              .map(([key, value]) => (
+                <div key={key}>
+                  <dt>{t(Object.hasOwn(sourceLabels, key) ? sourceLabels[key] : key)}</dt>
+                  <dd style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</dd>
+                </div>
+              ))}
           </dl>
         </details>
       )}

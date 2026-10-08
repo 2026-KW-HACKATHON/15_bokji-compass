@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(12,35,28,0.55)",
+    backgroundColor: colors.overlay,
   },
   dialog: {
     gap: 16,

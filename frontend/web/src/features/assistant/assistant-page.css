@@ -120,7 +120,7 @@
   overflow-wrap: anywhere;
 }
 .assistant-intro-hero h1 span:last-child {
-  color: var(--green);
+  color: var(--accent);
 }
 .assistant-intro-hero > p {
   max-width: 520px;
@@ -159,7 +159,7 @@
   border-left: 1px solid var(--line);
 }
 .assistant-intro-feature-icon {
-  color: var(--green);
+  color: var(--accent);
   display: inline-flex;
   padding: 12px;
   background: #edf5ff;
@@ -217,7 +217,7 @@
 }
 .assistant-intro-start svg {
   flex-shrink: 0;
-  color: var(--green);
+  color: var(--accent);
   margin-top: 3px;
 }
 .assistant-page-hero h1 {

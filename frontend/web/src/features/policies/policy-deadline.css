@@ -16,8 +16,8 @@
 }
 .policy-deadline.urgent,
 .policy-deadline.today {
-  background: #fff0df;
-  color: #854300;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 .policy-deadline.closed,
 .policy-deadline.unknown {
@@ -25,8 +25,8 @@
   color: #526171;
 }
 .policy-deadline.ongoing {
-  background: #edf7f0;
-  color: #286143;
+  background: var(--surface-muted);
+  color: var(--muted);
 }
 .policy-deadline.start {
   background: #e4f2fc;

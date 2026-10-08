@@ -1,5 +1,7 @@
 ## API 정책 정규화
 
+2026-10-08 공고 첨부: `raw.normalize_record(row) -> SourcePolicy`는 `attachments`, `attachment_files`, `attachment_status`를 선택 원문 필드로 보존합니다. 이름·URL은 실제 다운로드 API에서 사용하며 자격 판단으로 변환하지 않습니다. [첨부 계약](../../../docs/policy-attachments.md).
+
 신규 조건 정규화는 `public.normalize_conditions(extraction, logic=None, catalog=None) -> CanonicalPolicy` 사용. 필드 레지스트리·Decimal 문자열·공식 REGION·미확정 사유 생성. 네트워크·DB 호출 없음. [v2 계약](../../../docs/condition-classification.md). 아래 정책 행 변환과 별도 진입점.
 
 `app.modules.normalization.public.normalize_api_services`는 Gov24 또는 복지로 API의

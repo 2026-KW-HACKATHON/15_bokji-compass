@@ -1,5 +1,13 @@
 # 공고
 
+2026-10-08 단계별 공고: `NoticeSeries`는 같은 사업의 관련 원문을 단계·날짜·공식 링크로
+표시한다. `noticeSeriesModel`은 선택 `noticeStage`/`noticeGroup` 메타데이터와 안전한
+원문 주소를 검증한다. 카드는 묶음 제목·최신 단계·접기 목록을, 상세는 선택 원문과 전체
+묶음을 제공한다. 후속/결과 단계는 신규 신청 액션과 마감 강조를 제거하며 원래 신청 안내·
+서류·첨부를 보존한다. [계약·검증](../../../../docs/notice-series.md).
+
+2026-10-08 첨부: `PolicyAttachments({ attachments })`는 파일명·용량과 PDF 보기/다운로드를 표시합니다. `attachmentModel.parseAttachments(value, policyId)`는 해당 공고의 API 파일 경로만 허용하며, `attachmentHref(path, apiBaseUrl)`로 설정된 API 주소를 붙입니다. [계약·검증](../../../../docs/policy-attachments.md).
+
 2026-10-08: 공통 `regions`에 `전남광주통합특별시`를 추가해 회원 주소·추천 프로필·
 공고 지역 필터에서 같은 값을 사용합니다. 기존 전남·광주 선택값은 호환성을 위해 유지합니다.
 
@@ -134,3 +142,5 @@ PolicyDetail은 원문을 접어 보여주고 신청 링크를 HTTP(S)로 검증
 `parsePolicy`의 `translationSourceEmptyFields`는 누락/null인 대상·기관·지원 내용·신청 안내의 화면 기본값을 식별합니다. 번역 요청에서는 이 기본값을 원문 없는 빈 문자열로 검증하며, 서버 번역도 비어 있을 때만 선택 언어의 화면 기본값을 복원합니다. 실제 내용이 있는 필드는 엄격한 내용 검증을 유지합니다. 대상이 없는 레거시 응답은 ‘지원 대상 확인 필요’로 표시하며 실제 대상 정보와 API 필터값은 유지합니다. 저장한 공고를 재파싱할 때도 원문 필드 누락 정보를 유지합니다. 원문 보기 선택은 같은 ID/revision의 자동 새로고침에서 유지하며 공고/개정/언어가 바뀌면 초기화합니다.
 
 `policyTranslationModel.js`는 표시 기본값과 실제 원문을 구분하는 순수 함수입니다. `emptyTranslationFields(item)`은 누락된 표시 필드 이름 배열, `policyTranslationSource(policy)`는 기본값을 빈 원문으로 돌린 검사 전용 객체, `restoreTranslationFallbacks(original,translated,t)`는 원문이 없는 항목에만 번역된 UI 안내를 복원한 표시 객체를 반환합니다. 입력 객체를 변경하지 않습니다.
+
+PolicyExplorer의 선택 onAskAssistant(question)은 제출한 상황형 검색 문장을 원문 그대로 상담으로 전달합니다. suggestsConversation(query) -> boolean과 SearchConversationSuggestion({query,onAskAssistant}) -> React element|null의 동작·검증은 [검색에서 상담 이어가기](../../../../docs/search-conversation.md)를 참고하세요.

@@ -49,8 +49,9 @@ AI 복지비서·계정 저장의 로그인 제한은 유지한다.
 - 저장 후에는 작은 내 정보 요약과 안내·신청 수를 표시하고 ‘맞춤 지원 / 신청 현황 /
   새 안내 / 내 정보’ 네 메뉴로 상세 내용을 연다. 추가 확인 사항은 별도 안내 버튼에서 연다.
   가구와 관심 분야도 요약에 포함하므로 관심 분야만 저장해도 입력 결과를 확인할 수 있다.
-- 헤더의 ‘궁금한 점 물어보기’를 누르거나 상담을 이어받았을 때만 대화 영역을 표시한다.
-  `#assistant`에서는 공통 플로팅 챗봇 진입 아이콘을 숨기고 헤더 질문 버튼을 사용한다.
+- AI 비서 메뉴의 ‘AI 비서와 대화하기’, 헤더의 ‘궁금한 점 물어보기’와 챗봇 이어보기는
+  독립 `#assistant-chat` 페이지로 연결한다. AI 비서 화면에서는 공통 플로팅 챗봇 진입
+  아이콘을 숨기고 전용 대화 입력창을 사용한다.
 
 `assistantPageModel.js`는 저장된 사실·관심 분야·중복 공고별 상태·미확인 질문을 정리한다.
 입력에서 미확인 `null`과 명시적 부정 `false`를 구분하고 사용자 상황을 추정하지 않는다.
@@ -236,3 +237,28 @@ snapshot 파서가 함께 사용한다. 검증: `tests/review-questions.test.js`
 항목으로 제한한다. 내부 미해석 슬롯은 정보 추가 목록으로 표시하지 않으며 비교 근거는
 별도로 보존한다. 테스트에는 이전 응답과 snapshot의 진행 상태 보존, 실제 조건·예외 원문
 보존, 중복 제거, 지원되지 않는 입력 항목 제외가 포함된다.
+
+## 계속 이어가는 AI 비서 대화 (2026-10-08)
+
+`AssistantConversationPage`는 AI 비서의 독립 대화 화면이며 `GuidedConversation`의
+`conversational` 모드를 사용한다. 같은 상담의 이전 질문·답변을 펼쳐 표시하고 하단 입력란에서
+자유 질문을 계속 보낼 수 있다. 전용 대화는 설문과 저장 패널 대신 메시지와 공식 공고 참조를
+표시한다. 단계별 추가 질문과 동의한 생활정보 저장은 별도 생활 상황 상담에서 유지한다. Enter는 전송, Shift+Enter는 줄바꿈이며 한국어 조합 중
+Enter는 전송하지 않는다. 실패한 입력은 보존하고 재시도·취소를 제공한다.
+
+`createDialogueApi.continue(continuation,question,options)`는 기존 대화 endpoint에
+`{continuation,question}`을 보내며 구조화 답변의 `{continuation,answer:{slot,value}}`
+계약은 유지한다. `restoreDialogueSession`의 `draft`는 보내지 않은 자유 질문을 React
+메모리에서 같은 계정·같은 선택 공고로 이동할 때 복원한다. 동의·진행 중 요청·오류는 복원하지
+않고 새로고침·로그아웃·다른 계정은 상담 내용을 지운다. 이전 대화 표시 개수 제한은 없다.
+입력 2,000자 검증은 요청 형식을 위한 기존 계약으로 유지한다.
+
+페이지 props는 `user`, `policy`, `session`, `onSessionChange`, `onProfile`, `onSaved`,
+`onOverview`이다. 마지막 입력 후 30분의 임시 상담 안내와 페이지 버튼·입력 안내는 다섯
+언어 UI 사전에 등록한다. 서버 답변·공식 공고·사용자 입력은 원문을 표시한다.
+
+검색에서 AI 비서로 이동할 때 restoreDialogueSession은 같은 계정 또는 현재 탭 비회원(owner:null)의 원문을 보내지 않은 draft로 복원합니다. 로그인/로그아웃에는 기존 상위 상태 초기화를 유지합니다. [검색 연결](../../../../docs/search-conversation.md).
+
+## 자유 대화 화면 갱신
+
+위 계속 이어가는 화면의 현재 자유 대화 계약은 [자유 대화 모드](../../../../../backend/docs/free-conversation.md)를 따릅니다. `createDialogueApi(request,{guest,conversational:true})`는 메시지마다 mode:conversation을 전달합니다. `ConversationMessages({exchanges,latest,answerRef})`는 각 질문·답변과 해당 응답의 상위 공고를 순서대로 표시합니다. 대상·지역 선택 폼과 생활정보 저장 패널은 전용 대화 화면에서 표시하지 않습니다. 챗봇의 단계별 상담에서 이어보면 보내지 않은 답변은 채팅 초안으로 옮깁니다.

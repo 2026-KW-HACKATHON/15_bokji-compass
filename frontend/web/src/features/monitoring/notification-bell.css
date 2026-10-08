@@ -287,33 +287,6 @@
 .easy-mode .notification-close {
   width: 56px;
 }
-@media (max-width: 600px) {
-  .portal-shell.easy-mode .portal-header .header-actions:has(.notification-center) {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-  }
-  .easy-mode .portal-header .header-actions:has(.notification-center) .mode-switch {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: stretch;
-    justify-content: center;
-  }
-  .easy-mode .portal-header .header-actions:has(.notification-center) .language-control {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .easy-mode .portal-header .header-actions:has(.notification-center) .account-actions {
-    grid-column: 1;
-    grid-row: 3;
-    width: 100%;
-    flex-wrap: nowrap;
-    justify-content: space-between;
-  }
-  .easy-mode .portal-header .account-actions:has(.notification-center) .auth-username {
-    flex: 1;
-    min-width: 0;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .notification-trigger {
     transition: none;

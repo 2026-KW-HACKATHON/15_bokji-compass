@@ -35,6 +35,7 @@ class DialogueAnswer(StrictModel):
 
 
 class DialogueInput(StrictModel):
+    mode: Literal["guided", "conversation"] | None = None
     question: str | None = Field(default=None, min_length=1, max_length=2000)
     revision_id: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$")
@@ -51,8 +52,10 @@ class DialogueInput(StrictModel):
     @model_validator(mode="after")
     def one_turn(self):
         if self.question is not None:
-            if self.answer is not None or self.continuation is not None:
+            if self.answer is not None:
                 raise ValueError("새 질문과 이전 질문의 답변을 함께 보낼 수 없어요.")
+            if self.continuation is not None and self.revision_id is not None:
+                raise ValueError("이어지는 질문은 기존 대화의 공고 문맥을 사용해요.")
         elif self.answer is None or self.continuation is None or self.revision_id is not None:
             raise ValueError("이어지는 답변에는 대화 연결 정보가 필요해요.")
         return self
@@ -78,14 +81,17 @@ class DialogueState:
     profile: MonitoringProfile = field(default_factory=MonitoringProfile)
     answered: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
+    candidate_revisions: list[str] = field(default_factory=list)
+    conversational: bool = False
     # Search intent contains derived terms only, never the original full question.
+    # Only public revision identifiers are retained for a source-backed follow-up.
     # No transcript, member details or policy results are retained here.
 
 
 class DialogueStore:
     """Opaque handles contain no facts; only this process can create conversation state.
 
-    A fixed expiry starts at the first question, and reads do not extend it. Capacity
+    Accepted turns renew idle expiry; reads alone do not extend it. Capacity
     bounds retained state even when many accounts start conversations. Another process
     or a restart safely asks the user to begin again instead of trusting client facts.
     """
@@ -134,8 +140,9 @@ class DialogueStore:
             if current != version:
                 raise DialogueError(409, "다른 답변이 먼저 반영되었어요. "
                                     "새 질문으로 다시 시작해 주세요.")
-            owner, expires, _, _ = self._entries[token]
-            self._entries[token] = (owner, expires, deepcopy(state), current + 1)
+            owner, _, _, _ = self._entries[token]
+            self._entries[token] = (owner, self._clock() + self.ttl_seconds,
+                                    deepcopy(state), current + 1)
 
     def discard_account(self, account_id: str):
         with self._lock:

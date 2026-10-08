@@ -10,6 +10,7 @@ import './app/portal.css';
 import './app/portal-navigation.css';
 import './app/easy-shell.css';
 import './app/easy-features.css';
+import './app/mobile-header.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

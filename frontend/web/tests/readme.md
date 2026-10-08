@@ -1,5 +1,20 @@
 # 프론트 검증
 
+2026-10-08 단계별 공고: `notice-series.test.js`는 선택 묶음 메타데이터·안전한 원문
+주소·중복·단계를 검사한다. `e2e/notice-series.spec.js`는 PC/모바일의 단일 묶음 카드,
+접기 목록·키보드·원문 3개 링크, 원래 제목/신청 안내/서류/PDF 보존, 결과/후속 단계의
+새 신청 액션 차단과 320px 쉬운 화면을 확인한다. [화면 계약](../../docs/notice-series.md).
+
+2026-10-08 대화 전용 페이지: `e2e/assistant-conversation.spec.js`는 `#assistant-chat`
+직접 진입, 구조화 답변과 자유 후속 질문, 연속 질문, 로그인 복귀, 오류 뒤 재시도와 새 초안
+보존, 메뉴 이동 후 메모리 복원/새로고침 초기화, 새로고침 없는 계정 전환, 한국어 조합·
+Shift+Enter, 320px 쉬운 화면과 챗봇 이어보기를 PC/모바일에서 검증한다. 새 페이지 16개와
+기존 추천·프로필 변경·메뉴 회귀 49개를 통과했다. 모바일 hover 1개는 의도된 제외다.
+
+2026-10-08 즉시 추천 제외: `e2e/assistant-page.spec.js`는 저장 응답을 보류한 상태의
+즉시 숨김, 실패 후 카드·선택 이유 복원과 재시도, 지연된 이전 조회 뒤 제외 유지,
+계정 저장·새로고침·제외 해제를 확인합니다. 실제 회원 데이터 대신 격리 대역을 사용합니다.
+
 2026-10-08 회원 추천 문맥: `e2e/member-recommendation-context.spec.js`는 같은 회원의
 성별을 여성→남성으로 수정한 뒤 홈 추천과 AI 지속 안내를 다시 조회하고 이전 상담을
 초기화하는 흐름을 PC/모바일에서 검증한다. API 응답은 대역이며 실제 원문의 성별 대상
@@ -83,3 +98,9 @@
 시나리오 추가나 `--list` 수집만으로 E2E 통과를 기록하지 않습니다. 2026-10-01 쉬운 화면 재설계에서는 CLI E2E를 실행하지 않았으며 위 경계 시나리오도 실행 통과 기록이 아닙니다. 단위 테스트와 직접 브라우저 확인의 현재 범위·과거 결과는 [쉬운 화면 검증 기록](../../docs/senior-mode.md)에 구분합니다.
 
 백엔드 setup.ps1/setup.sh로 `.venv`를 먼저 준비해야 합니다. Playwright 설정이 기본 포트 8001의 FastAPI와 5173의 Vite를 시작하고 종료합니다. `E2E_API_PORT`와 `E2E_WEB_PORT`로 실행 중인 시연 서버와 다른 테스트 포트를 지정할 수 있습니다. 인증은 별도 `.cache/auth-e2e-*.sqlite3`를 사용하여 실제 HTTP/DB 흐름을 검증합니다. 기존 개발 서버를 재사용하지 않으므로 설정한 포트가 비어 있어야 합니다. 일부 실패·번호 변경·계산기 화면 시나리오는 HTTP 응답 대역을 사용합니다. 실제 문자 발송·MySQL·LLM·모바일 OS 검증은 아닙니다.
+
+search-conversation.test.js는 상황형 문장의 상담 안내와 회원/비회원 원문 draft 복원을 확인합니다. e2e/search-conversation.spec.js는 실제 페이지의 0건 검색에서 원문 전달·자동 전송 방지·명시 전송 흐름을 검사합니다.
+
+자유 대화 API의 mode:conversation과 기존 guided 계약을 dialogue.test.js에서 구분 검증합니다. assistant-conversation/search-conversation E2E 명세는 설문 없는 메시지 연속 표시와 초안 인계를 다룹니다.
+
+2026-10-08 모바일 상단바: `mobile-header.spec.js`는 로그인/쉬운 화면 행 정렬, 메뉴 링크 이동, Escape·초점 복귀·PC 전환을 검사합니다. `portal-navigation.spec.js`의 좁은 화면은 모바일 dialog를 사용하며 `header-account-layout.spec.js`는 모바일 회원 이름의 메뉴 이동을 반영합니다. 이번 검증은 실제 브라우저 조작과 Node 단위 검사를 사용하며 이 E2E 명세 전체 실행과 구분합니다.

@@ -68,7 +68,8 @@ def _clean_period(value):
     value = re.sub(r"\s+-\s+", " ~ ", value)
     value = re.sub(r"\s+", " ", value).strip()
     value = re.sub(
-        r"^[○●❍•*\-\s]*(?:[0-9]{1,2}\s*[.)、]\s*(?=(?:신청|접수|모집)))?",
+        r"^[○●❍•*\-\s]*(?:(?:[0-9]{1,2}|[가나다라마바사아자차카타파하])"
+        r"\s*[.)、]\s*(?=(?:신청|접수|모집)))?",
         "",
         value,
     )
@@ -103,6 +104,7 @@ def _clean_period(value):
     value = re.sub(r"\s*(?:신청|접수)\s*[.。]?\s*$", "", value)
     value = re.sub(r"\s*시[·ㆍ]?도(?:를)?\s*통해\s*공모\s*$", "", value)
     value = re.sub(r"\s*\((?:연도별\s*상이|예산[^()]*마감일\s*변경[^()]*)\)\s*$", "", value)
+    value = re.sub(r"\s*[\(\[](?:신청\s*|접수\s*)?기간\s*연장[\)\]]\s*$", "", value)
     value = re.sub(r"(월|분기|반기)\s*(?:중|연중)\s*$", r"\1", value)
     annual = bool(re.match(r"^(?:매\s*년|매\s*해|해마다)\s*", value))
     value = re.sub(r"^(?:매\s*년|매\s*해|해마다)\s*", "", value)
@@ -128,6 +130,12 @@ def _relative_metadata(result, *, annual=False, yearless=False, month_end=False)
 
 def _date_schedule(value, role, annual, reference_year, reference_month):
     """Parse explicit application endpoints, keeping a missing endpoint absent."""
+    if value.startswith("~") and role != "start":
+        # A notice may publish only the extended deadline: '~2026.7.6 17시까지'.
+        # This notation supplies an end date, never a guessed application start.
+        if re.search(r"~|부터", value[1:]):
+            return None
+        value, role = value[1:].strip(), "end"
     year = reference_year if reference_year is not None else application_reference_year()
     month = reference_month if reference_month is not None else application_reference_month()
     monthly = re.fullmatch(
@@ -382,7 +390,8 @@ def application_period(fields):
         line.strip()
         for line in text.splitlines()
         if re.match(
-            r"^[○●❍•*\-\s]*(?:[0-9]{1,2}\s*[.)、]\s*)?"
+            r"^[○●❍•*\-\s]*(?:(?:[0-9]{1,2}|[가나다라마바사아자차카타파하])"
+            r"\s*[.)、]\s*)?"
             r"(?:20[0-9]{2}\s*년(?:도)?\s*)?(?:신청|접수|모집)\s*"
             r"(?:기간|기한|마감일?|시작일|개시일)\s*(?:은|는|이|가)?\s*(?:[:：]\s*)?.+",
             line,
@@ -391,7 +400,7 @@ def application_period(fields):
     # Multiple distinct periods cannot be resolved without reviewing the source.
     if len(lines) != 1:
         return ""
-    return re.sub(r"^\d+\s*[.)、]\s*", "", lines.pop())
+    return re.sub(r"^(?:\d+|[가나다라마바사아자차카타파하])\s*[.)、]\s*", "", lines.pop())
 
 
 def application_schedule(value, *, reference_year=None, reference_month=None):

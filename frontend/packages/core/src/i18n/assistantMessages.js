@@ -1,6 +1,20 @@
 // UI copy added by the assistant and service-introduction merge.
 // Server dialogue, policy text, form values and user input remain original content.
 const rows = `
+AI 비서와 대화하기|Chat with the AI assistant|与AI助手对话|Trò chuyện với trợ lý AI|AIアシスタントと対話する
+AI 비서 대화|AI assistant conversation|AI助手对话|Cuộc trò chuyện với trợ lý AI|AIアシスタントとの会話
+대화 이용 안내|Conversation guide|对话使用指南|Hướng dẫn trò chuyện|会話の利用案内
+상황을 알려주시면 필요한 지원과 신청 준비를 함께 확인해요.|Tell us about your situation to find support and prepare your application together.|告诉我们您的情况，我们将一起查找所需支持并准备申请。|Hãy chia sẻ hoàn cảnh để cùng tìm hỗ trợ và chuẩn bị đăng ký.|状況を教えていただければ、必要な支援と申請準備を一緒に確認します。
+추천 공고로 돌아가기|Back to recommendations|返回推荐公告|Quay lại thông báo được đề xuất|おすすめの公示に戻る
+AI 비서에게 물어보기|Ask the AI assistant|向AI助手提问|Hỏi trợ lý AI|AIアシスタントに質問する
+지원 공고를 찾고, 신청 준비까지 함께 이야기해요.|Let's find support notices and talk through how to apply.|一起查找支持公告，并讨论申请准备。|Cùng tìm thông báo hỗ trợ và trao đổi về cách chuẩn bị đăng ký.|支援の公示を探し、申請準備まで一緒に話しましょう。
+이렇게 물어보세요|Try asking|您可以这样提问|Bạn có thể hỏi như sau|こんな質問ができます
+일자리 지원을 찾고 있어요|I am looking for employment support|我正在寻找就业支持|Tôi đang tìm hỗ trợ việc làm|就労支援を探しています
+집수리 지원을 알아보고 싶어요|I would like to find home repair support|我想了解房屋维修支持|Tôi muốn tìm hiểu hỗ trợ sửa nhà|住宅修理の支援を調べたいです
+신청 방법과 필요한 서류가 궁금해요|How do I apply and which documents do I need?|如何申请，需要哪些材料？|Đăng ký như thế nào và cần giấy tờ gì?|申請方法と必要な書類を知りたいです
+이전 대화|Previous messages|之前的对话|Tin nhắn trước|これまでの会話
+Enter로 보내고, Shift+Enter로 줄을 바꿀 수 있어요.|Press Enter to send and Shift+Enter for a new line.|按Enter发送，按Shift+Enter换行。|Nhấn Enter để gửi, Shift+Enter để xuống dòng.|Enterで送信、Shift+Enterで改行できます。
+새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 대화는 마지막 입력 후 30분 동안 임시로 이어지고, 저장을 선택한 생활정보만 계정에 남아요.|Refreshing or signing out clears the conversation on screen. The conversation can continue for 30 minutes after your last input. Only personal circumstances you choose to save remain in your account.|刷新或退出登录会清除屏幕上的对话。最后一次输入后，对话可临时延续30分钟。只有您选择保存的生活信息会保留在账户中。|Tải lại trang hoặc đăng xuất sẽ xóa cuộc trò chuyện trên màn hình. Cuộc trò chuyện được duy trì tạm thời trong 30 phút sau lần nhập cuối. Chỉ thông tin hoàn cảnh bạn chọn lưu mới được giữ trong tài khoản.|再読み込みやログアウトで画面の会話は消去されます。会話は最後の入力から30分間、一時的に継続でき、保存を選んだ生活情報だけがアカウントに残ります。
 신청 방법과 서류 확인|Check application instructions and documents|查看申请方法与材料|Xem cách đăng ký và giấy tờ|申請方法と書類を確認する
 접수가 마감된 공고예요. 최신 접수 여부는 담당 기관에 확인해 주세요.|Applications have closed. Ask the responsible office about current availability.|此公告的申请已截止。请向负责机构确认最新受理情况。|Thông báo đã hết hạn nhận hồ sơ. Hãy hỏi cơ quan phụ trách về tình trạng hiện tại.|受付が終了した公示です。最新の受付状況は担当機関へ確認してください。
 이 공고 신청하기|Apply for this notice|申请此公告|Đăng ký thông báo này|この公示に申請する

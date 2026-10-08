@@ -102,3 +102,5 @@ FastAPI가 적용하며 서버 관리자 전용 경로는 이 공개 프록시�
 
 담당: 프론트/운영. nginx.conf는 정적 dist 제공, /api 접두사 제거 proxy, 공개 설정 재검증/해시 자산 캐시를 설명하는 예시입니다. 실행 함수/반환값 없음.
 실제 설치·호스트 배포·TLS 변경은 수행하지 않았습니다. 대상 운영 경로/upstream을 조정하고 nginx -t 후 적용해야 합니다. [배포 절차](../../docs/deployment.md).
+
+2026-10-08 검색에서 비회원 상담으로 이어가는 경로 /api/v1/assistant/chat/dialogue도 @publicApi의 명시 경로로 전달합니다. 백엔드의 기존 요청 검증과 임시 비회원 쿠키를 유지합니다. test_tunnel_transport.py는 HTTPS 전달, HTTP 차단, 미허용 하위 경로 차단을 실제 격리 Caddy로 확인합니다.

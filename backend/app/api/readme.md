@@ -1,5 +1,7 @@
 # HTTP API 경계
 
+2026-10-08 첨부: `GET /v1/policies/{policy_key}/attachments/{id}`는 현재 공개 공고의 실제 파일을 반환합니다. PDF는 보기, `?download=true`는 다운로드이며 비공개·무관 파일은 404입니다. [파일 저장·응답 계약](../../docs/policy-attachments.md).
+
 2026-10-08 모바일 가입: `/v1/mobile/auth/email/request`, `/email/verify`, `/signup`은 쿠키 대신 명시적 이메일 인증 증명을 사용합니다. `/v1/mobile/auth/kakao/*`는 브라우저 결합 OAuth와 PKCE 일회용 코드 교환 후 모바일 Bearer 세션을 발급합니다. 기존 웹 콜백의 `mobile.` state 분기만 재사용하며 웹 쿠키로 앱 로그인하지 않습니다. [카카오 계약·설정](../../docs/kakao-login.md).
 
 2026-10-07 생활 상담: `/v1/assistant/dialogue`는 계정별 임시 대화에서 부족한 정보를

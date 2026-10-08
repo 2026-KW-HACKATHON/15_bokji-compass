@@ -83,7 +83,6 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.monitoring_lock = Lock()
     application.state.policy_repository = None
     application.state.policy_lock = Lock()
-    application.state.assistant_slots = BoundedSemaphore(2)
     application.state.policy_translation_slots = BoundedSemaphore(1)
     application.state.dialogue_store = DialogueStore()
     application.add_middleware(

@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from app.modules.storage.notice_series import notice_stage
 from app.modules.storage.schedule_rules import resolve_calendar_schedule
 
 AGE_BANDS = {
@@ -22,6 +23,13 @@ def notice_status(policy, record, today):
     explicit = record["source_json"].get("fields", {}).get("notice_status")
     if explicit in NOTICE_STATUSES:
         return explicit
+    group = policy.get("noticeGroup") or record.get("_notice_group") or {}
+    if notice_stage(record) == "result" or group.get("latestStage") == "result":
+        latest_title = (group.get("notices") or [{}])[-1].get("title")
+        title = latest_title or record["source_json"].get("title") or record.get("title", "")
+        if re.search(r"(?:신청|접수|모집)(?:마감|종료|완료)", re.sub(r"\s+", "", title)):
+            return "closed"
+        return "selected"
     current = today.isoformat()
     statuses = set()
     # The envelope can include gaps between application rounds. Only an actual

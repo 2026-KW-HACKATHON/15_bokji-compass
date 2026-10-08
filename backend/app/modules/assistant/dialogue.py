@@ -8,6 +8,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import SourcePolicy
+from app.modules.assistant.dialogue_followup import (
+    DETAIL_QUESTION,
+    OTHER_SUBJECT,
+    REFER_BACK,
+    select_followup_revision,
+    source_followup_answer,
+)
 from app.modules.assistant.dialogue_models import (
     DialogueError,
     DialogueInput,
@@ -121,6 +128,8 @@ def _known_region(value):
 
 
 def _slots(state: DialogueState, member: dict) -> list[str]:
+    if state.conversational:
+        return []
     if state.topic == "housing_leak" and state.support_interest is not True:
         return [] if "support_interest" in state.answered else ["support_interest"]
     result = ["subject"]
@@ -247,8 +256,9 @@ def _selected(record, member, state):
 
 
 def _compare(repository, state, member, feedback=()):
-    requested = "subject" in state.answered
-    if state.topic == "housing_leak" and state.support_interest is not True:
+    requested = "subject" in state.answered or state.conversational
+    if (not state.conversational and state.topic == "housing_leak"
+            and state.support_interest is not True):
         requested = False
     if not requested:
         return [], None, "not_requested"
@@ -262,7 +272,7 @@ def _compare(repository, state, member, feedback=()):
                     if state.revision_id else None)
         candidates = (general_candidates(repository, state.search_plan, context, state.profile,
                                          feedback=feedback)
-                      if state.topic == "general" else
+                      if state.topic == "general" or state.conversational else
                       monitoring.scan_candidates(
                           repository, context, state.profile, [_need(state)]))
         if state.topic == "general" and not selected and state.search_plan is None:
@@ -328,9 +338,14 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
             feedback=()):
     """Never persist conversation answers to a member or monitoring profile here."""
     account_id = member["id"]
+    if data.mode == "conversation" or (data.continuation and
+            store.read(data.continuation, account_id)[0].conversational):
+        from app.modules.assistant.dialogue_conversation import respond_conversation
+
+        return respond_conversation(repository, member, data, store, feedback=feedback)
     acknowledged = None
     unavailable_selected = False
-    if data.question is not None:
+    if data.question is not None and data.continuation is None:
         topic = classify_topic(data.question)
         if data.revision_id and repository is not None:
             try:
@@ -350,6 +365,56 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
             state.needs_search_details = state.search_plan is None
         token = store.create(account_id, state)
         error = None
+    elif data.question is not None:
+        token = data.continuation
+        state, version = store.read(token, account_id)
+        pending = _next(state, member)
+        error = None
+        # A generic text slot must not absorb a new person's situation or a notice question.
+        if ((pending != "subject" and OTHER_SUBJECT.search(data.question))
+                or (DETAIL_QUESTION.search(data.question)
+                    and (state.revision_id or state.candidate_revisions))):
+            pending = None
+        try:
+            value = _parse(pending, data.question) if pending else None
+        except (ValueError, TypeError, KeyError):
+            pending = None
+        if pending:
+            _apply(state, pending, value, saved_profile)
+            acknowledged = pending if value is not None else None
+            if pending == "search_query":
+                try:
+                    state.search_plan = prepare_search(value, repository) if value else None
+                except (SQLAlchemyError, KeyError, TypeError, ValueError):
+                    state.search_plan = prepare_search(value)
+                    unavailable_selected = True
+                state.needs_search_details = value is None
+        else:
+            if OTHER_SUBJECT.search(data.question):
+                state.subject, state.region = None, None
+                state.profile = MonitoringProfile()
+                state.answered, state.confirmed = set(), set()
+                state.revision_id, state.candidate_revisions = None, []
+            topic = classify_topic(data.question)
+            if topic != "general" and topic != state.topic:
+                state.topic = topic
+                state.revision_id, state.candidate_revisions = None, []
+            elif DETAIL_QUESTION.search(data.question):
+                try:
+                    state.revision_id = select_followup_revision(repository, state, data.question)
+                except (SQLAlchemyError, KeyError, TypeError, ValueError):
+                    unavailable_selected = True
+            elif topic == "general" and not REFER_BACK.search(data.question):
+                state.topic, state.revision_id, state.candidate_revisions = "general", None, []
+                try:
+                    state.search_plan = prepare_search(data.question, repository)
+                except (SQLAlchemyError, KeyError, TypeError, ValueError):
+                    state.search_plan = prepare_search(data.question)
+                    unavailable_selected = True
+                state.needs_search_details = state.search_plan is None
+                state.answered.discard("search_query")
+            state.practical_help = state.practical_help or bool(LEAK_PATTERN.search(data.question))
+        store.update(token, account_id, state, version)
     else:
         token = data.continuation
         state, version = store.read(token, account_id)
@@ -391,9 +456,10 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
         catalog_status = "unavailable"
     if (state.topic == "general" and catalog_status == "ready" and not candidates
             and not selected and "search_query" not in state.answered):
+        prior_state = deepcopy(state)
         state.needs_search_details = True
         saved_state, version = store.read(token, account_id)
-        if saved_state.search_plan == state.search_plan and saved_state.answered == state.answered:
+        if saved_state == prior_state:
             store.update(token, account_id, state, version)
     pending = _next(state, member)
     confirmed = sorted(state.confirmed)
@@ -409,9 +475,30 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
                     and slot is not None and slot not in represented):
                 missing.append({"slot": slot, "label": check["label"]})
                 represented.add(slot)
+    message = error or _message(state, pending, candidates, catalog_status,
+                                acknowledged=acknowledged, selected=selected)
+    if data.question and data.continuation and DETAIL_QUESTION.search(data.question):
+        if selected and repository is not None:
+            try:
+                message = source_followup_answer(
+                    _read_revision(repository, state.revision_id), data.question)
+            except DialogueError:
+                raise
+            except (SQLAlchemyError, ValidationError, KeyError, TypeError, ValueError):
+                candidates, selected, catalog_status = [], None, "unavailable"
+                message = _message(state, pending, candidates, catalog_status)
+            else:
+                if selected["comparison"]["status"] == "not_matched":
+                    message += "\n현재 알려준 정보와 맞지 않는 지원 대상 조건도 있어요."
+        elif state.candidate_revisions and catalog_status != "unavailable":
+            message = ("어느 공고인지 알려주시면 해당 공고의 공식 안내로 이어서 확인할게요. "
+                       "공고 제목이나 ‘첫 번째 공고’처럼 순서를 알려주세요.")
+    saved_state, version = store.read(token, account_id)
+    if saved_state == state:
+        state.candidate_revisions = [item["policy"]["revisionId"] for item in candidates[:12]]
+        store.update(token, account_id, state, version)
     return {
-        "answer": error or _message(state, pending, candidates, catalog_status,
-                                    acknowledged=acknowledged, selected=selected),
+        "answer": message,
         "topic": state.topic, "eligibility_decided": False, "follow_up": _question(pending),
         "answer_accepted": None if data.question is not None else error is None,
         "missing_fields": missing,
@@ -424,6 +511,6 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
                             if state.topic == "housing_leak" or state.practical_help else []),
         "source_links": (deepcopy(practical.get("links", []))
                          if state.topic == "housing_leak" or state.practical_help else []),
-        "session_notice": ("대화 정보는 최대 30분간 임시로 사용해요. "
+        "session_notice": ("대화는 마지막 입력 후 30분 동안 임시로 이어져요. "
                            "직접 저장에 동의한 정보만 지속 안내에 반영해요."),
     }

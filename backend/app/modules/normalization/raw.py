@@ -100,6 +100,9 @@ def normalize_record(row: dict) -> SourcePolicy:
             "contact": ("contact",),
             "published_date": ("published_date",),
             "modified_date": ("modified_date",),
+            "attachments": ("attachments",),
+            "attachment_files": ("attachment_files",),
+            "attachment_status": ("attachment_status",),
             "links": ("links",),
         })
         url = _text(row, "source_url")

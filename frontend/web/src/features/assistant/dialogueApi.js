@@ -113,11 +113,11 @@ export function parseDialogue(value) {
   };
 }
 
-export function createDialogueApi(request, { guest = false } = {}) {
+export function createDialogueApi(request, { guest = false, conversational = false } = {}) {
   const call = (path, body, { signal } = {}) =>
     request('/v1/assistant/' + (guest && !path ? 'chat/dialogue' : 'dialogue' + path), {
       method: 'POST',
-      body,
+      body: conversational && !path ? { ...body, mode: 'conversation' } : body,
       signal,
       authenticated: true,
       timeoutMs: 30000,
@@ -133,6 +133,8 @@ export function createDialogueApi(request, { guest = false } = {}) {
       ),
     answer: async (continuation, slot, value, options) =>
       parseDialogue(await call('', { continuation, answer: { slot, value } }, options)),
+    continue: async (continuation, question, options) =>
+      parseDialogue(await call('', { continuation, question: question.trim() }, options)),
     save: async (continuation, { consent, confirmed, ...options } = {}) => {
       if (consent !== true || confirmed !== true)
         throw new ApiError('확인한 정보를 저장하는 데 동의해 주세요.', 'consent_required');

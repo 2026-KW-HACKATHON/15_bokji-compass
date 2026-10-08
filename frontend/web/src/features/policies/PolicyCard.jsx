@@ -2,6 +2,8 @@ import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyIndicators from './PolicyIndicators.jsx';
 import PolicyDeadline from './PolicyDeadline.jsx';
+import NoticeSeries from './NoticeSeries.jsx';
+import { isApplicationNotice } from './noticeSeriesModel.js';
 import { PolicySearchMatch } from './PolicySearchFeedback.jsx';
 import {
   PolicyTranslationStatus,
@@ -17,9 +19,11 @@ export default function PolicyCard({
   reason,
   showSearchMatch = false,
 }) {
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
   const translation = useVisibleTranslatedPolicy(original);
   const { policy } = translation;
+  const displayTitle = original.noticeGroup?.title || policy.title;
+  const applicationNotice = isApplicationNotice(original, { grouped: true });
 
   if (easy) {
     return (
@@ -33,9 +37,10 @@ export default function PolicyCard({
             {saved && <span className="saved-label">{t('저장한 공고')}</span>}
           </div>
           <h3 className="card-title" tabIndex={-1}>
-            {policy.title}
+            {displayTitle}
           </h3>
-          <PolicyDeadline policy={original} />
+          {applicationNotice && <PolicyDeadline policy={original} />}
+          <NoticeSeries policy={original} />
           <PolicyTranslationStatus translation={translation} />
           {reason ? (
             <p className="easy-recommendation-reason">
@@ -52,10 +57,12 @@ export default function PolicyCard({
               <dt>{t('지원 대상')}</dt>
               <dd>{policy.audience}</dd>
             </div>
-            <div>
-              <dt>{t('신청 기간')}</dt>
-              <dd>{policy.applicationPeriod || t('공식 공고에서 확인')}</dd>
-            </div>
+            {applicationNotice && (
+              <div>
+                <dt>{t('신청 기간')}</dt>
+                <dd>{policy.applicationPeriod || t('공식 공고에서 확인')}</dd>
+              </div>
+            )}
             {policy.paymentSchedule && (
               <div>
                 <dt>{t('지급 시기')}</dt>
@@ -70,7 +77,7 @@ export default function PolicyCard({
           <button
             className="detail-link"
             onClick={() => onOpen(original)}
-            aria-label={policy.title + t(' 자세히 보기')}
+            aria-label={displayTitle + t(' 자세히 보기')}
           >
             {' '}
             {t('자세히 보기')} <Icon name="arrow" size={18} />
@@ -101,10 +108,11 @@ export default function PolicyCard({
       </p>
       <h3>
         <button className="card-title" onClick={() => onOpen(original)}>
-          {policy.title}
+          {displayTitle}
         </button>
       </h3>
-      <PolicyDeadline policy={original} />
+      {applicationNotice && <PolicyDeadline policy={original} />}
+      <NoticeSeries policy={original} />
       <PolicyTranslationStatus translation={translation} />
       {reason ? (
         <div className="recommendation-reason">
@@ -121,7 +129,7 @@ export default function PolicyCard({
           {t('지급 시기:')} {policy.paymentSchedule}
         </p>
       )}
-      {reason && (
+      {reason && applicationNotice && (
         <p className="card-meta">
           {t('신청 기간:')} {policy.applicationPeriod}
         </p>
@@ -143,7 +151,7 @@ export default function PolicyCard({
         <button
           className="detail-link"
           onClick={() => onOpen(original)}
-          aria-label={policy.title + t(' 자세히 보기')}
+          aria-label={displayTitle + t(' 자세히 보기')}
         >
           {' '}
           {t('자세히 보기')} <Icon name="arrow" size={18} />

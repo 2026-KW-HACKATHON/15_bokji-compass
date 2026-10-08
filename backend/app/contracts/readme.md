@@ -43,3 +43,5 @@
 `app.contracts.conditions`는 v2 필드 사전·CanonicalCondition·CanonicalPolicy·LogicNode 제공. 숫자 Decimal 문자열, REGION 체계/코드/버전, all/any/not/unknown 지원. [생성 JSON Schema](../../schemas/welfare-conditions-v2.schema.json)와 런타임 모델 일치 테스트 포함.
 
 특정 수집기·LLM 공급자·DB 구현에 의존하지 않습니다. 파싱·조건 계약은 현재 파일 초안용이며 정책 MySQL 저장·공고 전체의 사용자 자격 판정과 연결되지 않았습니다. 원문 인용 검증은 validation 모듈에서 추가 수행합니다. 금융 입력 계약은 실제 계산 API와 로그인 계정별 저장에 사용합니다.
+
+SearchPlan의 선택 contexts/background_concepts는 각각 명시한 상황과 필수가 아닌 배경 분야의 불변 튜플입니다. 기존 생성자의 인자와 공개 HTTP 계약은 유지합니다. 신청 자격 상태가 아닙니다.

@@ -19,7 +19,7 @@ export const categoryAppearance: Record<
   "생활·금융": { icon: "wallet", color: "#245FE5", background: "#EBF1FF" },
   주거: { icon: "home", color: "#8161B8", background: "#F1ECFA" },
   일자리: { icon: "work", color: "#A16623", background: "#FFF3E0" },
-  교육: { icon: "education", color: "#167F6E", background: "#E7F5EE" },
+  교육: { icon: "education", color: "#5156A4", background: "#EEF0FB" },
   "건강·돌봄": { icon: "health", color: "#B34E6B", background: "#FCEFF3" },
 };
 export function policyAppearance(category: string) {

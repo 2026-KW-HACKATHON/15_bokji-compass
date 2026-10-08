@@ -55,7 +55,7 @@ export function dialogueError(error) {
 // and selected policy. Consent and pending requests must never travel with it.
 export function restoreDialogueSession(session, owner, revisionId = null) {
   const sameContext =
-    Boolean(owner) && session?.owner === owner && session?.revisionId === revisionId;
+    owner !== undefined && session?.owner === owner && session?.revisionId === revisionId;
   const source = sameContext ? session : {};
   return {
     owner,
@@ -64,6 +64,14 @@ export function restoreDialogueSession(session, owner, revisionId = null) {
     dialogue: source.dialogue || null,
     exchanges: Array.isArray(source.exchanges) ? source.exchanges : [],
     input: typeof source.input === 'string' ? source.input : '',
+    draft:
+      typeof source.draft === 'string'
+        ? source.draft
+        : source.dialogue
+          ? ''
+          : typeof source.question === 'string'
+            ? source.question
+            : '',
     saved: typeof source.saved === 'string' ? source.saved : '',
     candidateLimit:
       Number.isInteger(source.candidateLimit) && source.candidateLimit >= 3

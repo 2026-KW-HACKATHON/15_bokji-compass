@@ -1,5 +1,7 @@
 ## 행정안전부 공공데이터포털 API
 
+2026-10-08 첨부: `kwangwoon_pages.parse_kwangwoon_attachment_files(html, source_url) -> list[dict]`는 공고 첨부 영역의 실제 파일명·공식 URL만 반환합니다. 상세 수집은 기존 URL 배열에 더해 `attachment_files` JSON을 보존합니다. 실제 파일 저장은 [첨부 모듈](../attachments/readme.md)을 사용합니다.
+
 2026-10-06 광운대 수집 보완: `kwangwoon_notices.parse_kwangwoon_notice(html)`은
 `board-view-box`가 있으면 그 영역의 제목·게시일·본문만 `(title,text,published_at)`으로 반환합니다.
 이 영역이 없는 이전 HTML은 기존 전체 텍스트 방식으로 처리합니다. 메뉴·사이트 푸터와

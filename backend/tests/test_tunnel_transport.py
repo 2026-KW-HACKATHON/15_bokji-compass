@@ -185,3 +185,18 @@ def test_secure_tunnel_does_not_expose_server_admin(gateway):
     )
     assert response.status_code == 404
     assert len(requests) == before
+
+
+def test_guest_dialogue_reaches_upstream_only_over_https(gateway):
+    client, requests = gateway
+    path = "/api/v1/assistant/chat/dialogue"
+    secure = {"Host": "bokji.example", "X-Forwarded-Proto": "https"}
+    response = client.post(path, headers=secure, json={"question": "학생 지원금"})
+    assert response.status_code == 200
+    assert requests[-1][0] == "/v1/assistant/chat/dialogue"
+    assert "Secure" in response.headers["set-cookie"]
+    before = len(requests)
+    response = client.post(path, headers={**secure, "X-Forwarded-Proto": "http"})
+    assert response.status_code == 403
+    assert client.post(path + "/admin", headers=secure).status_code == 404
+    assert len(requests) == before

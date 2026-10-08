@@ -252,8 +252,8 @@
   background: var(--soft);
 }
 .chat-menu-item:nth-child(2) .chat-menu-icon {
-  color: #087b52;
-  background: #e5f3e8;
+  color: var(--assist-accent);
+  background: var(--assist-soft);
 }
 .chat-guide-list > button {
   font-size: 0.9rem;
@@ -278,8 +278,8 @@
 .chat-answer-tag {
   display: inline-block;
   padding: 3px 8px;
-  color: #087b52;
-  background: #e5f3e8;
+  color: var(--assist-accent);
+  background: var(--assist-soft);
   border-radius: 5px;
   font-size: 0.75rem;
   font-weight: 600;

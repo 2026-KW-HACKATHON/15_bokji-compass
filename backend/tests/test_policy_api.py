@@ -1,5 +1,7 @@
 """Member HTTP boundary tests, with isolated account DB and a deterministic model."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Lock
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -178,7 +180,7 @@ def test_guests_drafts_guard_and_invalid_questions_never_invoke_model(client, mo
     model.assert_not_called()
 
 
-def test_model_and_database_failures_are_sanitized_and_slots_released(client, monkeypatch):
+def test_model_and_database_failures_are_sanitized_and_allow_retry(client, monkeypatch):
     login(client)
     model = Mock(side_effect=ValueError("private prompt contents"))
     monkeypatch.setattr(public, "answer_policy_question", model)
@@ -191,24 +193,45 @@ def test_model_and_database_failures_are_sanitized_and_slots_released(client, mo
     assert response.status_code == 503 and "private" not in response.text
 
 
-def test_rate_limit_capacity_and_withdrawal(client, monkeypatch):
+def test_repeated_member_questions_remain_available_and_withdrawal_is_rechecked(
+        client, monkeypatch):
     login(client)
-    slots = client.app.state.assistant_slots
-    slots.acquire()
-    slots.acquire()
-    try:
-        assert client.post("/v1/assistant/questions", json=BODY).status_code == 429
-    finally:
-        slots.release()
-        slots.release()
-    monkeypatch.setattr(public, "answer_question", Mock(return_value={"answer": "unused"}))
+    generator = Mock(return_value={"answer": "unused"})
+    throttle = Mock(side_effect=AssertionError("Assistant usage must not be throttled"))
+    monkeypatch.setattr(public, "answer_question", generator)
+    monkeypatch.setattr(client.app.state.auth_service, "throttle", throttle)
     # Initial visibility, then withdrawal while the answer is generated.
     client.repository.get_revision.side_effect = [{"review_status": "published"}, None]
     assert client.post("/v1/assistant/questions", json=BODY).status_code == 404
     client.repository.get_revision.side_effect = None
-    for _ in range(4):
+    for _ in range(30):
         assert client.post("/v1/assistant/questions", json=BODY).status_code == 200
-    assert client.post("/v1/assistant/questions", json=BODY).status_code == 429
+    assert generator.call_count == 31
+    throttle.assert_not_called()
+
+
+def test_questions_do_not_reject_a_third_concurrent_member(client, monkeypatch):
+    login(client)
+    entered, release = Event(), Event()
+    counter, lock = [0], Lock()
+
+    def answer(*args, **kwargs):
+        with lock:
+            counter[0] += 1
+            if counter[0] == 3:
+                entered.set()
+        assert release.wait(10)
+        return {"answer": "검증용 안내"}
+
+    monkeypatch.setattr(public, "answer_question", answer)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        replies = [executor.submit(client.post, "/v1/assistant/questions", json=BODY)
+                   for _ in range(3)]
+        try:
+            assert entered.wait(10)
+        finally:
+            release.set()
+        assert [reply.result(timeout=10).status_code for reply in replies] == [200, 200, 200]
 
 
 def test_catalog_disabled_error_and_input_boundary():
@@ -228,20 +251,13 @@ def test_public_faq_bypasses_llm_and_inference_limits(client, monkeypatch):
     throttle = Mock()
     monkeypatch.setattr(public, "answer_policy_question", model)
     monkeypatch.setattr(client.app.state.auth_service, "throttle", throttle)
-    slots = client.app.state.assistant_slots
-    slots.acquire()
-    slots.acquire()
-    try:
-        response = client.get(path, headers=token)
-        assert response.status_code == 200
-        assert response.headers["cache-control"] == "no-store"
-        assert len(response.json()["items"]) == 6
-        assert "private-name" not in response.text and "private-id" not in response.text
-        model.assert_not_called()
-        throttle.assert_not_called()
-    finally:
-        slots.release()
-        slots.release()
+    response = client.get(path, headers=token)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert len(response.json()["items"]) == 6
+    assert "private-name" not in response.text and "private-id" not in response.text
+    model.assert_not_called()
+    throttle.assert_not_called()
     assert client.get("/v1/assistant/faqs?revision_id=invalid", headers=token).status_code == 422
     for record in (None, {"review_status": "draft"}):
         client.repository.get_revision.return_value = record
@@ -249,16 +265,15 @@ def test_public_faq_bypasses_llm_and_inference_limits(client, monkeypatch):
     assert client.get(path, headers={"Authorization": "Bearer invalid"}).status_code == 404
 
 
-def test_guest_question_limits_and_expired_cookie_never_invoke_ai(client, monkeypatch):
+def test_repeated_guest_questions_and_expired_cookie_never_invoke_ai(client, monkeypatch):
     model = Mock()
     monkeypatch.setattr(public, "answer_policy_question", model)
     client.cookies.set("bokji_session", "expired-session")
-    for _ in range(6):
+    for _ in range(30):
         response = client.post("/v1/assistant/questions", json=BODY)
         assert response.status_code == 200
         assert "private-name" not in response.text and "private-id" not in response.text
         assert response.headers["cache-control"] == "no-store"
-    assert client.post("/v1/assistant/questions", json=BODY).status_code == 429
     model.assert_not_called()
 
 

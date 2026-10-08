@@ -341,7 +341,8 @@ def test_atomic_save_expiring_during_callback_is_still_successful_and_clear_eras
 @pytest.mark.parametrize("data", [
     {}, {"question": " "}, {"question": "집수리", "account_id": "other"},
     {"question": "집수리", "profile": {"housing_tenure": "owner"}},
-    {"question": "집수리", "continuation": "a" * 43},
+    {"question": "집수리", "continuation": "a" * 43,
+     "revision_id": "00000000-0000-0000-0000-000000000000"},
     {"answer": {"slot": "housing_tenure", "value": "owner"}},
     {"continuation": "a" * 43, "answer": {"slot": "unknown", "value": True}},
     {"continuation": "a" * 43, "answer": {"slot": "building_year", "value": 1920.0}},
