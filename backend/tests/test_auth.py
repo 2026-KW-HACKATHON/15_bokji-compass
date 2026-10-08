@@ -314,6 +314,7 @@ def test_production_database_and_secure_cookie(client, monkeypatch):
     register(client)
     engine = client.app.state.auth_service.engine
     monkeypatch.setattr("app.main.create_database_engine", lambda _: engine)
+    monkeypatch.setattr("app.api.auth.create_member_engine", lambda _: engine)
     app = create_app(
         Settings(_env_file=None, app_env="production", db_enabled=True, db_password="test-only")
     )

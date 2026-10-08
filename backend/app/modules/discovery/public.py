@@ -154,7 +154,8 @@ def discover(settings: Settings, *, domains: list[str], query: str, timeout: int
         with events.open("wb") as stdout, stderr.open("wb") as err:
             try:
                 process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=stdout, stderr=err,
-                                           cwd=workspace, env=cli_environment(), **process_options)
+                                           cwd=workspace, env=cli_environment(), shell=False,
+                                           **process_options)
             except OSError:
                 raise CodexRunError("discovery_start_failed") from None
             pending_input = prompt.encode("utf-8")

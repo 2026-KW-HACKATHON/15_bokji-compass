@@ -32,6 +32,7 @@ from app.api.server_admin import pages as server_admin_pages
 from app.api.server_admin import router as server_admin_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_database_engine
+from app.core.web_security import WebSecurityMiddleware
 from app.modules.assistant.dialogue_models import DialogueStore
 from app.modules.auth.privacy import PrivacyError
 from app.modules.server_admin.operations import Operations
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.assistant_slots = BoundedSemaphore(2)
     application.state.policy_translation_slots = BoundedSemaphore(1)
     application.state.dialogue_store = DialogueStore()
+    application.add_middleware(WebSecurityMiddleware, cors_origins=configuration.cors_origins)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configuration.cors_origins,
@@ -98,8 +100,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
         return JSONResponse(
             status_code=503,
             content={
-                "detail": "기존 암호화 회원 데이터 이관이 필요해요. "
-                "서버에서 초기화 명령을 실행해 주세요."
+                "detail": "회원 저장소의 보안 설정을 확인하지 못했어요. 관리자에게 문의해 주세요."
             },
             headers={"Cache-Control": "no-store"},
         )
@@ -211,6 +212,10 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     @application.middleware("http")
     async def private_auth_response(request, call_next):
         response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if request.url.path.startswith(
             (
                 "/v1/auth/",
