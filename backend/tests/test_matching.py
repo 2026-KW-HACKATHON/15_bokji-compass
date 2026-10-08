@@ -98,6 +98,20 @@ def test_account_facts_cannot_be_overridden_and_household_members_are_not_applic
     assert missing.age_range is None and missing.region is None
 
 
+@pytest.mark.parametrize("occupation,expected", [
+    ("무직", True), ("직장인", False), ("자영업자", False),
+    ("프리랜서", None), ("학생", None), ("취업 준비 중", None), ("은퇴 후", None),
+])
+def test_only_explicit_current_employment_can_decide_unemployment_condition(occupation, expected):
+    preference = RecommendationProfile(occupation=occupation)
+    facts = public.build_facts({"age": 27, "region": "서울"}, preference)
+    check = condition("employment_status", operator="EQ", value={
+        "kind": "CATEGORY", "code": "UNEMPLOYED"})
+    state, _ = public.compare_condition(check, facts, default_catalog(), TODAY)
+    assert state is expected
+    assert facts.employment_preparation is None
+
+
 def test_guest_age_band_overlap_and_numeric_ranges():
     facts = public.build_facts(None, RecommendationProfile(ageBand="19~34세"))
     c = condition(value={"kind": "DECIMAL", "number": "25"})

@@ -1,5 +1,6 @@
 import { defaultProfile, memberRecommendationProfile } from './profileModel.js';
 import { genders } from '../auth/authFields.js';
+import { householdLabel, occupationLabel } from './economicActivityModel.js';
 
 export const profileCategories = [
   {
@@ -13,7 +14,7 @@ export const profileCategories = [
     id: 'life',
     label: '직업·가구',
     icon: 'briefcase',
-    description: '일·학업 상태와 함께 사는 사람',
+    description: '경제활동 상태와 가구 구성',
     fields: ['occupation', 'household'],
   },
   {
@@ -70,8 +71,8 @@ export function profileRows(category, user, profile = defaultProfile) {
   }
   if (category === 'life')
     return [
-      ['일·학업 상태', selected(profile.occupation)],
-      ['함께 사는 사람', selected(profile.household)],
+      ['경제활동 상태', occupationLabel(profile.occupation)],
+      ['가구 구성', householdLabel(profile.household)],
     ];
   if (category === 'interests')
     return [['관심 분야', profile.interests.length ? profile.interests.join(' · ') : null]];

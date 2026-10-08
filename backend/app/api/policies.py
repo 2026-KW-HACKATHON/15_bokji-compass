@@ -8,6 +8,7 @@ from app.contracts.translation import PolicyLanguage, PolicyTranslationResponse
 from app.modules.policy_translation.public import TranslationError, translate_public_policy
 from app.modules.storage import catalog
 from app.modules.storage.public import PolicyRepository
+from app.api.mobile_auth import Credentials
 
 router = APIRouter(prefix="/v1/policies", tags=["policies"])
 
@@ -26,6 +27,19 @@ Repository = Annotated[PolicyRepository, Depends(get_repository)]
 Filter = Annotated[str, Query(max_length=100)]
 
 
+def explorer_member(request: Request, credentials: Credentials, eligible_only: bool = False):
+    if not eligible_only:
+        return None
+    from app.api.auth import get_service
+    from app.api.members import get_member
+    return get_member(request, get_service(request), credentials)
+
+
+@router.get("/options")
+def search_options(repository: Repository):
+    return catalog.explorer_options(repository)
+
+
 @router.get("")
 def list_policies(
     repository: Repository,
@@ -40,7 +54,18 @@ def list_policies(
     region: Filter = "",
     audience: Filter = "",
     tag: Filter = "",
+    provider: Annotated[str, Query(pattern=r"^[a-zA-Z0-9_-]{0,50}$")] = "",
+    organization: Filter = "",
+    status: Literal["", "upcoming", "open", "closed", "selecting", "selected", "paying", "paid"] = "",
+    age_bands: Annotated[list[Literal["0-18", "19-24", "25-30", "31-39", "40-64", "65-120"]],
+                         Query(max_length=6)] = [],
+    age_min: Annotated[int | None, Query(ge=0, le=120)] = None,
+    age_max: Annotated[int | None, Query(ge=0, le=120)] = None,
+    eligible_only: bool = False,
+    member: Annotated[dict | None, Depends(explorer_member)] = None,
 ):
+    if age_min is not None and age_max is not None and age_min > age_max:
+        raise HTTPException(422, "최소 나이는 최대 나이보다 클 수 없어요.")
     return catalog.list_policies(
         repository,
         limit=limit,
@@ -54,6 +79,8 @@ def list_policies(
         region=region,
         audience=audience,
         tag=tag,
+        provider=provider, organization=organization, status=status, age_bands=age_bands,
+        age_min=age_min, age_max=age_max, eligible_only=eligible_only, member=member,
     )
 
 

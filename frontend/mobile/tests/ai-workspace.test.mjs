@@ -12,6 +12,14 @@ import { assistantOverview } from "../src/features/ai/overview.js";
 import { createTaskGate } from "../src/features/ai/taskGate.js";
 import { chatPanelLayout } from "../src/features/assistant/panelLayout.js";
 
+test("saved work details from the web remain readable on mobile without inferring job search", () => {
+  for (const occupation of ["무직", "프리랜서", "은퇴 후"]) {
+    const profile = parseMonitoringProfile({ occupation });
+    assert.equal(profile.occupation, occupation);
+    assert.equal(profile.job_seeking, null);
+  }
+});
+
 const policy = {
   id: "notice-1",
   title: "주택 수리",

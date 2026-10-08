@@ -5,11 +5,8 @@ import { categories, regions } from './policyModel.js';
 import PolicyCard from './PolicyCard.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import usePolicyRefresh from './usePolicyRefresh.js';
-import {
-  SearchScopeControl,
-  SearchInterpretation,
-  searchScopeLabels,
-} from './PolicySearchFeedback.jsx';
+import { SearchInterpretation, searchScopeLabels } from './PolicySearchFeedback.jsx';
+import PolicyExplorerFilters from './PolicyExplorerFilters.jsx';
 import { effectivePolicySort } from './searchMetadata.js';
 const initialFilters = {
   query: '',
@@ -20,6 +17,13 @@ const initialFilters = {
   region: '전국',
   audience: '전체',
   sort: 'auto',
+  status: '',
+  provider: '',
+  organization: '',
+  ageBands: [],
+  ageMin: '',
+  ageMax: '',
+  eligibleOnly: false,
 };
 const sortLabels = {
   relevance: '관련도순',
@@ -29,6 +33,7 @@ const sortLabels = {
 };
 export default function PolicyExplorer({
   repository,
+  user,
   tag,
   onClearTag,
   easy,
@@ -40,7 +45,7 @@ export default function PolicyExplorer({
   initialRegion = '전국',
   initialCategory = '전체',
 }) {
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
 
   const [filters, setFilters] = useState(() => ({
     ...initialFilters,
@@ -70,9 +75,22 @@ export default function PolicyExplorer({
     filters.audience === '전체' ? '모든 대상' : filters.audience,
     sortLabels[effectivePolicySort(filters)],
     searchScopeLabels[filters.searchScope],
+    ...(filters.ageBands.length
+      ? filters.ageBands.map((band) => band.replace('-', '~') + '세')
+      : []),
+    ...(filters.ageMin !== '' || filters.ageMax !== ''
+      ? [`${filters.ageMin || 0}~${filters.ageMax || 120}세`]
+      : []),
+    ...(filters.eligibleOnly ? ['현재 신청 가능한 공고만'] : []),
   ]
     .map((value) => t(value))
     .join(' · ');
+  useEffect(() => {
+    if (!user && filters.eligibleOnly) {
+      setFilters((current) => ({ ...current, eligibleOnly: false }));
+      setPagination({ easy, cursors: [null] });
+    }
+  }, [user, filters.eligibleOnly, easy]);
   useEffect(() => {
     const controller = new AbortController();
     const previous = loadedRequest.current;
@@ -112,11 +130,15 @@ export default function PolicyExplorer({
   const change = (key, value) => {
     setFilters((current) => ({
       ...current,
-      [key]: value,
+      ...(key === 'source' ? { provider: value[0], organization: value[1] } : { [key]: value }),
       ...(['query', 'searchScope'].includes(key)
         ? { searchMode: 'smart', searchRelation: '' }
         : {}),
     }));
+    setCursors([null]);
+  };
+  const setAgeRange = (ageMin, ageMax) => {
+    setFilters((current) => ({ ...current, ageMin, ageMax, ageBands: [] }));
     setCursors([null]);
   };
   const refine = (searchRelation) => {
@@ -182,10 +204,15 @@ export default function PolicyExplorer({
           {t('검색')}{' '}
         </button>
       </form>
-      <SearchScopeControl
-        value={filters.searchScope}
-        onChange={(value) => change('searchScope', value)}
-        id="policy-search-help"
+      <PolicyExplorerFilters
+        repository={repository}
+        filters={filters}
+        change={change}
+        setAgeRange={setAgeRange}
+        reset={reset}
+        easy={easy}
+        summary={filterSummary}
+        user={user}
       />
       {state === 'ready' && (
         <SearchInterpretation
@@ -206,90 +233,6 @@ export default function PolicyExplorer({
           </button>
         </div>
       )}
-      <details className="filter-panel" open={easy ? undefined : true}>
-        <summary>
-          <Icon name="filter" size={19} />
-          <span className="filter-summary-label">
-            {easy ? t('검색 조건') : t('분야·지역 선택')}
-          </span>
-          {easy && <span className="filter-summary-value">{filterSummary}</span>}
-        </summary>
-        {!easy && (
-          <div className="category-list" aria-label={t('공고 분야')}>
-            {categories.map((item) => (
-              <button
-                key={item}
-                aria-pressed={filters.category === item}
-                className={filters.category === item ? 'selected' : ''}
-                onClick={() => change('category', item)}
-              >
-                {t(item)}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="filter-row">
-          {easy && (
-            <label>
-              {' '}
-              {t('분야')}{' '}
-              <select
-                value={filters.category}
-                onChange={(event) => change('category', event.target.value)}
-              >
-                {categories.map((item) => (
-                  <option key={item} value={item}>
-                    {t(item)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label>
-            {' '}
-            {t('지역')}{' '}
-            <select
-              value={filters.region}
-              onChange={(event) => change('region', event.target.value)}
-            >
-              {regions.map((region) => (
-                <option key={region} value={region}>
-                  {t(region)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {' '}
-            {t('대상')}{' '}
-            <select
-              value={filters.audience}
-              onChange={(event) => change('audience', event.target.value)}
-            >
-              {['전체', '청년', '가족', '어르신'].map((value) => (
-                <option key={value} value={value}>
-                  {t(value)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {' '}
-            {t('정렬')}{' '}
-            <select value={filters.sort} onChange={(event) => change('sort', event.target.value)}>
-              <option value="auto">{t('자동 (검색할 때 관련도순)')}</option>
-              <option value="relevance">{t('관련도순')}</option>
-              <option value="popular">{t('인기순 (조회수)')}</option>
-              <option value="recent">{t('최근 등록순')}</option>
-              <option value="name">{t('이름순')}</option>
-            </select>
-          </label>
-          <button className="text-button" onClick={reset}>
-            {' '}
-            {t('검색 조건 지우기')}{' '}
-          </button>
-        </div>
-      </details>
       <ContentLanguageNotice />
       <div className="results-heading">
         <h2 ref={heading} tabIndex={-1}>

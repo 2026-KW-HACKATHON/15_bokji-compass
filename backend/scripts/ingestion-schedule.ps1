@@ -5,6 +5,7 @@ Install, inspect, or remove the project's Windows ingestion task.
 Install registers a disabled task unless EnableLiveCollection is supplied. No job is started
 immediately. Requires the execution user's Codex login and independently running MySQL.
 Uses AC-power defaults, interactive logon, IgnoreNew, catch-up, and an 11-minute execution limit.
+Uses pythonw.exe from the selected Python installation so scheduled runs open no console window.
 #>
 [CmdletBinding()]
 param(
@@ -67,11 +68,18 @@ if ($null -ne $task) {
     throw 'Task already exists. Inspect Status and use Remove before installing changed settings.'
 }
 if (-not $PythonExecutable) {
-    $PythonExecutable = Join-Path $backendPath '.venv\Scripts\python.exe'
+    $PythonExecutable = Join-Path $backendPath '.venv\Scripts\pythonw.exe'
+} elseif ([IO.Path]::GetFileName($PythonExecutable) -ieq 'python.exe') {
+    # Keep the selected virtual environment while using its windowless interpreter.
+    $consolePython = (Resolve-Path -LiteralPath $PythonExecutable).Path
+    $PythonExecutable = Join-Path (Split-Path -Parent $consolePython) 'pythonw.exe'
+}
+if ([IO.Path]::GetFileName($PythonExecutable) -ine 'pythonw.exe') {
+    throw 'Scheduled collection requires pythonw.exe from the selected Python installation.'
 }
 $pythonPath = (Resolve-Path -LiteralPath $PythonExecutable).Path
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
-    throw 'A Python executable is required.'
+    throw 'A windowless Python executable (pythonw.exe) is required.'
 }
 
 $executionUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name

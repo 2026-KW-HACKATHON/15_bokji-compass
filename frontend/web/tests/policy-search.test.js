@@ -9,6 +9,51 @@ import { searchPolicies } from './fixtures/policy-search.js';
 
 const ids = (filters) => filterPolicies(searchPolicies, filters).map((item) => item.id);
 
+test('explorer serializes exact public facets, multi-age bands and zero bounds without member data', async () => {
+  let called;
+  const repository = createPolicyRepository({
+    mode: 'api',
+    request: async (url) => {
+      called = new URL(url, 'https://example.org');
+      return { items: [], total: 0, nextCursor: null };
+    },
+  });
+  await repository.list({
+    query: '장학',
+    provider: 'notice',
+    organization: '광운대학교',
+    status: 'open',
+    ageBands: ['0-18', '19-24'],
+    ageMin: 0,
+    ageMax: 30,
+    eligibleOnly: true,
+    member: { age: 24 },
+    sort: 'auto',
+  });
+  assert.equal(called.searchParams.get('organization'), '광운대학교');
+  assert.equal(called.searchParams.get('provider'), 'notice');
+  assert.equal(called.searchParams.get('status'), 'open');
+  assert.deepEqual(called.searchParams.getAll('age_bands'), ['0-18', '19-24']);
+  assert.equal(called.searchParams.get('age_min'), '0');
+  assert.equal(called.searchParams.get('eligible_only'), 'true');
+  assert.equal(called.searchParams.has('member'), false);
+  assert.equal(called.searchParams.has('sort'), false);
+});
+
+test('explorer options only accept bounded provider and publisher strings', async () => {
+  const repository = createPolicyRepository({
+    mode: 'api',
+    request: async () => ({
+      providers: [
+        { id: 'gov24', organizations: ['서울시'] },
+        { id: 'bad/provider', organizations: ['기관'] },
+        { id: 'notice', organizations: ['x'.repeat(101)] },
+      ],
+    }),
+  });
+  assert.deepEqual(await repository.options(), [{ id: 'gov24', organizations: ['서울시'] }]);
+});
+
 test('search distinguishes a notice publisher from related title and body content', () => {
   assert.equal(ids({ query: '광운대' }).length, 11);
   assert.deepEqual(

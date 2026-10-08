@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mockPolicyApi } from '../fixtures/api.js';
 import { blankDialogue, completeDialogue, dialoguePolicy } from '../fixtures/dialogue.js';
 import { emptyMonitoringProfile } from '../../src/features/monitoring/monitoringModel.js';
+import { assistantIntroKey } from '../../src/features/assistant/assistantIntroModel.js';
 
 const member = { id: 'assistant-a', name: '비서회원', age: 40, region: '서울' };
 const blank = () => ({
@@ -43,10 +44,16 @@ const ready = () => ({
   unread_count: 1,
 });
 
-async function setup(page, initial = ready(), user = member) {
+async function setup(page, initial = ready(), user = member, { introSeen = true } = {}) {
   await mockPolicyApi(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const state = { user, snapshot: initial, calls: [], reads: 0 };
+  if (introSeen) {
+    await page.addInitScript(
+      (keys) => keys.forEach((key) => localStorage.setItem(key, 'seen')),
+      [assistantIntroKey(member.id), assistantIntroKey('assistant-b'), assistantIntroKey(null)],
+    );
+  }
+  const state = { user, snapshot: initial, calls: [], reads: 0, failSaves: 0 };
   await page.route('**/api/v1/auth/kakao/status', (route) =>
     route.fulfill({ json: { enabled: true } }),
   );
@@ -70,8 +77,13 @@ async function setup(page, initial = ready(), user = member) {
     const body = route.request().method() === 'POST' ? route.request().postDataJSON() : null;
     state.calls.push({ path, body });
     if (!body) state.reads++;
-    if (path.endsWith('/profile'))
+    if (path.endsWith('/profile')) {
+      if (state.failSaves > 0) {
+        state.failSaves--;
+        return route.fulfill({ status: 422, json: {} });
+      }
       state.snapshot = { ...state.snapshot, profile: body.profile, enabled: body.enabled };
+    }
     if (path.endsWith('/candidates/state')) state.snapshot.candidates[0].state = body.state;
     if (path.endsWith('/alerts/read')) {
       state.snapshot.alerts.forEach((item) => {
@@ -93,30 +105,116 @@ async function openChat(page) {
   return chat;
 }
 
+async function openAssistantNavigation(page) {
+  await page
+    .getByRole('navigation', { name: '주 메뉴', exact: true })
+    .getByRole('link', { name: 'AI 비서', exact: true })
+    .click();
+}
+
+test('the first assistant visit explains the service and opens optional information entry', async ({
+  page,
+}) => {
+  const state = await setup(page, blank(), member, { introSeen: false });
+  await page.goto('/#assistant');
+  await expect(page.locator('#assistant-intro-title')).toBeVisible();
+  await expect(page.locator('#assistant-page-title')).toBeHidden();
+  await expect(page.getByRole('region', { name: 'AI 복지비서 주요 기능' })).toBeVisible();
+  await expect(page.locator('.assistant-intro-features article')).toHaveCount(3);
+  await page.getByRole('button', { name: 'AI 복지비서 시작하기', exact: true }).click();
+  const form = page.locator('.assistant-profile-form');
+  await expect(form).toBeVisible();
+  await expect(form.getByLabel('경제활동 구분')).toHaveValue('');
+  await expect(form.getByRole('button', { name: '내 정보 저장하기', exact: true })).toBeDisabled();
+  await form.getByLabel('경제활동 구분').selectOption('working');
+  await form.getByLabel('세부 상태').selectOption('프리랜서');
+  await form.getByLabel('가구 구성').selectOption({ label: '1인 가구' });
+  await page.getByRole('button', { name: 'AI 복지비서 이용 안내', exact: true }).click();
+  await expect(page.locator('#assistant-intro-title')).toBeVisible();
+  await expect(form).toBeHidden();
+  await page.getByRole('button', { name: 'AI 복지비서 시작하기', exact: true }).click();
+  await expect(form.getByLabel('경제활동 구분')).toHaveValue('working');
+  await expect(form.getByLabel('세부 상태')).toHaveValue('프리랜서');
+  await expect(form.getByLabel('가구 구성')).toHaveValue('혼자 살아요');
+  expect(state.calls.filter(({ path }) => path.endsWith('/profile'))).toEqual([]);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), assistantIntroKey(member.id)),
+  ).toBe('seen');
+  await page.reload();
+  await expect(page.locator('#assistant-page-title')).toBeVisible();
+  await expect(page.locator('#assistant-intro-title')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '내 정보 입력하기', exact: true })).toBeVisible();
+  expect(state.calls.filter(({ path }) => path.endsWith('/profile'))).toEqual([]);
+});
+
+test('the dedicated introduction route starts the overview and keeps its draft when reopening help', async ({
+  page,
+}) => {
+  const state = await setup(page, blank(), member, { introSeen: false });
+  await page.goto('/#assistant-intro');
+  await expect(page.locator('#assistant-intro-title')).toBeVisible();
+  await page.getByRole('button', { name: 'AI 복지비서 시작하기', exact: true }).click();
+  await expect(page).toHaveURL(/#assistant-overview\?setup=1$/);
+  const form = page.locator('.assistant-profile-form');
+  await expect(form).toBeVisible();
+  await form.getByLabel('경제활동 구분').selectOption('not_working');
+  await form.getByLabel('세부 상태').selectOption('무직');
+  await page.getByRole('button', { name: 'AI 복지비서 이용 안내', exact: true }).click();
+  await expect(page.locator('#assistant-intro-title')).toBeVisible();
+  await expect(form).toBeHidden();
+  await page.getByRole('button', { name: 'AI 복지비서 시작하기', exact: true }).click();
+  await expect(form.getByLabel('세부 상태')).toHaveValue('무직');
+  await expect(form.getByLabel('구직 상태')).toHaveValue('');
+  expect(state.calls.filter(({ path }) => path.endsWith('/profile'))).toEqual([]);
+});
+
+test('the guest introduction explains the service before linking to login', async ({ page }) => {
+  const state = await setup(page, blank(), null, { introSeen: false });
+  await page.goto('/#assistant');
+  await expect(page.locator('#assistant-intro-title')).toBeVisible();
+  await expect(page.locator('#assistant-page-title')).toBeHidden();
+  const start = page.getByRole('link', { name: '로그인하고 시작하기', exact: true });
+  await expect(start).toHaveAttribute('href', '#login?return=assistant');
+  await start.click();
+  await expect(page).toHaveURL(/#login\?return=assistant$/);
+  expect(state.calls.filter(({ path }) => path.endsWith('/profile'))).toEqual([]);
+});
+
 test('assistant is a dedicated dashboard with real guidance and progress controls', async ({
   page,
 }, info) => {
   const state = await setup(page);
   await page.goto('/#assistant');
-  await expect(page.getByRole('heading', { name: 'AI 복지비서', exact: true })).toBeVisible();
-  const dashboard = page.locator('.monitoring-dashboard-grid');
-  await expect(dashboard.getByRole('heading', { name: '내 상황 요약', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: '나에게 맞는 복지를 찾고, 다음 기회도 챙겨요.',
+      exact: true,
+    }),
+  ).toBeVisible();
+  const dashboard = page.locator('.assistant-summary');
+  await expect(dashboard.getByRole('heading', { name: '내 정보', exact: true })).toBeVisible();
   await expect(dashboard).toContainText('1920년 준공');
   await expect(page.getByRole('textbox', { name: '어떤 도움이 필요하세요?' })).toHaveCount(0);
   await page.screenshot({
     path: info.outputPath('assistant-dashboard-normal.png'),
     fullPage: true,
   });
-  await page.getByRole('button', { name: '진행 중인 지원 보기' }).click();
+  await page
+    .getByRole('navigation', { name: 'AI 복지비서 상세 항목' })
+    .getByRole('button', { name: '신청 현황', exact: true })
+    .click();
   const progress = page.getByLabel(`${dialoguePolicy.title} 지원 진행 상태`);
   await expect(progress).toHaveValue('preparing');
   await progress.selectOption('applied');
   expect(state.calls.at(-1).body.state).toBe('applied');
-  await page.getByRole('button', { name: '안내함 확인하기' }).click();
+  await page
+    .getByRole('navigation', { name: 'AI 복지비서 상세 항목' })
+    .getByRole('button', { name: '새 안내', exact: true })
+    .click();
   await page.getByRole('button', { name: '표시된 안내 읽음' }).click();
   await expect(page.getByText('안 읽음 0개')).toBeVisible();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(dashboard.getByRole('heading', { name: '내 상황 요약', exact: true })).toBeVisible();
+  await expect(dashboard.getByRole('heading', { name: '내 정보', exact: true })).toBeVisible();
   if (info.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 900 });
   await page.evaluate(() => document.fonts.ready);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -167,7 +265,7 @@ test('chat handoff preserves current follow-up and unsent input without repeatin
   });
   await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
   await page.getByRole('link', { name: '전체 공고', exact: true }).click();
-  await page.getByRole('link', { name: 'AI 복지비서', exact: true }).click();
+  await openAssistantNavigation(page);
   await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
   expect(calls).toHaveLength(2);
   const storage = await page.evaluate(() =>
@@ -218,7 +316,7 @@ test('selected policy and confirmed facts transfer but save consent must be chec
   expect(saves).toBe(0);
   await conversation.getByRole('checkbox', { name: /표시된 정보가 본인 정보임/ }).check();
   await conversation.getByRole('button', { name: '확인한 정보 저장하기' }).click();
-  await expect(page.locator('.monitoring-dashboard-grid')).toContainText('1920년 준공');
+  await expect(page.locator('.assistant-summary')).toContainText('1920년 준공');
   expect(saves).toBe(1);
 });
 
@@ -236,10 +334,10 @@ test('guest login returns to assistant and logout removes the previous account c
   await page.getByLabel('비밀번호', { exact: true }).fill('ExamplePassword42!');
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page).toHaveURL(/#assistant$/);
-  await page.getByRole('button', { name: '상황을 대화로 추가하기', exact: true }).click();
+  await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
   await page.getByRole('textbox', { name: '어떤 도움이 필요하세요?' }).fill('내 비공개 주거 상담');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
-  await page.getByRole('link', { name: 'AI 복지비서', exact: true }).click();
+  await openAssistantNavigation(page);
   await expect(page.getByRole('region', { name: '생활 상황 상담', exact: true })).toHaveCount(0);
   await expect(page.getByText('내 비공개 주거 상담', { exact: true })).toHaveCount(0);
 });
@@ -253,30 +351,235 @@ for (const action of ['edit', 'delete']) {
       route.fulfill({ json: completeDialogue() }),
     );
     await page.goto('/#assistant');
-    await page.getByRole('button', { name: '상황을 대화로 추가하기', exact: true }).click();
+    await page.getByRole('button', { name: '궁금한 점 물어보기', exact: true }).click();
     await page.getByRole('textbox', { name: '어떤 도움이 필요하세요?' }).fill('집수리 지원');
     await page.getByRole('button', { name: '상담 시작하기', exact: true }).click();
     const conversation = page.getByRole('region', { name: '생활 상황 상담', exact: true });
     await expect(conversation).toContainText('1920년 건축으로 확인했어요.');
     const panel = page.getByRole('region', { name: '나를 위한 지원 현황', exact: true });
     if (action === 'edit') {
-      await panel.getByRole('button', { name: '생활정보 수정하기', exact: true }).click();
+      await panel.getByRole('button', { name: '내 정보 수정', exact: true }).click();
       await panel.getByLabel('주택 준공연도').fill('2010');
       await panel
         .getByLabel('생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.', {
           exact: true,
         })
         .check();
-      await panel.getByRole('button', { name: '생활정보와 안내 설정 저장', exact: true }).click();
-      await expect(panel.locator('.monitoring-dashboard-grid')).toContainText('2010년 준공');
+      await panel.getByRole('button', { name: '저장하고 지원 찾기', exact: true }).click();
+      await expect(panel.locator('.assistant-summary')).toContainText('2010년 준공');
     } else {
-      await panel.getByRole('button', { name: '안내 설정', exact: true }).click();
+      await panel
+        .getByRole('navigation', { name: 'AI 복지비서 상세 항목' })
+        .getByRole('button', { name: '내 정보', exact: true })
+        .click();
       await panel.getByRole('button', { name: '저장한 생활정보와 안내 삭제' }).click();
       await panel.getByRole('button', { name: '생활정보와 안내 기록 삭제', exact: true }).click();
     }
     await expect(conversation).toHaveCount(0);
     await page.getByRole('link', { name: '전체 공고', exact: true }).click();
-    await page.getByRole('link', { name: 'AI 복지비서', exact: true }).click();
+    await openAssistantNavigation(page);
     await expect(conversation).toHaveCount(0);
   });
 }
+
+test('first visit has one information entry point and separates saving consent from ongoing guidance', async ({
+  page,
+}) => {
+  const state = await setup(page, blank());
+  await page.goto('/#assistant');
+  const panel = page.getByRole('region', { name: '나를 위한 지원 현황', exact: true });
+  await expect(panel.getByRole('heading', { name: '내 정보부터 간단히 알려주세요' })).toBeVisible();
+  await expect(panel.locator('.assistant-summary')).toHaveCount(0);
+  await expect(panel.locator('.monitoring-dashboard-nav')).toHaveCount(0);
+  await expect(page.locator('.assistant-page-conversation')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'AI 챗봇 열기' })).toHaveCount(0);
+  await expect(panel.locator('.assistant-member-summary')).toContainText('40세');
+  await expect(panel.locator('.assistant-member-summary')).toContainText('서울');
+  await panel.getByRole('button', { name: '내 정보 입력하기', exact: true }).click();
+  const form = panel.getByRole('form', { name: '나에게 맞는 지원을 위한 정보' });
+  await expect(form.getByRole('heading', { name: '나에게 맞는 지원을 위한 정보' })).toBeFocused();
+  await expect(form.getByLabel('주택 준공연도')).not.toBeVisible();
+  await expect(form.getByLabel('피해 발생일')).not.toBeVisible();
+  const save = form.getByRole('button', { name: '내 정보 저장하기', exact: true });
+  const watch = form.getByRole('switch', { name: '새 공고도 계속 알려받기 (선택)' });
+  const consent = form.getByRole('checkbox', {
+    name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+  });
+  await expect(watch).not.toBeChecked();
+  await expect(consent).not.toBeChecked();
+  await expect(save).toBeDisabled();
+  await form.getByLabel('경제활동 구분').selectOption('not_working');
+  await form.getByLabel('세부 상태').selectOption('취업 준비 중');
+  await form.getByLabel('가구 구성').selectOption('혼자 살아요');
+  // A suggested interest and occupation never become an assumed eligibility fact.
+  await form.getByRole('checkbox', { name: '일자리', exact: true }).check();
+  await expect(form.getByLabel('구직 상태')).toHaveValue('');
+  await watch.check();
+  await expect(form.getByRole('button', { name: '저장하고 지원 찾기' })).toBeDisabled();
+  await watch.uncheck();
+  await consent.check();
+  await save.click();
+  await expect(panel.locator('.assistant-summary')).toContainText('취업 준비 중');
+  await expect(form).toHaveCount(0);
+  expect(
+    state.calls.filter(({ path }) => path.endsWith('/profile')).map(({ body }) => body),
+  ).toEqual([
+    {
+      profile: {
+        ...emptyMonitoringProfile,
+        occupation: '취업 준비 중',
+        household: '혼자 살아요',
+        interests: ['일자리'],
+      },
+      consent: true,
+      enabled: false,
+    },
+  ]);
+});
+
+test('editing preserves collapsed information and a failed save keeps the draft for retry', async ({
+  page,
+}) => {
+  const original = {
+    ...emptyMonitoringProfile,
+    occupation: '직장인',
+    household: '가족과 살아요',
+    interests: ['주거', '일자리'],
+    housing_tenure: 'owner',
+    housing_type: 'detached',
+    building_year: 1920,
+    repair_needed: false,
+    job_seeking: false,
+    disaster_type: 'flood',
+    disaster_damage: false,
+    disaster_occurred_on: '2026-01-01',
+  };
+  const state = await setup(page, { ...blank(), profile: original, enabled: true });
+  state.failSaves = 1;
+  await page.goto('/#assistant');
+  await page.getByRole('button', { name: '내 정보 수정', exact: true }).click();
+  const form = page.getByRole('form', { name: '나에게 맞는 지원을 위한 정보' });
+  await expect(form.getByLabel('주택 준공연도')).toHaveValue('1920');
+  await expect(form.getByLabel('피해 발생일')).toHaveValue('2026-01-01');
+  await form
+    .locator('details')
+    .filter({ has: page.getByLabel('주택 준공연도') })
+    .locator('summary')
+    .click();
+  await form
+    .locator('details')
+    .filter({ has: page.getByLabel('피해 발생일') })
+    .locator('summary')
+    .click();
+  await expect(form.getByLabel('주택 준공연도')).not.toBeVisible();
+  await expect(form.getByLabel('피해 발생일')).not.toBeVisible();
+  await expect(form.getByRole('switch', { name: '새 공고도 계속 알려받기 (선택)' })).toBeChecked();
+  await form.getByLabel('세부 상태').selectOption('자영업자');
+  const consent = form.getByRole('checkbox', {
+    name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+  });
+  await expect(consent).not.toBeChecked();
+  await consent.check();
+  await form.getByRole('button', { name: '저장하고 지원 찾기' }).click();
+  await expect(form.getByRole('alert')).toContainText('입력한 생활정보와 날짜를 확인해 주세요.');
+  await expect(form.getByRole('alert')).toBeFocused();
+  await expect(form.getByLabel('세부 상태')).toHaveValue('자영업자');
+  await expect(consent).toBeChecked();
+  await expect(page.locator('.assistant-summary')).toHaveCount(0);
+  expect(state.snapshot.profile).toEqual(original);
+  await form.getByRole('button', { name: '저장하고 지원 찾기' }).click();
+  await expect(page.locator('.assistant-summary')).toContainText('자영업자');
+  expect(
+    state.calls.filter(({ path }) => path.endsWith('/profile')).map(({ body }) => body),
+  ).toEqual([
+    { profile: { ...original, occupation: '자영업자' }, consent: true, enabled: true },
+    { profile: { ...original, occupation: '자영업자' }, consent: true, enabled: true },
+  ]);
+});
+
+for (const hasProfile of [false, true]) {
+  test(`cancel discards unsaved changes and consent (${hasProfile ? 'existing' : 'first'} profile)`, async ({
+    page,
+  }) => {
+    const state = await setup(page, hasProfile ? ready() : blank());
+    await page.goto('/#assistant');
+    const entry = page.getByRole('button', {
+      name: hasProfile ? '내 정보 수정' : '내 정보 입력하기',
+      exact: true,
+    });
+    await entry.click();
+    const form = page.getByRole('form', { name: '나에게 맞는 지원을 위한 정보' });
+    await form.getByLabel('경제활동 구분').selectOption('student');
+    await form
+      .getByRole('switch', { name: '새 공고도 계속 알려받기 (선택)' })
+      .setChecked(!hasProfile);
+    await form
+      .getByRole('checkbox', {
+        name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+      })
+      .check();
+    await form.getByRole('button', { name: '취소', exact: true }).click();
+    await expect(form).toHaveCount(0);
+    expect(state.calls.filter(({ path }) => path.endsWith('/profile'))).toEqual([]);
+    await entry.click();
+    await expect(form.getByLabel('경제활동 구분')).toHaveValue('');
+    await expect(form.getByRole('switch', { name: '새 공고도 계속 알려받기 (선택)' })).toBeChecked({
+      checked: hasProfile,
+    });
+    await expect(
+      form.getByRole('checkbox', {
+        name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+      }),
+    ).not.toBeChecked();
+    if (hasProfile) await expect(form.getByLabel('주택 준공연도')).toHaveValue('1920');
+  });
+}
+
+test('economic activity changes require an explicit detail and retain unedited legacy facts', async ({
+  page,
+}) => {
+  const original = {
+    ...emptyMonitoringProfile,
+    occupation: '은퇴 후',
+    job_seeking: false,
+    housing_tenure: 'owner',
+    building_year: 1990,
+  };
+  const state = await setup(page, { ...blank(), profile: original });
+  await page.goto('/#assistant');
+  await page.getByRole('button', { name: '내 정보 수정', exact: true }).click();
+  const form = page.getByRole('form', { name: '나에게 맞는 지원을 위한 정보' });
+  const activity = form.getByLabel('경제활동 구분');
+  await expect(activity).toHaveValue('legacy');
+  await expect(activity.locator('option').filter({ hasText: '은퇴 후' })).toHaveCount(0);
+  await form.getByLabel('가구 구성').selectOption({ label: '1인 가구' });
+  await form
+    .getByRole('checkbox', {
+      name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+    })
+    .check();
+  await form.getByRole('button', { name: '내 정보 저장하기', exact: true }).click();
+  expect(state.snapshot.profile).toEqual({ ...original, household: '혼자 살아요' });
+  await page.getByRole('button', { name: '내 정보 수정', exact: true }).click();
+  await activity.selectOption('working');
+  const detail = form.getByLabel('세부 상태');
+  await expect(detail).toHaveValue('');
+  await detail.selectOption({ label: '임금근로자' });
+  await expect(detail).toHaveValue('직장인');
+  await activity.selectOption('not_working');
+  await expect(detail).toHaveValue('');
+  await expect(detail.locator('option').filter({ hasText: '임금근로자' })).toHaveCount(0);
+  await detail.selectOption('무직');
+  await expect(form.getByLabel('구직 상태')).toHaveValue('false');
+  await form
+    .getByRole('checkbox', {
+      name: '생활정보를 내 계정에 저장하고 지속 복지 안내에 사용하는 데 동의해요.',
+    })
+    .check();
+  await form.getByRole('button', { name: '내 정보 저장하기', exact: true }).click();
+  expect(state.snapshot.profile).toEqual({
+    ...original,
+    occupation: '무직',
+    household: '혼자 살아요',
+  });
+});

@@ -14,14 +14,16 @@ RegionName = Literal[
 ]
 AgeBand = Literal["19세 미만", "19~34세", "35~49세", "50~64세", "65세 이상"]
 Category = PolicyDisplayCategory
+# Keep legacy values readable; display labels and groupings belong to the client.
+Occupation = Literal[
+    "학생", "취업 준비 중", "직장인", "자영업자", "프리랜서", "무직", "은퇴 후", "기타"
+]
 
 
 class RecommendationProfile(StrictModel):
     region: RegionName = "전국"
     ageBand: AgeBand | None = None
-    occupation: Literal[
-        "학생", "취업 준비 중", "직장인", "자영업자", "은퇴 후", "기타"
-    ] | None = None
+    occupation: Occupation | None = None
     household: Literal["혼자 살아요", "가족과 살아요"] | None = None
     interests: list[Category] = Field(
         default_factory=list, max_length=len(POLICY_DISPLAY_CATEGORIES))

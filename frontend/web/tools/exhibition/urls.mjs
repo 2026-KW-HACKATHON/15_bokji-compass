@@ -35,7 +35,7 @@ export function publicUrl(value, { originOnly = false, apk = false } = {}) {
 export function destinations(origin, apkOverride = '') {
   const base = publicUrl(origin, { originOnly: true });
   return {
-    web: base + '/',
+    web: base + '/#guide',
     android: apkOverride.trim()
       ? publicUrl(apkOverride, { apk: true })
       : base + '/downloads/bokji-compass.apk',

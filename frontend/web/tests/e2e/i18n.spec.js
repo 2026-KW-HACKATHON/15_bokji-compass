@@ -135,6 +135,6 @@ for (const width of [1440, 1280, 1180, 768, 600, 390, 320]) {
       }
     }
     await page.locator('.portal-nav a').last().press('Enter');
-    await expect(page).toHaveURL(/#guide$/);
+    await expect(page).toHaveURL(/#profile$/);
   });
 }

@@ -1,7 +1,9 @@
 import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useState } from 'react';
 import { regions, categories } from '../policies/policyModel.js';
-import { ageBands, occupations, households, normalizeProfile } from './profileModel.js';
+import { ageBands, households, normalizeProfile } from './profileModel.js';
+import EconomicActivityFields from './EconomicActivityFields.jsx';
+import { householdLabel } from './economicActivityModel.js';
 import Icon from '../../shared/ui/Icon.jsx';
 export default function ProfileForm({
   profile,
@@ -24,7 +26,7 @@ export default function ProfileForm({
       >
         {options.map((value) => (
           <option key={value} value={value}>
-            {t(value)}
+            {t(key === 'household' ? householdLabel(value) || value : value)}
           </option>
         ))}
       </select>
@@ -61,12 +63,17 @@ export default function ProfileForm({
             {easy && <small>{t('선택')}</small>}
           </h2>
           <div className="form-grid">
-            {select('occupation', t('일·학업 상태 (선택)'), occupations)}
-            {select('household', t('함께 사는 사람 (선택)'), households)}
+            <EconomicActivityFields
+              value={draft.occupation}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, occupation: value || '선택하지 않음' }))
+              }
+            />
+            {select('household', '가구 구성', households)}
           </div>
           <p className="field-hint">
             {t(
-              '일·학업 상태는 공고 추천을 위한 선택 정보예요. 중위소득 기준은 가구원 수로 확인할 수 있어요.',
+              '경제활동 정보는 맞춤 공고 추천에 활용됩니다. 지원 자격과 가구원 수는 사업별 기준을 확인해 주세요.',
             )}
           </p>
         </section>

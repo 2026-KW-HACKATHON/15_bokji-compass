@@ -23,6 +23,7 @@ export default function PolicyDetail({
   const { policy } = translation;
 
   const source = safeSourceUrl(policy.sourceUrl);
+  const scheduleSource = safeSourceUrl(original.sourceFields?.['일정 확인 출처']);
   const application = safeSourceUrl(policy.applicationUrl);
   const sourceLabels = {
     text: '공고 본문',
@@ -76,6 +77,14 @@ export default function PolicyDetail({
         <p className="detail-original-link">
           <a href={source} target="_blank" rel="noopener noreferrer">
             {t('공고 원문 보기')} <Icon name="external" size={16} />
+            <span className="sr-only">{t('새 창')}</span>
+          </a>
+        </p>
+      )}
+      {scheduleSource && scheduleSource !== source && (
+        <p className="detail-original-link">
+          <a href={scheduleSource} target="_blank" rel="noopener noreferrer">
+            {t('일정 확인 출처')} <Icon name="external" size={16} />
             <span className="sr-only">{t('새 창')}</span>
           </a>
         </p>

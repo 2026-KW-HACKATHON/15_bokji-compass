@@ -1,5 +1,13 @@
 # 앱 조립
 
+## 2026-10-08 상단 메뉴의 계층 구조
+
+`PortalNavigation({page, savedCount?})`는 주요 메뉴 여섯 개와 전체 폭 하위 메뉴를 반환합니다. PC는 마우스 진입·키보드 포커스로 펼치며 화살표 버튼은 터치에서도 열고 닫습니다. Escape·닫기·바깥 클릭·탭 이탈·페이지 이동은 메뉴를 닫습니다. 모바일은 두 열과 내부 스크롤을 사용하고 펼친 메뉴는 챗봇 아이콘 위에 표시합니다.
+
+`portalNavigation.js`의 `portalSections`는 표시 그룹·대상 hash 배열, `portalRoutes`는 허용 페이지 목록이며 `isSectionActive(section,page)`는 상세 계산기를 포함한 선택 그룹 여부를 반환합니다. 계산기는 내 정보 아래에, 서비스 소개·내 복지 현황·이용 안내는 AI 비서 아래에 둡니다. `portal-navigation.css`가 기존 `portal.css` 이후 최종 배치를 적용합니다. 번역은 공통 `navigationMessages.js`를 사용하며 API에는 영향을 주지 않습니다.
+
+`#assistant-intro`는 새 AI 소개, `#assistant-overview`는 기존 현황·정보 등록, `#guide`는 기존 서비스 이용 안내입니다. `#assistant`의 첫 방문 소개와 계산기 직접 주소는 유지합니다. `AssistantPage`의 `initialView`, `initialProfileEntry`, `onContinue`로 소개에서 현황의 정보 등록 화면으로 이동합니다. 대화는 App의 계정별 메모리에서 복원합니다. [메뉴 구조·검증 기록](../../../docs/portal-navigation.md). 아래 상단바 정렬 기록은 이 보조 줄·주 메뉴 구조로 대체됩니다.
+
 2026-10-08 로그인 상단바 정렬: `portal.css`는 로고·메뉴·계정 영역의 열 폭을
 로그인/로그아웃과 언어 변경 사이에 유지합니다. PC 메뉴 간격을 조정하고, 1380px 이하에서는
 메뉴를 둘째 줄로 분리합니다. 480px 이하의 계정 메뉴는 별도 줄에 표시합니다.

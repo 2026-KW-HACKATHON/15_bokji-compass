@@ -77,6 +77,7 @@ def test_housing_age_is_exploration_and_requires_owner_or_explicit_repair(facts,
 @pytest.mark.parametrize("occupation,employment", [
     (None, None), ("학생", None), ("취업 준비 중", None),
     ("직장인", "EMPLOYED"), ("자영업자", "SELF_EMPLOYED"),
+    ("프리랜서", None), ("은퇴 후", None), ("무직", "UNEMPLOYED"),
 ])
 def test_youth_and_job_seeking_do_not_imply_unemployment(occupation, employment):
     profile = MonitoringProfile(occupation=occupation, job_seeking=True)
@@ -98,6 +99,28 @@ def test_preparing_occupation_without_youth_age_generates_employment_need(age):
     assert "선택한 취업 준비 상황" in needs[0]["reason"]
     assert profile.job_seeking is None
     assert public.monitoring_facts(member, profile).employment is None
+    assert public.monitoring_facts(member, profile).employment_preparation is None
+    assert any("새 일자리를 찾거나" in question for question in needs[0]["questions"])
+
+
+@pytest.mark.parametrize("occupation", ["학생", "취업 준비 중", "직장인", "자영업자",
+                                         "프리랜서", "무직", "은퇴 후", "기타"])
+@pytest.mark.parametrize("job_seeking", [None, False, True])
+def test_economic_activity_never_fills_or_overrides_separate_job_search(occupation, job_seeking):
+    profile = MonitoringProfile(occupation=occupation, job_seeking=job_seeking)
+    facts = public.monitoring_facts(MEMBER, profile)
+    assert facts.employment_preparation is job_seeking
+    assert profile.job_seeking is job_seeking
+
+
+def test_explicit_unemployed_and_freelancer_get_relevant_followup_questions():
+    unemployed = public.derive_needs(MEMBER, MonitoringProfile(occupation="무직"), today=TODAY)[0]
+    assert "직접 선택한 현재 무직 상태" in unemployed["reason"]
+    assert not any("재직 중" in question for question in unemployed["questions"])
+    assert any("새 일자리" in question for question in unemployed["questions"])
+    freelancer = public.derive_needs(
+        MEMBER, MonitoringProfile(occupation="프리랜서"), today=TODAY)[0]
+    assert any("근로계약" in question for question in freelancer["questions"])
 
 
 @pytest.mark.parametrize("age,expected", [(45, []), (None, []), (27, ["youth_employment"])])

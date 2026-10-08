@@ -215,6 +215,7 @@ class PeriodPolicyOverview(StoredPolicyOverview):
 class PolicyOverview(PeriodPolicyOverview):
     """Fresh model output includes cited application details and metadata."""
 
+    calendar_expression: str | None = Field(default=None, max_length=2000)
     application_method: SourcedFieldDraft
     application_url: SourcedFieldDraft
     contact: SourcedFieldDraft

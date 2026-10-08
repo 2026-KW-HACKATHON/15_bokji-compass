@@ -88,3 +88,16 @@ test('situation summary shows saved facts without inferring damage, job seeking 
   assert.equal(questionForNeed('disaster_watch'), '재난 피해 지원을 알아보고 싶어요');
   assert.equal(questionForNeed('unknown'), '');
 });
+
+test('a profile with only interests still provides a useful saved-information summary', () => {
+  const value = assistantOverview(snapshot({ profile: { interests: ['주거', '일자리'] } }), null);
+  assert.deepEqual(value.facts, ['주거', '일자리']);
+});
+
+test('saved household facts are shown and repeated occupation/interest labels appear once', () => {
+  const value = assistantOverview(
+    snapshot({ profile: { occupation: '기타', household: '혼자 살아요', interests: ['기타'] } }),
+    { region: '서울' },
+  );
+  assert.deepEqual(value.facts, ['서울', '기타', '1인 가구']);
+});

@@ -1,7 +1,7 @@
 # 공고
 
 2026-10-08 마감 D-Day: `PolicyDeadline({policy})`는 서버의 `applicationEnd`를 한국 시간
-오늘과 비교하여 D-n, D-Day, 마감 D+n, 상시 접수 또는 마감일 확인 필요를 표시합니다.
+오늘과 비교하여 D-n, D-Day, 접수 마감 D+n, 상시 접수 또는 마감일 확인 필요를 표시합니다.
 전체/추천/저장 공고 카드의 일반·쉬운 화면, 상세와 캘린더 공고 행이 함께 사용합니다.
 `deadlineModel.policyDeadline(policy,today=seoulToday()) -> {state,days}`는 정상 날짜의
 UTC 일수 차를 계산하며 state는 upcoming/today/closed/ongoing/unknown입니다.
@@ -49,6 +49,13 @@ PC/모바일·일반/쉬운 화면 검증: `tests/e2e/policy-source.spec.js`.
 첫 조회와 검색 조건·페이지·화면 모드 변경에는 로딩/오류·재시도를 표시합니다.
 상세 비공개/삭제 404는 열린 상세를 닫습니다. 이전 요청 취소와 선택 ID 검사로 응답 경합을 막습니다.
 parsePolicy는 전체 본문·원문 항목·성별·기타 조건·신청 방법/링크·문의처·게시/수정일을 보존합니다.
+신청 일정의 `applicationPrecision=month|month_end`, `applicationRecurrence=yearly|monthly`와
+연도·월 메타데이터와 복수 회차 `applicationWindows`도 보존합니다. 각 회차는 적어도 한 개의
+정상 날짜를 요구하며 존재하는 시작일은 마감일보다 늦을 수 없습니다. calendar repository는 날짜 공고에 조회 월 `calendarMonth`를
+붙입니다. `mergePolicyDetail(current, detail)`는 같은 ID·개정·원문 신청기간의 공고에서
+정밀도·반복 주기가 같은 연도 미기재 일정 또는 같은 수의 복수 회차인 경우 선택한 달력
+날짜·회차 배열·선택 회차 메타데이터를 유지하면서 새 상세 본문을 반영합니다.
+개정이나 기간이 바뀌면 새 서버 일정을 사용합니다. 번역은 날짜·반복 주기를 변경할 수 없습니다.
 PolicyDetail은 원문을 접어 보여주고 신청 링크를 HTTP(S)로 검증합니다. 원문은 React 텍스트로 표시합니다.
 
 2026-10-06 목록 카드: 기본 화면에는 사업 목적을 설명하는 `summary`를 최대 두 줄로 표시하고

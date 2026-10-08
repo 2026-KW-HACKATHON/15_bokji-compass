@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from copy import deepcopy
+from datetime import date
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -33,6 +34,7 @@ from app.contracts.parsing import (
 )
 from app.modules.normalization.public import normalize_conditions
 from app.modules.storage.application_dates import application_date_columns
+from app.modules.storage.schedule_rules import build_calendar_rule, resolve_calendar_schedule
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 TABLES = (
@@ -107,6 +109,12 @@ def validate_draft(payload: dict) -> dict:
         validate_extraction(PolicyExtraction.model_validate(draft["code_analysis"]), source)
     if draft.get("code_canonical"):
         validate_canonical(CanonicalPolicy.model_validate(draft["code_canonical"]), source)
+    if draft.get("application_calendar") is not None:
+        rule = draft["application_calendar"]
+        if (not isinstance(rule, dict)
+                or rule.get("period") != (draft.get("overview") or {}).get("application_period")
+                or build_calendar_rule(rule.get("period"), rule.get("expression"), source.fields) != rule):
+            raise ValueError("Unverified application calendar rule")
     return draft
 
 
@@ -183,7 +191,7 @@ class PolicyRepository:
         entries = self.tables["condition_entries"]
         stable = {key: draft.get(key) for key in (
             "schema_version", "source", "analysis", "canonical", "overview",
-            "overview_status", "method", "rule_version", "imported_schema_version",
+            "overview_status", "method", "rule_version", "imported_schema_version", "application_calendar",
         )}
         fingerprint = digest({"draft": stable, "processing": processing})
         existing = connection.execute(select(details.c.revision_id).where(
@@ -232,6 +240,12 @@ class PolicyRepository:
         overview = draft.get("overview") or {}
         application_start, application_end = application_date_columns(
             source["fields"], overview.get("application_period"))
+        if draft.get("application_calendar") or overview.get("calendar_expression"):
+            schedule = resolve_calendar_schedule(source["fields"], overview, draft.get("application_calendar"))
+            application_start = (date.fromisoformat(schedule["applicationStart"])
+                                 if schedule["applicationStart"] else None)
+            application_end = (date.fromisoformat(schedule["applicationEnd"])
+                               if schedule["applicationEnd"] else None)
         values = {
             "source_key": source_key,
             "title": source["title"],

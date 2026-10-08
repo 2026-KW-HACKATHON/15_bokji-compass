@@ -40,6 +40,7 @@ test('a colloquial query searches immediately, shows correction and grounded res
   await expect(national.locator('blockquote')).toContainText(
     '국내 대학 재학생의 등록금을 지원합니다. 근로 의무가 없습니다.',
   );
+  await page.locator('.explorer-advanced > summary').click();
   await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('auto');
   await page.getByRole('combobox', { name: '정렬', exact: true }).selectOption('popular');
   await expect(articles).toHaveCount(2);
@@ -106,6 +107,7 @@ test('ambiguous school query returns results first and optional facets refine th
   await expect(
     page.getByRole('article').filter({ hasText: '우리대학 학생 생활 지원' }),
   ).toHaveCount(0);
+  await page.locator('.explorer-advanced > summary').click();
   await page.locator('.policy-search-options > summary').click();
   await expect(page.getByRole('combobox', { name: '검색 범위', exact: true })).toHaveValue('all');
   await page.getByRole('combobox', { name: '검색 범위', exact: true }).selectOption('content');

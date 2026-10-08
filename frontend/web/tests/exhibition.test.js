@@ -12,7 +12,7 @@ import { adminCookie, startAuthFixture } from './fixtures/admin-gateway.mjs';
 
 test('QRs use the public origin, an APK file, and no operator/local address', () => {
   assert.deepEqual(destinations('https://expo.example.org/'), {
-    web: 'https://expo.example.org/',
+    web: 'https://expo.example.org/#guide',
     android: 'https://expo.example.org/downloads/bokji-compass.apk',
     temporary: false,
   });
@@ -130,7 +130,7 @@ test('operator server enforces isolation, updates tunnel addresses and generates
   const webPng = PNG.sync.read((await request(port, '/api/qr?' + params)).body);
   assert.equal(
     jsQR(new Uint8ClampedArray(webPng.data), webPng.width, webPng.height).data,
-    'https://expo.example.org/',
+    'https://expo.example.org/#guide',
   );
   assert.equal((await request(port, '/api/qr?kind=web&origin=http://localhost')).status, 400);
   for (const url of [
@@ -171,7 +171,7 @@ test('default fixed public origin ignores tunnel state and generates matching QR
   assert.equal(status.detectedUrl, 'https://bokji.commitnaru.com');
   assert.equal(status.source, 'fixed');
   for (const [kind, target] of [
-    ['web', 'https://bokji.commitnaru.com/'],
+    ['web', 'https://bokji.commitnaru.com/#guide'],
     ['android', 'https://bokji.commitnaru.com/downloads/bokji-compass.apk'],
   ]) {
     const params = new URLSearchParams({ kind, origin: status.detectedUrl });

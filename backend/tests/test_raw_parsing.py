@@ -379,7 +379,7 @@ def test_cli_overview_uses_expanded_category_prompt_and_schema(tmp_path, monkeyp
         source(), Settings(_env_file=None, codex_executable=str(executable)),
         tmp_path / "overview-attempt", "gpt-5.6-luna")
     assert result.category == "교육"
-    assert metadata["prompt_version"] == "welfare-overview-v5"
+    assert metadata["prompt_version"] == "welfare-overview-v6"
     assert all(category in captured["prompt"] for category in
                ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화",
                 "농림축산·어업", "사업·창업"))

@@ -14,7 +14,7 @@ export default function PolicyDeadline({ policy }) {
       : state === 'today'
         ? 'D-Day'
         : state === 'closed'
-          ? t('마감 D+{count}', { count })
+          ? t('접수 마감 D+{count}', { count })
           : state === 'ongoing'
             ? t('상시 접수')
             : t('마감일 확인 필요');

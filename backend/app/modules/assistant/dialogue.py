@@ -45,9 +45,9 @@ QUESTIONS = {
         ("apartment", "아파트"), ("other", "그 외"))),
     "repair_needed": ("현재 실제로 수리하거나 개선할 부분이 있나요?", "select",
                       _options((True, "있어요"), (False, "없어요"))),
-    "occupation": ("지원받을 분은 현재 어떤 일을 하고 있나요?", "select", _options(
-        *((value, value) for value in ["학생", "취업 준비 중", "직장인",
-                                       "자영업자", "은퇴 후", "기타"]))),
+    "occupation": ("지원받을 분의 현재 경제활동 상태를 선택해 주세요.", "select", _options(
+        ("직장인", "임금근로자"), ("자영업자", "자영업자"), ("프리랜서", "프리랜서"),
+        ("학생", "학생"), ("무직", "무직"), ("취업 준비 중", "취업 준비 중"), ("기타", "기타"))),
     "job_seeking": ("현재 새 일자리를 찾거나 취업을 준비하고 있나요?", "select",
                     _options((True, "네"), (False, "아니요"))),
     "disaster_damage": ("지원받을 분이 실제로 재난 피해를 입었나요?", "select",
@@ -59,7 +59,7 @@ QUESTIONS = {
 LABELS = {
     "subject": "안내 대상", "region": "거주 지역", "housing_tenure": "주택 소유·거주 형태",
     "building_year": "준공 연도", "housing_type": "주택 유형", "repair_needed": "실제 수리 필요",
-    "occupation": "현재 직업", "job_seeking": "구직·취업 준비 여부",
+    "occupation": "경제활동 상태", "job_seeking": "구직·취업 준비 여부",
     "disaster_damage": "실제 피해 여부", "disaster_type": "피해 유형",
     "disaster_occurred_on": "피해 발생일", "topic": "도움이 필요한 분야",
     "support_interest": "수리 지원 탐색 의사", "search_query": "더 구체적인 지원 요청",

@@ -87,3 +87,6 @@ temp/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Playwright runtime reports and traces.
+/frontend/web/test-results*/

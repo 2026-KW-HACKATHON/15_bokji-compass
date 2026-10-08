@@ -12,9 +12,9 @@ from app.modules.presentation.public import format_notice_text, payment_schedule
 from app.modules.search.public import search_records
 from app.modules.search.relations import institution_names
 from app.modules.storage.application_dates import (
-    application_schedule,
     resolved_application_period,
 )
+from app.modules.storage.schedule_rules import resolve_calendar_schedule
 from app.modules.storage.audience import audience_text, other_conditions
 from app.modules.storage.categories import effective_category, effective_category_expression
 from app.modules.storage.search import SearchScope, search_predicates
@@ -138,8 +138,9 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
         "audience": format_notice_text(audience_text(fields, overview, editorial)),
         "paymentSchedule": payment_schedule(fields),
         "applicationPeriod": period or "공식 공고에서 확인",
-        **application_schedule(
-            period, reference_year=reference_year, reference_month=reference_month,
+        **resolve_calendar_schedule(
+            fields, overview, record["draft_json"].get("application_calendar"),
+            reference_year=reference_year, reference_month=reference_month,
         ),
         "date": record["created_at"].date().isoformat(),
         "sourceUrl": policy_source_url(record["policy_key"], source.get("source_url"),
@@ -165,12 +166,16 @@ def card(record, *, full=False, reference_year=None, reference_month=None):
 
 def filtered_catalog(repository, *, q="", search_scope: SearchScope = "all",
                      category="", region="", audience="", tag="",
-                     connection=None):
+                     provider="", organization="", connection=None):
     catalog = published_catalog(repository)
     if connection is not None:
         catalog = with_popularity(catalog, connection)
     query = select(catalog)
     query = query.where(*search_predicates(catalog, q, search_scope))
+    if provider:
+        query = query.where(catalog.c.policy_key.startswith(provider + ":", autoescape=True))
+    if organization:
+        query = query.where(json_text(catalog.c.source_json, "$.organization") == organization)
     for value in (category, tag):
         if value and value != "전체":
             query = query.where(effective_category_expression(catalog) == value)
@@ -218,6 +223,14 @@ def list_policies(
     region="",
     audience="",
     tag="",
+    provider="",
+    organization="",
+    status="",
+    age_bands=(),
+    age_min=None,
+    age_max=None,
+    eligible_only=False,
+    member=None,
 ):
     smart = bool(q.strip()) and search_mode == "smart" and search_scope == "all"
     sort = sort or ("relevance" if smart else "popular")
@@ -229,9 +242,47 @@ def list_policies(
         catalog, query = filtered_catalog(
             repository, q="" if smart else q, search_scope=search_scope,
             category=category, region=region,
-            audience=audience, tag=tag,
+            audience=audience, tag=tag, provider=provider, organization=organization,
             connection=connection,
         )
+        advanced = bool(status or age_bands or age_min is not None or age_max is not None
+                        or eligible_only)
+        if eligible_only:
+            documents = repository.tables["condition_documents"]
+            if "canonical_json" in documents.c and "matching_enabled" in documents.c:
+                query = query.add_columns(documents.c.canonical_json,
+                                          documents.c.matching_enabled,
+                                          documents.c.review_status).join(
+                    documents, documents.c.revision_id == catalog.c.revision_id)
+        if advanced:
+            from app.modules.storage.explorer_filters import filter_records
+            vocabulary = search_institution_vocabulary(repository, connection) if smart else ()
+            recent = (catalog.c.created_at.desc(), catalog.c.policy_key)
+            order = ((catalog.c.title, catalog.c.policy_key) if sort == "name" else recent)
+            if sort == "popular":
+                order = (catalog.c.views.is_not(None).desc(), catalog.c.views.desc(), *recent)
+            records = filter_records(
+                connection.execution_options(yield_per=100).execute(
+                    query.order_by(*order)).mappings(),
+                status=status, age_bands=age_bands, age_min=age_min, age_max=age_max,
+                eligible_only=eligible_only, member=member,
+            )
+            if smart:
+                matches, metadata = search_records(
+                    records, q, sort=sort,
+                    institutions=vocabulary,
+                    relation=search_relation)
+            else:
+                matches, metadata = [(record, None) for record in records], None
+            total = len(matches)
+            return {
+                "items": [{**card(record), **({"searchMatch": match} if match else {})}
+                          for record, match in matches[offset:offset + limit]],
+                "total": total,
+                "nextCursor": str(offset + limit) if offset + limit < total else None,
+                **({"search": metadata or literal_search_metadata(q, search_scope)}
+                   if q.strip() else {}),
+            }
         if smart:
             # No popular/recent shortlist: every filtered published revision is
             # interpreted before count, ordering and pagination.
@@ -315,10 +366,12 @@ def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
                 if selected and len(undated) < 25:
                     undated.append(item)
                 continue
-            overlaps = (
-                (start < following and end >= first)
-                if start and end
-                else first <= (start or end) < following
+            windows = item.get("applicationWindows") or [item]
+            overlaps = any(
+                (window["applicationStart"] < following and window["applicationEnd"] >= first)
+                if window["applicationStart"] and window["applicationEnd"]
+                else first <= (window["applicationStart"] or window["applicationEnd"]) < following
+                for window in windows
             )
             if overlaps:
                 if "publisher" in roles:
@@ -371,3 +424,19 @@ def get_policy(repository, policy_key):
             .first()
         )
         return card(row, full=True) if row else None
+
+
+def explorer_options(repository):
+    """Only distinct publishers of latest public revisions; no raw body or private rows."""
+    published = published_catalog(repository)
+    with repository.engine.connect() as connection:
+        rows = connection.execute(select(
+            published.c.policy_key, json_text(published.c.source_json, "$.organization")
+            .label("organization"))).mappings()
+        providers = {}
+        for row in rows:
+            provider = row["policy_key"].split(":", 1)[0]
+            if row["organization"]:
+                providers.setdefault(provider, set()).add(row["organization"])
+    return {"providers": [{"id": provider, "organizations": sorted(names)}
+                          for provider, names in sorted(providers.items())]}

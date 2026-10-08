@@ -17,6 +17,7 @@ test('notice details expose original links and Korean labels in both display mod
       support_type: '현금',
       eligibility: '장애인기업 중 1인 중증장애인 사업주',
       application_period: '3~4월',
+      '일정 확인 출처': 'https://www.naqs.go.kr/hp/contents/contents.do?menuId=MN30642',
     },
   };
   await page.route('**/api/v1/policies?**', (route) =>
@@ -37,6 +38,10 @@ test('notice details expose original links and Korean labels in both display mod
     const original = dialog.getByRole('link', { name: /공고 원문 보기/ });
     await expect(original).toHaveAttribute('href', policy.sourceUrl);
     await expect(original).toHaveAttribute('target', '_blank');
+    const scheduleSource = dialog.getByRole('link', { name: /일정 확인 출처/ });
+    await expect(scheduleSource).toHaveAttribute('href', policy.sourceFields['일정 확인 출처']);
+    await expect(scheduleSource).toHaveAttribute('target', '_blank');
+    await expect(scheduleSource).toHaveAttribute('rel', 'noopener noreferrer');
     await expect(dialog.getByRole('link', { name: /신청 페이지 열기/ })).toHaveAttribute(
       'href',
       policy.applicationUrl,

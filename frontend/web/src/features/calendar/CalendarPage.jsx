@@ -21,6 +21,8 @@ import {
 import {
   calendarCells,
   calendarEvents,
+  applicationWindowOnDay,
+  policyApplicationWindows,
   policiesOnDay,
   reconcileCalendarResult,
   shiftMonth,
@@ -42,6 +44,7 @@ function CalendarPolicyRow({
   undated = false,
   today,
   selected,
+  type,
   searching,
   saved,
   onOpen,
@@ -51,18 +54,22 @@ function CalendarPolicyRow({
   const translation = useVisibleTranslatedPolicy(original);
   const { policy } = translation;
   const summary = policy.summary.trim() || policy.benefit?.trim() || t('지원 내용 확인 필요');
+  const activeWindow = undated ? null : applicationWindowOnDay(original, selected, type);
+  const selectedPolicy = activeWindow ? { ...original, ...activeWindow } : original;
+  const windows = policyApplicationWindows(policy);
   const labels = undated
     ? [policy.scheduleStatus === 'ongoing' ? '상시 접수' : '일정 확인 필요']
     : [
-        policy.applicationStart === selected ? '신청 시작' : '',
-        policy.applicationEnd === selected ? '신청 마감' : '',
+        windows.some((window) => window.applicationStart === selected) ? '신청 시작' : '',
+        windows.some((window) => window.applicationEnd === selected) ? '신청 마감' : '',
       ].filter(Boolean);
-  if (policy.applicationEnd && policy.applicationEnd < today) labels.push('접수 마감');
+  if (selectedPolicy.applicationEnd && selectedPolicy.applicationEnd < today)
+    labels.push('접수 마감');
   return (
     <article ref={translation.ref} className="calendar-policy-row">
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
-          <PolicyDeadline policy={original} />
+          <PolicyDeadline policy={selectedPolicy} />
           {(labels.length ? labels : ['접수 기간']).map((label) => (
             <span
               key={label}
@@ -78,7 +85,7 @@ function CalendarPolicyRow({
           </span>
         </div>
         <h3>
-          <button className="calendar-policy-title" onClick={() => onOpen(original)}>
+          <button className="calendar-policy-title" onClick={() => onOpen(selectedPolicy)}>
             {policy.title}
           </button>
         </h3>
@@ -90,8 +97,8 @@ function CalendarPolicyRow({
           {undated
             ? summary
             : t('신청 시작 {value1} · 마감 {value2}', {
-                value1: policy.applicationStart || t('확인 필요'),
-                value2: policy.applicationEnd || t('확인 필요'),
+                value1: selectedPolicy.applicationStart || t('확인 필요'),
+                value2: selectedPolicy.applicationEnd || t('확인 필요'),
               })}
         </p>
         <small>{policy.organization}</small>
@@ -217,6 +224,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         undated={undated}
         today={today}
         selected={selected}
+        type={type}
         searching={Boolean(displayedFilters.query.trim())}
         saved={saved.some((item) => item.id === policy.id)}
         onOpen={onOpen}

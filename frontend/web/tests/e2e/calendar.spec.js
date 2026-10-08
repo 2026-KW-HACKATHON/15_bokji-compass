@@ -364,6 +364,126 @@ test('home calendar shortcut opens the schedule and browser back returns to home
   await expect(shortcut).toBeVisible();
 });
 
+test('recurring end-only dates keep the selected calendar year after full detail refresh', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2027-04-02T03:00:00Z'));
+  const policy = {
+    ...base,
+    id: 'fixture-calendar-recurring-end',
+    revisionId: 'same-recurring-revision',
+    title: '테스트 매년 4월 말까지 지원',
+    applicationPeriod: '매년 4월 말까지',
+    applicationStart: null,
+    applicationEnd: '2027-04-30',
+    applicationPrecision: 'month_end',
+    applicationRecurrence: 'yearly',
+    applicationYear: null,
+  };
+  await page.route('**/api/v1/policies/calendar?**', (route) =>
+    route.fulfill({
+      json: {
+        month: '2027-04',
+        items: [policy],
+        total: 1,
+        undatedItems: [],
+        undatedTotal: 0,
+        truncated: false,
+      },
+    }),
+  );
+  await page.route('**/api/v1/policies/fixture-calendar-recurring-end', (route) =>
+    route.fulfill({
+      json: {
+        ...policy,
+        applicationEnd: '2026-04-30',
+        content: '상세 조회로 불러온 전체 원문',
+      },
+    }),
+  );
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('신청 시작 0건 · 마감 1건');
+  await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
+  await page.getByRole('button', { name: /4월 30일, 신청 시작 0건, 마감 1건/ }).click();
+  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText('D-28');
+  await page
+    .locator('.calendar-day-panel')
+    .getByRole('button', { name: policy.title, exact: true })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('상세 조회로 불러온 전체 원문');
+  await expect(dialog.locator('.policy-deadline')).toHaveText('D-28');
+});
+
+test('separate recurring rounds show every marker, omit gaps and retain the opened round after detail refresh', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2027-04-02T03:00:00Z'));
+  const windows = [
+    { applicationStart: '2027-04-01', applicationEnd: '2027-04-10' },
+    { applicationStart: '2027-04-20', applicationEnd: '2027-04-30' },
+  ];
+  const policy = {
+    ...base,
+    id: 'fixture-calendar-recurring-rounds',
+    revisionId: 'same-rounds-revision',
+    title: '테스트 매년 두 차례 신청',
+    applicationPeriod: '매년 4월 1일~10일, 4월 20일~30일',
+    ...windows[0],
+    applicationWindows: windows,
+    applicationRecurrence: 'yearly',
+    applicationYear: null,
+  };
+  await page.route('**/api/v1/policies/calendar?**', (route) =>
+    route.fulfill({
+      json: {
+        month: '2027-04',
+        items: [policy],
+        total: 1,
+        undatedItems: [],
+        undatedTotal: 0,
+        truncated: false,
+      },
+    }),
+  );
+  await page.route('**/api/v1/policies/fixture-calendar-recurring-rounds', (route) =>
+    route.fulfill({
+      json: {
+        ...policy,
+        applicationStart: '2026-04-01',
+        applicationEnd: '2026-04-10',
+        applicationWindows: windows.map((window) => ({
+          applicationStart: window.applicationStart.replace('2027', '2026'),
+          applicationEnd: window.applicationEnd.replace('2027', '2026'),
+        })),
+        content: '상세 조회로 불러온 두 차례 접수 원문',
+      },
+    }),
+  );
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('신청 시작 2건 · 마감 2건');
+  await expect(
+    page.getByRole('button', { name: /4월 1일, 신청 시작 1건, 마감 0건/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /4월 10일, 신청 시작 0건, 마감 1건/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /4월 30일, 신청 시작 0건, 마감 1건/ }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /4월 15일, 신청 시작 0건, 마감 0건/ }).click();
+  await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
+  await page.getByRole('button', { name: /4월 20일, 신청 시작 1건, 마감 0건/ }).click();
+  const panel = page.locator('.calendar-day-panel');
+  await expect(panel.getByText('신청 시작', { exact: true })).toBeVisible();
+  await expect(panel).toContainText('신청 시작 2027-04-20 · 마감 2027-04-30');
+  await expect(panel.locator('.policy-deadline')).toHaveText('D-28');
+  await panel.getByRole('button', { name: policy.title, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('상세 조회로 불러온 두 차례 접수 원문');
+  await expect(dialog.locator('.policy-deadline')).toHaveText('D-28');
+});
+
 test('the home calendar shortcut remains keyboard accessible in easy mode at 320 pixels', async ({
   page,
 }, testInfo) => {

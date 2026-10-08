@@ -10,6 +10,7 @@ from app.contracts.parsing import (
     StoredPolicyOverview,
 )
 from app.modules.regions.public import RegionCatalog, default_catalog
+from app.modules.storage.schedule_rules import build_calendar_rule
 
 
 def validate_extraction(result: PolicyExtraction, source: SourcePolicy) -> None:
@@ -70,6 +71,9 @@ def validate_overview(result: LegacyPolicyOverview, source: SourcePolicy) -> Non
     if isinstance(result, PeriodPolicyOverview):
         evidence_items.extend(result.application_period.evidence)
     if isinstance(result, PolicyOverview):
+        if (result.calendar_expression is not None and build_calendar_rule(
+                result.application_period.model_dump(), result.calendar_expression, source.fields) is None):
+            raise ValueError("Application calendar expression is not supported by the cited source")
         for field_name in ("application_method", "application_url", "contact",
                            "published_date", "modified_date"):
             evidence_items.extend(getattr(result, field_name).evidence)

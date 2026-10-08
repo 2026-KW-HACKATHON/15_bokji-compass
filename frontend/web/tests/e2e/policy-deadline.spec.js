@@ -45,7 +45,7 @@ test('deadline badges appear on cards, details and saved notices in both display
   await page.clock.install({ time: new Date('2026-10-08T03:00:00Z') });
   await installPolicies(page, policies);
   await page.goto('/#explore');
-  const states = ['D-7', 'D-Day', '마감 D+3', '상시 접수', '마감일 확인 필요'];
+  const states = ['D-7', 'D-Day', '접수 마감 D+3', '상시 접수', '마감일 확인 필요'];
   for (const easy of [false, true]) {
     if (easy) await page.getByRole('switch', { name: /쉬운 화면/ }).click();
     for (const [index, policy] of policies.entries()) {
@@ -96,7 +96,7 @@ test('deadline badges advance at Korean midnight without refreshing the page', a
   await expect(badge).toHaveText('D-Day');
   await page.clock.setFixedTime(new Date('2026-10-09T15:00:01Z'));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(badge).toHaveText('마감 D+1');
+  await expect(badge).toHaveText('접수 마감 D+1');
 });
 
 test('calendar today marker and closed status advance with deadline badges at Korean midnight', async ({
@@ -130,7 +130,7 @@ test('calendar today marker and closed status advance with deadline badges at Ko
     'date',
   );
   await page.clock.runFor(2000);
-  await expect(panel.locator('.policy-deadline')).toHaveText('마감 D+1');
+  await expect(panel.locator('.policy-deadline')).toHaveText('접수 마감 D+1');
   await expect(panel.getByText('접수 마감', { exact: true })).toBeVisible();
   const today = page.getByRole('button', { name: /10월 9일 오늘,/ });
   await expect(today).toHaveAttribute('aria-current', 'date');

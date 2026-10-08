@@ -169,6 +169,9 @@ Windows 스케줄러 명령은 저장소 루트에서 실행합니다.
 
 10분 간격, `IgnoreNew`, `StartWhenAvailable`, 최대 11분, 현재 로그인 사용자·일반 권한으로
 실행합니다. AC 전원에서 시작하고 배터리로 전환하면 중단하는 Windows 기본 조건을 사용합니다.
+예약 실행은 같은 Python 환경의 `pythonw.exe`를 사용해 CMD/콘솔 창을 띄우지 않습니다.
+명시한 `-PythonExecutable`이 `python.exe`이면 같은 폴더의 `pythonw.exe`를 사용합니다.
+수동 진단·결과 확인은 기존 `python.exe` 명령을 사용합니다.
 API나 MySQL을 켜 주지 않으며 로그아웃·절전·종료 중에는 24시간 가동을 보장하지 않습니다.
 다시 실행되면 마지막 저장 cursor와 작업 상태에서 이어가며 놓친 회차를 한꺼번에 처리하지
 않습니다. 스크립트는 작업 stdout 파일을 별도로 보관하지 않습니다. LastTaskResult만으로

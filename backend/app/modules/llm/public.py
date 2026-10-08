@@ -17,7 +17,7 @@ from app.contracts.translation import PolicyTranslation
 from app.core.config import Settings
 
 PROMPT_VERSION = "welfare-extract-v3"
-OVERVIEW_PROMPT_VERSION = "welfare-overview-v5"
+OVERVIEW_PROMPT_VERSION = "welfare-overview-v6"
 BATCH_PROMPT_VERSION = "welfare-batch-v2"
 TRANSLATION_PROMPT_VERSION = "policy-display-translation-v1"
 IS_WINDOWS = sys.platform == "win32"
@@ -124,10 +124,21 @@ application_period 객체도 반드시 반환한다. 신청·접수 시작일/�
 별도 정보 설명이나 발표일과 혼동하지 말고 추출한다. status는 specified, not_stated,
 unclear 중 하나다. specified이면 text는 공고 원문의 신청 기간 표현을 그대로 복사하고,
 evidence에는 해당 text를 포함하는 원문 인용을 source_field과 quote로 제공한다.
-날짜를 정규화하거나 원문에 없는 연도·월·일을 보충하지 않는다. 복수의 서로 다른 기간,
-상충하는 일정, 신청 기간인지 불명확한 날짜는 unclear로 두고 unresolved_reason을 적는다.
+매년/매월/월말/분기/상시/연중 표현도 일정 정보다. 신청기간 전용 필드뿐 아니라 본문과
+신청방법의 접수 안내도 확인한다. 회차별 기간이 명확하면 모든 회차를 포함하는 연속된
+원문 범위를 text로 인용한다. 접수 사이의 공백을 연결하거나 한 회차만 임의로 고르지 않는다.
+날짜를 정규화하거나 원문에 없는 연도·월·일을 보충하지 않는다. 제목의 사업연도를
+접수연도로 사용하지 않는다. 서로 상충하거나 회차/대상별 구분이 불명확한 일정,
+신청 기간인지 불명확한 날짜는 unclear로 두고 unresolved_reason을 적는다.
 원문에 신청 기간이 없으면 not_stated, text=null, evidence=[],
 unresolved_reason=null로 반환한다. 공고 게시일·발표일·사업 수행기간·행사일은 신청 기간이 아니다.
+별도 최상위 calendar_expression(string 또는 null)은 신청 기간의 달력 변환용 표준 표현이다.
+원문 application_period.text/evidence는 그대로 유지하고 표준 표현에서 행정 안내/예산 부연만
+분리한다. '2026.1. ~ 12.(예산 상황에 따라 변경)'은 '2026년 1~12월',
+'매년 9~10월 시 도를 통해 공모'는 '매년 9~10월', '예산범위내 상시신청'은 '상시신청'이다.
+표준 표현의 숫자는 인용에 있는 것만 사용한다. 월 범위를 임의의 날짜로 만들지 않는다.
+복수 회차는 모두 보존하여 세미콜론으로 구분한다. 신청 시작일/마감일의 역할을 바꾸지 않는다.
+연도는 실제 신청기간 인용에서만 가져오고 개인 사건 기준 상대기간·모호한 일정은 null이다.
 application_method, application_url, contact, published_date, modified_date 객체도 각각 반드시
 반환하며 형식은 application_period와 동일하다: status, text, evidence, unresolved_reason.
 신청 방법은 실제 신청/접수 절차, 접수처, 온라인/방문/우편 등 원문의 안내만 추출한다.
@@ -271,6 +282,18 @@ class _OutputObserver:
                 self.usage.append(event.get("usage"))
 
 
+def strict_output_schema(schema):
+    """CLI structured output requires every property, including nullable default fields."""
+    if isinstance(schema, list):
+        return [strict_output_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result = {key: strict_output_schema(value) for key, value in schema.items() if key != "default"}
+    if result.get("type") == "object" and "properties" in result:
+        result["required"] = list(result["properties"])
+    return result
+
+
 def _extract_structured[T: StrictModel](
     source: SourcePolicy | None, settings: Settings, output: Path, model: str,
     prompt_template: str, response_model: type[T], prompt_version: str,
@@ -284,7 +307,7 @@ def _extract_structured[T: StrictModel](
     workspace.mkdir()
     (workspace / ".git").mkdir()
     schema = output / "schema.json"
-    schema.write_text(json.dumps(output_schema or response_model.model_json_schema(),
+    schema.write_text(json.dumps(strict_output_schema(output_schema or response_model.model_json_schema()),
                                  ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     result = output / "response.json"
     args = [str(executable), "exec", "--ignore-user-config", "--skip-git-repo-check",

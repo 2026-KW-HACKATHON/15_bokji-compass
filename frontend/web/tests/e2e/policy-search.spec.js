@@ -47,6 +47,7 @@ test('publisher and content search return distinct results and scope changes res
     name: '공고 페이지',
     exact: true,
   });
+  await page.locator('.explorer-advanced > summary').click();
   await page.locator('.policy-search-options > summary').click();
   await expect(scope).toHaveValue('all');
   await expect(scope).toHaveAccessibleDescription(/공고를 올린 기관.*제목과 본문/);
@@ -117,6 +118,7 @@ test('keyboard scope selection stays visible and keeps its search when changing 
   await page.goto('/#explore');
   const input = page.getByRole('textbox', { name: '공고 검색', exact: true });
   const scope = page.getByRole('combobox', { name: '검색 범위', exact: true });
+  await page.locator('.explorer-advanced > summary').click();
   await page.locator('.policy-search-options > summary').click();
   await input.fill('광운대학교');
   await input.press('Enter');

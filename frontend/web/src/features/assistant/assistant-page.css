@@ -1,25 +1,38 @@
 .assistant-page {
-  padding-bottom: 36px;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding-bottom: 48px;
 }
 .assistant-page-hero {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 32px;
-  padding: 40px 0 28px;
+  gap: 28px;
+  padding: 20px 0 28px;
 }
 .assistant-page-hero h1 {
-  margin: 12px 0;
-  font-size: clamp(1.8rem, 3vw, 2.6rem);
-  letter-spacing: -0.05em;
+  max-width: 640px;
+  margin: 16px 0 12px;
+  font-size: clamp(1.65rem, 2.65vw, 2.35rem);
+  line-height: 1.4;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .assistant-page-hero p {
+  margin: 0;
   color: var(--muted);
-  max-width: 640px;
-  line-height: 1.8;
+  max-width: 630px;
+  line-height: 1.7;
+  word-break: keep-all;
 }
-.assistant-page-hero > .button {
+.assistant-page-actions > .assistant-question-button {
   flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 15px;
+  font-size: 0.88rem;
+  margin-bottom: 3px;
 }
 .assistant-page .eyebrow {
   display: inline-flex;
@@ -27,6 +40,7 @@
   gap: 7px;
 }
 .assistant-conversation-section {
+  margin-top: 28px;
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -34,17 +48,10 @@
   scroll-margin-top: 100px;
 }
 .assistant-conversation-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
   margin-bottom: 22px;
 }
-.assistant-conversation-heading > svg {
-  color: var(--green);
-  flex-shrink: 0;
-}
 .assistant-conversation-heading h2 {
-  margin: 8px 0;
+  margin: 0 0 8px;
   font-size: 1.3rem;
 }
 .assistant-conversation-heading p {
@@ -64,15 +71,208 @@
   .assistant-page-hero {
     align-items: flex-start;
     flex-direction: column;
-    gap: 20px;
-    padding: 28px 0 20px;
+    gap: 18px;
+    padding: 28px 0 24px;
   }
-  .assistant-page-hero > .button {
-    width: 100%;
-    justify-content: center;
+  .assistant-page-hero h1 {
+    margin-top: 12px;
+  }
+  .assistant-page-actions > .assistant-question-button {
+    max-width: 100%;
+    margin: 0;
   }
   .assistant-conversation-section {
     padding: 20px 16px;
     border-radius: 14px;
+  }
+}
+
+.assistant-workspace[hidden] {
+  display: none;
+}
+.assistant-page-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.assistant-page-actions > .text-button {
+  min-height: 36px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.assistant-intro-hero {
+  text-align: center;
+  padding: 24px 24px 44px;
+}
+.assistant-intro-hero h1 {
+  margin: 22px 0 18px;
+  font-size: clamp(2rem, 4.6vw, 3.45rem);
+  line-height: 1.27;
+  letter-spacing: -0.055em;
+  font-weight: 800;
+  scroll-margin-top: 170px;
+}
+.assistant-intro-hero h1 span {
+  display: block;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.assistant-intro-hero h1 span:last-child {
+  color: var(--green);
+}
+.assistant-intro-hero > p {
+  max-width: 520px;
+  margin: 0 auto;
+  font-size: 1.05rem;
+  color: var(--muted);
+  line-height: 1.7;
+  word-break: keep-all;
+}
+.assistant-intro-hero > .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 54px;
+  margin-top: 28px;
+  padding: 15px 26px;
+  border-radius: 14px;
+}
+.assistant-intro-hero > .assistant-intro-caption {
+  margin-top: 14px;
+  font-size: 0.8rem;
+}
+.assistant-intro-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 32px 0;
+  border-top: 1px solid var(--line);
+}
+.assistant-intro-features article {
+  position: relative;
+  padding: 0 30px;
+  min-width: 0;
+}
+.assistant-intro-features article + article {
+  border-left: 1px solid var(--line);
+}
+.assistant-intro-feature-icon {
+  color: var(--green);
+  display: inline-flex;
+  padding: 12px;
+  background: #edf5ff;
+  border-radius: 16px;
+}
+.assistant-intro-features .assistant-intro-step {
+  position: absolute;
+  top: 10px;
+  right: 30px;
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.assistant-intro-features h2 {
+  margin: 20px 0 10px;
+  font-size: 1.13rem;
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+}
+.assistant-intro-features article > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.assistant-intro-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 38px;
+  align-items: center;
+  padding: 28px 32px;
+  margin-top: 12px;
+  background: #f5f7fa;
+  border-radius: 20px;
+}
+.assistant-intro-start h2 {
+  font-size: 1.08rem;
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.assistant-intro-start p {
+  font-size: 0.86rem;
+  line-height: 1.75;
+  margin: 0;
+  color: var(--muted);
+  word-break: keep-all;
+}
+.assistant-intro-start > p {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.assistant-intro-start svg {
+  flex-shrink: 0;
+  color: var(--green);
+  margin-top: 3px;
+}
+.assistant-page-hero h1 {
+  scroll-margin-top: 170px;
+}
+.easy-mode .assistant-intro-features article > p:last-child,
+.easy-mode .assistant-intro-start p {
+  font-size: 1rem;
+}
+@media (max-width: 760px) {
+  .assistant-page-actions {
+    align-items: flex-start;
+  }
+  .assistant-intro-hero {
+    padding: 22px 0 32px;
+    text-align: left;
+  }
+  .assistant-intro-hero h1 {
+    margin-top: 20px;
+    font-size: clamp(1.9rem, 6vw, 2.8rem);
+  }
+  .assistant-intro-hero > p {
+    margin-left: 0;
+    font-size: 0.95rem;
+  }
+  .assistant-intro-hero > .assistant-intro-caption {
+    font-size: 0.8rem;
+  }
+  .assistant-intro-features {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding: 28px 0;
+  }
+  .assistant-intro-features article {
+    padding: 0;
+  }
+  .assistant-intro-features article + article {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
+  }
+  .assistant-intro-features .assistant-intro-step {
+    right: 0;
+    top: 14px;
+  }
+  .assistant-intro-features article + article .assistant-intro-step {
+    top: 42px;
+  }
+  .assistant-intro-features h2 {
+    margin-top: 16px;
+  }
+  .assistant-intro-start {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 24px;
+    gap: 20px;
+    border-radius: 16px;
   }
 }

@@ -5,6 +5,8 @@ import { featureMessages } from "./featureMessages.js";
 import { mobileMessages } from "./mobileMessages.js";
 import { financeMessages } from "./financeMessages.js";
 import { policyMessages } from "./policyMessages.js";
+import { explorerMessages } from "./explorerMessages.js";
+import { navigationMessages } from "./navigationMessages.js";
 export { translateFinanceError } from "./financeErrors.js";
 
 export const localeStorageKey = "bokji.locale.v1";
@@ -26,6 +28,8 @@ export const messageCatalogs = Object.freeze({
   mobileMessages,
   financeMessages,
   policyMessages,
+  explorerMessages,
+  navigationMessages,
 });
 export const messages = Object.freeze(
   Object.assign(
@@ -35,8 +39,10 @@ export const messages = Object.freeze(
     mobileMessages,
     financeMessages,
     policyMessages,
+    explorerMessages,
     commonMessages,
     assistantMessages,
+    navigationMessages,
   ),
 );
 
