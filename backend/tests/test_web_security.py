@@ -209,6 +209,10 @@ def test_security_headers_and_preflight_remain_available(client):
     response = client.get("/v1/auth/me")
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["cross-origin-resource-policy"] == "same-origin"
+    assert response.headers["cross-origin-opener-policy"] == "same-origin"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+    assert "sec-fetch-site" in response.headers["vary"].lower()
     response = client.options(
         PROFILE,
         headers={
@@ -219,6 +223,107 @@ def test_security_headers_and_preflight_remain_available(client):
     )
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "https://trusted.example"
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+        },
+        {"Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "image"},
+        {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "script"},
+        {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe"},
+        {"Origin": "https://evil.example"},
+        {"Origin": "https://sub.bokji.example", "Sec-Fetch-Site": "same-site"},
+        {"Sec-Fetch-Site": "invalid"},
+        {"Origin": "https://trusted.example", "Sec-Fetch-Site": "cross-site"},
+        [("Sec-Fetch-Site", "same-origin"), ("Sec-Fetch-Site", "cross-site")],
+        [("Sec-Fetch-Mode", "cors"), ("Sec-Fetch-Mode", "no-cors")],
+        [("Sec-Fetch-Dest", "empty"), ("Sec-Fetch-Dest", "image")],
+        [("Origin", "https://bokji.example"), ("Origin", "https://trusted.example")],
+    ],
+)
+def test_cross_origin_search_probes_are_rejected_before_auth_or_database(client, method, headers):
+    from app.api.auth import get_service
+    from app.api.policies import get_repository
+
+    def forbidden():
+        pytest.fail("A rejected probe must not reach authentication or search")
+
+    client.app.dependency_overrides[get_service] = forbidden
+    client.app.dependency_overrides[get_repository] = forbidden
+    for path in ("/v1/auth/me", "/v1/policies?eligible_only=true&q=secret", "/v1/policies/missing"):
+        response = client.request(method, path, headers=headers)
+        assert response.status_code == 403
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["cross-origin-resource-policy"] == "same-origin"
+        assert "set-cookie" not in response.headers
+        assert "location" not in response.headers
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Sec-Fetch-Site": "same-origin", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty"},
+        {"Sec-Fetch-Site": "none", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document"},
+        {
+            "Origin": "https://trusted.example",
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+        },
+    ],
+)
+def test_native_same_origin_and_explicit_cors_reads_still_work(client, headers):
+    response = client.get("/v1/auth/me", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["user"]["name"] == "member"
+    if headers.get("Origin"):
+        assert response.headers["access-control-allow-origin"] == "https://trusted.example"
+
+
+def test_console_reads_do_not_inherit_member_cors_permissions(client):
+    response = client.get(
+        "/v1/server-admin/session",
+        headers={
+            "Origin": "https://trusted.example",
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+        },
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("path", ["/v1/auth/kakao/callback", "/v1/mobile/auth/kakao/authorize"])
+def test_oauth_allows_top_level_callback_but_rejects_embedded_flow_consumption(client, path):
+    navigation = client.get(
+        path,
+        headers={
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+        },
+        follow_redirects=False,
+    )
+    assert navigation.status_code != 403  # Existing OAuth/configuration validation handles it.
+    for dest, mode in (("iframe", "navigate"), ("image", "no-cors"), ("empty", "cors")):
+        response = client.get(
+            path,
+            headers={
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": mode,
+                "Sec-Fetch-Dest": dest,
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 403
+        assert "set-cookie" not in response.headers
 
 
 def test_console_never_inherits_member_cors_permissions(client):

@@ -10,9 +10,11 @@ http://:8080 {
 		X-Content-Type-Options nosniff
 		?Referrer-Policy strict-origin-when-cross-origin
 		X-Frame-Options DENY
+		Cross-Origin-Resource-Policy same-origin
+		Cross-Origin-Opener-Policy same-origin
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		Strict-Transport-Security "max-age=86400"
-		Content-Security-Policy "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 	}
 	request_body {
 		max_size 256KB

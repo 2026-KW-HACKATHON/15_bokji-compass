@@ -1,4 +1,4 @@
-"""Reject unsafe browser writes and bound API bodies before JSON parsing."""
+"""Isolate browser API reads/writes and bound bodies before JSON parsing."""
 
 import json
 from urllib.parse import urlsplit
@@ -7,6 +7,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+OAUTH_NAVIGATIONS = frozenset(
+    {"/v1/auth/kakao/callback", "/v1/mobile/auth/kakao/authorize"}
+)
 
 
 def unique_json_fields(pairs):
@@ -67,19 +70,41 @@ def body_limit(path: str, method: str) -> int:
     return 262_144
 
 
+def trusted_browser_read(request: Request, cors_origins: list[str]) -> bool:
+    """Stop cross-site search/login oracles before authentication or database work."""
+    names = ("origin", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest")
+    values = {name: request.headers.getlist(name) for name in names}
+    if any(len(items) > 1 for items in values.values()):
+        return False
+    site = request.headers.get("sec-fetch-site")
+    mode = request.headers.get("sec-fetch-mode")
+    dest = request.headers.get("sec-fetch-dest")
+    if site not in {None, "same-origin", "same-site", "cross-site", "none"}:
+        return False
+    # OAuth alone accepts external top-level navigation. Embedding must not consume a flow.
+    if request.url.path in OAUTH_NAVIGATIONS:
+        return mode in {None, "navigate"} and dest in {None, "document"}
+    allowed = {origin_key(str(request.base_url))}
+    allowed.update(origin_key(value) for value in cors_origins)
+    allowed.discard(None)
+    if values["origin"] and origin_key(values["origin"][0]) not in allowed:
+        return False
+    if site in {"same-site", "cross-site"}:
+        # Only an explicitly trusted CORS fetch may read from another origin.
+        return bool(values["origin"]) and mode == "cors" and dest == "empty"
+    # Native clients/CLI have no Fetch Metadata. Existing authentication still applies.
+    return True
+
+
 class WebSecurityMiddleware:
-    """Buffer only bounded API writes; never trust Content-Length alone."""
+    """Check read isolation first; buffer only bounded writes before JSON parsing."""
 
     def __init__(self, app, *, cors_origins: list[str]):
         self.app = app
         self.cors_origins = cors_origins
 
     async def __call__(self, scope, receive, send):
-        if (
-            scope["type"] != "http"
-            or not scope["path"].startswith("/v1/")
-            or scope["method"] not in WRITE_METHODS
-        ):
+        if scope["type"] != "http" or not scope["path"].startswith("/v1/"):
             await self.app(scope, receive, send)
             return
         request = Request(scope)
@@ -93,6 +118,15 @@ class WebSecurityMiddleware:
             await response(scope, receive, send)
 
         origins = [] if scope["path"].startswith("/v1/server-admin/") else self.cors_origins
+        if scope["method"] in {"GET", "HEAD"}:
+            if not trusted_browser_read(request, origins):
+                await reject(403, "허용된 사이트에서 요청해 주세요.")
+                return
+            await self.app(scope, receive, send)
+            return
+        if scope["method"] not in WRITE_METHODS:
+            await self.app(scope, receive, send)
+            return
         if not trusted_browser_write(request, origins):
             await reject(403, "허용된 사이트에서 요청해 주세요.")
             return

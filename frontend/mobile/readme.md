@@ -16,10 +16,11 @@
 
 ## 실행
 
-2026-10-06: Expo 개발 도구의 node-forge 서명 검증 취약점을 로컬 패치로 보완합니다.
+2026-10-08: Expo 개발 도구의 node-forge 서명 검증과 braces 재귀 스택 고갈 취약점을 로컬 패치로 보완합니다.
 `npm ci`에서 자동 적용하고 주요 npm 명령은 실행 전에 패치 해시를 확인합니다.
 직접 Expo/EAS/Gradle 명령을 실행하기 전에는 `npm run security:check`를 실행하세요.
-[수정 내용·검증·공식 버전 전환](../docs/node-forge-security-fix.md).
+[서명 검증 수정·공식 버전 전환](../docs/node-forge-security-fix.md),
+[braces 깊이 제한·남은 감사 경고](../docs/mobile-security-review.md).
 
 고정 서버 주소는 **`https://bokji.commitnaru.com/api`**입니다. `.env.example`과 EAS development/preview/production 프로필에 반영했습니다. 이 PC의 `.env`도 같은 주소를 사용합니다. 전시 웹·QR 주소는 `https://bokji.commitnaru.com/`이며 앱 API에는 `/api`가 필요합니다.
 

@@ -2,6 +2,15 @@
 
 웹 공격 방어의 요청 출처 검사·JSON 본문 한도·CSP 변경은 [웹 보안 안내](../../../backend/docs/web-security.md)를 따릅니다. 공유 API는 공개 실행 시 production 설정으로 Secure 쿠키를 사용하며, 빌드 후 공유 API와 Caddy를 다시 불러와야 새 코드와 헤더가 적용됩니다.
 
+2026-10-08 추가 보완: API GET·HEAD도 교차 사이트 조회를 검사하며 Caddy/nginx에 CORP·COOP와
+인라인 스타일 요소 차단을 적용했습니다. React 스타일 속성 및 카카오 우편번호 출처는
+유지합니다. nginx 예시를 사용할 때 `nginx-security-headers.conf`를
+`/etc/nginx/snippets/bokji-security-headers.conf`에 설치합니다. 이 예시는 HTTPS 전용 신뢰
+게이트웨이 뒤의 서버이며 전달하는 HTTPS·Host 설정을 실제 환경에 맞게 검토해야 합니다.
+프런트는 해시 라우팅을 사용하므로 없는 URL은 HTML 폴백 없이 404로 처리합니다.
+적용 전 `nginx -t` 또는 공유 스크립트의 `caddy validate`가 필요합니다. 이번 추가 보완은
+소스·배포 예시에 반영했으며 실행 중인 공개 서버를 재시작하지 않았습니다.
+
 회원 주소 검색은 카카오 우편번호 SDK를 버튼 클릭 시 불러옵니다. `Caddyfile.tunnel`의 CSP에는 스크립트 `https://t1.kakaocdn.net`과 프레임 `https://postcode.map.kakao.com`, `https://postcode.map.daum.net`을 허용합니다. 별도 배포에서 CSP를 설정한다면 같은 출처를 허용해야 합니다. MySQL 배포에는 `python -m app.modules.auth init`으로 회원 주소 열도 준비합니다. [회원 주소 입력](../../docs/member-address.md).
 
 2026-10-08 HTML 캐시: Caddy의 `/`, `/index.html`은 `Cache-Control: no-store`로

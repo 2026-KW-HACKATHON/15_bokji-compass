@@ -2,6 +2,34 @@
 
 검토일: 2026-10-01. 대상: `frontend/mobile`, `frontend/packages/decode-uri-component-compat` 및 모바일 문서. 이 기록은 소스 공유 전 점검 결과이며, 침투 테스트나 스토어 배포 인증을 대신하지 않습니다.
 
+## 2026-10-08 braces 추가 보완
+
+- 잠금 파일 기준 npm audit에서 high 19개를 확인했습니다. 실제 원인은 node-forge와
+  braces 두 가지이며, 상위 Expo·Metro·React Native 패키지 경고까지 집계한 수입니다.
+  node-forge는 아래 기존 프로젝트 패치를 유지하고 검증했습니다.
+- `braces@3.0.3`의 [GHSA-vfj7-8cjw-p6xm / CVE-2026-93687](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)는
+  길이 제한 이하의 깊은 괄호 패턴이 재귀 AST 처리의 스택을 고갈시킬 수 있는 문제입니다.
+  공식 수정 버전이 없으므로 `scripts/apply-braces-security-patch.mjs`에 로컬 보완을 추가했습니다.
+  파서의 스택과 compile·expand·stringify의 AST 탐색 깊이를 128 이하로 제한합니다.
+  지나친 중첩은 작은 입력 처리 단계에서 명시적 RangeError로 거부하며, 호출자가 오류를
+  처리해야 합니다. 임의 패턴의 모든 CPU·메모리 사용을 제한하는 수정은 아닙니다.
+- 원본 3.0.3의 4개 소스와 수정본의 SHA-256을 고정했습니다. 잠금 파일의 모든 중첩 설치본을
+  검사하고 버전·경로·소스가 다르면 쓰기 전에 실패합니다. 일반 범위·선택·유니코드와 Metro의
+  micromatch 패턴, 8,001자 중첩 입력, 직접 전달한 AST, 반복·새 설치·중첩 설치를 검사합니다.
+- `scripts/apply-security-patches.mjs`가 Forge와 braces를 함께 처리합니다. npm postinstall에서
+  자동 적용하고 개발·테스트·린트·export·릴리스·EAS 설치 후 명령은 수정본을 검증합니다.
+  `npm run security:patch`로 현재 설치본을 준비하고 `npm run security:check`로 확인합니다.
+- 버전은 braces 3.0.3과 node-forge 1.4.0으로 유지하므로 버전 기반 audit의 high 19개는 남습니다.
+  경고를 숨기거나 공식 수정 버전으로 바꾼 것이 아닙니다. 공식 수정 릴리스가 나오면 이 로컬
+  수정과 해시 고정을 검토하고 제거해야 합니다. Expo SDK 57·React Native 버전은 유지합니다.
+- 웹·공통 API의 조회 격리·CSP·DOM 설정 검사는 [웹 보안 안내](../../backend/docs/web-security.md)에
+  기록했습니다. 새로운 앱 APK나 운영 OTA를 발행하지 않았습니다.
+- 최종 검증: 잠금 파일 기준 `npm ci`의 postinstall에서 두 패치 자동 적용을 확인했습니다.
+  기존 설치에서 누락됐던 expo-crypto·expo-web-browser도 복구했습니다. 모바일 전체 테스트
+  146개, 타입·린트, Android/iOS Metro·Hermes export가 통과했습니다. 새 braces 보안 검사는
+  이 중 13개입니다. export는 `.cache/security-native-export`의 격리 산출물이며 서명 APK나
+  실기기 설치 검증을 뜻하지 않습니다.
+
 ## 2026-10-06 node-forge 보완
 
 - 아래 10월 2일에 남아 있던 node-forge 서명 검증 문제에 프로젝트 패치를 적용했다.
