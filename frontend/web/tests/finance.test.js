@@ -360,6 +360,7 @@ test('large households keep the actual count and unified region without changing
     subregion.options.map(([, label]) => label),
     ['광주광역시', '그 외 지역'],
   );
+  assert.match(subregion.hint, /다른 광역시 기준.*그 밖의 지역 기준/);
   assert.equal(validateQuestion(household, draft).field, 'finance-region-subdivision');
   draft.region_subdivision = 'gwangju';
   assert.equal(validateQuestion(household, draft), null);
