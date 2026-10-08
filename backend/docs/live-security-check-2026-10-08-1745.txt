@@ -1,0 +1,37 @@
+복지나침반 공개 사이트 보안 점검
+2026-10-08 17:45:44 KST
+대상: https://bokji.commitnaru.com
+범위: 공개 HTTP/HTTPS의 소량 응답 확인, 합성·잘못된 인증 입력, 로컬 소스 검토. 실제 계정 인증·데이터 변경·서비스 재시작 없음.
+실제 요청: 35회
+
+확인된 주요 문제: HTTP 화면 및 인증 API의 HTTPS 강제 적용 누락 (높음)
+GET http://bokji.commitnaru.com/ → 200, HTTPS Location 없음
+GET http://bokji.commitnaru.com/api/v1/auth/me → 401 (전송 차단 403이 아니라 인증 처리)
+POST http://bokji.commitnaru.com/api/v1/auth/login → 422 (합성 입력을 인증 경로에서 검증)
+POST http://bokji.commitnaru.com/api/v1/mobile/auth/login → 422 (합성 입력을 인증 경로에서 검증)
+GET http://bokji.commitnaru.com/api/v1/mobile/auth/me + 합성 Bearer → 401
+HTTP에 X-Forwarded-Proto: https를 넣어도 같은 401 응답이었다.
+
+영향: HTTP로 접속하는 클라이언트에서는 입력·토큰이 평문으로 전송될 수 있다. 네트워크 경로를 제어하는 공격자는 HTTP 화면을 변조하거나 요청을 볼 수 있는 위험이 있다. 실제 비밀번호·유효 토큰·개인정보는 사용하지 않았으며 실제 계정 탈취를 입증한 결과가 아니다. HTTPS 방문 및 적용된 HSTS가 있는 브라우저의 연결에 같은 평문 노출이 발생한다는 뜻도 아니다.
+HTTPS 루트 HSTS: max-age=86400. HTTP 응답의 HSTS는 브라우저가 무시한다.
+
+기존 수정 상태: 로컬 frontend/web/deploy/Caddyfile.tunnel에는 HTTP 화면 308·HTTP API 403과 HSTS 1년 코드가 있다. backend/app/core/web_security.py에도 production HTTPS 검사가 있다. 공개 사이트의 응답은 이 전송 차단과 일치하지 않는다. 기존 수정의 실제 배포·reload와 Cloudflare HTTPS 강제 설정을 확인해야 한다. 이미 전송한 비밀은 리다이렉트로 회수되지 않으므로 API도 차단하고 클라이언트가 처음부터 HTTPS를 사용해야 한다.
+
+추가 보강: 정적 페이지의 공개 CSP style-src는 unsafe-inline이며 로컬의 style-src-elem/attr 구분이 아직 없다. 이는 헤더 보강 사항이며 독립적인 XSS 성공을 확인한 것은 아니다. API에는 CORP/COOP가 있으므로 전체 사이트에서 빠졌다고 단정하지 않는다.
+
+차단 확인: 비로그인 금융·생활정보·관리자 목록과 위조 웹 쿠키/모바일 Bearer는 401, 교차 출처 읽기·쓰기는 403, 미허용 CORS preflight는 400, X-Auth-Request 없는 쓰기는 403, 중복 JSON·역할 필드·잘못된 인증 입력은 422, 비JSON 쓰기는 415. 오류 응답에 합성 비밀번호가 반영되지 않았다. .env·.git/config·DB 파일·서버관리 경로·OpenAPI·해당 번들 source map은 404.
+
+SQL 검색 확인: SQL 형태 문자열을 보낸 공개 검색은 200이었다. 이 사실만으로 SQL 주입 성공 또는 안전을 판정하지 않았다. 로그인 username의 SQL 형태 입력은 422였다.
+
+제한: 로그인된 두 계정 간 수평 권한 검증과 실제 OAuth 공급자 흐름은 검증하지 않았다. SQL 형태 검색의 200 응답만으로 SQL 주입 성공 여부를 판단하지 않았다. 셸 런타임 경로 오류와 Node 자식 프로세스 실행 제한으로 로컬 pytest는 실행하지 않았다. 전체 침투 테스트나 취약점 부재를 보증하는 결과가 아니다.
+
+재현(비밀 입력 없음, 자동 리다이렉트 없음):
+curl.exe -s -D - -o NUL http://bokji.commitnaru.com/
+curl.exe -s -D - http://bokji.commitnaru.com/api/v1/auth/me
+기대 수정 결과: HTTP 화면 308 및 HTTPS Location, HTTP API 403(전송 계층 차단); HTTPS 화면·health는 정상 응답.
+
+참고:
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security
+https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/
+
+개별 요청 상태·헤더·응답 일부는 동명의 JSON에 보관.

@@ -1,0 +1,511 @@
+{
+  "checkedAtUtc": "2026-10-08T09:06:56.429Z",
+  "checkedAtKst": "2026-10-08 18:06:56 KST",
+  "target": "https://bokji.commitnaru.com",
+  "sourceStatus": "애플리케이션 소스에는 기존 HTTPS 차단 수정이 있다. 이번 운영 적용은 Cloudflare 규칙으로 수행하고 배포 README에 기록했다.",
+  "tests": [
+    {
+      "suite": "tests/test_web_security.py tests/test_member_security.py",
+      "passed": 120,
+      "failed": 0
+    },
+    {
+      "suite": "tests/test_https_transport.py",
+      "passed": 16,
+      "failed": 0
+    },
+    {
+      "suite": "tests/test_tunnel_transport.py",
+      "passed": 14,
+      "failed": 0,
+      "caddy": "2.11.7",
+      "environment": "임시 포트와 합성 upstream"
+    }
+  ],
+  "totalPassed": 150,
+  "productionApplied": true,
+  "blockers": [],
+  "liveObservations": [
+    {
+      "name": "fix-before-http-root",
+      "url": "http://bokji.commitnaru.com/",
+      "status": 200,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      }
+    },
+    {
+      "name": "fix-before-http-auth-me",
+      "url": "http://bokji.commitnaru.com/api/v1/auth/me",
+      "status": 401,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "content-type": "application/json",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "strict-transport-security": "max-age=86400",
+        "vary": "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
+        "x-content-type-options": "nosniff, nosniff",
+        "x-frame-options": "DENY, DENY"
+      }
+    }
+  ],
+  "nextStep": null,
+  "appliedAt": "Cloudflare edge; bokji.commitnaru.com에만 적용",
+  "originRestarted": false,
+  "cloudflareRules": [
+    {
+      "name": "Bokji HTTP navigation to HTTPS",
+      "id": "87fe6d9b4c224651b5ca7eb4a8229eb4",
+      "type": "single_redirect",
+      "expression": "(http.host eq \"bokji.commitnaru.com\") and (not ssl) and (http.request.method in {\"GET\" \"HEAD\"}) and not (http.request.uri.path eq \"/api\" or starts_with(http.request.uri.path, \"/api/\"))",
+      "action": {
+        "statusCode": 308,
+        "targetExpression": "concat(\"https://bokji.commitnaru.com\", http.request.uri.path)",
+        "preserveQueryString": true
+      },
+      "status": "Active"
+    },
+    {
+      "name": "Bokji block insecure API and writes",
+      "id": "dfa2ce754fec44d899a4d0514855fc10",
+      "type": "waf_custom",
+      "expression": "(http.host eq \"bokji.commitnaru.com\") and (not ssl) and (http.request.uri.path eq \"/api\" or starts_with(http.request.uri.path, \"/api/\") or not (http.request.method in {\"GET\" \"HEAD\"}))",
+      "action": "block",
+      "status": "Active"
+    },
+    {
+      "name": "Bokji HTTPS security headers",
+      "id": "b0809ba28f78400791acb66a4b185adf",
+      "type": "response_headers_transform",
+      "expression": "(http.host eq \"bokji.commitnaru.com\") and ssl",
+      "action": {
+        "Strict-Transport-Security": "max-age=31536000",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "Cross-Origin-Opener-Policy": "same-origin"
+      },
+      "status": "Active"
+    },
+    {
+      "name": "Bokji web document strict CSP",
+      "id": "9fbd626b6f9c404e826d033f0ad862fd",
+      "type": "response_headers_transform",
+      "expression": "(http.host eq \"bokji.commitnaru.com\") and ssl and (http.request.uri.path in {\"/\" \"/index.html\"})",
+      "action": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+      },
+      "status": "Active"
+    }
+  ],
+  "liveValidation": {
+    "total": 21,
+    "passed": 21,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "http-app-config",
+        "url": "http://bokji.commitnaru.com/app-config.js",
+        "method": "GET",
+        "status": 308,
+        "location": "https://bokji.commitnaru.com/app-config.js",
+        "headers": {
+          "cf-ray": "a473fca9cb9b08f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 169,
+        "bodySample": "<html>\r\n<head><title>308 Permanent Redirect</title></head>\r\n<body>\r\n<center><h1>308 Permanent Redirect</h1></center>\r\n<hr><center>cloudflare</center>\r",
+        "expected": 308,
+        "passed": true
+      },
+      {
+        "name": "http-head-home",
+        "url": "http://bokji.commitnaru.com/",
+        "method": "HEAD",
+        "status": 308,
+        "location": "https://bokji.commitnaru.com/",
+        "headers": {
+          "cf-ray": "a473fcaafafd1114-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 0,
+        "bodySample": "",
+        "expected": 308,
+        "passed": true
+      },
+      {
+        "name": "http-home-final",
+        "url": "http://bokji.commitnaru.com/",
+        "method": "GET",
+        "status": 308,
+        "location": "https://bokji.commitnaru.com/",
+        "headers": {
+          "cf-ray": "a473fcab0b1b36f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 169,
+        "bodySample": "<html>\r\n<head><title>308 Permanent Redirect</title></head>\r\n<body>\r\n<center><h1>308 Permanent Redirect</h1></center>\r\n<hr><center>cloudflare</center>\r",
+        "expected": 308,
+        "passed": true
+      },
+      {
+        "name": "http-query-preserved",
+        "url": "http://bokji.commitnaru.com/admin/exhibition/?audit=final&x=a%2Fb",
+        "method": "GET",
+        "status": 308,
+        "location": "https://bokji.commitnaru.com/admin/exhibition/?audit=final&x=a%2Fb",
+        "headers": {
+          "cf-ray": "a473fcaaffbc5df9-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 169,
+        "bodySample": "<html>\r\n<head><title>308 Permanent Redirect</title></head>\r\n<body>\r\n<center><h1>308 Permanent Redirect</h1></center>\r\n<hr><center>cloudflare</center>\r",
+        "expected": 308,
+        "passed": true
+      },
+      {
+        "name": "http-non-api-write",
+        "url": "http://bokji.commitnaru.com/admin/exhibition/",
+        "method": "POST",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcabd9ff08f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-forged-protocol",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/me",
+        "method": "GET",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcad3f84265a-LAX",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-prefix",
+        "url": "http://bokji.commitnaru.com/api",
+        "method": "GET",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcad3b7ecbac-LAX",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-mobile-bearer",
+        "url": "http://bokji.commitnaru.com/api/v1/mobile/auth/me",
+        "method": "GET",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcad3e96cbae-LAX",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:05:59 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "https-index-final",
+        "url": "https://bokji.commitnaru.com/index.html",
+        "method": "GET",
+        "status": 200,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb01c4f8553-HKG",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:00 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 1315,
+        "bodySample": "<!doctype html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  ",
+        "expected": 200,
+        "passed": true
+      },
+      {
+        "name": "https-health-final",
+        "url": "https://bokji.commitnaru.com/api/health",
+        "method": "GET",
+        "status": 200,
+        "location": null,
+        "headers": {
+          "cf-ray": "a473fcb168508169-NRT",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          "content-type": "application/json",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:00 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 49,
+        "bodySample": "{\"status\":\"ok\",\"service\":\"bokji-compass-backend\"}",
+        "expected": 200,
+        "passed": true
+      },
+      {
+        "name": "https-home-final",
+        "url": "https://bokji.commitnaru.com/",
+        "method": "GET",
+        "status": 200,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb1d89caf1e-LAX",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; script-src-attr 'none'; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          "content-type": "text/html; charset=utf-8",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:00 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 1315,
+        "bodySample": "<!doctype html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  ",
+        "expected": 200,
+        "passed": true
+      },
+      {
+        "name": "https-anonymous-auth",
+        "url": "https://bokji.commitnaru.com/api/v1/auth/me",
+        "method": "GET",
+        "status": 401,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb1dd0b2110-LAX",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "content-type": "application/json",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 39,
+        "bodySample": "{\"detail\":\"로그인이 필요해요.\"}",
+        "expected": 401,
+        "passed": true
+      },
+      {
+        "name": "http-api-get",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "GET",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcb6cd0236f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "https-invalid-login",
+        "url": "https://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "POST",
+        "status": 422,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb6cabc8553-HKG",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "content-type": "application/json",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 92,
+        "bodySample": "{\"detail\":\"아이디·비밀번호·필수 정보의 입력 형식을 확인해 주세요.\"}",
+        "expected": 422,
+        "passed": true
+      },
+      {
+        "name": "https-anonymous-admin",
+        "url": "https://bokji.commitnaru.com/api/v1/admin/accounts",
+        "method": "GET",
+        "status": 401,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb71c88af1e-LAX",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "content-type": "application/json",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 39,
+        "bodySample": "{\"detail\":\"로그인이 필요해요.\"}",
+        "expected": 401,
+        "passed": true
+      },
+      {
+        "name": "https-cross-site",
+        "url": "https://bokji.commitnaru.com/api/v1/auth/me",
+        "method": "GET",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "no-store",
+          "cf-ray": "a473fcb6ceaf8169-NRT",
+          "content-security-policy": "default-src 'self'; script-src 'self' https://t1.kakaocdn.net; frame-src https://postcode.map.kakao.com https://postcode.map.daum.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self', default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          "content-type": "application/json",
+          "cross-origin-opener-policy": "same-origin",
+          "cross-origin-resource-policy": "same-origin",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT",
+          "strict-transport-security": "max-age=31536000"
+        },
+        "bodyBytes": 59,
+        "bodySample": "{\"detail\":\"허용된 사이트에서 요청해 주세요.\"}",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-head",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "HEAD",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcb91c4d36f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT"
+        },
+        "bodyBytes": 0,
+        "bodySample": "",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-patch",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "PATCH",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcb91d3308f1-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-options",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "OPTIONS",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcb91f4f5df9-HKG",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-post",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "POST",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcb96fe7cbac-LAX",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:01 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      },
+      {
+        "name": "http-api-delete",
+        "url": "http://bokji.commitnaru.com/api/v1/auth/login",
+        "method": "DELETE",
+        "status": 403,
+        "location": null,
+        "headers": {
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-ray": "a473fcbbb9ec1bcd-LAX",
+          "content-type": "text/html; charset=UTF-8",
+          "date": "Thu, 08 Oct 2026 09:06:02 GMT"
+        },
+        "bodyBytes": 4549,
+        "bodySample": "<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]-->\n<!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US",
+        "expected": 403,
+        "passed": true
+      }
+    ]
+  },
+  "browserValidation": {
+    "pages": [
+      "홈",
+      "회원가입 개인정보 안내"
+    ],
+    "rendered": true,
+    "cspErrorsObserved": 0,
+    "scope": "UI 로딩·스타일 확인. 실제 가입·로그인·개인정보 저장은 수행하지 않음."
+  },
+  "proofImages": [
+    "tmp/live-security-cloudflare-20261008/http-block-active.png",
+    "tmp/live-security-cloudflare-20261008/https-headers-active.png"
+  ],
+  "limitations": [
+    "공개 HTTP/HTTPS 보호는 Cloudflare에서 적용했으며 원본 PC의 Caddy/API 프로세스를 재시작하지 않았다.",
+    "공개 프론트 번들과 현재 로컬 빌드는 서로 다른 버전이었다. 브라우저에서 운영 홈·회원가입 안내의 기본 로딩과 CSP 오류 부재를 확인했다."
+  ]
+}
