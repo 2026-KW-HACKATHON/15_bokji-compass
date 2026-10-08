@@ -10,6 +10,8 @@ import './calendar.css';
 import Icon from '../../shared/ui/Icon.jsx';
 import { categories, regions } from '../policies/policyModel.js';
 import usePolicyRefresh from '../policies/usePolicyRefresh.js';
+import PolicyDeadline from '../policies/PolicyDeadline.jsx';
+import useSeoulToday from '../policies/useSeoulToday.js';
 import {
   SearchScopeControl,
   SearchInterpretation,
@@ -21,7 +23,6 @@ import {
   calendarEvents,
   policiesOnDay,
   reconcileCalendarResult,
-  seoulToday,
   shiftMonth,
 } from './calendarModel.js';
 
@@ -61,6 +62,7 @@ function CalendarPolicyRow({
     <article ref={translation.ref} className="calendar-policy-row">
       <div className="calendar-policy-copy">
         <div className="calendar-row-labels">
+          <PolicyDeadline policy={original} />
           {(labels.length ? labels : ['접수 기간 중']).map((label) => (
             <span
               key={label}
@@ -130,7 +132,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
       day: 'numeric',
       timeZone: 'Asia/Seoul',
     }).format(new Date(`${date}T00:00:00+09:00`));
-  const today = seoulToday();
+  const today = useSeoulToday();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState(today);
   const [filters, setFilters] = useState(initialFilters);

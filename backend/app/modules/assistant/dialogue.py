@@ -259,11 +259,10 @@ def _compare(repository, state, member):
     try:
         selected = (_selected(_read_revision(repository, state.revision_id), context, state)
                     if state.revision_id else None)
-        candidates = (
-            general_candidates(repository, state.search_plan, context, state.profile)
-            if state.topic == "general" else
-            monitoring.scan_candidates(repository, context, state.profile, [_need(state)])
-        )
+        candidates = (general_candidates(repository, state.search_plan, context, state.profile)
+                      if state.topic == "general" else
+                      monitoring.scan_candidates(
+                          repository, context, state.profile, [_need(state)]))
         if state.topic == "general" and not selected and state.search_plan is None:
             return [], None, "not_requested"
         # Do not expose a revision withdrawn while its conditions were being evaluated.

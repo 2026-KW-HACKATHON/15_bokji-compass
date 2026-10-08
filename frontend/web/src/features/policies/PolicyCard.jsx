@@ -1,6 +1,7 @@
 import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyIndicators from './PolicyIndicators.jsx';
+import PolicyDeadline from './PolicyDeadline.jsx';
 import { PolicySearchMatch } from './PolicySearchFeedback.jsx';
 import {
   PolicyTranslationStatus,
@@ -34,6 +35,7 @@ export default function PolicyCard({
           <h3 className="card-title" tabIndex={-1}>
             {policy.title}
           </h3>
+          <PolicyDeadline policy={original} />
           <PolicyTranslationStatus translation={translation} />
           {reason ? (
             <p className="easy-recommendation-reason">
@@ -102,6 +104,7 @@ export default function PolicyCard({
           {policy.title}
         </button>
       </h3>
+      <PolicyDeadline policy={original} />
       <PolicyTranslationStatus translation={translation} />
       {reason ? (
         <div className="recommendation-reason">

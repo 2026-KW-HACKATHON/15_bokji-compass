@@ -12,11 +12,7 @@ from app.modules.monitoring.models import seoul_today
 from app.modules.presentation.public import policy_signals
 from app.modules.search.interpretation import interpret_query
 from app.modules.search.retrieval import rank_records
-from app.modules.storage.catalog import (
-    card,
-    published_catalog,
-    search_institution_vocabulary,
-)
+from app.modules.storage.catalog import card, published_catalog, search_institution_vocabulary
 
 MAX_GENERAL_CANDIDATES = 12
 

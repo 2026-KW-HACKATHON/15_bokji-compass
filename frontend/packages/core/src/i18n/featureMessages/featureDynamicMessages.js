@@ -1,4 +1,34 @@
 export const featureDynamicMessages = {
+  "마감 D+{count}": {
+    en: "Closed D+{count}",
+    zh: "已截止 D+{count}",
+    vi: "Đã hết hạn D+{count}",
+    ja: "締切済み D+{count}",
+  },
+  "마감일 확인 필요": {
+    en: "Check the deadline",
+    zh: "需要确认截止日期",
+    vi: "Cần kiểm tra hạn đăng ký",
+    ja: "締切日の確認が必要",
+  },
+  "신청 마감까지 {count}일 남음": {
+    en: "{count} days until the application deadline",
+    zh: "距申请截止还有{count}天",
+    vi: "Còn {count} ngày đến hạn đăng ký",
+    ja: "申請締切まであと{count}日",
+  },
+  "오늘 신청 마감": {
+    en: "Applications close today",
+    zh: "申请今天截止",
+    vi: "Hôm nay hết hạn đăng ký",
+    ja: "本日申請締切",
+  },
+  "신청 마감 후 {count}일 지남": {
+    en: "{count} days since applications closed",
+    zh: "申请截止已过{count}天",
+    vi: "Đã qua {count} ngày kể từ hạn đăng ký",
+    ja: "申請締切から{count}日経過",
+  },
   "{value1} 공고 일정을 불러오는 중이에요.": {
     en: "Loading notice schedules for {value1}.",
     zh: "正在加载{value1}的公告日程。",

@@ -7,6 +7,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../shared/ui/Icon.jsx';
 import PolicyCard from '../policies/PolicyCard.jsx';
+import PolicyDeadline from '../policies/PolicyDeadline.jsx';
 import PolicyIndicators from '../policies/PolicyIndicators.jsx';
 import { regions } from '../policies/policyModel.js';
 import { recommendationGuidance } from './recommendationModel.js';
@@ -51,6 +52,7 @@ function RecommendedPolicyRow({ policy: original, reason, saved, onOpen, onSave 
             {policy.title}
           </button>
         </h3>
+        <PolicyDeadline policy={original} />
       </div>
       <div className="home-row-description">
         <PolicyTranslationStatus translation={translation} />

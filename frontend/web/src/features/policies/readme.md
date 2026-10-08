@@ -1,5 +1,14 @@
 # 공고
 
+2026-10-08 마감 D-Day: `PolicyDeadline({policy})`는 서버의 `applicationEnd`를 한국 시간
+오늘과 비교하여 D-n, D-Day, 마감 D+n, 상시 접수 또는 마감일 확인 필요를 표시합니다.
+전체/추천/저장 공고 카드의 일반·쉬운 화면, 상세와 캘린더 공고 행이 함께 사용합니다.
+`deadlineModel.policyDeadline(policy,today=seoulToday()) -> {state,days}`는 정상 날짜의
+UTC 일수 차를 계산하며 state는 upcoming/today/closed/ongoing/unknown입니다.
+원문 날짜를 별도 재해석하거나 외부 요청을 하지 않습니다. `useSeoulToday()`는 공통
+구독과 한 개의 타이머로 한국 자정 및 화면 복귀 때 갱신하며 마지막 구독 해제 시 정리합니다.
+검증: `tests/deadline.test.js`, `tests/e2e/policy-deadline.spec.js`.
+
 2026-10-08 상세 정보: `PolicyDetail({policy,saved,onSave,onClose,onTag,easy,user,onAsk})`는
 제목 아래 `공고 원문 보기`와 하단 공식 공고 링크를 제공합니다. `sourceUrl`과
 `applicationUrl`은 각각 `safeSourceUrl`로 HTTP(S) 주소를 검증하며 원문과 신청 페이지를

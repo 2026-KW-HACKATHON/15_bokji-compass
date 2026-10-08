@@ -7,6 +7,7 @@ import Modal from '../../shared/ui/Modal.jsx';
 import Icon from '../../shared/ui/Icon.jsx';
 import { safeSourceUrl } from './policyModel.js';
 import PolicyQuestion from '../assistant/PolicyQuestion.jsx';
+import PolicyDeadline from './PolicyDeadline.jsx';
 export default function PolicyDetail({
   policy: original,
   saved,
@@ -68,6 +69,7 @@ export default function PolicyDetail({
       <div className="detail-badges">
         <span className="soft-badge">{t(policy.category)}</span>
         <span className="soft-badge">{t(policy.region)}</span>
+        <PolicyDeadline policy={original} />
       </div>
       <p className="modal-description">{policy.summary}</p>
       {source && (
