@@ -412,7 +412,9 @@ test('first visit has one information entry point and separates saving consent f
   await form.getByLabel('세부 상태').selectOption('취업 준비 중');
   await form.getByLabel('가구 구성').selectOption('혼자 살아요');
   // A suggested interest and occupation never become an assumed eligibility fact.
-  await form.getByRole('checkbox', { name: '일자리', exact: true }).check();
+  const interest = form.getByRole('checkbox', { name: '일자리', exact: true });
+  await interest.locator('..').click();
+  await expect(interest).toBeChecked();
   await expect(form.getByLabel('구직 상태')).toHaveValue('');
   await watch.check();
   await expect(form.getByRole('button', { name: '저장하고 지원 찾기' })).toBeDisabled();

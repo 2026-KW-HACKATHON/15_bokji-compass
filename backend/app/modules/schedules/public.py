@@ -16,7 +16,6 @@ from app.modules.ingestion.web import fetch_notice
 from app.modules.llm.public import _extract_structured
 from app.modules.normalization.source_urls import policy_source_url
 from app.modules.storage.application_dates import application_reference_year, application_schedule
-from app.modules.storage.schedule_rules import build_calendar_rule, resolve_calendar_schedule
 from app.modules.storage.catalog import card, published_catalog
 from app.modules.storage.publication import (
     PublicationConflict,
@@ -26,6 +25,7 @@ from app.modules.storage.publication import (
     publication_transaction,
 )
 from app.modules.storage.repository import digest, validate_draft
+from app.modules.storage.schedule_rules import build_calendar_rule, resolve_calendar_schedule
 
 VERSION = "application-schedule-repair-v2"
 REFERENCE_FIELD = "일정 확인 원문"
@@ -79,20 +79,32 @@ class _FetchBudget:
         remaining = self.deadline - time.monotonic()
         if self.calls > 6 or remaining <= 0:
             raise TimeoutError("schedule_fetch_budget")
-        return {"timeout": min(15, remaining), "deadline": self.deadline,
-                "max_response_bytes": 2_000_000}
+        return {
+            "timeout": min(15, remaining),
+            "deadline": self.deadline,
+            "max_response_bytes": 2_000_000,
+        }
 
 
 def extract_period(source, settings, output, *, reference=None):
     """Use the configured isolated CLI and verify every quote against supplied text."""
-    payload = {"target": source.model_dump(), "reference": reference,
-               "reference_year": application_reference_year()}
+    payload = {
+        "target": source.model_dump(),
+        "reference": reference,
+        "reference_year": application_reference_year(),
+    }
     result, metadata = _extract_structured(
-        None, settings, output, settings.codex_model, PROMPT, PeriodExtraction, VERSION,
+        None,
+        settings,
+        output,
+        settings.codex_model,
+        PROMPT,
+        PeriodExtraction,
+        VERSION,
         payload=payload,
     )
     for evidence in result.application_period.evidence:
-        fields = ({REFERENCE_FIELD: reference["text"]} if reference else source.fields)
+        fields = {REFERENCE_FIELD: reference["text"]} if reference else source.fields
         if not evidence.quote or evidence.quote not in fields.get(evidence.source_field, ""):
             raise ValueError("Application period evidence is absent from the supplied source")
     return result, metadata
@@ -107,22 +119,34 @@ def build_repair(record, extraction, *, reference=None):
     if not isinstance(draft.get("overview"), dict):
         raise ValueError("A validated policy overview is required for a schedule-only repair")
     source = deepcopy(record["source_json"])
-    evidence_fields = ({REFERENCE_FIELD: reference["text"]} if reference else source["fields"])
+    evidence_fields = {REFERENCE_FIELD: reference["text"]} if reference else source["fields"]
     for evidence in period.evidence:
-        if not evidence.quote or evidence.quote not in evidence_fields.get(evidence.source_field, ""):
+        if not evidence.quote or evidence.quote not in evidence_fields.get(
+            evidence.source_field, ""
+        ):
             raise ValueError("Unverified application period evidence")
     rule = None
     if application_schedule(period.text)["scheduleStatus"] == "unknown":
-        rule = build_calendar_rule(period.model_dump(), extraction.calendar_expression, evidence_fields)
+        rule = build_calendar_rule(
+            period.model_dump(), extraction.calendar_expression, evidence_fields
+        )
         if rule is None:
             return None
     if reference:
-        schedule = (application_schedule(rule["expression"]) if rule else application_schedule(period.text))
+        schedule = (
+            application_schedule(rule["expression"]) if rule else application_schedule(period.text)
+        )
         period_years = set(re.findall(r"20\d{2}", source["fields"].get("application_period", "")))
         current = application_reference_year()
-        years = {int(window[key][:4]) for window in schedule.get("applicationWindows", [schedule])
-                 for key in ("applicationStart", "applicationEnd") if window.get(key)}
-        allowed_years = {int(year) for year in period_years} if period_years else {current, current + 1}
+        years = {
+            int(window[key][:4])
+            for window in schedule.get("applicationWindows", [schedule])
+            for key in ("applicationStart", "applicationEnd")
+            if window.get(key)
+        }
+        allowed_years = (
+            {int(year) for year in period_years} if period_years else {current, current + 1}
+        )
         if years and not years.issubset(allowed_years):
             return None
         source["fields"][REFERENCE_FIELD] = "\n".join(e.quote for e in period.evidence)
@@ -147,16 +171,32 @@ def prepare_repair(record, settings, output, *, domains=(), urls=(), search=Fals
     attempts = []
 
     def attempt(reference=None):
-        result, metadata = extract_period(source, settings, output / f"attempt-{len(attempts)}",
-                                          reference=reference)
-        attempts.append({"source_url": reference["source_url"] if reference else source.source_url,
-                         "reason": result.reason, "period": result.application_period.model_dump(),
-                         "matches_policy": result.matches_policy,
-                         "calendar_expression": result.calendar_expression, "metadata": metadata})
+        result, metadata = extract_period(
+            source, settings, output / f"attempt-{len(attempts)}", reference=reference
+        )
+        attempts.append(
+            {
+                "source_url": reference["source_url"] if reference else source.source_url,
+                "reason": result.reason,
+                "period": result.application_period.model_dump(),
+                "matches_policy": result.matches_policy,
+                "calendar_expression": result.calendar_expression,
+                "metadata": metadata,
+            }
+        )
         draft = build_repair(record, result, reference=reference)
-        return ({"status": "resolved", "draft": draft, "attempts": attempts,
-                 "schedule": resolve_calendar_schedule(draft["source"]["fields"],
-                     draft["overview"], draft.get("application_calendar"))} if draft else None)
+        return (
+            {
+                "status": "resolved",
+                "draft": draft,
+                "attempts": attempts,
+                "schedule": resolve_calendar_schedule(
+                    draft["source"]["fields"], draft["overview"], draft.get("application_calendar")
+                ),
+            }
+            if draft
+            else None
+        )
 
     resolved = attempt()
     if resolved:
@@ -173,9 +213,14 @@ def prepare_repair(record, settings, output, *, domains=(), urls=(), search=Fals
         if not domains:
             raise ValueError("Official domains are required for schedule search")
         candidates, metadata = discover(
-            settings, domains=list(domains),
-            query=f"{application_reference_year()}년 {source.title} {source.organization} 신청 접수 기간 공식 공고",
-            timeout=min(settings.codex_timeout_seconds, 300), max_candidates=2,
+            settings,
+            domains=list(domains),
+            query=(
+                f"{application_reference_year()}년 {source.title} {source.organization} "
+                "신청 접수 기간 공식 공고",
+            ),
+            timeout=min(settings.codex_timeout_seconds, 300),
+            max_candidates=2,
         )
         attempts.append({"search": metadata, "candidate_urls": [c["url"] for c in candidates]})
         targets.extend(c["url"] for c in candidates if c["source_kind"] != "official_index")
@@ -201,19 +246,39 @@ def save_repair(repository, record, draft):
     events = events_table(repository)
     with publication_transaction(repository, key) as connection:
         catalog = published_catalog(repository)
-        parent = connection.execute(select(catalog).where(catalog.c.policy_key == key)).mappings().one()
-        if parent["revision_id"] != record["revision_id"] or has_manual_edits(repository, connection, key):
-            raise PublicationConflict("공고가 변경되었거나 관리자 편집이 있어 다시 확인해야 합니다.")
+        parent = (
+            connection.execute(select(catalog).where(catalog.c.policy_key == key)).mappings().one()
+        )
+        if parent["revision_id"] != record["revision_id"] or has_manual_edits(
+            repository, connection, key
+        ):
+            raise PublicationConflict(
+                "공고가 변경되었거나 관리자 편집이 있어 다시 확인해야 합니다."
+            )
         if validated == parent["draft_json"]:
             return {"revision_id": parent["revision_id"], "reused": True}
-        revision_id, reused = repository._save_revision(connection, validated, {
-            "origin": VERSION, "parent_revision_id": record["revision_id"],
-        })
+        revision_id, reused = repository._save_revision(
+            connection,
+            validated,
+            {
+                "origin": VERSION,
+                "parent_revision_id": record["revision_id"],
+            },
+        )
         if not reused:
             repository._save_legacy_policy(connection, validated)
-            change_publication(repository, connection, events, revision_id, policy_key=key,
-                               action="publish", expected_status="draft", actor_id="system:schedule-repair",
-                               note="원문 대조를 통과한 신청 일정 보완", require_latest=True)
+            change_publication(
+                repository,
+                connection,
+                events,
+                revision_id,
+                policy_key=key,
+                action="publish",
+                expected_status="draft",
+                actor_id="system:schedule-repair",
+                note="원문 대조를 통과한 신청 일정 보완",
+                require_latest=True,
+            )
         return {"revision_id": revision_id, "reused": reused}
 
 
@@ -224,9 +289,17 @@ def audit_schedules(repository):
     result = []
     for record in records:
         item = card(record)
-        result.append({"policy_key": record["policy_key"], "title": item["title"],
-                       "period": item["applicationPeriod"], "schedule": {
-                           k: v for k, v in item.items()
-                           if k.startswith("application") or k == "scheduleStatus"},
-                       "record": dict(record)})
+        result.append(
+            {
+                "policy_key": record["policy_key"],
+                "title": item["title"],
+                "period": item["applicationPeriod"],
+                "schedule": {
+                    k: v
+                    for k, v in item.items()
+                    if k.startswith("application") or k == "scheduleStatus"
+                },
+                "record": dict(record),
+            }
+        )
     return result

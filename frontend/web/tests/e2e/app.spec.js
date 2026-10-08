@@ -208,7 +208,8 @@ test('switching easy mode preserves search text, applied filters and tag', async
   await page.goto('/#explore?tag=' + encodeURIComponent('청년'));
   await page.getByRole('textbox', { name: '공고 검색', exact: true }).fill('지원');
   await page.getByRole('button', { name: '검색', exact: true }).click();
-  await page.getByRole('button', { name: '주거', exact: true }).click();
+  await page.locator('details.explorer-advanced > summary').click();
+  await page.getByRole('combobox', { name: '분야', exact: true }).selectOption('주거');
   await page.getByRole('combobox', { name: '지역', exact: true }).selectOption('서울');
   await page.getByRole('combobox', { name: '대상', exact: true }).selectOption('청년');
   await page.getByRole('combobox', { name: '정렬', exact: true }).selectOption('name');
@@ -227,7 +228,9 @@ test('switching easy mode preserves search text, applied filters and tag', async
   await expect(page.locator('.filter-panel > summary')).toContainText(
     '주거 · 서울 · 청년 · 이름순',
   );
-  await page.locator('.filter-panel > summary').click();
+  if ((await page.locator('details.explorer-advanced').getAttribute('open')) === null) {
+    await page.locator('details.explorer-advanced > summary').click();
+  }
   await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('주거');
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('서울');
   await expect(page.getByRole('combobox', { name: '대상', exact: true })).toHaveValue('청년');
@@ -238,10 +241,7 @@ test('switching easy mode preserves search text, applied filters and tag', async
     '아직 검색하지 않은 글',
   );
   await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('name');
-  await expect(page.getByRole('button', { name: '주거', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('주거');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page).toHaveURL(/#explore\?tag=/);
 });

@@ -24,16 +24,38 @@ def _output_path(value):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    audit = commands.add_parser("audit", help="Read published schedules without HTTP/model calls or DB changes")
+    audit = commands.add_parser(
+        "audit", help="Read published schedules without HTTP/model calls or DB changes"
+    )
     audit.add_argument("--output", help="Optional JSON report path, relative to backend")
-    repair = commands.add_parser("repair", help="Preview selected repairs; only --apply writes new revisions")
-    repair.add_argument("--policy-key", nargs="+", action="append", required=True,
-                        help="Explicit policy keys; at most 10, repeatable")
-    repair.add_argument("--output", required=True, help="Report/attempt directory, relative to backend")
-    repair.add_argument("--search", action="store_true", help="Search the explicitly allowed official domains")
-    repair.add_argument("--domain", action="append", default=[], help="Allowed official domain; repeatable")
-    repair.add_argument("--url", action="append", default=[], help="Explicit reference URL; requires one selected policy")
-    repair.add_argument("--apply", action="store_true", help="Commit only resolved, validated repairs")
+    repair = commands.add_parser(
+        "repair", help="Preview selected repairs; only --apply writes new revisions"
+    )
+    repair.add_argument(
+        "--policy-key",
+        nargs="+",
+        action="append",
+        required=True,
+        help="Explicit policy keys; at most 10, repeatable",
+    )
+    repair.add_argument(
+        "--output", required=True, help="Report/attempt directory, relative to backend"
+    )
+    repair.add_argument(
+        "--search", action="store_true", help="Search the explicitly allowed official domains"
+    )
+    repair.add_argument(
+        "--domain", action="append", default=[], help="Allowed official domain; repeatable"
+    )
+    repair.add_argument(
+        "--url",
+        action="append",
+        default=[],
+        help="Explicit reference URL; requires one selected policy",
+    )
+    repair.add_argument(
+        "--apply", action="store_true", help="Commit only resolved, validated repairs"
+    )
     args = parser.parse_args(argv)
     keys = []
     if args.command == "repair":
@@ -56,35 +78,64 @@ def main(argv=None):
         repository = PolicyRepository(engine, auto_publish=False)
         entries = audit_schedules(repository)
         if args.command == "audit":
-            items = [{key: item[key] for key in ("policy_key", "title", "period", "schedule")} for item in entries]
+            items = [
+                {key: item[key] for key in ("policy_key", "title", "period", "schedule")}
+                for item in entries
+            ]
             report = {"status": "audited", "count": len(items), "items": items}
             if args.output:
                 output = _output_path(args.output)
                 _write_report(output, report)
-                print(json.dumps({"status": "audited", "count": len(items), "output": str(output)}, ensure_ascii=False))
+                print(
+                    json.dumps(
+                        {"status": "audited", "count": len(items), "output": str(output)},
+                        ensure_ascii=False,
+                    )
+                )
             else:
                 print(json.dumps(report, ensure_ascii=False, default=str))
             return 0
 
         selected = {item["policy_key"]: item for item in entries if item["policy_key"] in keys}
         if any(key not in selected for key in keys):
-            print(json.dumps({"status": "failed", "error_type": "PolicyNotFound",
-                              "message": "Every selected policy must have a published record."}))
+            print(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "error_type": "PolicyNotFound",
+                        "message": "Every selected policy must have a published record.",
+                    }
+                )
+            )
             return 1
         output_root = _output_path(args.output) / ("run-" + uuid4().hex)
         output_root.mkdir(parents=True, exist_ok=False)
-        report = {"status": "running", "apply": args.apply,
-                  "created_at": datetime.now(UTC).isoformat(), "items": []}
+        report = {
+            "status": "running",
+            "apply": args.apply,
+            "created_at": datetime.now(UTC).isoformat(),
+            "items": [],
+        }
         report_path = output_root / "report.json"
         _write_report(report_path, report)
         resolved = failed = 0
         for index, key in enumerate(keys, start=1):
             entry = selected[key]
-            item = {"policy_key": key, "title": entry["title"], "original_period": entry["period"],
-                    "original_revision_id": entry["record"]["revision_id"]}
+            item = {
+                "policy_key": key,
+                "title": entry["title"],
+                "original_period": entry["period"],
+                "original_revision_id": entry["record"]["revision_id"],
+            }
             try:
-                prepared = prepare_repair(entry["record"], settings, output_root / f"policy-{index:02d}",
-                                          domains=tuple(args.domain), urls=tuple(args.url), search=args.search)
+                prepared = prepare_repair(
+                    entry["record"],
+                    settings,
+                    output_root / f"policy-{index:02d}",
+                    domains=tuple(args.domain),
+                    urls=tuple(args.url),
+                    search=args.search,
+                )
                 item.update(prepared)
                 if prepared.get("status") == "resolved" and prepared.get("draft") is not None:
                     if args.apply:
@@ -92,21 +143,57 @@ def main(argv=None):
                     resolved += 1
             except Exception as error:
                 failed += 1
-                item.update({"status": "failed", "error_type": type(error).__name__,
-                             "message": "Check the selected source, model configuration and current published revision."})
+                item.update(
+                    {
+                        "status": "failed",
+                        "error_type": type(error).__name__,
+                        "message": (
+                            "Check the selected source, model configuration "
+                            "and current published revision."
+                        ),
+                    }
+                )
             report["items"].append(item)
             _write_report(report_path, report)
-        status = ("applied" if args.apply else "preview") if resolved == len(keys) else (
-            "partial" if resolved else "failed" if failed else "unresolved")
-        report.update({"status": status, "selected": len(keys), "resolved": resolved,
-                       "unresolved": len(keys) - resolved - failed, "failed": failed})
+        status = (
+            ("applied" if args.apply else "preview")
+            if resolved == len(keys)
+            else ("partial" if resolved else "failed" if failed else "unresolved")
+        )
+        report.update(
+            {
+                "status": status,
+                "selected": len(keys),
+                "resolved": resolved,
+                "unresolved": len(keys) - resolved - failed,
+                "failed": failed,
+            }
+        )
         _write_report(report_path, report)
-        print(json.dumps({"status": status, "apply": args.apply, "selected": len(keys),
-                          "resolved": resolved, "failed": failed, "output": str(report_path)}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "status": status,
+                    "apply": args.apply,
+                    "selected": len(keys),
+                    "resolved": resolved,
+                    "failed": failed,
+                    "output": str(report_path),
+                },
+                ensure_ascii=False,
+            )
+        )
         return int(resolved != len(keys))
     except Exception as error:
-        print(json.dumps({"status": "failed", "error_type": type(error).__name__,
-                          "message": "Check MySQL, published policy keys and report paths."}))
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "error_type": type(error).__name__,
+                    "message": "Check MySQL, published policy keys and report paths.",
+                }
+            )
+        )
         return 1
     finally:
         if engine is not None:

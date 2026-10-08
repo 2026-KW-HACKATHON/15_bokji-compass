@@ -38,6 +38,7 @@ test('home search carries its query and region into the list and survives a relo
 
   await expect(page.getByRole('heading', { name: '전체 공고', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: '공고 검색', exact: true })).toHaveValue('주거');
+  await page.locator('details.explorer-advanced > summary').click();
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('서울');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('article')).toContainText('청년의 첫 독립, 주거비 지원');
@@ -46,6 +47,7 @@ test('home search carries its query and region into the list and survives a relo
   await page.reload();
   await reloaded;
   await expect(page.getByRole('textbox', { name: '공고 검색', exact: true })).toHaveValue('주거');
+  await page.locator('details.explorer-advanced > summary').click();
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('서울');
 });
 
@@ -58,22 +60,20 @@ test('home category shortcuts retain the chosen region and list reset clears bot
   await page.getByRole('button', { name: '생활·금융', exact: true }).click();
   await requested;
 
+  await page.locator('details.explorer-advanced > summary').click();
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('경기');
-  await expect(page.getByRole('button', { name: '생활·금융', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('생활·금융');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('article')).toContainText('든든한 일상을 위한 생활 지원');
 
   const reset = waitForList(page, { category: null, region: null, q: null });
   await page.getByRole('button', { name: '검색 조건 지우기', exact: true }).click();
   await reset;
+  if ((await page.locator('details.explorer-advanced').getAttribute('open')) === null) {
+    await page.locator('details.explorer-advanced > summary').click();
+  }
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('전국');
-  await expect(page.getByRole('button', { name: '전체', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('전체');
   await expect(page.getByRole('article')).toHaveCount(6);
 });
 

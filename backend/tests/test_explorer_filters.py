@@ -2,16 +2,19 @@
 
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
 from app.api.policies import get_repository
 from app.core.config import Settings
 from app.main import create_app
-from app.modules.storage import catalog
 from app.modules.storage.explorer_filters import matches_age, matches_eligibility, notice_status
-from tests.test_policy_search import add_policy, ids, repository  # noqa: F401
 from tests.test_matching import record
+from tests.test_policy_search import add_policy, ids
+from tests.test_policy_search import repository as _search_repository
+
+repository_fixture = pytest.fixture(name="repository")(_search_repository.__wrapped__)
 
 
 def test_status_is_date_based_or_explicit_and_never_guesses_payment():
@@ -19,7 +22,12 @@ def test_status_is_date_based_or_explicit_and_never_guesses_payment():
     row = {"source_json": {"fields": {}}}
     assert notice_status({"applicationStart": "2026-10-09"}, row, today) == "upcoming"
     assert notice_status({"applicationEnd": "2026-10-07"}, row, today) == "closed"
-    assert notice_status({"applicationStart": "2026-10-08", "applicationEnd": "2026-10-08"}, row, today) == "open"
+    assert (
+        notice_status(
+            {"applicationStart": "2026-10-08", "applicationEnd": "2026-10-08"}, row, today
+        )
+        == "open"
+    )
     assert notice_status({"applicationEnd": "2026-10-08"}, row, today) == "unknown"
     assert notice_status({"scheduleStatus": "ongoing"}, row, today) == "open"
     row["source_json"]["fields"]["notice_status"] = "paid"
@@ -27,7 +35,11 @@ def test_status_is_date_based_or_explicit_and_never_guesses_payment():
 
 
 def test_age_multiple_bands_zero_boundaries_and_unknown():
-    row = {"draft_json": {"overview": {"age_conditions": {"status": "specified", "text": "만 19~24세"}}}}
+    row = {
+        "draft_json": {
+            "overview": {"age_conditions": {"status": "specified", "text": "만 19~24세"}}
+        }
+    }
     assert matches_age(row, ["0-18", "19-24"])
     assert not matches_age(row, ["0-18", "65-120"])
     assert matches_age(row, [], 0, 19)
@@ -63,23 +75,41 @@ def test_http_provider_age_status_filters_before_pagination_and_options(reposito
         add_policy(repository, key, organization=org, fields={"application_period": period})
         details = repository.tables["policy_revision_details"]
         with repository.engine.begin() as connection:
-            connection.execute(update(details).where(details.c.revision_id == key + "-revision")
-                .values(draft_json={"overview": {"age_conditions": {"status": "specified", "text": age}}}))
+            connection.execute(
+                update(details)
+                .where(details.c.revision_id == key + "-revision")
+                .values(
+                    draft_json={
+                        "overview": {"age_conditions": {"status": "specified", "text": age}}
+                    }
+                )
+            )
     add_policy(repository, "gov24:hidden", organization="비공개기관", published=False)
     app = create_app(Settings(_env_file=None, db_enabled=False, auth_enabled=False))
     app.dependency_overrides[get_repository] = lambda: repository
     with TestClient(app) as client:
-        filters = {"provider": "gov24", "organization": "서울시", "status": "open", "age_bands": "19-24", "limit": 1}
-        first = client.get('/v1/policies', params=filters).json()
-        second = client.get('/v1/policies', params={**filters, "cursor": 1}).json()
+        filters = {
+            "provider": "gov24",
+            "organization": "서울시",
+            "status": "open",
+            "age_bands": "19-24",
+            "limit": 1,
+        }
+        first = client.get("/v1/policies", params=filters).json()
+        second = client.get("/v1/policies", params={**filters, "cursor": 1}).json()
         assert first["total"] == second["total"] == 2
         assert ids(first) | ids(second) == {"gov24:young1", "gov24:young2"}
         assert first["nextCursor"] == "1" and second["nextCursor"] is None
-        assert client.get('/v1/policies', params={"age_min": 0, "age_max": 18}).json()["total"] == 1
-        assert client.get('/v1/policies', params={"status": "paid"}).json()["total"] == 0
-        options = client.get('/v1/policies/options').json()["providers"]
+        assert client.get("/v1/policies", params={"age_min": 0, "age_max": 18}).json()["total"] == 1
+        assert client.get("/v1/policies", params={"status": "paid"}).json()["total"] == 0
+        options = client.get("/v1/policies/options").json()["providers"]
         assert {item["id"] for item in options} == {"gov24", "bokjiro", "notice"}
         assert "비공개기관" not in str(options)
-        for params in ({"age_min": 30, "age_max": 0}, {"age_bands": "bad"}, {"status": "bad"}, {"age_min": -1}):
-            assert client.get('/v1/policies', params=params).status_code == 422
-        assert client.get('/v1/policies', params={"eligible_only": "true"}).status_code == 503
+        for params in (
+            {"age_min": 30, "age_max": 0},
+            {"age_bands": "bad"},
+            {"status": "bad"},
+            {"age_min": -1},
+        ):
+            assert client.get("/v1/policies", params=params).status_code == 422
+        assert client.get("/v1/policies", params={"eligible_only": "true"}).status_code == 503

@@ -4,8 +4,14 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-AGE_BANDS = {"0-18": (0, 18), "19-24": (19, 24), "25-30": (25, 30),
-             "31-39": (31, 39), "40-64": (40, 64), "65-120": (65, 120)}
+AGE_BANDS = {
+    "0-18": (0, 18),
+    "19-24": (19, 24),
+    "25-30": (25, 30),
+    "31-39": (31, 39),
+    "40-64": (40, 64),
+    "65-120": (65, 120),
+}
 NOTICE_STATUSES = ("upcoming", "open", "closed", "selecting", "selected", "paying", "paid")
 
 
@@ -29,8 +35,9 @@ def matches_age(record, bands, minimum=None, maximum=None):
     """Compare precise published age ranges; unknown or vague age text cannot match."""
     ranges = [AGE_BANDS[band] for band in bands]
     if minimum is not None or maximum is not None:
-        ranges.append((minimum if minimum is not None else 0,
-                       maximum if maximum is not None else 120))
+        ranges.append(
+            (minimum if minimum is not None else 0, maximum if maximum is not None else 120)
+        )
     if not ranges:
         return True
     section = (record["draft_json"].get("overview") or {}).get("age_conditions") or {}
@@ -40,8 +47,11 @@ def matches_age(record, bands, minimum=None, maximum=None):
         return False
     value = re.sub(r"\s+", "", section.get("text") or "")
     pair = re.fullmatch(r"(?:만)?(\d{1,3})세?[~～–-](?:만)?(\d{1,3})세", value)
-    combined = re.fullmatch(r"(?:만)?(\d{1,3})세(이상|초과)(?:[~～–-]|부터)?"
-                            r"(?:만)?(\d{1,3})세(이하|미만)", value)
+    combined = re.fullmatch(
+        r"(?:만)?(\d{1,3})세(이상|초과)(?:[~～–-]|부터)?"
+        r"(?:만)?(\d{1,3})세(이하|미만)",
+        value,
+    )
     bound = re.fullmatch(r"(?:만)?(\d{1,3})세(이상|이하|미만|초과)", value)
     if pair:
         low, high = map(int, pair.groups())
@@ -62,28 +72,43 @@ def matches_eligibility(record, member, today):
     from app.contracts.conditions import CanonicalPolicy
     from app.contracts.parsing import SourcePolicy
     from app.modules.matching.public import (
-        application_is_open, build_facts, compare_policy, missing_target_requirements,
+        application_is_open,
+        build_facts,
+        compare_policy,
+        missing_target_requirements,
     )
-    from app.modules.storage.catalog import card
     from app.modules.presentation.public import policy_signals
+    from app.modules.storage.catalog import card
 
     if member is None or record.get("canonical_json") is None:
         return False
     try:
         matching = compare_policy(record, build_facts(member, None), today=today)
         policy = {**card(record), **policy_signals(record)}
-        return (matching["status"] == "potential_match"
-                and notice_status(policy, record, today) == "open"
-                and not missing_target_requirements(
-                    CanonicalPolicy.model_validate(record["canonical_json"]),
-                    SourcePolicy.model_validate(record["source_json"]))
-                and application_is_open(policy, matching, today))
+        return (
+            matching["status"] == "potential_match"
+            and notice_status(policy, record, today) == "open"
+            and not missing_target_requirements(
+                CanonicalPolicy.model_validate(record["canonical_json"]),
+                SourcePolicy.model_validate(record["source_json"]),
+            )
+            and application_is_open(policy, matching, today)
+        )
     except (ValueError, TypeError, KeyError):
         return False
 
 
-def filter_records(records, *, status="", age_bands=(), age_min=None, age_max=None,
-                   eligible_only=False, member=None, today=None):
+def filter_records(
+    records,
+    *,
+    status="",
+    age_bands=(),
+    age_min=None,
+    age_max=None,
+    eligible_only=False,
+    member=None,
+    today=None,
+):
     from app.modules.storage.catalog import card
 
     today = today or datetime.now(ZoneInfo("Asia/Seoul")).date()

@@ -38,30 +38,53 @@ from app.modules.storage.schedule_rules import build_calendar_rule, resolve_cale
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 TABLES = (
-    "condition_documents", "condition_entries", "policy_revision_details",
-    "policy_ingestion_runs", "policy_ingestion_items", "policies",
+    "condition_documents",
+    "condition_entries",
+    "policy_revision_details",
+    "policy_ingestion_runs",
+    "policy_ingestion_items",
+    "policies",
     "policy_requirements",
 )
 STORAGE_VERSION = "policy-storage-v1"
 
 
 def digest(value) -> str:
-    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                    separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    ).hexdigest()
 
 
 def _legacy_policy_upsert(policies, values):
     statement = mysql_insert(policies).values(**values)
     # MySQL evaluates assignments left to right. Compare the old source before replacing it.
-    updates = [("review_status", case(
-        (cast(policies.c.source_text, LargeBinary)
-         != cast(statement.inserted.source_text, LargeBinary), "draft"),
-        else_=policies.c.review_status,
-    ))]
-    updates.extend((key, statement.inserted[key]) for key in (
-        "title", "organization", "source_url", "source_text",
-        "application_start", "application_end", "is_synthetic",
-    ))
+    updates = [
+        (
+            "review_status",
+            case(
+                (
+                    cast(policies.c.source_text, LargeBinary)
+                    != cast(statement.inserted.source_text, LargeBinary),
+                    "draft",
+                ),
+                else_=policies.c.review_status,
+            ),
+        )
+    ]
+    updates.extend(
+        (key, statement.inserted[key])
+        for key in (
+            "title",
+            "organization",
+            "source_url",
+            "source_text",
+            "application_start",
+            "application_end",
+            "is_synthetic",
+        )
+    )
     return statement.on_duplicate_key_update(updates)
 
 
@@ -73,8 +96,11 @@ def validate_draft(payload: dict) -> dict:
     if draft.get("review_status") != "draft" or draft.get("matching_enabled") is not False:
         raise ValueError("Ingestion accepts unpublished drafts only")
     source = SourcePolicy.model_validate(draft["source"])
-    if (not source.policy_key or len(source.policy_key) > 255
-            or not re.fullmatch(r"[a-f0-9]{64}", source.source_hash)):
+    if (
+        not source.policy_key
+        or len(source.policy_key) > 255
+        or not re.fullmatch(r"[a-f0-9]{64}", source.source_hash)
+    ):
         raise ValueError("Invalid source identity/hash")
     status = draft.get("status")
     if status not in {"needs_review", "failed", "pending"}:
@@ -89,7 +115,8 @@ def validate_draft(payload: dict) -> dict:
         canonical = CanonicalPolicy.model_validate(draft["canonical"])
         validate_canonical(canonical, source)
         if {c.condition_id for c in analysis.conditions} != {
-                c.condition_id for c in canonical.conditions}:
+            c.condition_id for c in canonical.conditions
+        }:
             raise ValueError("Extraction/canonical condition identities differ")
     if draft.get("overview") is not None:
         if "application_method" in draft["overview"]:
@@ -111,9 +138,12 @@ def validate_draft(payload: dict) -> dict:
         validate_canonical(CanonicalPolicy.model_validate(draft["code_canonical"]), source)
     if draft.get("application_calendar") is not None:
         rule = draft["application_calendar"]
-        if (not isinstance(rule, dict)
-                or rule.get("period") != (draft.get("overview") or {}).get("application_period")
-                or build_calendar_rule(rule.get("period"), rule.get("expression"), source.fields) != rule):
+        if (
+            not isinstance(rule, dict)
+            or rule.get("period") != (draft.get("overview") or {}).get("application_period")
+            or build_calendar_rule(rule.get("period"), rule.get("expression"), source.fields)
+            != rule
+        ):
             raise ValueError("Unverified application calendar rule")
     return draft
 
@@ -132,13 +162,27 @@ class PolicyRepository:
             raise ValueError("A run requires unique source identities")
         run_id = str(uuid4())
         with self.engine.begin() as connection:
-            connection.execute(insert(self.tables["policy_ingestion_runs"]).values(
-                run_id=run_id, status="running", source_count=len(sources),
-                processing_json={"storage_version": STORAGE_VERSION, **processing}))
-            connection.execute(insert(self.tables["policy_ingestion_items"]), [dict(
-                item_id=str(uuid4()), run_id=run_id, policy_key=s.policy_key,
-                status="pending", source_json=s.model_dump(),
-            ) for s in sources])
+            connection.execute(
+                insert(self.tables["policy_ingestion_runs"]).values(
+                    run_id=run_id,
+                    status="running",
+                    source_count=len(sources),
+                    processing_json={"storage_version": STORAGE_VERSION, **processing},
+                )
+            )
+            connection.execute(
+                insert(self.tables["policy_ingestion_items"]),
+                [
+                    dict(
+                        item_id=str(uuid4()),
+                        run_id=run_id,
+                        policy_key=s.policy_key,
+                        status="pending",
+                        source_json=s.model_dump(),
+                    )
+                    for s in sources
+                ],
+            )
         return run_id
 
     def save_result(self, run_id: str, payload: dict) -> dict:
@@ -155,16 +199,26 @@ class PolicyRepository:
 
         automatic = self.auto_publish and draft["status"] == "needs_review"
         events = events_table(self) if automatic else None
-        transaction = (publication_transaction(self, source["policy_key"])
-                       if draft["status"] == "needs_review" else self.engine.begin())
+        transaction = (
+            publication_transaction(self, source["policy_key"])
+            if draft["status"] == "needs_review"
+            else self.engine.begin()
+        )
         with transaction as connection:
-            item = connection.execute(select(items).where(
-                items.c.run_id == run_id, items.c.policy_key == source["policy_key"]
-            ).with_for_update()).mappings().one()
+            item = (
+                connection.execute(
+                    select(items)
+                    .where(items.c.run_id == run_id, items.c.policy_key == source["policy_key"])
+                    .with_for_update()
+                )
+                .mappings()
+                .one()
+            )
             if item["source_json"] != source:
                 raise ValueError("Result source differs from the queued source")
-            processing = connection.execute(select(runs.c.processing_json).where(
-                runs.c.run_id == run_id)).scalar_one()
+            processing = connection.execute(
+                select(runs.c.processing_json).where(runs.c.run_id == run_id)
+            ).scalar_one()
             revision_id = None
             reused = False
             if draft["status"] == "needs_review":
@@ -173,29 +227,60 @@ class PolicyRepository:
                 if not manual:
                     self._save_legacy_policy(connection, draft)
                 if automatic and not reused and not manual:
-                    change_publication(self, connection, events, revision_id,
-                                       policy_key=source["policy_key"], action="publish",
-                                       expected_status="draft", actor_id="system:auto-publish",
-                                       note="저장 결과 검증 통과 후 기본 자동 승인",
-                                       require_latest=True)
-            connection.execute(update(items).where(items.c.item_id == item["item_id"]).values(
-                status=draft["status"], result_json=draft, revision_id=revision_id,
-                error_code=None if draft["status"] != "failed" else "extraction_failed"))
+                    change_publication(
+                        self,
+                        connection,
+                        events,
+                        revision_id,
+                        policy_key=source["policy_key"],
+                        action="publish",
+                        expected_status="draft",
+                        actor_id="system:auto-publish",
+                        note="저장 결과 검증 통과 후 기본 자동 승인",
+                        require_latest=True,
+                    )
+            connection.execute(
+                update(items)
+                .where(items.c.item_id == item["item_id"])
+                .values(
+                    status=draft["status"],
+                    result_json=draft,
+                    revision_id=revision_id,
+                    error_code=None if draft["status"] != "failed" else "extraction_failed",
+                )
+            )
         # The context manager committed successfully before a saved result is returned.
-        return {"policy_key": source["policy_key"], "status": draft["status"],
-                "revision_id": revision_id, "reused": reused, "saved": True}
+        return {
+            "policy_key": source["policy_key"],
+            "status": draft["status"],
+            "revision_id": revision_id,
+            "reused": reused,
+            "saved": True,
+        }
 
     def _save_revision(self, connection, draft, processing):
         details = self.tables["policy_revision_details"]
         documents = self.tables["condition_documents"]
         entries = self.tables["condition_entries"]
-        stable = {key: draft.get(key) for key in (
-            "schema_version", "source", "analysis", "canonical", "overview",
-            "overview_status", "method", "rule_version", "imported_schema_version", "application_calendar",
-        )}
+        stable = {
+            key: draft.get(key)
+            for key in (
+                "schema_version",
+                "source",
+                "analysis",
+                "canonical",
+                "overview",
+                "overview_status",
+                "method",
+                "rule_version",
+                "imported_schema_version",
+                "application_calendar",
+            )
+        }
         fingerprint = digest({"draft": stable, "processing": processing})
-        existing = connection.execute(select(details.c.revision_id).where(
-            details.c.fingerprint == fingerprint)).scalar_one_or_none()
+        existing = connection.execute(
+            select(details.c.revision_id).where(details.c.fingerprint == fingerprint)
+        ).scalar_one_or_none()
         if existing:
             return existing, True
         revision_id = str(uuid4())
@@ -203,27 +288,46 @@ class PolicyRepository:
         try:
             # SAVEPOINT avoids orphan documents when concurrent identical results race.
             with connection.begin_nested():
-                connection.execute(insert(documents).values(
-                    revision_id=revision_id, policy_key=draft["source"]["policy_key"],
-                    source_hash=draft["source"]["source_hash"],
-                    schema_version=canonical["schema_version"],
-                    region_snapshot_version=canonical["region_snapshot_version"],
-                    source_json=draft["source"], extraction_json=draft["analysis"],
-                    canonical_json=canonical, review_status="draft", matching_enabled=False))
-                connection.execute(insert(details).values(
-                    revision_id=revision_id, fingerprint=fingerprint,
-                    title=draft["source"]["title"], organization=draft["source"]["organization"],
-                    category=(draft.get("overview") or {}).get("category"),
-                    draft_json=draft, processing_json=processing))
+                connection.execute(
+                    insert(documents).values(
+                        revision_id=revision_id,
+                        policy_key=draft["source"]["policy_key"],
+                        source_hash=draft["source"]["source_hash"],
+                        schema_version=canonical["schema_version"],
+                        region_snapshot_version=canonical["region_snapshot_version"],
+                        source_json=draft["source"],
+                        extraction_json=draft["analysis"],
+                        canonical_json=canonical,
+                        review_status="draft",
+                        matching_enabled=False,
+                    )
+                )
+                connection.execute(
+                    insert(details).values(
+                        revision_id=revision_id,
+                        fingerprint=fingerprint,
+                        title=draft["source"]["title"],
+                        organization=draft["source"]["organization"],
+                        category=(draft.get("overview") or {}).get("category"),
+                        draft_json=draft,
+                        processing_json=processing,
+                    )
+                )
                 for condition in canonical["conditions"]:
                     row = {**condition, "revision_id": revision_id}
                     value = row.pop("value")
                     # JSON null must be SQL NULL for the existing CHECK constraint.
-                    connection.execute(insert(entries).values(
-                        **row, value_json=value if value is not None else null()))
+                    connection.execute(
+                        insert(entries).values(
+                            **row, value_json=value if value is not None else null()
+                        )
+                    )
         except IntegrityError:
-            existing = connection.execute(select(details.c.revision_id).where(
-                details.c.fingerprint == fingerprint).with_for_update()).scalar_one_or_none()
+            existing = connection.execute(
+                select(details.c.revision_id)
+                .where(details.c.fingerprint == fingerprint)
+                .with_for_update()
+            ).scalar_one_or_none()
             if existing is None:
                 raise
             return existing, True
@@ -239,13 +343,22 @@ class PolicyRepository:
         source_text = json.dumps(source, ensure_ascii=False, sort_keys=True)
         overview = draft.get("overview") or {}
         application_start, application_end = application_date_columns(
-            source["fields"], overview.get("application_period"))
+            source["fields"], overview.get("application_period")
+        )
         if draft.get("application_calendar") or overview.get("calendar_expression"):
-            schedule = resolve_calendar_schedule(source["fields"], overview, draft.get("application_calendar"))
-            application_start = (date.fromisoformat(schedule["applicationStart"])
-                                 if schedule["applicationStart"] else None)
-            application_end = (date.fromisoformat(schedule["applicationEnd"])
-                               if schedule["applicationEnd"] else None)
+            schedule = resolve_calendar_schedule(
+                source["fields"], overview, draft.get("application_calendar")
+            )
+            application_start = (
+                date.fromisoformat(schedule["applicationStart"])
+                if schedule["applicationStart"]
+                else None
+            )
+            application_end = (
+                date.fromisoformat(schedule["applicationEnd"])
+                if schedule["applicationEnd"]
+                else None
+            )
         values = {
             "source_key": source_key,
             "title": source["title"],
@@ -259,28 +372,38 @@ class PolicyRepository:
         }
 
         # Adopt an identical old-adapter row before inserting the stable source key.
-        prior_id = connection.execute(select(policies.c.id).where(
-            policies.c.source_key.is_(None), policies.c.title == values["title"],
-            policies.c.source_url == source_url, policies.c.is_synthetic.is_(False),
-        ).limit(1).with_for_update()).scalar_one_or_none()
+        prior_id = connection.execute(
+            select(policies.c.id)
+            .where(
+                policies.c.source_key.is_(None),
+                policies.c.title == values["title"],
+                policies.c.source_url == source_url,
+                policies.c.is_synthetic.is_(False),
+            )
+            .limit(1)
+            .with_for_update()
+        ).scalar_one_or_none()
         if prior_id is not None:
-            connection.execute(update(policies).where(policies.c.id == prior_id).values(
-                source_key=source_key))
+            connection.execute(
+                update(policies).where(policies.c.id == prior_id).values(source_key=source_key)
+            )
 
         connection.execute(_legacy_policy_upsert(policies, values))
-        policy_id = connection.execute(select(policies.c.id).where(
-            policies.c.source_key == source_key).with_for_update()).scalar_one()
+        policy_id = connection.execute(
+            select(policies.c.id).where(policies.c.source_key == source_key).with_for_update()
+        ).scalar_one()
 
-        connection.execute(delete(requirements).where(
-            requirements.c.policy_id == policy_id))
-        requirement_rows = overview.get("policy_requirements") or [{
-            "condition_type": "other",
-            "information_state": "not_stated",
-            "evidence_text": "지원 대상 및 선정 기준 원문 미기재",
-        }]
-        connection.execute(insert(requirements), [
-            {**row, "policy_id": policy_id} for row in requirement_rows
-        ])
+        connection.execute(delete(requirements).where(requirements.c.policy_id == policy_id))
+        requirement_rows = overview.get("policy_requirements") or [
+            {
+                "condition_type": "other",
+                "information_state": "not_stated",
+                "evidence_text": "지원 대상 및 선정 기준 원문 미기재",
+            }
+        ]
+        connection.execute(
+            insert(requirements), [{**row, "policy_id": policy_id} for row in requirement_rows]
+        )
         return policy_id
 
     def backfill_legacy_policies(self, policy_keys: list[str] | None = None) -> int:
@@ -289,19 +412,23 @@ class PolicyRepository:
         details = self.tables["policy_revision_details"]
         ranked = select(
             documents.c.revision_id,
-            func.row_number().over(
+            func.row_number()
+            .over(
                 partition_by=documents.c.policy_key,
                 order_by=(documents.c.created_at.desc(), documents.c.revision_id.desc()),
-            ).label("position"),
+            )
+            .label("position"),
         )
         if policy_keys is not None:
             if not policy_keys:
                 return 0
             ranked = ranked.where(documents.c.policy_key.in_(policy_keys))
         latest = ranked.subquery()
-        query = select(details.c.draft_json).join(
-            latest, latest.c.revision_id == details.c.revision_id
-        ).where(latest.c.position == 1)
+        query = (
+            select(details.c.draft_json)
+            .join(latest, latest.c.revision_id == details.c.revision_id)
+            .where(latest.c.position == 1)
+        )
         with self.engine.begin() as connection:
             drafts = connection.execute(query).scalars().all()
             count = 0
@@ -312,23 +439,34 @@ class PolicyRepository:
                     count += 1
             return count
 
-    def mark_failed(self, run_id: str, policy_key: str, error_code: str,
-                    draft: dict | None = None) -> None:
+    def mark_failed(
+        self, run_id: str, policy_key: str, error_code: str, draft: dict | None = None
+    ) -> None:
         items = self.tables["policy_ingestion_items"]
         with self.engine.begin() as connection:
-            connection.execute(update(items).where(
-                items.c.run_id == run_id, items.c.policy_key == policy_key,
-                items.c.status.in_(("pending", "failed")),
-            ).values(status="failed", error_code=error_code,
-                     result_json=draft if draft is not None else null()))
+            connection.execute(
+                update(items)
+                .where(
+                    items.c.run_id == run_id,
+                    items.c.policy_key == policy_key,
+                    items.c.status.in_(("pending", "failed")),
+                )
+                .values(
+                    status="failed",
+                    error_code=error_code,
+                    result_json=draft if draft is not None else null(),
+                )
+            )
 
     def pending_items(self, run_id: str, *, limit: int | None = None) -> list[dict]:
         if limit is not None and (isinstance(limit, bool) or not 1 <= limit <= 10000):
             raise ValueError("Pending item limit must be between 1 and 10000")
         items = self.tables["policy_ingestion_items"]
-        query = select(items).where(
-            items.c.run_id == run_id, items.c.status.in_(("pending", "failed"))
-        ).order_by(items.c.policy_key)
+        query = (
+            select(items)
+            .where(items.c.run_id == run_id, items.c.status.in_(("pending", "failed")))
+            .order_by(items.c.policy_key)
+        )
         if limit is not None:
             query = query.limit(limit)
         with self.engine.connect() as connection:
@@ -338,7 +476,8 @@ class PolicyRepository:
         runs = self.tables["policy_ingestion_runs"]
         with self.engine.connect() as connection:
             result = connection.scalar(
-                select(runs.c.processing_json).where(runs.c.run_id == run_id))
+                select(runs.c.processing_json).where(runs.c.run_id == run_id)
+            )
             if result is None:
                 raise ValueError("Run not found")
             return result
@@ -346,40 +485,71 @@ class PolicyRepository:
     def finish_run(self, run_id: str, *, prepare_only=False) -> dict:
         runs, items = self.tables["policy_ingestion_runs"], self.tables["policy_ingestion_items"]
         with self.engine.begin() as connection:
-            records = connection.execute(select(items.c.policy_key, items.c.status,
-                items.c.revision_id, items.c.error_code).where(items.c.run_id == run_id)
-                .order_by(items.c.policy_key)).mappings().all()
+            records = (
+                connection.execute(
+                    select(
+                        items.c.policy_key, items.c.status, items.c.revision_id, items.c.error_code
+                    )
+                    .where(items.c.run_id == run_id)
+                    .order_by(items.c.policy_key)
+                )
+                .mappings()
+                .all()
+            )
             if not records:
                 raise ValueError("Run not found")
-            status = ("failed" if any(r["status"] == "failed" for r in records)
-                      else "prepared" if prepare_only else "running"
-                      if any(r["status"] == "pending" for r in records) else "needs_review")
+            status = (
+                "failed"
+                if any(r["status"] == "failed" for r in records)
+                else "prepared"
+                if prepare_only
+                else "running"
+                if any(r["status"] == "pending" for r in records)
+                else "needs_review"
+            )
             connection.execute(update(runs).where(runs.c.run_id == run_id).values(status=status))
-        return {"run_id": run_id, "storage": "mysql", "status": status,
-                "records": [dict(r) for r in records]}
+        return {
+            "run_id": run_id,
+            "storage": "mysql",
+            "status": status,
+            "records": [dict(r) for r in records],
+        }
 
     def get_revision(self, revision_id: str, *, published_only: bool = True) -> dict | None:
         documents = self.tables["condition_documents"]
         details = self.tables["policy_revision_details"]
-        query = select(documents, details.c.draft_json, details.c.processing_json).join(
-            details, details.c.revision_id == documents.c.revision_id
-        ).where(documents.c.revision_id == revision_id)
+        query = (
+            select(documents, details.c.draft_json, details.c.processing_json)
+            .join(details, details.c.revision_id == documents.c.revision_id)
+            .where(documents.c.revision_id == revision_id)
+        )
         if published_only:
             query = query.where(documents.c.review_status == "published")
         with self.engine.connect() as connection:
             record = connection.execute(query).mappings().first()
             return dict(record) if record else None
 
-    def list_revisions(self, *, published_only: bool = True, limit: int = 20,
-                       offset: int = 0, policy_key: str | None = None) -> list[dict]:
+    def list_revisions(
+        self,
+        *,
+        published_only: bool = True,
+        limit: int = 20,
+        offset: int = 0,
+        policy_key: str | None = None,
+    ) -> list[dict]:
         if not 1 <= limit <= 100 or offset < 0:
             raise ValueError("Invalid pagination")
         documents = self.tables["condition_documents"]
         details = self.tables["policy_revision_details"]
-        query = select(documents.c.revision_id, documents.c.policy_key,
-            documents.c.review_status, documents.c.matching_enabled, documents.c.created_at,
-            details.c.title, details.c.category).join(
-                details, details.c.revision_id == documents.c.revision_id)
+        query = select(
+            documents.c.revision_id,
+            documents.c.policy_key,
+            documents.c.review_status,
+            documents.c.matching_enabled,
+            documents.c.created_at,
+            details.c.title,
+            details.c.category,
+        ).join(details, details.c.revision_id == documents.c.revision_id)
         if published_only:
             query = query.where(documents.c.review_status == "published")
         if policy_key is not None:
