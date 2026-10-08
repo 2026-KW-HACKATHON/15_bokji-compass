@@ -80,7 +80,7 @@ function FinanceField({
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Copy>{field.label}</Copy>
-            {field.optional && <Copy muted>선택 · 필수 아님</Copy>}
+            {field.optional && <Copy muted>선택 사항</Copy>}
           </View>
           <Switch
             accessibilityLabel={t(field.label)}

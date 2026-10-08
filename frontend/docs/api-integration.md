@@ -28,7 +28,7 @@
 | Method / 서버 경로 | 호출자 | 쿠키 | 동작 |
 |---|---|---|---|
 | GET /v1/finance/rules | financeApi.rules() | omit | 지원 연도·규칙 버전·공식 출처 조회. 현재 화면은 계산 응답의 출처 사용 |
-| POST /v1/finance/calculate | financeApi.calculate(profile) | omit | 비회원도 원자료를 전송해 서버 산식으로 계산 |
+| POST /v1/finance/calculate | financeApi.calculate(profile,{allowApproximation}) | omit | 비회원도 원자료를 전송해 서버 산식으로 계산. 근사 옵션은 기본 false |
 | GET /v1/finance/profile | financeApi.getProfile() | include | 버튼으로 현재 회원의 저장 원자료와 재계산 결과 불러오기 |
 | POST /v1/finance/profile | financeApi.saveProfile(profile,{consent:true}) | include | 별도 저장 동의와 함께 현재 회원에게 저장 |
 | POST /v1/finance/profile/delete | financeApi.deleteProfile() | include | UI의 두 단계 삭제 확인 후 현재 회원의 금융 원자료 삭제 |
@@ -37,7 +37,7 @@
 
 입력 계약은 [FinancialProfile](../../backend/app/contracts/finance.py)입니다. 가구원 수·지역·수급 상태, 가구원별 소득·공제 유형, 소유 주택·임차보증금·일반·금융 재산, 부채, 차량 원자료를 보냅니다. 금액은 0 이상 정수 원이며 빈칸은 null입니다. 전송 필드를 제한하고 안전 정수·범위를 검증합니다. 기준 금액과 산식은 [서버 규칙](../../backend/app/modules/finance/rules.py)·[계산 코드](../../backend/app/modules/finance/public.py)가 관리하며 프론트에서 재계산하지 않습니다.
 
-계산 응답은 `reference_year`, `rules_version`, `median`, `assets`, `assessments`, `sources`, `notes`로 구성됩니다. 사업별 결과는 `estimated` 또는 `needs_review`, 개별 비교는 `within`·`over`·`unknown`입니다. `unknown`은 통과·탈락이 아니며 자격 미확인 상태를 유지합니다. 결과의 공식 출처를 링크하고 수급자·차상위 여부·자동차 특례를 확정하지 않습니다.
+계산 요청은 `{profile, allow_approximation?}`입니다. 근사 옵션을 명시적으로 켜면 일부 미지원 기준에 임시 대체값을 사용하고 응답의 `approximations`에 해당 가정을 반환합니다. 계산 응답은 `reference_year`, `rules_version`, `approximations`, `median`, `assets`, `assessments`, `sources`, `notes`로 구성됩니다. 근사값이 있어도 사업별 결과는 `needs_review`, 개별 비교는 `unknown`으로 유지하며, `unknown`은 통과·탈락이 아닙니다. 결과의 공식 출처를 링크하고 수급자·차상위 여부·자동차 특례를 확정하지 않습니다.
 
 회원 불러오기·저장 응답은 `{profile,calculation,updated_at}`입니다. 저장 정보가 없으면 세 필드가 null인 정상 응답이며 현재 입력을 덮어쓰지 않습니다. 불러오기는 자동 실행하지 않습니다. 원자료는 선택한 회원 계정에 저장하고 불러올 때 현재 서버 규칙으로 다시 계산합니다. 비회원 원자료는 실행 중 메모리에만 유지하며 브라우저 저장소에 쓰지 않습니다. [계산기 모듈](../web/src/features/finance/readme.md).
 

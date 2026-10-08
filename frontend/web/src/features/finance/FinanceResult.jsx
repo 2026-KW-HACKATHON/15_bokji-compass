@@ -6,13 +6,30 @@ export default function ResultView({ calculation, onRecommend, easy }) {
   const { t, formatMoney, formatNumber } = useFinanceI18n();
 
   const median = calculation.median;
+  const approximations = calculation.approximations ?? [];
   const missing = [...new Set(calculation.assessments.flatMap((assessment) => assessment.missing))];
   return (
     <div className="finance-result">
-      <p className="finance-reference">
-        {calculation.reference_year}
-        {t('년 공식 기준을 참고한 결과입니다.')}{' '}
-      </p>
+      {approximations.length > 0 ? (
+        <div className="finance-approximation-notice" role="status">
+          <strong>{t('근사 계산 참고값')}</strong>
+          <p>
+            {t(
+              '아래 금액은 공식 기준이 등록되지 않았거나 입력한 소득 기준이 다른 항목을 임시 대체해 계산한 값입니다. 공식 산정값이나 수급·입주 자격 판정이 아닙니다.',
+            )}
+          </p>
+          <ul className="finance-note-list">
+            {approximations.map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="finance-reference">
+          {calculation.reference_year}
+          {t('년 공식 기준을 참고한 결과입니다.')}{' '}
+        </p>
+      )}
       <section className="finance-result-guide" aria-labelledby="finance-result-guide-title">
         <h3 id="finance-result-guide-title">{t('결과에 나오는 용어를 먼저 알아보세요')}</h3>
         <dl>

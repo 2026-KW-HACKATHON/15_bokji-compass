@@ -2388,11 +2388,11 @@ const featureMainMessages = {
     vi: "Xóa nội dung nhập trên màn hình",
     ja: "この画面の入力情報を消去",
   },
-  "선택 · 필수 아님": {
-    en: "Optional · Not required",
-    zh: "选填 · 非必填",
-    vi: "Tùy chọn · Không bắt buộc",
-    ja: "任意 · 必須ではありません",
+  "선택 사항": {
+    en: "Optional",
+    zh: "选填",
+    vi: "Tùy chọn",
+    ja: "任意",
   },
   "{value1} 입력 상태": {
     en: "{value1} input status",

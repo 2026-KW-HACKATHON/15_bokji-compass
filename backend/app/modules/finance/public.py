@@ -50,9 +50,13 @@ def benefit_limit(size, percent):
     return seventh + (size - 7) * (seventh - sixth)
 
 
-def income_basis_missing(member, index):
+def income_basis_missing(member, index, *, allow_approximation=False):
     missing = []
-    if member.earned_income and member.earned_income_basis != "gross":
+    if (
+        member.earned_income
+        and member.earned_income_basis != "gross"
+        and not (allow_approximation and member.earned_income_basis == "net")
+    ):
         missing.append(
             f"{index}번째 가구원의 근로소득은 실수령액이 아닌 세금·사회보험료 차감 전 "
             "금액인지 확인해 주세요."
@@ -74,8 +78,11 @@ def entered_monthly_income(profile, *, include_private=True):
     return known_sum(values)
 
 
-def monthly_income(profile, *, include_private=True):
-    if any(income_basis_missing(member, index) for index, member in enumerate(profile.members, 1)):
+def monthly_income(profile, *, include_private=True, allow_approximation=False):
+    if any(
+        income_basis_missing(member, index, allow_approximation=allow_approximation)
+        for index, member in enumerate(profile.members, 1)
+    ):
         return None
     return entered_monthly_income(profile, include_private=include_private)
 
@@ -115,11 +122,13 @@ def context_missing(profile):
     return missing
 
 
-def assessed_earnings(profile, *, exclude_private=False):
+def assessed_earnings(profile, *, exclude_private=False, allow_approximation=False):
     total = D(0)
     missing, breakdown = [], []
     for index, member in enumerate(profile.members, 1):
-        basis_missing = income_basis_missing(member, index)
+        basis_missing = income_basis_missing(
+            member, index, allow_approximation=allow_approximation
+        )
         if basis_missing:
             missing.extend(basis_missing)
             continue
@@ -245,9 +254,21 @@ def deduct_in_order(balances, amount):
     return result
 
 
-def recognized_assets(profile, *, financial_rate=D("0.0626")):
+def recognized_assets(profile, *, financial_rate=D("0.0626"), allow_approximation=False):
     missing, breakdown = [], []
-    if profile.region not in REGIONAL_ALLOWANCES:
+    region = profile.region
+    approximate_region = False
+    if region == "jeonnam_gwangju":
+        if profile.region_subdivision == "gwangju":
+            region = "metropolitan"
+        elif profile.region_subdivision == "other":
+            region = "other"
+        elif allow_approximation:
+            region = "other"
+            approximate_region = True
+        else:
+            region = None
+    if region not in REGIONAL_ALLOWANCES:
         missing.append(
             "전남광주통합특별시의 기본재산 공제 기준은 현재 계산에서 지원하지 않아 "
             "재산의 소득환산액을 계산하지 못했어요."
@@ -268,7 +289,7 @@ def recognized_assets(profile, *, financial_rate=D("0.0626")):
     missing.extend(car_missing)
     if missing:
         return None, missing, car_breakdown
-    allowance, cap = REGIONAL_ALLOWANCES[profile.region]
+    allowance, cap = REGIONAL_ALLOWANCES[region]
     residence = D(profile.assets.housing) + D(profile.assets.rental_deposit) * D("0.95")
     general = D(profile.assets.general + cars) + max(D(0), residence - cap)
     balances = [min(residence, D(cap)), general, D(max(0, profile.assets.financial - 5_000_000))]
@@ -279,7 +300,14 @@ def recognized_assets(profile, *, financial_rate=D("0.0626")):
     breakdown.extend(
         [
             {"label": "주거용재산 평가액 (임차보증금 95% 반영)", "amount": won(residence)},
-            {"label": "지역별 기본재산 공제 한도", "amount": allowance},
+            {
+                "label": (
+                    "지역별 기본재산 공제 한도 (그 밖의 지역 기준 임시 적용)"
+                    if approximate_region
+                    else "지역별 기본재산 공제 한도"
+                ),
+                "amount": allowance,
+            },
             {"label": "입력한 금융·공공기관 부채", "amount": debt},
             {"label": "공제 후 주거재산 월 환산", "amount": won(converted[0])},
             {"label": "공제 후 일반재산 월 환산", "amount": won(converted[1])},
@@ -290,10 +318,14 @@ def recognized_assets(profile, *, financial_rate=D("0.0626")):
     return sum(converted) + car_monthly, [], breakdown
 
 
-def basic_assessment(profile):
+def basic_assessment(profile, *, allow_approximation=False, approximated=False):
     missing = context_missing(profile)
-    income, income_missing, income_breakdown = assessed_earnings(profile)
-    assets, assets_missing, assets_breakdown = recognized_assets(profile)
+    income, income_missing, income_breakdown = assessed_earnings(
+        profile, allow_approximation=allow_approximation
+    )
+    assets, assets_missing, assets_breakdown = recognized_assets(
+        profile, allow_approximation=allow_approximation
+    )
     missing.extend(income_missing + assets_missing)
     value = None if income is None or assets is None else won(income + assets)
     limit = benefit_limit(profile.household_size, 32) if profile.reference_year == 2026 else None
@@ -306,13 +338,14 @@ def basic_assessment(profile):
     return {
         "rule_id": "basic-livelihood-2026",
         "label": "생계급여 기본 산식 · 2026",
-        "status": "needs_review" if missing else "estimated",
+        "status": "needs_review" if missing or approximated else "estimated",
         "checks": [
             check(
                 "소득인정액 (월)",
                 value,
                 limit,
-                ready=not any("원 미만 차이" in reason for reason in missing),
+                ready=not approximated
+                and not any("원 미만 차이" in reason for reason in missing),
             )
         ],
         "missing": list(dict.fromkeys(missing)),
@@ -325,11 +358,15 @@ def basic_assessment(profile):
     }
 
 
-def near_poor_assessment(profile):
+def near_poor_assessment(profile, *, allow_approximation=False):
     missing = context_missing(profile)
-    income, income_missing, income_breakdown = assessed_earnings(profile, exclude_private=True)
+    income, income_missing, income_breakdown = assessed_earnings(
+        profile, exclude_private=True, allow_approximation=allow_approximation
+    )
     assets, assets_missing, assets_breakdown = recognized_assets(
-        profile, financial_rate=D("0.0417")
+        profile,
+        financial_rate=D("0.0417"),
+        allow_approximation=allow_approximation,
     )
     missing.extend(income_missing + assets_missing)
     # This calculator does not collect pension contributions, qualifying tuition,
@@ -365,11 +402,15 @@ def near_poor_assessment(profile):
     }
 
 
-def rental_assessment(profile, summary):
+def rental_assessment(profile, summary, *, allow_approximation=False, income_approximated=False):
     missing = context_missing(profile)
     for index, member in enumerate(profile.members, 1):
-        missing.extend(income_basis_missing(member, index))
-    income = monthly_income(profile, include_private=False)
+        missing.extend(
+            income_basis_missing(member, index, allow_approximation=allow_approximation)
+        )
+    income = monthly_income(
+        profile, include_private=False, allow_approximation=allow_approximation
+    )
     if income is None:
         missing.append("가구원 전원의 근로·사업·기타 소득을 입력해 주세요.")
     if summary["net_total"] is None:
@@ -413,13 +454,13 @@ def rental_assessment(profile, summary):
     return {
         "rule_id": "national-rental-2026",
         "label": "국민임대 일반 소득·자산 · 2026",
-        "status": "needs_review" if missing else "estimated",
+        "status": "needs_review" if missing or income_approximated else "estimated",
         "checks": [
             check(
                 "도시근로자 기준과 비교할 월소득",
                 comparison_income,
                 limit,
-                ready=income is not None,
+                ready=income is not None and not income_approximated,
             ),
             check(
                 "총자산 (차량 포함·부채 차감)",
@@ -480,9 +521,31 @@ def rules_catalog():
     }
 
 
-def calculate(profile: FinancialProfile) -> dict:
+def calculate(profile: FinancialProfile, *, allow_approximation=False) -> dict:
     if not isinstance(profile, FinancialProfile):
         profile = FinancialProfile.model_validate(profile)
+    apply_approximation = allow_approximation and profile.reference_year == 2026
+    approximations = []
+    income_approximated = False
+    region_approximated = (
+        apply_approximation
+        and profile.region == "jeonnam_gwangju"
+        and profile.region_subdivision not in {"gwangju", "other"}
+    )
+    if apply_approximation:
+        if region_approximated:
+            approximations.append(
+                "전남광주통합특별시의 기본재산 공제 기준이 없어 "
+                "‘그 밖의 지역’ 기준을 임시 적용했어요."
+            )
+        for index, member in enumerate(profile.members, 1):
+            if member.earned_income and member.earned_income_basis == "net":
+                income_approximated = True
+                approximations.append(
+                    f"{index}번째 가구원의 세후 근로소득을 세전으로 환산하지 않고 "
+                    "입력액 그대로 참고 산식에 적용했어요."
+                )
+    approximated = bool(approximations)
     base = median_base(profile.household_size) if profile.reference_year == 2026 else None
     entered_income = entered_monthly_income(profile)
     ratio = (
@@ -492,9 +555,16 @@ def calculate(profile: FinancialProfile) -> dict:
     )
     summary = asset_summary(profile)
     assessments = [
-        basic_assessment(profile),
-        near_poor_assessment(profile),
-        rental_assessment(profile, summary),
+        basic_assessment(
+            profile, allow_approximation=apply_approximation, approximated=approximated
+        ),
+        near_poor_assessment(profile, allow_approximation=apply_approximation),
+        rental_assessment(
+            profile,
+            summary,
+            allow_approximation=apply_approximation,
+            income_approximated=income_approximated,
+        ),
     ]
     if profile.reference_year != 2026:
         for assessment in assessments:
@@ -506,6 +576,7 @@ def calculate(profile: FinancialProfile) -> dict:
     return {
         "reference_year": profile.reference_year,
         "rules_version": RULES_VERSION,
+        "approximations": approximations,
         "median": {
             "base": base,
             "monthly_income": entered_income,
