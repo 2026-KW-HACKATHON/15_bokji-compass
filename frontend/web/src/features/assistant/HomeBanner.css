@@ -2,7 +2,21 @@
   margin-bottom: 24px;
   min-width: 0;
 }
+.home-banner-viewport {
+  /* Both slides size the same grid row, so switching never moves the content below. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
 .home-banner-slide {
+  grid-area: 1 / 1;
+  min-width: 0;
+  display: grid;
+  visibility: hidden;
+  pointer-events: none;
+}
+.home-banner-slide.is-active {
+  visibility: visible;
+  pointer-events: auto;
   animation: banner-appear 0.35s ease-out;
 }
 @keyframes banner-appear {
@@ -281,7 +295,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-banner-slide {
+  .home-banner-slide.is-active {
     animation: none;
   }
   .home-banner-dots span {

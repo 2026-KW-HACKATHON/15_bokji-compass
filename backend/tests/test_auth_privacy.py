@@ -26,6 +26,7 @@ from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import AuthService, digest, password_hash
 from app.modules.finance.schema import initialize_finance_schema
 from app.modules.finance.storage import financial_profiles
+from tests.email_helpers import SIGNUP_CONSENT, verify_email
 
 HEADERS = {"X-Auth-Request": "1"}
 PROFILE = {"name": "테스트회원", "age": 35, "gender": "female", "region": "서울"}
@@ -119,14 +120,17 @@ def test_password_login_without_mysql_or_member_keys_persists_after_restart(tmp_
     )
     assert settings.auth_encryption_keys.get_secret_value() == "{}"
     with TestClient(create_app(settings), headers=HEADERS, base_url="https://localhost") as client:
+        verify_email(client)
         assert (
             client.post(
                 "/v1/auth/signup",
                 json={
                     **PROFILE,
                     "username": "tester",
+                    "email": "tester@example.com",
                     "password": PASSWORD,
                     "confirm_password": PASSWORD,
+                    "consent": SIGNUP_CONSENT.copy(),
                 },
             ).status_code
             == 201
@@ -166,7 +170,13 @@ def test_kakao_signup_without_mysql_or_member_keys(tmp_path, monkeypatch, mode):
         )
         assert callback.headers["location"].endswith("#signup?kakao=complete")
         assert client.get("/v1/auth/kakao/pending").json() == {"name": "카카오별명"}
-        assert client.post("/v1/auth/kakao/complete", json=PROFILE).status_code == 201
+        assert (
+            client.post(
+                "/v1/auth/kakao/complete",
+                json={**PROFILE, "email": "kakao@example.com", "consent": SIGNUP_CONSENT.copy()},
+            ).status_code
+            == 201
+        )
         assert client.get("/v1/auth/me").json()["user"]["name"] == PROFILE["name"]
         with client.app.state.auth_service.engine.connect() as connection:
             row = connection.execute(select(accounts)).mappings().one()

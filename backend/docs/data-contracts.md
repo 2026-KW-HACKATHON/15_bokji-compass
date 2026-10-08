@@ -57,7 +57,7 @@ groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원�
 
 ## PolicyOverview
 
-파이프라인 초안의 `overview`는 `title`, `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 제공합니다. 제목은 원문 제목 그대로이며 `source_url`은 `SourcePolicy.source_url`에서 복사합니다. 모델이 URL을 생성·수정하지 않습니다. 원문 URL이 없으면 null입니다. 분야는 웹과 동일한 6개 값(`생활·금융`, `주거`, `일자리`, `교육`, `건강·돌봄`, `문화`) 중 주된 지원 내용에 따라 선택하며, 미분류 시 category=null과 unresolved 사유를 기록합니다.
+파이프라인 초안의 `overview`는 `title`, `source_url`, `category`, `region_conditions`, `gender_conditions`, `age_conditions`, `other_conditions`, `benefits`를 제공합니다. 제목은 원문 제목 그대로이며 `source_url`은 `SourcePolicy.source_url`에서 복사합니다. 모델이 URL을 생성·수정하지 않습니다. 원문 URL이 없으면 null입니다. 분야는 웹과 동일한 8개 값(`생활·금융`, `주거`, `일자리`, `교육`, `건강·돌봄`, `문화`, `농림축산·어업`, `사업·창업`) 중 주된 지원 내용에 따라 선택하며, 미분류 시 category=null과 unresolved 사유를 기록합니다.
 
 지역·성별·나이 조건 및 혜택은 `status`와 `text`, `evidence`, `unresolved_reason`을 가집니다. `specified`는 조건/혜택 명시, `unrestricted`는 제한 없음 명시, `not_stated`는 원문 미기재, `unclear`는 모호·상충을 뜻합니다. 근거가 있는 text는 원문 인용을 가져야 하고, 미기재 상태는 내용을 추론해 채우지 않습니다. `other_conditions`는 소득·가구·자산·신청 조건 등을 항목별 text/evidence로 보존합니다. 검증은 제목과 인용의 원문 일치만 보장하며 의미 정확성·조건 완전성·사용자 자격을 확정하지 않습니다.
 
@@ -73,3 +73,10 @@ groups는 all/any/exception/priority/reference/unresolved와 적용 범위·원�
 manifest.json은 정책별 초안 경로·처리 상태 관리. 실제 함수 반환·폴더 구조는 [파싱 사용법](raw-parsing.md) 참조. MySQL 저장·조회·공개 계약은 미구현이며 향후 버전 변환을 통해 별도 연결.
 
 004 SQL은 v2 저장 테이블 DDL만 제공. 기존 v1 파일·001 개발 SQL·인증 DB 자동 이관 없음.
+
+## 공개 공고 표시 번역 (2026-10-07)
+
+`contracts/translation.py`의 `PolicyTranslation`은 표시 문구만 담는다. 원문 개정·자격 모델·
+분야·지역·태그·날짜/URL 메타데이터를 생성하거나 변경하지 않는다. 응답의 공고 ID·개정 ID·
+내용 해시·언어와 DB 캐시 버전을 대조하며 숫자·숫자 날짜·URL·이메일·필드 구조를 보존한다.
+정확한 필드·오류·일일 생성 한도는 [공고 번역 계약](policy-translation.md)을 따른다.

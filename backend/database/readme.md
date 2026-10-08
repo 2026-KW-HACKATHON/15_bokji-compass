@@ -1,12 +1,16 @@
 # MySQL 공고 저장 스키마
 
+2026-10-06 봉규 브랜치의 공고 seed SQL·JSON을 [seeds](seeds/readme.md)에 선택 복원했습니다.
+광운대 원문 190건과 공개 요약 표본 2건이며 자동 생성 스크립트가 아닌 고정 SQL 결과물입니다.
+서비스 DB에 적재하지 않았고 서버 시작 시 자동 실행하지 않습니다.
+
 공고 저장 스키마는 `backend`에서 `python -m app.modules.storage init`으로 초기화한다.
 DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중에는 DDL을 실행하지 않는다.
 실행·이관·재개 방법은 [저장소 운영 안내](../docs/policy-storage.md)를 참고한다.
 
 ## 마이그레이션
 
-초기화기는 004부터 008까지 아래 순서로 SQL을 적용한다.
+초기화기는 004부터 008까지 적용한 뒤 010 용량 보완을 적용한다.
 
 | 파일 | 역할 | 주요 테이블·객체 |
 |---|---|---|
@@ -18,6 +22,7 @@ DB 접속 정보는 `backend/.env`에서 읽으며 API 요청이나 파싱 중�
 | `006_policy_publication.sql` | 관리자 공개·비공개 변경 감사 이력 | `policy_publication_events` |
 | `007_policy_collection.sql` | 서버 수집 작업, 체크포인트, 원문 변경 이력, 호출량 및 외부 공고 후보 | 수집 관련 테이블 |
 | `008_legacy_policy_projection.sql` | 기존 조회 계약과의 호환 테이블 | `policies`, `policy_requirements` |
+| `010_legacy_policy_capacity.sql` | 개정 저장소 입력을 보존하도록 호환 컬럼 확장 | 제목·기관 1000자, 원문·URL·조건 근거 LONGTEXT |
 
 적용 SQL 파일명과 체크섬은 `policy_schema_versions`에 기록한다. 초기화기는 공식 지역 스냅샷의
 무결성을 확인하고 약 63,000개 지역 행을 설치한다. 재실행 시 적용된 체크섬을 검증하며 기존
@@ -49,13 +54,18 @@ revision 저장과 같은 트랜잭션에서 이 테이블에도 반영된다. `
 `PolicyRepository.backfill_legacy_policies()`로 최신 revision 기준 재투영할 수 있다.
 호환 테이블은 파생 데이터이므로 직접 편집하지 않는다.
 
+010은 기존 008 파일과 체크섬을 변경하지 않고 컬럼 용량만 넓힌다. 제목·기관은 개정 상세와
+같은 1000자이며 원문 JSON, URL, 조건 근거는 LONGTEXT로 저장한다. 긴 한국어 원문이나
+255자를 넘는 제목 때문에 호환 테이블 쓰기가 전체 개정 저장을 실패시키지 않도록 한다.
+
 `policies.source_text`에는 파이프라인이 추출에 사용한 정규화 입력 JSON을 저장한다. 이는 공급자
 응답의 원본 JSON/XML 전체를 의미하지 않는다. 원본 payload는 별도로 수집·보관한 경우에만 조회할 수 있다.
 
 ## 초기화와 안전성
 
 `python -m app.modules.storage init`은 004, 005, `006_policy_publication`,
-`007_policy_collection`, `008_legacy_policy_projection`을 순서대로 체크섬과 함께 적용한 뒤
+`007_policy_collection`, `008_legacy_policy_projection`, `010_legacy_policy_capacity`를
+순서대로 체크섬과 함께 적용한 뒤
 공식 지역 스냅샷을 설치한다.
 `condition_*` 테이블이 적용 기록 없이 이미 존재하거나 부분 DDL이 발견되면 초기화를 중단한다.
 자동 삭제나 덮어쓰기는 수행하지 않는다. MySQL DDL은 암묵적으로 커밋될 수 있으므로 초기화가

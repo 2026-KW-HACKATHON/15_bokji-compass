@@ -192,6 +192,10 @@ button:disabled,
 .actions {
   margin-top: 22px;
 }
+.apk-download {
+  display: block;
+  text-align: center;
+}
 footer {
   margin-top: 24px;
 }
@@ -226,6 +230,7 @@ footer {
     padding: 0;
   }
   .admin-only,
+  .apk-download,
   #feedback {
     display: none !important;
   }

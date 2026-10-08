@@ -207,28 +207,55 @@ test('all money fields use manwon only for UI drafts and API normalization stays
   const submitted = [];
   const api = createFinanceApi({
     fetchImpl: async (_, options) => {
-      submitted.push(JSON.parse(options.body).profile);
+      submitted.push(JSON.parse(options.body));
       return response(calculation());
     },
   });
   await api.calculate(draft);
   await api.calculate(raw);
-  assert.deepEqual(submitted, [raw, raw]);
+  await api.calculate(raw, { allowApproximation: true });
+  assert.deepEqual(
+    submitted.map(({ profile }) => profile),
+    [raw, raw, raw],
+  );
+  assert.deepEqual(
+    submitted.map(({ allow_approximation }) => allow_approximation),
+    [false, false, true],
+  );
 });
 
 test('money validation handles editable invalid text and keeps income basis conditional', () => {
   const draft = emptyFinancialProfile();
   const question = financeQuestions(draft).find((item) => item.id === 'member-0-earned');
+  draft.members[0].earned_income = moneyInput('');
+  assert.match(validateQuestion(question, draft).message, /입력하거나 없음·모름을 선택/);
+  assert.equal(validateQuestion(question, draft).field, 'finance-earned-0');
+  draft.members[0].earned_income = null;
+  assert.equal(validateQuestion(question, draft), null);
   draft.members[0].earned_income = moneyInput('0.00001');
   assert.equal(visibleFields(question, draft).length, 1);
   assert.match(validateQuestion(question, draft).message, /넷째 자리/);
   assert.equal(validateQuestion(question, draft).field, 'finance-earned-0');
   draft.members[0].earned_income = moneyInput('0.0001');
   assert.equal(visibleFields(question, draft).length, 2);
+  assert.equal(validateQuestion(question, draft).field, 'finance-earned-basis-0');
+  draft.members[0].earned_income_basis = 'gross';
   assert.equal(validateQuestion(question, draft), null);
   draft.members[0].earned_income = moneyInput('0');
   assert.equal(visibleFields(question, draft).length, 1);
   assert.equal(validateQuestion(question, draft), null);
+  draft.members[0].earned_income = moneyInput('200');
+  draft.members[0].earned_income_basis = 'unknown';
+  const basisQuestion = financeQuestions(draft).find((item) => item.id === 'member-0-earned');
+  assert.equal(validateQuestion(basisQuestion, draft).field, 'finance-earned-basis-0');
+  draft.members[0].earned_income_basis = 'gross';
+  assert.equal(validateQuestion(basisQuestion, draft), null);
+
+  draft.members[0].business_income = moneyInput('500');
+  const businessQuestion = financeQuestions(draft).find((item) => item.id === 'member-0-business');
+  assert.equal(validateQuestion(businessQuestion, draft).field, 'finance-business-basis-0');
+  draft.members[0].business_income_basis = 'net_expenses';
+  assert.equal(validateQuestion(businessQuestion, draft), null);
 });
 test('income and vehicle facts stay separate and older drafts need basis confirmation', () => {
   const draft = emptyFinancialProfile();
@@ -295,11 +322,15 @@ test('finance profile enforces household, children, vehicle and enum coherence',
   assert.throws(() => toFinancialProfile(draft), /지역/);
 });
 
-test('occupation is optional, validates choices and stays separate from income deductions', () => {
+test('occupation is not asked for calculations and legacy values remain compatible', () => {
   const draft = emptyFinancialProfile();
   delete draft.members[0].occupation;
   assert.equal(toFinancialProfile(draft).members[0].occupation, 'unknown');
   const basic = financeQuestions(draft).find((question) => question.id === 'member-0-basic');
+  assert.equal(
+    basic.fields.some((field) => field.path.endsWith('.occupation')),
+    false,
+  );
   assert.equal(validateQuestion(basic, draft), null);
   for (const [occupation] of occupationTypes) {
     draft.members[0].occupation = occupation;
@@ -310,7 +341,7 @@ test('occupation is optional, validates choices and stays separate from income d
     assert.equal(member.earned_income, null);
   }
   draft.members[0].occupation = 'unsupported';
-  assert.equal(validateQuestion(basic, draft).field, 'finance-occupation-0');
+  assert.equal(validateQuestion(basic, draft), null);
   assert.throws(() => toFinancialProfile(draft), /직업군/);
 });
 
@@ -362,6 +393,7 @@ test('calculation requires usable server fields and permits unknown results with
   assert.throws(() =>
     parseCalculation({ ...data, assessments: [{ ...data.assessments[0], missing: null }] }),
   );
+  assert.throws(() => parseCalculation({ ...data, approximations: [1] }));
   assert.equal(officialSourceUrl('javascript:alert(1)'), null);
   assert.equal(officialSourceUrl('https://secret:password@example.com/'), null);
   assert.equal(officialSourceUrl('https://www.mohw.go.kr/'), 'https://www.mohw.go.kr/');

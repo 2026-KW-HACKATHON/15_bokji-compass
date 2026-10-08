@@ -26,7 +26,7 @@ if (release) {
 const config: ExpoConfig = {
   name: "복지나침반",
   slug: "bokji-compass-mobile",
-  version: "0.1.0",
+  version: "0.4.0",
   scheme: "bokji-compass",
   orientation: "default",
   userInterfaceStyle: "light",
@@ -38,6 +38,7 @@ const config: ExpoConfig = {
     infoPlist: { NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } },
   },
   android: {
+    versionCode: 4,
     package: "com.bokjicompass.app",
     allowBackup: false,
     permissions: ["android.permission.POST_NOTIFICATIONS"],
@@ -52,6 +53,24 @@ const config: ExpoConfig = {
       "android.permission.USE_FINGERPRINT",
       "android.permission.CHANGE_WIFI_MULTICAST_STATE",
       "android.permission.VIBRATE",
+      // The app does not read install attribution or manage launcher badges.
+      "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
+      "com.sec.android.provider.badge.permission.READ",
+      "com.sec.android.provider.badge.permission.WRITE",
+      "com.htc.launcher.permission.READ_SETTINGS",
+      "com.htc.launcher.permission.UPDATE_SHORTCUT",
+      "com.sonyericsson.home.permission.BROADCAST_BADGE",
+      "com.sonymobile.home.permission.PROVIDER_INSERT_BADGE",
+      "com.anddoes.launcher.permission.UPDATE_COUNT",
+      "com.majeur.launcher.permission.UPDATE_BADGE",
+      "com.huawei.android.launcher.permission.CHANGE_BADGE",
+      "com.huawei.android.launcher.permission.READ_SETTINGS",
+      "com.huawei.android.launcher.permission.WRITE_SETTINGS",
+      "android.permission.READ_APP_BADGE",
+      "com.oppo.launcher.permission.READ_SETTINGS",
+      "com.oppo.launcher.permission.WRITE_SETTINGS",
+      "me.everything.badger.permission.BADGE_COUNT_READ",
+      "me.everything.badger.permission.BADGE_COUNT_WRITE",
     ],
   },
   web: {
@@ -61,6 +80,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-web-browser",
     ["expo-notifications", { color: "#047857" }],
     [
       "expo-secure-store",

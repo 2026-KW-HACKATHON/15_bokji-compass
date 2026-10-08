@@ -7,7 +7,11 @@ from pydantic import ValidationError, field_validator
 
 from app.api.auth import Service, guard
 from app.api.members import Member
-from app.contracts.finance import CalculationInput, FinanceModel, SaveFinancialProfile
+from app.contracts.finance import (
+    ApproximateCalculationInput,
+    FinanceModel,
+    SaveFinancialProfile,
+)
 from app.modules.finance import public
 from app.modules.finance.schema import initialize_finance_schema
 from app.modules.finance.storage import FinancialProfileStore, StoredFinancialProfile
@@ -57,8 +61,8 @@ def rules():
 
 
 @router.post("/calculate")
-def calculate(data: CalculationInput):
-    return public.calculate(data.profile)
+def calculate(data: ApproximateCalculationInput):
+    return public.calculate(data.profile, allow_approximation=data.allow_approximation)
 
 
 @router.get("/profile")

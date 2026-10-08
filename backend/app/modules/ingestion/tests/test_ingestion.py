@@ -74,7 +74,8 @@ class PolicyStore:
 
 
 def settings(**overrides):
-    return Settings(_env_file=None, ingestion_http_interval_seconds=0,
+    return Settings(_env_file=None, ingestion_kwangwoon_enabled=False,
+                    ingestion_http_interval_seconds=0,
                     ingestion_min_available_memory_mb=0, **overrides)
 
 
@@ -227,6 +228,99 @@ def test_queue_capacity_prevents_page_fetch(store, tmp_path):
         adapters={"gov24": forbidden}, raw_root=tmp_path)
     assert report["pages"] == report["http_calls"] == 0
     assert store.pending_count() == 3
+
+
+def test_bootstrap_finishes_raw_scan_before_analysis_and_then_switches_to_steady(store, tmp_path):
+    calls = []
+    def gov(**kwargs):
+        rows = [{"서비스ID": "first", "서비스명": "공고", "지원대상": "별도 심사"}]
+        if kwargs["endpoint"] != "serviceDetail" or kwargs["page"] != 1:
+            rows = []
+        return CollectionPage(rows, kwargs["page"], kwargs["per_page"],
+                             200 if kwargs["endpoint"] == "serviceDetail" else 0, b"raw")
+    def parse(record, conf, output, *, budget, **kwargs):
+        budget.before_model(conf)
+        calls.append(record.policy_key)
+        return {"status": "needs_review", "source": record.model_dump()}
+    conf = settings(ingestion_profile="bootstrap", data_go_kr_api_key="fake",
+                    ingestion_page_size=100, ingestion_max_pages=1)
+    report = worker.run_tick(conf, store, PolicyStore(), adapters={"gov24": gov},
+                             parser=parse, raw_root=tmp_path)
+    assert report["phase"] == "collect" and report["model_calls"] == 0 and not calls
+    report = worker.run_tick(conf.model_copy(update={"ingestion_max_pages": 10}), store,
+                             PolicyStore(), adapters={"gov24": gov}, parser=parse,
+                             raw_root=tmp_path)
+    assert report["phase"] == "complete" and report["model_calls"] == 1
+    assert store.get_state("bootstrap")["complete"] is True
+    report = worker.run_tick(conf, store, PolicyStore(), adapters={"gov24": gov},
+                             parser=parse, raw_root=tmp_path)
+    assert report["profile"] == "steady" and report["model_calls"] == 0
+
+
+def test_steady_ai_exhaustion_does_not_prevent_api_collection(store, tmp_path):
+    def gov(**kwargs):
+        rows = [{"서비스ID": "first", "서비스명": "공고", "지원대상": "별도 심사"}]
+        if kwargs["endpoint"] != "serviceDetail":
+            rows = []
+        return CollectionPage(rows, kwargs["page"], kwargs["per_page"], len(rows), b"raw")
+    def parse(record, conf, output, *, budget, **kwargs):
+        budget.before_model(conf)
+        raise AssertionError("No AI allowance")
+    report = worker.run_tick(settings(ingestion_profile="steady", data_go_kr_api_key="fake",
+        ingestion_max_model_calls=0), store, PolicyStore(), adapters={"gov24": gov},
+        parser=parse, raw_root=tmp_path)
+    assert report["pages"] == 3 and report["new"] == 1
+    assert report["status"] == "budget_reached" and report["reason"] == "model_calls"
+
+
+def test_worker_fetches_multiple_pages_fairly_in_one_tick(store, tmp_path):
+    seen = []
+    def gov(**kwargs):
+        seen.append((kwargs["endpoint"], kwargs["page"]))
+        if kwargs["endpoint"] == "serviceDetail":
+            row = {"서비스ID": str(kwargs["page"]), "서비스명": "공고", "지원대상": "별도 심사"}
+        else:
+            row = {"서비스ID": str(kwargs["page"])}
+        return CollectionPage([row], kwargs["page"], kwargs["per_page"], 300,
+                             str(seen[-1]).encode())
+    report = worker.run_tick(settings(ingestion_profile="steady", data_go_kr_api_key="fake",
+        ingestion_page_size=100, ingestion_max_pages=8, ingestion_max_jobs=0,
+        ingestion_queue_limit=1000), store, PolicyStore(), adapters={"gov24": gov},
+        raw_root=tmp_path)
+    assert report["pages"] == 8
+    assert seen[:3] == [("serviceDetail", 1), ("serviceList", 1), ("supportConditions", 1)]
+    assert sum(endpoint == "serviceDetail" for endpoint, _ in seen) == 3
+
+
+def test_worker_bundles_four_durable_parse_jobs_in_one_cli_call(store, tmp_path, monkeypatch):
+    from app.modules.pipeline import batching
+    from tests.test_policy_batching import records, response
+    conf = settings(ingestion_profile="steady", ingestion_max_pages=0,
+                    ingestion_max_jobs=4, ingestion_ai_batch_size=4)
+    for record in records():
+        store.observe_source(record, {}, processing_signature(conf), time.time(), 100)
+    calls = []
+    def model(requests, *_):
+        calls.append(len(requests))
+        return [response(s) for s, *_ in requests], {"usage": [{"total_tokens": 500}]}
+    monkeypatch.setattr(batching, "extract_policy_batch", model)
+    policies = PolicyStore()
+    report = worker.run_tick(conf, store, policies, raw_root=tmp_path)
+    assert calls == [4] and report["jobs_completed"] == 4
+    assert report["model_calls"] == report["batch_calls"] == 1 and report["tokens"] == 500
+    assert len(policies.results) == 4 and store.pending_count() == 0
+
+
+def test_model_configuration_upgrade_requeues_without_losing_source(store, tmp_path):
+    conf = settings(ingestion_max_pages=0)
+    store.observe_source(source(), {}, {"hash": "old"}, time.time(), 100)
+    parsed = []
+    def parse(record, *_args, **_kwargs):
+        parsed.append(record.policy_key)
+        return {"status": "needs_review", "source": record.model_dump()}
+    report = worker.run_tick(conf, store, PolicyStore(), parser=parse, raw_root=tmp_path)
+    assert parsed == [source().policy_key] and report["jobs_completed"] == 1
+    assert store.pending_count() == 0 and counts(store, m.jobs) == 2
 
 
 def test_worker_saves_complete_result_before_database_retry(store, tmp_path):

@@ -3,9 +3,11 @@
 from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import (
     LegacyPolicyOverview,
+    PeriodPolicyOverview,
     PolicyExtraction,
     PolicyOverview,
     SourcePolicy,
+    StoredPolicyOverview,
 )
 from app.modules.regions.public import RegionCatalog, default_catalog
 
@@ -65,6 +67,12 @@ def validate_overview(result: LegacyPolicyOverview, source: SourcePolicy) -> Non
         evidence_items.extend(section.evidence)
     for item in result.other_conditions:
         evidence_items.extend(item.evidence)
+    if isinstance(result, PeriodPolicyOverview):
+        evidence_items.extend(result.application_period.evidence)
+    if isinstance(result, PolicyOverview):
+        for field_name in ("application_method", "application_url", "contact",
+                           "published_date", "modified_date"):
+            evidence_items.extend(getattr(result, field_name).evidence)
     for evidence in evidence_items:
         if evidence.source_field == "title":
             original = source.title
@@ -74,7 +82,9 @@ def validate_overview(result: LegacyPolicyOverview, source: SourcePolicy) -> Non
             original = source.fields.get(evidence.source_field, "")
         if evidence.quote not in original:
             raise ValueError("Overview evidence is absent from source")
-    for requirement in (result.policy_requirements if isinstance(result, PolicyOverview) else []):
+    for requirement in (
+        result.policy_requirements if isinstance(result, StoredPolicyOverview) else []
+    ):
         if requirement.information_state == "not_stated":
             if requirement.evidence_text != "지원 대상 및 선정 기준 원문 미기재":
                 raise ValueError("Not-stated requirement must use the standard explanation")

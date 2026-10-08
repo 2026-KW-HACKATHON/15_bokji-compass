@@ -12,6 +12,7 @@ from app.contracts.assistance import GuidanceProfile
 from app.contracts.parsing import StrictModel
 from app.modules.assistant import public
 from app.modules.assistant.faq import prepared_faqs
+from app.modules.auth.ai_privacy import require_member_ai_consent
 from app.modules.llm.public import CodexRunError
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"], dependencies=[Depends(guard)])
@@ -45,18 +46,19 @@ def faqs(request: Request, member: Member, revision_id: Annotated[str, Query(
 @router.post("/questions")
 def question(data: QuestionInput, request: Request, member: Member, service: Service):
     # Authenticate before even reflecting the policy database or invoking the model.
+    require_member_ai_consent(service, member["id"], request.app.state.settings)
     repository = get_repository(request)
     if repository.get_revision(data.revision_id) is None:
         raise HTTPException(404, "공개된 공고를 찾을 수 없어요.")
-    service.throttle("assistant:" + member["id"], 6, 60)
+    service.throttle("assistant:" + member["id"], 6, 60, account_id=member["id"])
     slots = request.app.state.assistant_slots
     if not slots.acquire(blocking=False):
         raise HTTPException(429, "다른 질문에 답하고 있어요. 잠시 후 다시 질문해 주세요.",
                             headers={"Retry-After": "30"})
     try:
         age = member["age"]
-        profile = GuidanceProfile(region=member["region"],
-                                  age_band=f"{age // 10 * 10}대" if age >= 10 else "10세 미만")
+        age_band = None if age is None else (f"{age // 10 * 10}대" if age >= 10 else "10세 미만")
+        profile = GuidanceProfile(region=member["region"], age_band=age_band)
         # Bound HTTP work independently of the longer batch ingestion timeout.
         settings = request.app.state.settings.model_copy(update={"codex_timeout_seconds": 60})
         answer = public.answer_question(repository, data.revision_id, data.question,

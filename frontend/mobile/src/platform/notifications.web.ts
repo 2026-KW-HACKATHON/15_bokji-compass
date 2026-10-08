@@ -9,7 +9,7 @@ export const notificationPlatform = {
   supported: false,
   platform: "android" as "android" | "ios",
   readPermission: async () => permission,
-  requestPermission: async () => permission,
+  requestPermission: async (_t?: (source: string) => string) => permission,
   getPushToken: async (): Promise<string> => {
     throw new Error("안드로이드 앱에서 이용해 주세요.");
   },

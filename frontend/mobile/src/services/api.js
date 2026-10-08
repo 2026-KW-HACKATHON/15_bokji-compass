@@ -3,8 +3,13 @@ import {
   toFinancialProfile,
 } from "@bokji/core/finance-model";
 import { ApiError } from "./client.js";
+import { createAuthApi } from "../features/auth/api.js";
 import { createAssistantApi } from "../features/assistant/model.js";
+import { createMonitoringApi } from "../features/ai/monitoringApi.js";
+import { createDialogueApi } from "../features/ai/dialogueApi.js";
 import { createNotificationApi } from "../features/notifications/model.js";
+import { createPolicyTranslationClient } from "../../../packages/core/src/i18n/policyTranslation.js";
+import { translate } from "../../../packages/core/src/i18n/index.js";
 import {
   parsePolicy,
   parsePolicyPage,
@@ -20,10 +25,39 @@ export function parseUser(value) {
     !(value.name === null || typeof value.name === "string")
   )
     throw new ApiError("계정 정보를 읽을 수 없습니다.", 0, "invalid_response");
-  return { id: value.id, username: value.username, name: value.name };
+  return {
+    id: value.id,
+    username: value.username,
+    name: value.name,
+    ...(Number.isInteger(value.age) && value.age >= 0 && value.age <= 120
+      ? { age: value.age }
+      : {}),
+    ...(typeof value.region === "string" && value.region.length <= 30
+      ? { region: value.region }
+      : {}),
+  };
+}
+
+export function parseLoginResult(data) {
+  if (
+    !data ||
+    typeof data.access_token !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(data.access_token) ||
+    data.token_type !== "Bearer" ||
+    !Number.isInteger(data.expires_in) ||
+    data.expires_in <= 0 ||
+    data.expires_in > 7 * 24 * 60 * 60
+  )
+    throw new ApiError("로그인 결과를 읽을 수 없습니다.");
+  return {
+    token: data.access_token,
+    expiresIn: data.expires_in,
+    user: parseUser(data.user),
+  };
 }
 
 export function createApi(request) {
+  const policyTranslations = createPolicyTranslationClient({ request });
   const stored = (data) => {
     if (
       data.profile === null &&
@@ -40,8 +74,44 @@ export function createApi(request) {
     };
   };
   return {
+    auth: createAuthApi(request),
+    policyTranslations: {
+      /**
+       * @param {ReturnType<typeof parsePolicy>} policy
+       * @param {string} language
+       * @param {{signal?: AbortSignal, priority?: number}} [options]
+       */
+      async translate(policy, language, options = {}) {
+        if (language === "ko") return policy;
+        // Parser fallback labels are UI copy, never canonical notice text.
+        const missing = policy.translationSourceEmptyFields || [];
+        const source = missing.length
+          ? {
+              ...policy,
+              ...Object.fromEntries(missing.map((field) => [field, ""])),
+            }
+          : policy;
+        const display = await policyTranslations.translate(
+          source,
+          language,
+          options,
+        );
+        return {
+          ...display,
+          ...Object.fromEntries(
+            missing.map((field) => [
+              field,
+              display[field] || translate(language, policy[field]),
+            ]),
+          ),
+        };
+      },
+      clear: policyTranslations.clear,
+    },
     notifications: createNotificationApi(request),
     assistant: createAssistantApi(request),
+    monitoring: createMonitoringApi(request),
+    dialogue: createDialogueApi(request),
     listPolicies: async (filters, signal) =>
       parsePolicyPage(await request(policyPath(filters), { signal })),
     getPolicy: async (id, signal) =>
@@ -58,18 +128,7 @@ export function createApi(request) {
       const data = await request("/v1/mobile/auth/login", {
         body: { username, password },
       });
-      if (
-        !/^[A-Za-z0-9_-]{43}$/.test(data.access_token) ||
-        data.token_type !== "Bearer" ||
-        !Number.isInteger(data.expires_in) ||
-        data.expires_in <= 0
-      )
-        throw new ApiError("로그인 결과를 읽을 수 없습니다.");
-      return {
-        token: data.access_token,
-        expiresIn: data.expires_in,
-        user: parseUser(data.user),
-      };
+      return parseLoginResult(data);
     },
     me: async (token) =>
       parseUser((await request("/v1/mobile/auth/me", { token })).user),

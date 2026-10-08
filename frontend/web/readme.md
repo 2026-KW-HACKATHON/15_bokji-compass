@@ -27,7 +27,8 @@ npm.cmd run format:check
 - #calendar: 월별 신청 시작·마감 달력, 날짜별 공고와 상세 보기·저장. 검색어·분야·지역·대상·일정 구분 필터, 상시/날짜 미확인 공고 별도 목록. 메인 배너의 다음 안내에서 진입하며 8초 자동 전환·일시정지·수동 이동을 지원.
 - #saved: 현재 브라우저의 공고 스냅샷. 모드별 분리, 최신 내용은 원문 확인.
 - #profile: 지역·연령대·상황·가구·관심 분야. 기본 메모리 보관, 기억하기 선택 시에만 브라우저에 저장.
-- #calculator: 비회원도 소득·재산 원자료를 서버에 보내 계산. 가구별 소득·재산·부채·차량, 중위소득 단순 비교와 사업별 추정·추가 확인, 공식 출처 표시. 로그인한 회원은 별도 동의 후 저장·명시적 불러오기·삭제 가능.
+- #calculator: 가구원 수만으로 2026년 기준 중위소득 즉시 표시. 가구 전체 월소득(선택)으로 단순 비율 비교.
+- #calculator-details: 비회원도 소득·재산 원자료를 서버에 보내 계산. 가구별 소득·재산·부채·차량, 중위소득 단순 비교와 사업별 추정·추가 확인, 공식 출처 표시. 로그인한 회원은 별도 동의 후 저장·명시적 불러오기·삭제 가능.
 - #login / #signup: 아이디·비밀번호 로그인. 가입은 이름·비밀번호 확인·만 나이·성별·시도·전화번호 인증. 개발 환경에서는 화면에 인증번호 표시, 실제 문자 발송은 미연결. [설정·서버 계약](../../backend/app/modules/auth/readme.md).
 - 쉬운 화면: 20px 기준 글자, 주요 56px 타깃, 모션 제거, 추천 정보 한 화면 수정, 회원가입은 일반/쉬운 화면 공통으로 휴대전화 인증부터 한 항목씩 진행. 계산기는 주제별 단계 입력과 전체 수정, 한 개씩 공고 보기, 세부정보 접기. 설정 기억.
 - 모드 전환 시 작성 중인 폼·검색어·필터 유지. 1024px 이하 하단 탐색 메뉴, 가용 폭에 따른 공고 1~3열, 줄바꿈과 입력·계정 메뉴 재배치.
@@ -64,5 +65,7 @@ npm.cmd run format:check
 `dataMode: auto`와 기존 demo 설정 모두 API를 사용합니다. 개발/운영에서 더미 공고를 공급하지 않습니다.
 이 설정은 공고·추천에 적용되며 인증과 금융 계산을 로컬 가짜 데이터로 바꾸지 않습니다.
 기본 apiBaseUrl은 /api. 개발에서는 API_PROXY_TARGET(기본 http://127.0.0.1:8000)으로 전달하며 /api를 제거합니다.
+`backend/scripts/share-server.py`로 실행한 공유 API는 `8001` 포트를 사용합니다. 이 서버를 로컬 웹에서도 사용할 때는 Git에서 제외되는 `frontend/web/.env.local`에 `API_PROXY_TARGET=http://127.0.0.1:8001`을 설정하고 웹 개발 서버를 다시 시작합니다.
+실행 터미널의 `API_PROXY_TARGET` 환경변수가 파일 설정보다 우선합니다. 이전 테스트 서버 주소가 남아 있다면 PowerShell에서 `Remove-Item Env:API_PROXY_TARGET -ErrorAction SilentlyContinue`를 실행한 뒤 `npm.cmd run dev`로 시작합니다. `/api/health/ready`의 `database: reachable`로 실제 웹 연결 대상의 DB 상태를 확인할 수 있습니다.
 운영에서는 reverse proxy가 필요합니다. [배포 절차](../docs/deployment.md), [Nginx 예시](deploy/nginx.conf), [서버 계약 제안](../docs/service-contract.md).
 VITE_* 또는 app-config.js에 비밀키를 넣지 않습니다. LLM 호출·키는 서버 책임입니다. 폰트는 Fontsource로 자체 제공하며 PWA/오프라인 캐시는 미구현입니다.

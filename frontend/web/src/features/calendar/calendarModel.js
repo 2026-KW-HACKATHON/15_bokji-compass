@@ -66,3 +66,19 @@ export function policiesOnDay(items, day, type = 'all') {
             day <= policy.applicationEnd),
   );
 }
+
+// Keep unchanged notice objects so refreshing the calendar does not restart visible translations.
+export function reconcileCalendarResult(previous, next) {
+  const notices = new Map(
+    [...previous.items, ...previous.undatedItems].map((policy) => [policy.id, policy]),
+  );
+  const reconcile = (policy) => {
+    const existing = notices.get(policy.id);
+    return existing && JSON.stringify(existing) === JSON.stringify(policy) ? existing : policy;
+  };
+  return {
+    ...next,
+    items: next.items.map(reconcile),
+    undatedItems: next.undatedItems.map(reconcile),
+  };
+}

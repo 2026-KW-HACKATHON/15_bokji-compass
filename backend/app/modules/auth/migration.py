@@ -7,8 +7,9 @@ from sqlalchemy import MetaData, Table, delete, insert, inspect, select, update
 
 from app.modules.admin.access import admin_grants
 from app.modules.auth.models import (
-    PROFILE_FIELDS,
+    LEGACY_PROFILE_FIELDS,
     accounts,
+    auth_consents,
     kakao_flows,
     kakao_identities,
     privacy_state,
@@ -54,13 +55,13 @@ def restore_plaintext_data(engine, settings):
                 continue
             value = legacy_cipher()
             private = value.decrypt_json(row["profile_ciphertext"], "account:" + row["id"])
-            if not all(key in private for key in PROFILE_FIELDS):
+            if not all(key in private for key in LEGACY_PROFILE_FIELDS):
                 raise PrivacyError("Incomplete encrypted profile")
             if not hmac.compare_digest(
                 row["username_lookup"] or "", value.lookup(private["username"])
             ):
                 raise PrivacyError("Original lookup key is required")
-            values = {key: private[key] for key in PROFILE_FIELDS}
+            values = {key: private[key] for key in LEGACY_PROFILE_FIELDS}
             values.update(username_lookup=None, profile_ciphertext=None)
             connection.execute(update(accounts).where(accounts.c.id == row["id"]).values(**values))
             count += 1
@@ -93,7 +94,7 @@ def restore_plaintext_data(engine, settings):
 
 
 def import_sqlite_accounts(source, target, settings=None):
-    """Copy accounts, roles, provider links, sessions and finance without overwriting targets."""
+    """Copy accounts and their data without overwriting live records or inferring consent."""
     count = 0
     source_account_ids = set()
     imported_account_ids = set()
@@ -119,8 +120,10 @@ def import_sqlite_accounts(source, target, settings=None):
             if values.get("profile_ciphertext"):
                 value = legacy_cipher()
                 private = value.decrypt_json(values["profile_ciphertext"], "account:" + row["id"])
-                if not all(key in private for key in PROFILE_FIELDS) or not hmac.compare_digest(
-                    values.get("username_lookup") or "", value.lookup(private["username"])
+                if not all(key in private for key in LEGACY_PROFILE_FIELDS) or (
+                    not hmac.compare_digest(
+                        values.get("username_lookup") or "", value.lookup(private["username"])
+                    )
                 ):
                     raise PrivacyError("Original lookup key is required")
                 values.update(private)
@@ -143,6 +146,7 @@ def import_sqlite_accounts(source, target, settings=None):
             (kakao_identities, "subject"),
             (sessions, "token_hash"),
             (financial_profiles, "account_id"),
+            (auth_consents, "account_id"),
         ):
             if table.name not in source_tables:
                 continue

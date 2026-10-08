@@ -9,6 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.contracts.conditions import CanonicalPolicy
@@ -16,6 +17,8 @@ from app.contracts.parsing import ParsedCondition, PolicyExtraction, PolicyOverv
 from app.core.config import BACKEND_ROOT, Settings, load_settings
 from app.core.database import create_database_engine
 from app.modules.llm.public import (
+    BATCH_PROMPT,
+    BATCH_PROMPT_VERSION,
     OVERVIEW_PROMPT,
     OVERVIEW_PROMPT_VERSION,
     PROMPT,
@@ -39,6 +42,18 @@ def write_json(path: Path, data: dict) -> None:
     temporary.replace(path)
 
 
+def _safe_validation_summary(error: ValueError) -> str:
+    if isinstance(error, ValidationError):
+        issues = error.errors(include_input=False, include_context=False, include_url=False)
+        return "; ".join(
+            f"{'.'.join(map(str, issue['loc']))}: "
+            + ("schema_validation_failed" if issue["type"] in {"value_error", "assertion_error"}
+               else issue["msg"])
+            for issue in issues[:4]
+        )[:300] or "schema_validation_failed"
+    return type(error).__name__
+
+
 def _missing_conditions(source: SourcePolicy) -> PolicyExtraction:
     field = "text" if "text" in source.fields else "eligibility"
     missing = ParsedCondition(
@@ -56,9 +71,11 @@ def processing_signature(settings: Settings) -> dict:
     files = (
         "app/contracts/parsing.py", "app/contracts/conditions.py",
         "app/modules/parsers/conditions.py", "app/modules/normalization/conditions.py",
-        "app/modules/normalization/raw.py", "app/modules/regions/public.py",
+        "app/modules/normalization/raw.py", "app/modules/normalization/source_urls.py",
+        "app/modules/regions/public.py",
         "app/modules/validation/public.py", "app/modules/pipeline/public.py",
         "app/modules/llm/public.py",
+        "app/modules/pipeline/batching.py",
     )
     code_hashes = {name: hashlib.sha256((BACKEND_ROOT / name).read_bytes()).hexdigest()
                    for name in files}
@@ -69,6 +86,9 @@ def processing_signature(settings: Settings) -> dict:
         "schema_version": "welfare-parsing-v2", "rule_version": RULE_VERSION,
         "model": settings.codex_model, "fallback_model": settings.codex_fallback_model,
         "reasoning_effort": settings.codex_reasoning_effort,
+        "fallback_reasoning_effort": settings.codex_fallback_reasoning_effort,
+        "batch_prompt_version": BATCH_PROMPT_VERSION,
+        "batch_prompt_hash": hashlib.sha256(BATCH_PROMPT.encode()).hexdigest(),
         "prompt_version": PROMPT_VERSION, "overview_prompt_version": OVERVIEW_PROMPT_VERSION,
         "prompt_hash": hashlib.sha256(PROMPT.encode()).hexdigest(),
         "overview_prompt_hash": hashlib.sha256(OVERVIEW_PROMPT.encode()).hexdigest(),
@@ -160,7 +180,9 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         if any(a.get("model") == model and a.get("status") == "validation_failed"
                for a in base["attempts"]):
             continue
-        call_settings = budget.before_model(settings) if budget else settings
+        model_settings = settings if model == settings.codex_model else settings.model_copy(
+            update={"codex_reasoning_effort": settings.codex_fallback_reasoning_effort})
+        call_settings = budget.before_model(model_settings) if budget else model_settings
         try:
             result, metadata = extract_policy(
                 source, call_settings, output / f"attempt-{index}", model)
@@ -176,7 +198,10 @@ def parse_policy(source: SourcePolicy, settings: Settings, output: Path,
         except ValueError as error:
             if budget and hasattr(error, "metadata"):
                 budget.record(error.metadata)
-            base["attempts"].append({"model": model, "status": "validation_failed"})
+            base["attempts"].append({
+                "model": model, "status": "validation_failed",
+                "error": _safe_validation_summary(error),
+            })
             pending_stage()
             continue
         except OSError:
@@ -324,7 +349,9 @@ def _extract_overview(source: SourcePolicy, settings: Settings,
         if any(a.get("model") == model and a.get("status") == "validation_failed"
                for a in attempts):
             continue
-        call_settings = budget.before_model(settings) if budget else settings
+        model_settings = settings if model == settings.codex_model else settings.model_copy(
+            update={"codex_reasoning_effort": settings.codex_fallback_reasoning_effort})
+        call_settings = budget.before_model(model_settings) if budget else model_settings
         try:
             result, metadata = extract_policy_overview(
                 source, call_settings, output / f"overview-attempt-{index}", model)
@@ -339,7 +366,8 @@ def _extract_overview(source: SourcePolicy, settings: Settings,
         except ValueError as error:
             if budget and hasattr(error, "metadata"):
                 budget.record(error.metadata)
-            attempts.append({"model": model, "status": "validation_failed"})
+            attempts.append({"model": model, "status": "validation_failed",
+                             "error": _safe_validation_summary(error)})
             if save_attempts:
                 save_attempts(attempts)
             continue

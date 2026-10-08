@@ -6,7 +6,7 @@
 
 - DB_ENABLED=false: AUTH_SQLITE_PATH(기본 data/auth.sqlite3)에 SQLite 회원·세션을 저장합니다. 회원 API 첫 요청에서 스키마를 자동 준비합니다.
 - DB_ENABLED=true: 설정한 MySQL에 회원·세션을 저장합니다. 테이블은 아래 초기화 명령으로 준비합니다. 공고 MySQL 기능은 별도입니다.
-- 회원 아이디·이름·나이·성별·지역은 일반 열에 저장합니다. 카카오 가입 대기 닉네임은 nickname, 금융 원입력은 profile_json의 JSON입니다.
+- 회원 아이디·이름·나이·성별·지역·우편번호·주소·상세주소는 일반 열에 저장합니다. 세 주소 필드는 선택 정보이며 기존 계정에는 null로 추가합니다. 정확한 주소는 AI 질문의 회원 문맥에 자동 첨부하지 않습니다. 카카오 가입 대기 닉네임은 nickname, 금융 원입력은 profile_json의 JSON입니다.
 - 비밀번호 scrypt 해시, 세션·카카오 요청 토큰의 해시, 요청 제한, HttpOnly 쿠키, 일회성 OAuth state와 브라우저 결합 검증은 유지합니다. 카카오 토큰은 저장하지 않습니다.
 
 Windows에서 backend 폴더 기준:

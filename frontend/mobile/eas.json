@@ -8,12 +8,15 @@
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" },
+      "environment": "preview",
+      "env": { "BOKJI_RELEASE": "1", "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" },
       "android": { "buildType": "apk" }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" }
+      "environment": "production",
+      "env": { "BOKJI_RELEASE": "1", "EXPO_PUBLIC_API_BASE_URL": "https://bokji.commitnaru.com/api" },
+      "android": { "buildType": "app-bundle" }
     }
   }
 }

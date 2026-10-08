@@ -1,10 +1,11 @@
+import { useI18n } from "../../i18n/context";
+import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useRef, useState } from "react";
 import {
   Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { router } from "expo-router";
@@ -12,7 +13,12 @@ import { Button, Card, Copy, Field, Notice, colors } from "../../components/ui";
 import { useRuntime, useSession } from "../../services/runtime";
 import { useAssistant } from "./context";
 import { parseAnswer, parseFaqs } from "./model";
-import { parsePolicyPage } from "../policies/model";
+import { parsePolicy, parsePolicyPage } from "../policies/model";
+import { OriginalContentNotice } from "../../i18n/LanguageSelector";
+import {
+  PolicyTranslationControls,
+  usePolicyTranslation,
+} from "../policies/usePolicyTranslation";
 
 type Answer = ReturnType<typeof parseAnswer>;
 type Faqs = ReturnType<typeof parseFaqs>;
@@ -36,11 +42,12 @@ export function AssistantChat() {
             : "준비된 질문을 고르거나 직접 물어보세요. 공고 원문을 바탕으로 안내해 드려요."}
         </Copy>
       </View>
+      <OriginalContentNotice />
       {configError ? (
         <Notice>{configError}</Notice>
       ) : auth.status !== "signedIn" || !auth.token ? (
         <Card>
-          <Copy>로그인하면 웹과 같은 공고 상담을 이용할 수 있어요.</Copy>
+          <Copy>로그인하면 웹과 같은 공고 챗봇을 이용할 수 있어요.</Copy>
           <Button
             label="로그인하러 가기"
             onPress={() => {
@@ -54,8 +61,8 @@ export function AssistantChat() {
       ) : (
         <>
           <View style={styles.selected}>
-            <Text style={styles.tag}>상담 중인 공고</Text>
-            <Copy>{policy.title}</Copy>
+            <Text style={styles.tag}>질문할 공고</Text>
+            <TranslatedPolicyTitle policy={policy} />
             <Button
               secondary
               label="다른 공고 선택"
@@ -121,7 +128,7 @@ function PolicyChooser() {
   return (
     <View style={{ gap: 12 }}>
       <Field
-        label="상담할 공고 검색"
+        label="질문할 공고 검색"
         placeholder="공고 이름이나 관심 단어"
         value={query}
         onChangeText={setQuery}
@@ -145,16 +152,15 @@ function PolicyChooser() {
         <>
           {!current.page?.items.length && (
             <Notice>
-              상담할 수 있는 공개 공고가 없어요. 다른 검색어로 찾아보거나 나중에
+              질문할 수 있는 공개 공고가 없어요. 다른 검색어로 찾아보거나 나중에
               다시 확인해 주세요.
             </Notice>
           )}
           {current.page?.items.map((item) => (
-            <Button
+            <TranslatedPolicyChoice
               key={item.id}
-              secondary
-              label={item.title}
-              onPress={() => choosePolicy(item)}
+              policy={item}
+              onChoose={() => choosePolicy(item)}
             />
           ))}
           {cursors.length > 1 && (
@@ -179,6 +185,40 @@ function PolicyChooser() {
   );
 }
 
+function TranslatedPolicyTitle({
+  policy,
+}: {
+  policy: ReturnType<typeof parsePolicy>;
+}) {
+  const state = usePolicyTranslation(policy);
+  return (
+    <View style={{ gap: 6 }}>
+      <PolicyTranslationControls state={state} compact />
+      <Copy original>{state.display?.title || policy.title}</Copy>
+    </View>
+  );
+}
+function TranslatedPolicyChoice({
+  policy,
+  onChoose,
+}: {
+  policy: ReturnType<typeof parsePolicy>;
+  onChoose: () => void;
+}) {
+  const state = usePolicyTranslation(policy);
+  return (
+    <View style={{ gap: 6 }}>
+      <PolicyTranslationControls state={state} compact />
+      <Button
+        original
+        secondary
+        label={state.display?.title || policy.title}
+        onPress={onChoose}
+      />
+    </View>
+  );
+}
+
 function QuestionPanel({
   token,
   revisionId,
@@ -188,6 +228,7 @@ function QuestionPanel({
   revisionId: string;
   onAnswer: () => void;
 }) {
+  const { t } = useI18n();
   const { api, session, easy } = useRuntime();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
@@ -278,18 +319,20 @@ function QuestionPanel({
     <View style={{ gap: 16 }}>
       {answer && (
         <View accessibilityLiveRegion="polite" style={styles.answer}>
-          <Text style={styles.tag}>{selected}</Text>
+          <Text original style={styles.tag}>
+            {selected}
+          </Text>
           <Copy title>
             {answer.response_type === "prepared"
               ? "준비된 안내"
               : "공고에 따른 안내"}
           </Copy>
-          <Copy>{answer.answer}</Copy>
+          <Copy original>{answer.answer}</Copy>
           {!!answer.citations.length && (
             <>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="원문 근거 보기"
+                accessibilityLabel={t("원문 근거 보기")}
                 accessibilityState={{ expanded: citationsOpen }}
                 aria-expanded={citationsOpen}
                 onPress={() => setCitationsOpen(!citationsOpen)}
@@ -302,13 +345,15 @@ function QuestionPanel({
                     fontWeight: "700",
                   }}
                 >
-                  원문 근거 {citationsOpen ? "접기 −" : "보기 +"}
+                  {t("원문 근거 {action}", {
+                    action: t(citationsOpen ? "접기 −" : "보기 +"),
+                  })}
                 </Text>
               </Pressable>
               {citationsOpen &&
                 answer.citations.map((item, index) => (
                   <View key={index} style={styles.quote}>
-                    <Copy>{item.quote}</Copy>
+                    <Copy original>{item.quote}</Copy>
                   </View>
                 ))}
             </>
@@ -317,7 +362,9 @@ function QuestionPanel({
             <>
               <Copy title>추가로 확인할 내용</Copy>
               {answer.follow_up_questions.map((item, index) => (
-                <Copy key={index}>• {item}</Copy>
+                <Copy original key={index}>
+                  • {item}
+                </Copy>
               ))}
             </>
           )}
@@ -356,6 +403,7 @@ function QuestionPanel({
       ) : (
         faqs.map((item) => (
           <Button
+            original
             key={item.id}
             secondary
             label={item.question}

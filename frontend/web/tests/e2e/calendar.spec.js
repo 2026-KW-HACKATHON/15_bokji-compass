@@ -45,6 +45,18 @@ const records = [
   },
   {
     ...base,
+    id: 'fixture-calendar-monthly',
+    title: '테스트 3~4월 보조공학기기 지원',
+    applicationStart: '2026-03-01',
+    applicationEnd: '2026-04-30',
+    applicationPeriod: '3~4월',
+    scheduleStatus: 'dated',
+    applicationPrecision: 'month',
+    applicationMonths: [3, 4],
+    applicationYear: null,
+  },
+  {
+    ...base,
     id: 'fixture-calendar-undated',
     title: '테스트 상시 지원',
     applicationStart: null,
@@ -54,7 +66,15 @@ const records = [
   },
 ];
 function response(month, filters = {}) {
-  const all = filterPolicies(records, filters);
+  const all = filterPolicies(records, filters).map((item) =>
+    item.applicationPrecision === 'month' && item.applicationYear === null
+      ? {
+          ...item,
+          applicationStart: month.slice(0, 4) + '-03-01',
+          applicationEnd: month.slice(0, 4) + '-04-30',
+        }
+      : item,
+  );
   const first = month + '-01';
   const next = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 1))
     .toISOString()
@@ -75,6 +95,11 @@ function response(month, filters = {}) {
   };
 }
 async function mockCalendar(page) {
+  await page.route(/\/api\/v1\/policies\/fixture-calendar-[^/?]+$/, (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1));
+    const policy = records.find((item) => item.id === id);
+    return route.fulfill(policy ? { json: policy } : { status: 404, json: {} });
+  });
   await page.route('**/api/v1/policies/calendar?**', (route) => {
     const params = new URL(route.request().url()).searchParams;
     const filters = Object.fromEntries(params);
@@ -178,6 +203,14 @@ test('calendar error retry and stale month responses do not replace the new mont
   });
   await page.getByRole('button', { name: '다음 달', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('불러오는 중');
+  await expect(page.getByRole('table', { name: '2026-10 공고 일정' })).toBeVisible();
+  await expect(page.getByRole('region', { name: '10월 2일 공고' })).toContainText(
+    '테스트 청년 주거지원',
+  );
+  await expect(page.getByRole('button', { name: /10월 15일,/ })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
   await page.getByRole('button', { name: '다음 달', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('이달 관련 공고 0개');
   release();
@@ -185,47 +218,168 @@ test('calendar error retry and stale month responses do not replace the new mont
   await expect(page.getByRole('status')).toContainText('이달 관련 공고 0개');
 });
 
-test('home banner automatically advances to calendar and supports pause, manual controls and navigation', async ({
+test('refreshing filters and retrying failures preserve the visible grid, rows and undated notices', async ({
+  page,
+}) => {
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 3개');
+  await page.evaluate(() => {
+    window.calendarBeforeRefresh = {
+      grid: document.querySelector('.month-grid'),
+      row: [...document.querySelectorAll('.calendar-day-panel .calendar-policy-row')].find((row) =>
+        row.textContent.includes('테스트 청년 주거지원'),
+      ),
+      undated: document.querySelector('.calendar-undated .calendar-policy-row'),
+      height: document.querySelector('.calendar-layout').getBoundingClientRect().height,
+    };
+  });
+  let release;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  let fail = true;
+  await page.route('**/api/v1/policies/calendar?**', async (route) => {
+    await pending;
+    const params = new URL(route.request().url()).searchParams;
+    return route.fulfill(
+      fail
+        ? { status: 503, json: { detail: 'test-only refresh failure' } }
+        : { json: response(params.get('month'), { category: params.get('category') }) },
+    );
+  });
+  await page.getByLabel('분야', { exact: true }).selectOption('주거');
+  await expect(page.locator('.calendar-layout')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('region', { name: '10월 2일 공고' })).toContainText(
+    '테스트 청년 주거지원',
+  );
+  await expect(page.getByRole('button', { name: '테스트 상시 지원', exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(() => {
+      const before = window.calendarBeforeRefresh;
+      return (
+        before.grid === document.querySelector('.month-grid') &&
+        before.row.isConnected &&
+        before.undated.isConnected &&
+        before.height === document.querySelector('.calendar-layout').getBoundingClientRect().height
+      );
+    }),
+  ).toBe(true);
+  release();
+  await expect(page.getByRole('alert')).toContainText('일정을 불러오지 못했어요');
+  expect(
+    await page.evaluate(
+      () =>
+        window.calendarBeforeRefresh.row.isConnected &&
+        window.calendarBeforeRefresh.undated.isConnected,
+    ),
+  ).toBe(true);
+  fail = false;
+  await page.getByRole('button', { name: '다시 시도하기' }).click();
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 1개');
+  expect(
+    await page.evaluate(() => {
+      const before = window.calendarBeforeRefresh;
+      return (
+        before.grid === document.querySelector('.month-grid') &&
+        before.row === document.querySelector('.calendar-day-panel .calendar-policy-row') &&
+        before.undated === document.querySelector('.calendar-undated .calendar-policy-row')
+      );
+    }),
+  ).toBe(true);
+});
+
+test('closed notices remain available on their past dates', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-20T03:00:00Z'));
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 3개');
+  await page.getByRole('button', { name: /10월 15일, 신청 시작 0건, 마감 1건/ }).click();
+  const row = page
+    .getByRole('region', { name: '10월 15일 공고' })
+    .locator('article')
+    .filter({ hasText: '테스트 청년 주거지원' });
+  await expect(row.getByText('접수 마감', { exact: true })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: '테스트 청년 주거지원', exact: true }),
+  ).toBeVisible();
+});
+
+test('yearless month ranges show first-day starts, last-day ends and daily policies next year', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2027-04-02T03:00:00Z'));
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 1개');
+  await expect(page.getByRole('status')).toContainText('신청 시작 0건 · 마감 1건');
+  await expect(
+    page
+      .locator('.calendar-day-panel')
+      .getByRole('button', { name: '테스트 3~4월 보조공학기기 지원', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /4월 30일, 신청 시작 0건, 마감 1건/ }).click();
+  await expect(
+    page.locator('.calendar-day-panel').getByText('신청 마감', { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.calendar-day-panel')).toContainText(
+    '신청 시작 2027-03-01 · 마감 2027-04-30',
+  );
+  await page.getByRole('button', { name: '이전 달', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('신청 시작 1건 · 마감 0건');
+  await page.getByRole('button', { name: /3월 1일, 신청 시작 1건, 마감 0건/ }).click();
+  await expect(
+    page.locator('.calendar-day-panel').getByText('신청 시작', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /3월 15일, 신청 시작 0건, 마감 0건/ }).click();
+  await expect(
+    page
+      .locator('.calendar-day-panel')
+      .getByRole('button', { name: '테스트 3~4월 보조공학기기 지원', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: '다음 달', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 1개');
+  await page.getByRole('button', { name: '다음 달', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('이달 관련 공고 0개');
+  await expect(page.locator('.calendar-day-panel')).not.toContainText(
+    '테스트 3~4월 보조공학기기 지원',
+  );
+  await expect(page.locator('.calendar-monthly')).toHaveCount(0);
+});
+
+test('home calendar shortcut opens the schedule and browser back returns to home search', async ({
   page,
 }, testInfo) => {
   await page.goto('/#home');
-  const banner = page.getByRole('region', { name: '홈 안내 배너' });
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 멈추기' }).click();
-  await page.mouse.move(0, 0);
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 시작하기' }).click();
-  await page.mouse.move(0, 0);
-  await page.clock.fastForward(8100);
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  await banner.getByRole('button', { name: '배너 자동 전환 멈추기' }).click();
-  await page.screenshot({ path: testInfo.outputPath('home-calendar-banner.png'), fullPage: true });
-  await banner.getByRole('button', { name: '공고 캘린더 보기' }).click();
+  const shortcut = page.getByRole('button', { name: /신청 일정을 확인하고 싶다면.*공고 캘린더/ });
+  await expect(shortcut).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('home-calendar-shortcut.png'),
+    fullPage: true,
+  });
+  await shortcut.click();
   await expect(page).toHaveURL(/#calendar$/);
   await expect(page.getByRole('heading', { name: '공고 캘린더', exact: true })).toBeVisible();
+  await expect(page.getByRole('table', { name: '2026-10 공고 일정' })).toBeVisible();
   await page.goBack();
-  await banner.getByRole('button', { name: '다음 배너' }).click();
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
-  await banner.getByRole('button', { name: '이전 배너' }).click();
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
+  await expect(page).toHaveURL(/#home$/);
+  await expect(page.getByRole('searchbox', { name: '찾고 싶은 복지' })).toBeVisible();
+  await expect(shortcut).toBeVisible();
 });
 
-test('reduced motion disables autoplay and easy calendar banner fits 320 pixels', async ({
+test('the home calendar shortcut remains keyboard accessible in easy mode at 320 pixels', async ({
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/#home');
-  const banner = page.getByRole('region', { name: '홈 안내 배너' });
-  await expect(banner.getByRole('button', { name: '배너 자동 전환 시작하기' })).toBeVisible();
-  await page.clock.fastForward(16000);
-  await expect(banner.getByRole('button', { name: '내 정보 입력하기' })).toBeVisible();
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await banner.getByRole('button', { name: '공고 캘린더 안내 배너 보기' }).click();
-  await expect(banner.getByRole('button', { name: '공고 캘린더 보기' })).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: '찾고 싶은 복지' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('home-banner-easy-320.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('home-easy-320.png'), fullPage: true });
+  const shortcut = page.getByRole('button', { name: /신청 일정을 확인하고 싶다면.*공고 캘린더/ });
+  await shortcut.focus();
+  await expect(shortcut).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#calendar$/);
+  await expect(page.getByRole('heading', { name: '공고 캘린더', exact: true })).toBeVisible();
+  await expect(page.getByRole('switch', { name: /쉬운 화면/ })).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

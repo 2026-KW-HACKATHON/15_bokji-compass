@@ -31,10 +31,13 @@ RESTART_FIELDS = frozenset({
 })
 MODEL_FIELDS = frozenset({
     "codex_model", "codex_fallback_model", "codex_reasoning_effort", "codex_timeout_seconds",
+    "codex_fallback_reasoning_effort",
     "parsing_max_input_chars",
 })
 INGESTION_FIELDS = frozenset({
     "ingestion_enabled",
+    "ingestion_kwangwoon_enabled",
+    "ingestion_profile", "ingestion_ai_batch_size", "ingestion_ai_batch_input_chars",
     "ingestion_page_size", "ingestion_max_pages", "ingestion_max_jobs", "ingestion_max_seconds",
     "ingestion_max_http_calls", "ingestion_max_response_bytes", "ingestion_http_interval_seconds",
     "ingestion_max_model_calls", "ingestion_max_tokens", "ingestion_daily_model_calls",
@@ -47,23 +50,29 @@ EDITABLE_FIELDS = (
     RESTART_FIELDS | MODEL_FIELDS | INGESTION_FIELDS | SECRET_FIELDS | {"policy_auto_publish"}
 )
 LABELS = {
+    "ingestion_profile": "자동 수집 운영 모드",
+    "ingestion_ai_batch_size": "AI 호출당 묶을 공고 수",
+    "ingestion_ai_batch_input_chars": "AI 묶음 입력 최대 글자 수",
+    "codex_fallback_reasoning_effort": "검증 실패 시 모델 추론 수준",
     "ingestion_enabled": "새 공고 수집 회차 허용",
+    "ingestion_kwangwoon_enabled": "광운대학교 등록·장학 공지 자동 수집",
     "db_enabled": "MySQL 사용", "db_host": "MySQL 주소", "db_port": "MySQL 포트",
     "db_name": "데이터베이스 이름", "db_user": "MySQL 사용자", "db_password": "MySQL 비밀번호",
     "db_ssl_ca": "MySQL CA 인증서 경로", "data_go_kr_api_key": "정부24 API 키",
     "bokjiro_api_key": "복지로 API 키", "codex_model": "기본 모델",
     "codex_fallback_model": "검증 실패 시 모델", "codex_reasoning_effort": "모델 추론 수준",
     "codex_timeout_seconds": "모델 호출 제한 시간(초)",
-    "parsing_max_input_chars": "공고 입력 최대 글자 수", "ingestion_page_size": "페이지당 공고 수",
-    "ingestion_max_pages": "한 번에 조회할 페이지 수",
+    "parsing_max_input_chars": "공고 입력 최대 글자 수",
+    "ingestion_page_size": "한 번에 수집할 공고 수",
+    "ingestion_max_pages": "수집 반복 횟수",
     "ingestion_max_jobs": "한 번에 처리할 작업 수",
     "ingestion_max_seconds": "한 번의 수집 제한 시간(초)",
-    "ingestion_max_http_calls": "한 번의 HTTP 호출 한도",
+    "ingestion_max_http_calls": "한 번의 데이터 요청 최대 횟수",
     "ingestion_max_response_bytes": "응답 최대 크기(바이트)",
-    "ingestion_http_interval_seconds": "HTTP 호출 간격(초)",
-    "ingestion_max_model_calls": "한 번의 모델 호출 한도",
+    "ingestion_http_interval_seconds": "데이터 요청 간격(초)",
+    "ingestion_max_model_calls": "한 번의 AI 분석 최대 횟수",
     "ingestion_max_tokens": "한 번의 보고된 토큰 한도",
-    "ingestion_daily_model_calls": "하루 모델 호출 한도",
+    "ingestion_daily_model_calls": "하루 AI 분석 최대 횟수",
     "ingestion_daily_bokjiro_calls": "하루 복지로 호출 한도",
     "ingestion_daily_gov24_calls": "하루 정부24 호출 한도",
     "ingestion_daily_notice_calls": "하루 외부 원문 호출 한도",
@@ -193,6 +202,10 @@ def _field_metadata(name: str) -> dict:
               "kind": kind, "restart_required": name in RESTART_FIELDS}
     if options:
         result["options"] = options
+        if name == "ingestion_profile":
+            labels = {"custom": "직접 설정", "bootstrap": "최초 대량 수집",
+                      "steady": "평상시 지속 수집"}
+            result["options"] = [{"value": value, "label": labels[value]} for value in options]
     for constraint in field.metadata:
         if getattr(constraint, "ge", None) is not None:
             result["minimum"] = constraint.ge

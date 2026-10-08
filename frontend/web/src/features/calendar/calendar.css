@@ -140,6 +140,9 @@
 .calendar-day:focus-visible {
   outline-offset: -3px;
 }
+.calendar-day[aria-disabled='true'] {
+  cursor: wait;
+}
 .calendar-day-number {
   display: inline-grid;
   place-items: center;
@@ -223,6 +226,11 @@
 .calendar-policy-copy {
   flex: 1;
   min-width: 0;
+}
+.calendar-policy-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .calendar-row-labels {
   display: flex;

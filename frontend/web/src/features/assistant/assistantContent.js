@@ -1,6 +1,18 @@
 // Reviewed service guidance. Policy facts always come from the published policy API.
 export const assistantMenus = [
   {
+    id: 'assistant',
+    icon: 'sparkles',
+    label: 'AI 복지비서 열기',
+    description: '나에게 발견된 지원, 필요한 정보와 신청 현황',
+  },
+  {
+    id: 'guidance',
+    icon: 'house',
+    label: '생활 상황으로 상담하고 싶어요',
+    description: '집수리·누수·취업, 부족한 정보는 대화로 확인',
+  },
+  {
     id: 'policy',
     icon: 'help',
     label: '공고 내용이 궁금해요',
@@ -61,8 +73,8 @@ export const assistantGuides = [
     id: 'calculator',
     question: '계산기는 어떻게 사용하나요?',
     answer: [
-      '‘계산기’에서 가구 정보, 소득과 재산 등을 순서대로 입력한 뒤 계산 결과를 확인하세요.',
-      '모르는 항목은 ‘모름’으로 표시하세요. 계산 결과는 참고용이며, 복지 지원 여부는 해당 사업의 조건과 담당 기관의 심사에 따라 달라져요.',
+      '‘계산기’에서 가구원 수를 고르면 기준 중위소득을 바로 볼 수 있어요. 가구 전체 월소득을 입력하면 중위소득 대비 비율도 확인할 수 있어요.',
+      '재산·부채·차량과 공제까지 확인하려면 ‘상세 정보 입력하기’를 누르세요. 모르는 항목은 ‘모름’으로 표시할 수 있고, 회원은 동의 후 저장할 수 있어요. 결과는 참고용이며, 지원 여부는 담당 기관의 심사에 따라 달라져요.',
     ],
     action: { page: 'calculator', label: '계산기 열기' },
   },
@@ -80,7 +92,7 @@ export const assistantGuides = [
     question: '질문하려면 로그인해야 하나요?',
     answer: [
       '이용 방법 안내와 공고 캘린더는 로그인하지 않아도 볼 수 있어요.',
-      '공고의 준비된 질문과 직접 질문은 로그인 후 사용할 수 있어요. 직접 질문할 때는 가입한 지역과 연령대를 참고하며, 이름이나 전화번호는 입력하지 마세요.',
+      '자주 묻는 질문의 답변을 보거나 직접 질문하려면 로그인해 주세요. 직접 질문할 때는 내 정보에 저장한 지역과 연령대를 참고하고, 정보가 없으면 공고 내용을 바탕으로 안내해요. 이름이나 전화번호는 입력하지 마세요.',
     ],
     action: { page: 'login', label: '로그인하기' },
   },

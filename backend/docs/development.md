@@ -63,6 +63,8 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | `CODEX_EXECUTABLE`, `CODEX_MODEL`, `CODEX_REASONING_EFFORT` | 원문 파싱용 native CLI 경로·모델·추론 수준. 기본 Luna medium. |
 | `CODEX_FALLBACK_MODEL`, `CODEX_TIMEOUT_SECONDS` | 검증 실패 시 1회 재시도 모델·호출별 제한시간. 기본 Terra·300초. |
 | `PARSING_MAX_INPUT_CHARS` | 프롬프트를 포함한 정책별 입력 문자 상한. 기본 60,000. |
+| `POLICY_TRANSLATION_ENABLED`, `POLICY_TRANSLATION_DAILY_CALLS` | 공개 공고 번역 활성화·UTC 일일 생성 시도 한도. 기본 true·100. 캐시 조회는 차감 없음. |
+| `POLICY_TRANSLATION_MAX_INPUT_CHARS` | 공고 번역용 전체 표시 데이터 문자 한도. 기본 120,000, 절단 없음. [본문 번역·초기화](policy-translation.md). |
 
 `app.main.create_app(settings=None) -> FastAPI`는 동기 앱 생성 함수이며 `app.main:app`이 ASGI 진입점입니다. import 시 외부 접속·DB 쓰기를 하지 않습니다. lifespan에서 풀을 만들고 종료 시 해제합니다. `server.py`는 Uvicorn을 Windows용 `asyncio`/`h11`로 실행하며 production 환경에서 `--reload`를 거부합니다.
 

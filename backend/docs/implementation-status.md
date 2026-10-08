@@ -30,6 +30,7 @@
 | 소득·재산 참고 계산 | 구현 | `/v1/finance/rules`, `/calculate`. 비회원도 가능. 2026 기본 산식·미확정 항목 표시. [산정 규칙](financial-rules.md) |
 | 회원 금융정보 저장 | 구현·격리 SQLite 검증 | `/v1/finance/profile` 조회·동의 후 저장·삭제. 원입력만 저장하고 계산 결과는 재계산. MySQL 명시 초기화·실제 MySQL 저장 검증 후속 |
 | 정책·추천 업무 HTTP API | 정책 조회·질문 구현 | `/v1/policies` 목록·상세·검색, `/v1/assistant/questions` 회원 질문. 추천 API는 후속 |
+| 공고 내용 번역 (2026-10-07) | 구현·모의 모델/SQLite 검증 | 공개 공고 4개 외국어 번역·개정/내용 캐시·영속 일일 예산. 실제 MySQL 초기화·CLI 번역 품질 확인 별도. [계약](policy-translation.md) |
 
 ## 현재 데이터 흐름
 

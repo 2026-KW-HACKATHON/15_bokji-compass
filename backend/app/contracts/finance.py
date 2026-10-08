@@ -103,6 +103,10 @@ class CalculationInput(FinanceModel):
     profile: FinancialProfile
 
 
+class ApproximateCalculationInput(CalculationInput):
+    allow_approximation: bool = Field(default=False, strict=True)
+
+
 class SaveFinancialProfile(CalculationInput):
     consent: Literal[True]
 

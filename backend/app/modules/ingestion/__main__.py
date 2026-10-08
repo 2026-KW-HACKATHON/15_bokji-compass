@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import load_settings
 from app.core.database import create_database_engine
+from app.modules.ingestion.profiles import PROFILES, apply_profile
 from app.modules.ingestion.public import run_tick
 from app.modules.ingestion.repository import IngestionRepository
 from app.modules.pipeline.public import processing_signature
@@ -20,6 +21,8 @@ def main(argv=None):
     commands = cli.add_subparsers(dest="command", required=True)
     tick = commands.add_parser("tick")
     tick.add_argument("--live", action="store_true", help="Allow real HTTP and Codex calls")
+    tick.add_argument("--profile", choices=tuple(PROFILES),
+                      help="Apply initial bulk or continuous collection budgets")
     for name in ("page-size", "max-pages", "max-jobs", "max-seconds", "max-http-calls",
                  "max-model-calls", "max-tokens"):
         tick.add_argument("--" + name, type=int)
@@ -36,6 +39,8 @@ def main(argv=None):
                       help="Clear failed model attempts; keep valid stages")
     seed = commands.add_parser("seed-existing")
     seed.add_argument("--limit", type=int, default=100)
+    seed.add_argument("--all", action="store_true",
+                      help="Repeat small commits until all are indexed")
     seed.add_argument("--adopt-legacy-results", action="store_true",
                       help="Reuse validated legacy drafts without a processing signature")
     args = cli.parse_args(argv)
@@ -43,6 +48,8 @@ def main(argv=None):
     try:
         settings = load_settings()
         if args.command == "tick":
+            if args.profile:
+                settings = apply_profile(settings, args.profile)
             changes = {f"ingestion_{name}": getattr(args, name) for name in (
                 "page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls",
                 "max_model_calls", "max_tokens") if getattr(args, name) is not None}
@@ -96,9 +103,14 @@ def main(argv=None):
                 result = {"status": "busy", "reason": "another_worker"}
             else:
                 try:
-                    result = store.seed_existing(PolicyRepository(engine), signature, time.time(),
-                        limit=args.limit, adopt_legacy=args.adopt_legacy_results,
-                        worker_token=token)
+                    if args.all:
+                        result = store.seed_all_existing(PolicyRepository(engine), signature,
+                            limit=args.limit, adopt_legacy=args.adopt_legacy_results,
+                            worker_token=token)
+                    else:
+                        result = store.seed_existing(PolicyRepository(engine), signature,
+                            time.time(), limit=args.limit, adopt_legacy=args.adopt_legacy_results,
+                            worker_token=token)
                 finally:
                     store.release_worker(token)
         print(json.dumps(result, ensure_ascii=False))

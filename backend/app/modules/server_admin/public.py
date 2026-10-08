@@ -9,9 +9,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
+from app.modules.ingestion.profiles import runtime_settings
 from app.modules.ingestion.public import available_memory_mb
 from app.modules.ingestion.repository import IngestionRepository
 from app.modules.server_admin import settings as configuration
+from app.modules.server_admin.inventory import inventory_counts
 
 
 def configuration_path() -> Path:
@@ -45,7 +47,16 @@ def collection_repository(state) -> IngestionRepository:
 def read_collection(state, kind: str, *, limit: int = 20) -> dict:
     store = collection_repository(state)
     if kind == "status":
-        return store.status(limit)
+        result = store.status(limit)
+        effective = runtime_settings(state.settings,
+            result.get("state", {}).get("bootstrap", {}).get("complete", False))
+        result.update(effective_profile=effective.ingestion_profile,
+                      effective_daily_model_calls=effective.ingestion_daily_model_calls)
+        try:
+            result["inventory"] = inventory_counts(state.database_engine)
+        except SQLAlchemyError:
+            result["inventory"] = {"available": False}
+        return result
     if kind == "changes":
         return {"items": store.changes(limit)}
     if kind == "candidates":

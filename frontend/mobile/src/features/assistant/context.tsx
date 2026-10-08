@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
-export type ChatPolicy = {
-  id: string;
-  title: string;
-  revisionId: string | null;
-};
+import { parsePolicy } from "../policies/model";
+export type ChatPolicy = ReturnType<typeof parsePolicy>;
 type Panel = "chat" | "menu" | null;
 const Assistant = createContext({
   enabled: true,
@@ -38,9 +35,14 @@ export function AssistantProvider({ children }: React.PropsWithChildren) {
           if (next) choosePolicy(next);
           setEnabled(true);
           setPanel("chat");
+          setConfirm(false);
           setDisabledNotice(false);
         },
-        openMenu: () => setPanel("menu"),
+        openMenu: () => {
+          setPanel("menu");
+          setConfirm(false);
+          setDisabledNotice(false);
+        },
         closePanel: () => setPanel(null),
         requestDisable: () => setConfirm(true),
         cancelDisable: () => setConfirm(false),

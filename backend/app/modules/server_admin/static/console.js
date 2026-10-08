@@ -4,7 +4,10 @@
   const $ = (id) => document.getElementById(id);
   const state = { user: null, view: "overview", collectionTab: "status", settings: null, overview: null, generation: 0, saving: false };
   const controls = new Map();
-  const viewLabels = { overview: "서버 개요", collection: "데이터 수집", settings: "서버 설정" };
+  const viewLabels = { overview: "서버 개요", processes: "서버·프론트 제어", operations: "수집 실행", collection: "데이터 수집", policies: "공고 DB 편집", settings: "서버 설정" };
+  let controlTimer = null, controlBusy = false, controlDisconnected = false, processState = null;
+  let operationTimer = null, operationLoading = false, operationSubmitting = false, operationActive = false;
+  const runFields = ["page_size", "max_pages", "max_jobs", "max_seconds", "max_http_calls", "max_model_calls", "max_tokens"];
   const providerLabels = { bokjiro: "복지로", gov24: "정부24", notice: "외부 공고 원문", model: "Codex 모델" };
   const statusLabels = { completed: "완료", budget_reached: "처리 한도 도달", busy: "작업 중", failed: "실패", paused: "대기", pending: "대기", running: "처리 중", done: "완료", dead: "재확인 필요", needs_review: "검토 대기", queued: "수집 대기", disabled: "비활성", reachable: "연결 확인", unavailable: "확인 필요" };
   const groupLabels = {
@@ -25,17 +28,22 @@
     publication: ["공고 공개", "검증된 결과의 공개 기준을 관리합니다."],
   };
   const descriptions = {
+    ingestion_profile: "최초 모드는 원문 확보 후 묶음 분석하고 작업 종료 후 평상시 예산으로 전환합니다. 프리셋 전체 수치를 저장하려면 수집 실행에서 프리셋 적용·저장을 사용하세요.",
+    ingestion_ai_batch_size: "한 AI 호출로 처리할 공고 수입니다. 운영 프리셋은 4건이며 긴 원문은 더 작은 묶음이나 단건으로 처리합니다.",
+    ingestion_ai_batch_input_chars: "지시문과 공고를 합친 묶음 프롬프트의 글자 한도입니다. 내용을 잘라내지 않고 묶음 크기를 줄입니다.",
+    codex_fallback_reasoning_effort: "기본 모델의 근거 검증에 실패한 공고를 재처리할 때 적용합니다.",
     ingestion_enabled: "끄면 다음 수집 회차부터 대기합니다. 진행 중인 회차는 기존 제한 시간 내 종료합니다. 켜도 스케줄 또는 명시적 실행이 있어야 수집합니다.",
-    ingestion_page_size: "한 페이지에서 요청할 공고 수입니다. 대기열 한도보다 작거나 같아야 합니다.",
-    ingestion_max_pages: "한 차례에 조회할 최대 페이지 수입니다. 0이면 목록 조회를 쉬어갑니다.",
-    ingestion_max_jobs: "한 차례에 처리할 상세 수집·분석 작업 수입니다.",
+    ingestion_kwangwoon_enabled: "광운대학교 등록·장학 목록을 자동으로 확인합니다. API 키 없이 수집하며 외부 원문 호출 한도를 사용합니다. 확보한 목록의 상세와 AI 분석은 대기 작업으로 이어서 처리합니다.",
+    ingestion_page_size: "정부24·복지로 목록 요청당 공고 수입니다. 광운대는 사이트 기준으로 페이지당 일반 공지 10건과 상단 고정 공지를 확인합니다. 실제 수집량은 남은 데이터와 다른 한도에 따라 줄어들 수 있습니다. 대기열 한도보다 작거나 같아야 합니다.",
+    ingestion_max_pages: "한 번 실행할 때 목록을 수집할 최대 횟수입니다. 자동 수집의 실행 횟수와는 별개이며, 0이면 목록 수집을 건너뜁니다.",
+    ingestion_max_jobs: "한 번 실행할 때 처리할 작업 수입니다. 상세 수집과 AI 분석을 각각 1개 작업으로 세므로 분석 완료 공고 수와 다를 수 있습니다.",
     ingestion_max_seconds: "한 차례 작업의 최대 실행 시간입니다. 단위: 초.",
-    ingestion_max_http_calls: "재시도와 원문 이동을 포함한 한 차례 HTTP 호출 한도입니다.",
+    ingestion_max_http_calls: "목록·상세·원문 요청과 재시도를 모두 포함한 최대 횟수입니다.",
     ingestion_max_response_bytes: "원문 응답 하나의 최대 크기입니다. 단위: 바이트.",
-    ingestion_http_interval_seconds: "HTTP 요청 사이의 최소 간격입니다. 단위: 초.",
-    ingestion_max_model_calls: "한 차례에 허용할 모델 호출 수입니다. 대체 모델도 포함됩니다.",
+    ingestion_http_interval_seconds: "데이터 요청 사이의 최소 간격입니다. 단위: 초.",
+    ingestion_max_model_calls: "한 번 실행할 때 AI를 사용할 최대 횟수입니다. 추가 분석·대체 모델·외부 검색도 포함하므로 분석 완료 공고 수와 다를 수 있습니다.",
     ingestion_max_tokens: "보고된 토큰 사용량을 기준으로 후속 호출을 멈추는 한도입니다.",
-    ingestion_daily_model_calls: "하루에 허용할 모델 호출 수입니다. 한국 시간 자정 기준입니다.",
+    ingestion_daily_model_calls: "하루 동안 AI를 사용할 최대 횟수입니다. 추가 분석·대체 모델·외부 검색도 포함하며, 한국 시간 자정에 초기화됩니다.",
     ingestion_daily_bokjiro_calls: "복지로의 실제 계정 한도에 맞춰 지정하세요. 재시도도 포함됩니다.",
     ingestion_daily_gov24_calls: "정부24의 실제 계정 한도에 맞춰 지정하세요. 재시도도 포함됩니다.",
     ingestion_daily_notice_calls: "외부 공고 원문 조회의 일일 호출 한도입니다.",
@@ -86,6 +94,7 @@
   }
   function errorMessage(error) {
     if (error.code === "session_changed") return "";
+    if (error.code && !["connection_failed"].includes(error.code) && error.status >= 400 && error.status !== 401 && error.status !== 403) return error.code;
     if (error.status === 401) return "아이디 또는 비밀번호를 확인하세요.";
     if (error.status === 403) return "최고관리자 계정으로 로그인하세요.";
     if (error.status === 409) return "다른 곳에서 설정이 변경되었습니다. 최신 설정을 불러온 뒤 다시 수정하세요.";
@@ -121,6 +130,15 @@
     finally { window.clearTimeout(timer); }
   }
   function showLogin(text = "") {
+    policyEditor.reset();
+    window.clearTimeout(controlTimer); controlTimer = null; controlBusy = false; controlDisconnected = false; processState = null;
+    message("process-message", ""); $("process-job-result").replaceChildren();
+    window.clearTimeout(operationTimer); operationTimer = null; operationActive = false; operationSubmitting = false;
+    state.runInitialized = false; state.runPresets = null;
+    $("operation-result").replaceChildren(); message("operation-message", "");
+    $("run-readiness").replaceChildren(); $("schedule-status").textContent = "자동 수집 상태를 불러오는 중";
+    $("schedule-detail").textContent = "Windows 작업 스케줄러로 10분마다 실행합니다.";
+    $("schedule-enable").hidden = true; $("schedule-remove").hidden = true;
     state.generation += 1; state.user = null; state.settings = null; state.overview = null; state.saving = false; controls.clear();
     $("console-screen").hidden = true; $("login-screen").hidden = false;
     $("password").value = ""; $("password").type = "password";
@@ -151,11 +169,24 @@
   function panel(title, description = "") { const node = element("section", "panel"); const heading = element("div", "panel-heading"); const titles = element("div"); titles.append(element("h2", "", title)); if (description) titles.append(element("p", "", description)); heading.append(titles); const body = element("div", "panel-content"); node.append(heading, body); return { node, heading, body }; }
   function statusRow(container, label, detail, text, type = "") { const row = element("div", "status-row"); const name = element("span", "status-label", label); if (detail) name.append(element("small", "", detail)); row.append(name, badge(text, type)); container.append(row); }
   function metric(label, value, caption, iconName, emphasis = false) { const node = element("div", `metric-card${emphasis ? " emphasis" : ""}`); const symbol = element("span", "metric-icon"); symbol.append(icon(iconName)); node.append(element("div", "metric-label", label), symbol, element("div", `metric-value${typeof value === "string" && value.length > 4 ? " word-value" : ""}`, value), element("div", "metric-caption", caption)); return node; }
+  function limitReason(code) {
+    const match = /^(daily_calls|provider_blocked)_(bokjiro|gov24|notice)$/.exec(code || "");
+    if (!match) return "";
+    const provider = providerLabels[match[2]] || match[2];
+    return match[1] === "daily_calls" ? `${provider}: 서버에 설정한 일일 호출 한도에 도달했습니다. 한국 시간 자정에 한도가 초기화되며, 대기 작업은 다음 수집 실행에서 이어집니다.` : `${provider}: 이전 API 응답으로 요청을 잠시 보류하고 있습니다. API 키와 공급자 사용 상태를 확인하세요.`;
+  }
   function tickBanner(tick, available = true) {
     const node = element("div", "tick-banner"); const symbol = element("span", "tick-symbol"); symbol.append(icon("layers")); const text = element("div");
     if (!available) { text.append(element("strong", "", "수집 상태를 확인하려면 데이터베이스 연결이 필요합니다."), element("p", "", "서버 설정에서 MySQL 연결을 설정하고 서버를 재시작하세요.")); }
     else if (!tick) { text.append(element("strong", "", "아직 저장된 수집 실행 기록이 없습니다."), element("p", "", "스케줄이 실행되면 처리 결과가 이곳에 표시됩니다.")); }
     else { text.append(element("strong", "", `최근 실행 · ${statusLabels[tick.status] || "상태 확인"}`), element("p", "", `신규 ${number(tick.new ?? 0)}건 · 변경 ${number(tick.changed ?? 0)}건 · 동일 ${number(tick.unchanged ?? 0)}건 · 완료 작업 ${number(tick.jobs_completed ?? 0)}건`)); }
+    if (tick) {
+      const oldDeferrals = (tick.errors || []).filter((item) => limitReason(item.code));
+      const deferrals = [...(tick.deferrals || []), ...oldDeferrals];
+      const errors = (tick.errors || []).length - oldDeferrals.length;
+      if (deferrals.length || errors) text.append(element("p", "", `실제 오류 ${number(errors)}건 · 한도 보류 ${number(deferrals.filter((item) => item.job_id).length)}작업`));
+      for (const code of new Set(deferrals.map((item) => item.code))) if (limitReason(code)) text.append(element("p", "", limitReason(code)));
+    }
     node.append(symbol, text); if (tick) node.append(badge(`HTTP ${number(tick.http_calls ?? 0)} · 모델 ${number(tick.model_calls ?? 0)}`, tick.status === "failed" ? "error" : "")); return node;
   }
   function currentKoreanDay() { const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()); const values = Object.fromEntries(parts.map((part) => [part.type, part.value])); return `${values.year}-${values.month}-${values.day}`; }
@@ -164,18 +195,30 @@
     const values = state.settings?.values || {}; const today = currentKoreanDay();
     for (const provider of ["bokjiro", "gov24", "notice", "model"]) {
       const limitKey = provider === "model" ? "ingestion_daily_model_calls" : `ingestion_daily_${provider}_calls`;
-      const limit = values[limitKey]; const usage = (collection.usage || []).find((row) => row.provider === provider && String(row.day).slice(0, 10) === today);
+      const limit = provider === "model" ? collection.effective_daily_model_calls ?? values[limitKey] : values[limitKey]; const usage = (collection.usage || []).find((row) => row.provider === provider && String(row.day).slice(0, 10) === today);
       const used = usage?.calls ?? 0; const row = element("div", "quota-item"); const line = element("div", "quota-line"); const value = element("span", "quota-value");
       value.append(element("strong", "", collection.available === false ? "—" : number(used)), document.createTextNode(` / ${number(limit)}회`)); line.append(element("span", "", providerLabels[provider]), value);
       const progress = element("progress", `quota-progress${limit && used / limit >= .8 ? " warn" : ""}`); progress.max = Math.max(Number(limit) || 1, 1); progress.value = collection.available === false ? 0 : Math.min(used, progress.max); progress.setAttribute("aria-label", `${providerLabels[provider]} 호출 사용량`); row.append(line, progress); item.body.append(row);
     }
     item.body.append(element("p", "quota-note", "실제 공공 API 계정의 허용량은 공급자에서 확인하세요. 모델 토큰은 보고된 사용량을 기준으로 제한합니다.")); return item.node;
   }
+  function inventoryMetrics(data) {
+    const counts = data?.inventory || {}, available = counts.available === true;
+    const grid = element("div", "metric-grid"); grid.setAttribute("aria-label", "보유 공고 수");
+    for (const [key, label, caption, symbol] of [
+      ["total", "총 보유 공고", "공고 ID 기준 · 변경 이력 중복 제외", "layers"],
+      ["raw", "원문 확보 공고", "상세 원문을 확보한 고유 공고", "grid"],
+      ["analyzed", "분석 저장 공고", "분석 결과가 저장된 고유 공고", "check"],
+      ["published", "공개 공고", "현재 서비스에서 공개 중인 고유 공고", "eye"],
+    ]) grid.append(metric(label, available ? `${number(counts[key])}건` : "—", available ? caption : "공고 저장소 연결 후 확인할 수 있습니다", symbol, key === "total"));
+    return grid;
+  }
   function renderOverview() {
     const data = state.overview; if (!data) return;
     const server = data.server || {}, database = data.database || {}, collection = data.collection || {}, resources = data.resources || {}, jobs = collection.jobs || {};
     $("environment-label").textContent = { development: "개발 환경", production: "운영 환경", test: "테스트 환경" }[server.app_env] || "서버 환경";
     const container = $("overview-content"); container.replaceChildren();
+    container.append(inventoryMetrics(collection));
     const metrics = element("div", "metric-grid"); metrics.append(metric("서버 가동 시간", duration(server.uptime_seconds), `시작 · ${date(server.started_at)}`, "server", true), metric("대기 중인 작업", collection.available ? number(jobs.pending || 0) : "—", `처리 중 ${collection.available ? number(jobs.running || 0) : "—"}건`, "layers"), metric("사용 가능 메모리", resources.available_memory_mb == null ? "—" : `${number(Math.round(resources.available_memory_mb))} MB`, "현재 서버의 남은 메모리", "grid"), metric("남은 디스크", resources.free_disk_mb == null ? "—" : `${number(Math.round(resources.free_disk_mb / 1024))} GB`, "수집 원문 저장 공간", "server")); container.append(metrics, tickBanner(collection.state?.last_tick, collection.available));
     const grid = element("div", "overview-grid"); const readiness = panel("서버 준비 상태", "현재 실행 중인 서버의 연결 상태입니다.");
     statusRow(readiness.body, "백엔드 서버", `${server.host || ""}${server.port ? ` : ${server.port}` : ""}`, "실행 중");
@@ -195,12 +238,13 @@
   function detailList(pairs) { const list = element("ul", "detail-list"); for (const [key, value] of pairs) { const row = element("li"); row.append(element("span", "", key), element("span", "", value)); list.append(row); } return list; }
   function renderCollectionStatus(data) {
     const container = $("collection-content"); container.replaceChildren(); const jobs = data.jobs || {}; const metrics = element("div", "metric-grid");
+    container.append(inventoryMetrics(data));
     for (const [key, label, description] of [["pending", "대기 작업", "처리 순서를 기다리는 작업"], ["running", "처리 중", "현재 진행 중인 작업"], ["done", "완료 작업", "저장까지 완료한 작업"], ["dead", "재확인 필요", "최대 시도 횟수에 도달한 작업"]]) metrics.append(metric(label, number(jobs[key] || 0), description, key === "dead" ? "sliders" : "layers", key === "pending"));
     container.append(metrics, tickBanner(data.state?.last_tick));
     const cursors = Object.entries(data.state || {}).filter(([key]) => key !== "last_tick" && key !== "worker" && key !== "scan_offset" && !key.startsWith("blocked:"));
     if (cursors.length) { const section = panel("수집 위치", "중단되더라도 저장된 위치부터 이어서 처리합니다."); section.body.replaceChildren(table(["수집 범위", "다음 페이지", "다음 확인", "상태"], cursors.map(([key, value]) => [providerLabels[key] || key.replace(/^scan:/, ""), value?.page ?? "—", date(value?.next_due ?? value?.next_due_at), value?.last_error ? badge("오류 확인", "warn") : badge("저장됨", "muted")]))); container.append(section.node); }
-    const failures = data.failures || []; const section = panel("최근 오류 작업", "원인 확인이 필요한 작업을 최대 20건까지 표시합니다.");
-    if (failures.length) section.body.replaceChildren(table(["공고 / 작업", "종류", "상태", "시도", "오류 코드"], failures.map((row) => [row.policy_key || row.job_id, { parse: "분석", notice: "원문 수집", bokjiro_detail: "상세 수집" }[row.kind] || row.kind, badge(statusLabels[row.status] || row.status, row.status === "dead" ? "error" : "warn"), number(row.attempts), element("span", "mono", row.error_code || "—")])));
+    const failures = data.failures || []; const section = panel("보류·오류 작업", "한도 도달로 대기 중인 작업과 실제 실패를 구분해 표시합니다. 최대 20건.");
+    if (failures.length) section.body.replaceChildren(table(["공고 / 작업", "종류", "상태", "시도", "보류·오류 원인"], failures.map((row) => [row.policy_key || row.job_id, { parse: "분석", notice: "원문 수집", detail: "상세 수집", bokjiro_detail: "상세 수집" }[row.kind] || row.kind, badge(limitReason(row.error_code) && row.status === "pending" ? "한도 보류" : statusLabels[row.status] || row.status, row.status === "dead" ? "error" : "warn"), number(row.attempts), element("span", "", limitReason(row.error_code) || row.error_code || "—")])));
     else empty(section.body, "현재 표시할 오류 작업이 없습니다.", "작업 오류가 발생하면 상태와 오류 코드가 이곳에 표시됩니다."); container.append(section.node);
   }
   function renderChanges(items) {
@@ -269,7 +313,213 @@
     catch (error) { if (state.user) { message("settings-message", errorMessage(error), "error"); if (error.status === 409) { const reload = element("button", "button button-secondary", "최신 설정 불러오기"); reload.type = "button"; reload.addEventListener("click", loadSettings); $("settings-message").append(reload); } } }
     finally { setSaving(false); }
   }
-  function selectView(view, load = true) { state.view = view; for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "collection") loadCollection(); if (view === "settings" && !state.settings) loadSettings(); } }
+  const operationNames = { check: "DB 준비 확인", tick: "공고 수집", seed: "기존 공고 연결", "analyze-all": "AI 전체 분석 · 한도 없음", "schedule-enable": "자동 수집 등록", "schedule-remove": "자동 수집 해제" };
+  const operationReasons = { collection_disabled: "새 수집 회차가 꺼져 있습니다.", another_worker: "다른 수집 작업이 실행 중입니다. 완료 후 다시 실행하세요.", operation_failed: "작업을 완료하지 못했습니다. DB 연결, 모델 로그인 또는 Windows 작업 권한을 확인하세요.", http_calls: "데이터 요청 최대 횟수에 도달했습니다.", model_calls: "AI 분석 최대 횟수에 도달했습니다.", tokens: "토큰 한도에 도달했습니다.", deadline: "이번 회차의 제한 시간이 지났습니다.", memory: "사용 가능한 메모리가 부족합니다.", disk: "저장 공간이 부족합니다." };
+  function updateOperationButtons() {
+    for (const button of document.querySelectorAll("[data-operation], #run-submit, #save-collection-profile")) button.disabled = operationActive || operationSubmitting || state.saving;
+  }
+  Object.assign(operationReasons, { cancelled: "중지했습니다. 완료된 결과는 보존하며 남은 대기열은 다시 시작하면 이어집니다.", codex_unavailable: "Codex 연결·로그인·모델 접근 또는 계정 사용 제한으로 일시 정지했습니다. 설정과 Codex 로그인을 확인한 뒤 다시 시작하면 이어집니다.", analysis_failed: "분석 결과를 처리하는 중 일시 정지했습니다. 저장된 결과는 보존했습니다. 실패 목록을 확인하세요.", worker_interrupted: "분석 작업이 중단됐습니다. 다시 시작하면 저장된 위치에서 이어집니다." });
+  function renderOperation(operation) {
+    state.operation = operation;
+    const container = $("operation-result"); container.replaceChildren(); operationActive = operation?.status === "running";
+    $("stop-analysis").hidden = !operationActive || operation.action !== "analyze-all";
+    $("stop-analysis").disabled = !!operation?.stop_requested;
+    $("stop-analysis").textContent = operation?.stop_requested ? "중지 요청됨 · 현재 묶음 저장 중" : "AI 분석 중지";
+    updateOperationButtons();
+    if (!operation) { empty(container, "첫 수집을 시작해 보세요", "DB 준비를 확인하고 원문 수집부터 실행하세요. 실행 결과는 이곳에 표시됩니다."); return; }
+    const result = operation.result || {}, running = operationActive;
+    const bulk = (result.analysis_mode || operation.analysis_mode) === "bulk";
+    const header = element("div", "operation-result-heading"); header.append(element("strong", "", bulk ? "최초 일괄 분석 · 한도 없음" : operationNames[operation.action] || "수집 작업"), badge(running ? "실행 중" : statusLabels[result.status] || ({ database_ready: "DB 준비 완료" }[result.status]) || "작업 종료", operation.status === "failed" || result.error_count ? "warn" : "")); container.append(header);
+    container.append(element("p", "operation-caption", `${date(operation.started_at)} 시작${operation.finished_at ? ` · ${date(operation.finished_at)} 종료` : " · 완료될 때까지 자동으로 상태를 확인합니다."}`));
+    if (running) { const line = element("p", "operation-running"); line.append(element("span", "spinner"), document.createTextNode(operation.action === "seed" ? `기존 공고 ${number(result.scanned || 0)}건 확인 · ${number(result.indexed || 0)}건 연결. 끝까지 자동으로 이어서 처리합니다.` : operation.action === "analyze-all" ? `분석 완료 ${number(result.jobs_completed || 0)}건 · 남은 분석 ${number(result.jobs_remaining || 0)}건. 화면을 닫아도 분석은 계속됩니다.` : "서버가 작업을 처리하고 있습니다. 다른 메뉴를 살펴봐도 작업은 계속됩니다.")); container.append(line); if (operation.action !== "analyze-all") return; }
+    const metrics = element("div", "operation-result-grid");
+    for (const [key, label] of [["new", "신규 원문"], ["changed", "변경 원문"], ["jobs_completed", "완료 작업"], ["jobs_remaining", "남은 분석 작업"], ["http_calls", "데이터 요청 횟수"], ["model_calls", "AI 사용 횟수"], ["tokens", "보고된 토큰"], ["error_count", "실제 오류"], ["deferred_count", "한도 보류 작업"], ["indexed", "연결 공고"]]) {
+      if (result[key] != null && (!["error_count", "deferred_count"].includes(key) || result[key])) { const item = element("div"); item.append(element("span", "", label), element("strong", "", number(result[key]))); metrics.append(item); }
+    }
+    if (metrics.childNodes.length) container.append(metrics);
+    if (operation.action === "analyze-all") container.append(element("p", "operation-caption", `앱 한도 없이 분석 · 모델 ${result.model || state.settings?.values?.codex_model || "서버 설정"}. 공급자 계정의 사용 제한은 적용됩니다.`));
+    if (operation.action === "analyze-all" && result.batch_size) container.append(element("p", "operation-caption", `${bulk ? "최초 일괄" : "기본"} 모드 · 호출당 최대 ${number(result.batch_size)}건 · 입력 ${number(result.batch_input_chars)}글자. 완료된 공고는 재분석하지 않습니다.`));
+    if (result.input_tokens != null) container.append(element("p", "operation-caption", `입력 ${number(result.input_tokens)} · 캐시 입력 ${number(result.cached_input_tokens || 0)} · 출력 ${number(result.output_tokens || 0)} · 추론 ${number(result.reasoning_tokens || 0)}토큰. 캐시 입력은 입력에, 추론은 출력에 포함됩니다.`));
+    if (result.reason) container.append(element("p", "operation-caption", operationReasons[result.reason] || "이번 회차가 제한 또는 준비 상태에 따라 종료되었습니다. 수집 현황에서 세부 상태를 확인하세요."));
+    for (const code of result.limit_reasons || []) if (limitReason(code)) container.append(element("p", "operation-caption", limitReason(code)));
+    if (result.status === "database_ready") container.append(element("p", "operation-caption", `MySQL과 수집 테이블 연결을 확인했습니다. 복지로 키 ${result.bokjiro_key_configured ? "등록" : "미등록"} · 정부24 키 ${result.gov24_key_configured ? "등록" : "미등록"}. 실제 API 응답과 Codex 로그인은 수집 실행에서 확인합니다.`));
+    if (result.phase) container.append(element("p", "operation-caption", operation.action === "analyze-all" ? (result.phase === "complete" ? "분석 대기열 처리가 끝났습니다. 평상시 자동 수집 설정은 그대로 적용됩니다." : "확보한 공고의 분석 대기열을 처리하고 있습니다.") : ({ collect: "최초 수집: 원문·상세를 먼저 확보하고 있습니다.", analyze: "최초 수집: 확보한 공고를 묶어서 AI 분석합니다.", complete: "최초 수집 완료: 다음 자동 회차부터 평상시 예산으로 전환합니다." })[result.phase] || result.phase));
+    if (result.failed_jobs) container.append(element("p", "operation-caption", `재확인이 필요한 작업 ${number(result.failed_jobs)}건이 남아 있습니다. 데이터 수집의 실패 목록에서 확인하세요.`));
+    if (operation.action === "tick" && !result.model_calls) container.append(element("p", "operation-caption", "원문 수집과 AI 분석은 단계별로 진행됩니다. 대기 작업은 다음 분석 회차에서 이어서 처리합니다."));
+    if (result.schedule) renderSchedule(result.schedule);
+  }
+  function refreshRunSummary() {
+    const mode = $("run-mode").value, calls = Number($("run-max_model_calls").value) || 0;
+    const count = Number($("run-page_size").value) || 0, repeats = Number($("run-max_pages").value) || 0;
+    const collection = repeats > 0 ? `한 번에 ${number(count)}개씩 최대 ${number(repeats)}회 수집합니다. 목록 조회 기준 최대 ${number(count * repeats)}개이며, 실제 수집량은 남은 데이터·중복·요청 한도에 따라 달라집니다.` : "목록 수집은 건너뜁니다.";
+    const analysis = `상세 수집·분석 작업을 최대 ${$("run-max_jobs").value}개 처리하고, AI는 최대 ${calls}회 사용합니다. 완료하지 못한 작업은 다음 실행에서 이어갑니다.`;
+    $("run-summary").textContent = `${collection} ${mode === "raw" ? "AI 분석과 외부 검색은 실행하지 않습니다." : mode === "analysis" ? analysis : `${analysis} 외부 검색은 저장된 서버 설정을 따릅니다.`}`;
+    if (mode === "bootstrap") $("run-summary").textContent = `${collection} 최초 1회: 원문·상세 확보 후 4건씩 AI 분석합니다. 다음 회차에서 이어가며 초기 작업 완료 후 평상시 예산으로 전환합니다.`;
+    if (mode === "steady") $("run-summary").textContent = `${collection} 평상시: 신규·변경 공고를 4건씩 분석하고 동일한 원문의 결과는 재사용합니다.`;
+    for (const key of ["max_jobs", "max_model_calls", "max_tokens"]) $("run-" + key).disabled = mode === "raw";
+  }
+  function applyRunPreset(mode) {
+    const preset = state.runPresets?.[mode];
+    if (preset) for (const key of runFields) $("run-" + key).value = preset[key];
+    if (mode === "custom" && state.settings) for (const key of runFields) $("run-" + key).value = Math.min(key === "max_seconds" ? 600 : Infinity, state.settings.values["ingestion_" + key] ?? $("run-" + key).value);
+    refreshRunSummary();
+  }
+  function renderRunReadiness() {
+    const settings = state.settings, values = settings?.values || {};
+    const container = $("run-readiness"); container.replaceChildren();
+    container.append(badge(values.db_enabled ? "MySQL 사용" : "MySQL 설정 필요", values.db_enabled ? "" : "warn"), badge(values.ingestion_enabled ? "수집 허용" : "수집 꺼짐", values.ingestion_enabled ? "" : "warn"), badge(values.policy_auto_publish ? "검증 통과 후 자동 공개" : "검토용 초안 저장", "muted"));
+    $("run-publication-note").textContent = values.policy_auto_publish ? "현재 설정: 검증을 통과한 새 공고가 자동 공개됩니다." : "현재 설정: 분석 결과를 초안으로 저장합니다.";
+    if (settings?.restart_fields?.length) container.append(badge("DB 변경 · 재시작 필요", "warn"));
+  }
+  async function loadOperations() {
+    if (!state.user || operationLoading) return;
+    operationLoading = true; window.clearTimeout(operationTimer); $("refresh-operations").disabled = true;
+    try {
+      const data = await api("/operations"); if (!state.user) return;
+      const previous = operationActive; state.runPresets = data.presets; state.runProfiles = data.profiles;
+      if (!state.runInitialized && state.settings?.values?.ingestion_profile === "steady") $("collection-profile").value = "steady";
+      renderCollectionProfile();
+      renderOperation(data.operation); renderRunReadiness(); refreshed();
+      if (!state.runInitialized) { applyRunPreset($("run-mode").value); state.runInitialized = true; }
+      if (previous && !operationActive && state.view === "operations") loadSchedule();
+    } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
+    finally { operationLoading = false; $("refresh-operations").disabled = false; if (state.user && state.view === "operations") operationTimer = window.setTimeout(loadOperations, operationActive ? 2000 : 10000); }
+  }
+  async function stopAnalysis() {
+    const operation = state.operation;
+    if (!state.user || !operation || operation.action !== "analyze-all" || !operationActive) return;
+    $("stop-analysis").disabled = true;
+    try { const data = await api(`/operations/${operation.id}/stop`, { method: "POST", body: {} }); if (state.user) { renderOperation(data.operation); message("operation-message", "중지를 요청했습니다. 현재 묶음의 결과를 저장한 뒤 멈춥니다."); } }
+    catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); $("stop-analysis").disabled = false; } }
+  }
+  function renderSchedule(data) {
+    const labels = { NotInstalled: "자동 수집이 등록되지 않았습니다", Ready: "자동 수집 대기 중", Running: "자동 수집 실행 중", Disabled: "자동 수집 비활성", unsupported: "Windows 서버에서 사용할 수 있습니다" };
+    $("schedule-status").textContent = labels[data.state] || "자동 수집 상태를 확인하세요";
+    $("schedule-detail").textContent = data.enabled ? "10분마다 실행 · 로그인 유지 · AC 전원 · MySQL 실행 필요" : data.state === "NotInstalled" ? "등록하면 현재 저장된 서버 설정으로 10분마다 처리합니다." : "상태를 확인한 뒤 자동 수집을 등록하거나 해제하세요.";
+    $("schedule-enable").hidden = data.supported === false || data.state !== "NotInstalled";
+    $("schedule-remove").hidden = data.supported === false || data.state === "NotInstalled";
+  }
+  async function loadSchedule() {
+    if (!state.user) return; $("refresh-schedule").disabled = true;
+    try { const data = await api("/schedule"); if (state.user) renderSchedule(data); }
+    catch (error) { if (state.user) { $("schedule-status").textContent = "자동 수집 상태를 확인하지 못했습니다"; $("schedule-detail").textContent = errorMessage(error); $("schedule-enable").hidden = true; $("schedule-remove").hidden = true; } }
+    finally { $("refresh-schedule").disabled = false; }
+  }
+  async function startOperation(action, analysisMode) {
+    if (!state.user || operationSubmitting || operationActive) return;
+    if (Object.keys(changes()).length) { message("operation-message", "서버 설정에 저장하지 않은 변경이 있습니다. 설정을 저장하거나 취소한 뒤 실행하세요.", "warn"); return; }
+    const body = { action };
+    if (action === "analyze-all" && analysisMode === "bulk") body.analysis_mode = "bulk";
+    if (action === "tick") {
+      if (!$("run-form").reportValidity()) return;
+      body.mode = $("run-mode").value;
+      for (const key of runFields) body[key] = Number($("run-" + key).value);
+      if (body.mode === "raw") body.max_jobs = body.max_model_calls = body.max_tokens = 0;
+    }
+    operationSubmitting = true; updateOperationButtons(); message("operation-message", "");
+    try { const data = await api("/operations", { method: "POST", body }); if (!state.user) return; renderOperation(data.operation); message("operation-message", `${analysisMode === "bulk" ? "최초 일괄 분석" : operationNames[action]}을 시작했습니다.`); loadOperations(); }
+    catch (error) { if (state.user) { message("operation-message", errorMessage(error), "error"); loadOperations(); } }
+    finally { operationSubmitting = false; updateOperationButtons(); }
+  }
+  function renderCollectionProfile() {
+    const name = $("collection-profile").value, preset = state.runProfiles?.[name];
+    if (!preset) return;
+    $("collection-profile-detail").textContent = `${name === "bootstrap" ? "원문·상세 확보 → 묶음 분석 → 완료 후 평상시 전환" : "신규·변경 원문 확인 → 묶음 분석"} · 페이지당 ${preset.ingestion_page_size}건 · 회차 ${preset.ingestion_max_pages}페이지 / 요청 ${preset.ingestion_max_http_calls}회 · AI ${preset.ingestion_max_model_calls}회, 하루 ${preset.ingestion_daily_model_calls}회 · ${number(preset.ingestion_max_tokens)}토큰 · ${preset.ingestion_max_seconds}초. Luna low로 분석하고 검증 실패 공고만 Sol medium으로 재처리합니다. API 일일 한도는 저장된 값을 유지합니다.`;
+  }
+  async function saveCollectionProfile() {
+    if (!state.user || state.saving || operationSubmitting || operationActive) return;
+    if (Object.keys(changes()).length) { message("operation-message", "저장하지 않은 서버 설정을 먼저 저장하거나 취소하세요.", "warn"); return; }
+    if (!state.settings) await loadSettings();
+    const preset = state.runProfiles?.[$("collection-profile").value];
+    if (!state.settings || !preset) return;
+    if (Object.keys(preset).some((name) => state.settings.env_overrides?.includes(name))) { message("operation-message", "환경변수로 고정된 수집 설정이 있어 프리셋을 저장할 수 없습니다. 서버 설정에서 고정 항목을 확인하세요.", "error"); return; }
+    $("save-collection-profile").disabled = true; setSaving(true);
+    try {
+      const data = await api("/settings", { method: "PATCH", body: { revision: state.settings.revision, changes: preset } });
+      if (!state.user) return; state.settings = data; renderSettings(); renderRunReadiness();
+      message("operation-message", "자동 수집 프리셋을 저장했습니다. 다음 회차부터 적용됩니다. 등록된 작업이 없으면 자동 수집 등록을 눌러 시작하세요.");
+    } catch (error) { if (state.user) message("operation-message", errorMessage(error), "error"); }
+    finally { setSaving(false); updateOperationButtons(); }
+  }
+  const processTargets = { backend: "백엔드", frontend: "프론트", all: "백엔드와 프론트" };
+  function updateProcessButtons() {
+    for (const button of document.querySelectorAll("[data-process-target]")) {
+      const target = button.dataset.processTarget;
+      const allowed = processState?.supported && processState.mode !== "unmanaged" && processState.mode !== "unsupported";
+      button.disabled = controlBusy || controlDisconnected || !allowed || target === "frontend" && button.dataset.processAction === "stop" && !processState?.frontend?.running;
+    }
+  }
+  function renderProcessJob(job) {
+    const container = $("process-job-result"); container.replaceChildren(); if (!job) return;
+    const labels = { accepted: "접수 완료", running: "처리 중", completed: "완료", failed: "실패" };
+    container.append(element("strong", "", `${processTargets[job.target] || "서비스"} ${job.action === "restart" ? "재시작" : "종료"} · ${labels[job.status] || "상태 확인"}`), element("p", "operation-caption", `${date(job.started_at)} 요청${job.finished_at ? ` · ${date(job.finished_at)} 종료` : ""}`));
+    if (job.status === "failed") {
+      const errors = { process_identity_changed: "실행 프로세스가 바뀌어 작업을 중단했습니다. 상태를 새로 확인하세요.", startup_failed: "다시 실행한 서비스가 준비되지 않았습니다. 서버 실행 로그와 포트 사용 여부를 확인하세요.", runtime_missing: "실행 파일 또는 프론트 의존성이 없습니다. 서버 환경을 확인하세요.", configuration_invalid: "운영 프론트 설정을 확인해 주세요.", unmanaged_runtime: "프로젝트 실행 BAT로 서버를 시작한 뒤 사용하세요." };
+      container.append(element("p", "operation-caption", errors[job.error_code] || "작업을 완료하지 못했습니다. 서버의 프로세스 제어 로그와 실행 권한을 확인하세요."));
+    }
+  }
+  async function loadProcesses() {
+    if (!state.user) return; $("refresh-processes").disabled = true;
+    try {
+      const data = await api("/processes"); if (!state.user) return;
+      processState = data; controlDisconnected = false;
+      $("process-mode").textContent = { development: "개발 서버 · Vite 프론트", shared: "운영 서버 · 웹·QR 프론트", unmanaged: "프로젝트 실행기로 시작해 주세요", unsupported: "Windows 서버에서 사용 가능합니다" }[data.mode] || "실행 환경 확인 필요";
+      $("process-backend-status").textContent = data.backend?.running ? "실행 중" : "상태 확인 필요";
+      $("process-frontend-status").textContent = data.frontend?.running ? "실행 중" : "중지됨";
+      renderProcessJob(data.operation); updateProcessButtons(); refreshed();
+      if (!controlBusy && ["accepted", "running"].includes(data.operation?.status)) {
+        controlBusy = true; updateProcessButtons(); window.clearTimeout(controlTimer);
+        pollProcessJob(data.operation, Date.now(), state.generation);
+      }
+    } catch (error) { if (state.user) message("process-message", errorMessage(error), "error"); }
+    finally { $("refresh-processes").disabled = false; }
+  }
+  async function pollProcessJob(job, started, generation) {
+    if (!state.user || state.generation !== generation) return;
+    const controller = new AbortController(), timer = window.setTimeout(() => controller.abort(), 3000);
+    let retry = false;
+    try {
+      const response = await fetch(`/v1/server-admin/processes/${encodeURIComponent(job.id)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+      if (state.generation !== generation) return;
+      if (response.status === 401 || response.status === 403) { showLogin("서버가 다시 연결되었습니다. 관리자 계정으로 로그인하세요."); return; }
+      if (!response.ok) throw new Error("unavailable");
+      const data = await response.json(); if (state.generation !== generation) return; renderProcessJob(data.operation);
+      retry = ["accepted", "running"].includes(data.operation.status);
+      if (!retry) {
+        controlBusy = false; controlDisconnected = false; updateProcessButtons();
+        message("process-message", data.operation.status === "completed" ? `${processTargets[job.target]} ${job.action === "restart" ? "재시작" : "종료"} 작업이 완료되었습니다.` : "작업을 완료하지 못했습니다. 아래 결과를 확인하세요.", data.operation.status === "failed" ? "error" : "");
+        loadProcesses();
+      }
+    } catch {
+      if (state.generation !== generation) return;
+      controlDisconnected = true; updateProcessButtons();
+      if (job.action === "stop" && job.target !== "frontend") {
+        controlBusy = false;
+        message("process-message", "백엔드 응답이 중단되었습니다. 다시 사용하려면 서버 PC에서 실행 BAT로 서버를 켜 주세요. 처리 결과는 다음 실행 후 확인할 수 있습니다.", "warn");
+      } else {
+        retry = true; message("process-message", "서비스를 다시 실행하는 중입니다. 백엔드 연결 복구를 기다리고 있습니다.");
+      }
+    } finally {
+      window.clearTimeout(timer);
+      if (retry && state.user && state.generation === generation) {
+        if (Date.now() - started > 120000) { controlBusy = false; message("process-message", "연결 복구가 지연되고 있습니다. 실행 로그를 확인한 뒤 상태 확인을 눌러 주세요.", "warn"); }
+        else controlTimer = window.setTimeout(() => pollProcessJob(job, started, generation), 1500);
+      }
+    }
+  }
+  async function startProcessControl(target, action) {
+    if (!state.user || controlBusy) return;
+    if (Object.keys(changes()).length) { message("process-message", "서버 설정을 먼저 저장하거나 변경을 취소해 주세요.", "warn"); return; }
+    const effect = target === "frontend" ? "웹 서비스 연결이 잠시 끊길 수 있습니다." : action === "stop" ? "관리 페이지와 API 연결이 종료됩니다. 다시 켤 때는 서버 PC의 실행 BAT가 필요합니다." : "관리 페이지와 API 연결이 잠시 끊기고, 서버가 준비되면 다시 연결합니다.";
+    if (!window.confirm(`${processTargets[target]}를 ${action === "restart" ? "재시작" : "종료"}할까요?\n\n${effect}`)) return;
+    controlBusy = true; updateProcessButtons(); message("process-message", "명령을 전달하는 중입니다.");
+    try {
+      const data = await api("/processes", { method: "POST", body: { target, action } }); if (!state.user) return;
+      renderProcessJob(data.operation); message("process-message", `${processTargets[target]} ${action === "restart" ? "재시작" : "종료"} 요청을 전달했습니다.`);
+      pollProcessJob(data.operation, Date.now(), state.generation);
+    } catch (error) { controlBusy = false; updateProcessButtons(); if (state.user) message("process-message", errorMessage(error), "error"); }
+  }
+  function selectView(view, load = true) { state.view = view; window.clearTimeout(operationTimer); for (const key of Object.keys(viewLabels)) $(`view-${key}`).hidden = view !== key; for (const button of document.querySelectorAll("[data-view]")) { const active = button.dataset.view === view; button.classList.toggle("active", active); if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current"); } $("breadcrumb-current").textContent = viewLabels[view]; message("global-message", ""); if (load) { if (view === "overview") loadOverview(); if (view === "processes") loadProcesses(); if (view === "operations") { loadOperations(); loadSchedule(); } if (view === "collection") loadCollection(); if (view === "policies") policyEditor.load(); if (view === "settings" && !state.settings) loadSettings(); } }
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault(); if (!$("login-form").reportValidity()) return; const button = $("login-submit"); button.disabled = true; button.querySelector("span").textContent = "로그인 중"; message("login-message", "");
@@ -280,9 +530,22 @@
   $("toggle-password").addEventListener("click", () => { const visible = $("password").type === "password"; $("password").type = visible ? "text" : "password"; $("toggle-password").setAttribute("aria-pressed", String(visible)); $("toggle-password").setAttribute("aria-label", visible ? "비밀번호 숨기기" : "비밀번호 표시"); });
   $("logout-button").addEventListener("click", async () => { $("logout-button").disabled = true; try { await api("/logout", { method: "POST", body: {} }); showLogin(); $("username").focus(); } catch (error) { if (state.user) message("global-message", errorMessage(error), "error"); } finally { $("logout-button").disabled = false; } });
   for (const button of document.querySelectorAll("[data-view]")) button.addEventListener("click", () => selectView(button.dataset.view));
+  for (const button of document.querySelectorAll("[data-process-target]")) button.addEventListener("click", () => startProcessControl(button.dataset.processTarget, button.dataset.processAction));
+  $("refresh-processes").addEventListener("click", loadProcesses);
+  $("run-mode").addEventListener("change", () => applyRunPreset($("run-mode").value));
+  $("stop-analysis").addEventListener("click", stopAnalysis);
+  $("collection-profile").addEventListener("change", renderCollectionProfile);
+  $("save-collection-profile").addEventListener("click", saveCollectionProfile);
+  $("run-form").addEventListener("input", refreshRunSummary);
+  $("run-form").addEventListener("submit", (event) => { event.preventDefault(); startOperation("tick"); });
+  for (const button of document.querySelectorAll("[data-operation]")) button.addEventListener("click", () => startOperation(button.dataset.operation, button.dataset.analysisMode));
+  $("refresh-operations").addEventListener("click", loadOperations);
+  $("refresh-schedule").addEventListener("click", loadSchedule);
+  $("open-run-settings").addEventListener("click", () => selectView("settings"));
   for (const button of document.querySelectorAll("[data-collection]")) button.addEventListener("click", () => { state.collectionTab = button.dataset.collection; for (const item of document.querySelectorAll("[data-collection]")) { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-selected", String(active)); } $("collection-content").setAttribute("aria-labelledby", button.id); loadCollection(); });
   document.querySelector(".tab-bar").addEventListener("keydown", (event) => { const tabs = [...document.querySelectorAll("[data-collection]")]; const current = tabs.indexOf(document.activeElement); if (current < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; tabs[next].focus(); tabs[next].click(); });
   $("refresh-overview").addEventListener("click", loadOverview); $("refresh-collection").addEventListener("click", loadCollection); $("settings-form").addEventListener("submit", saveSettings); $("reset-settings").addEventListener("click", () => { renderSettings(); message("settings-message", ""); });
-  window.addEventListener("beforeunload", (event) => { if (Object.keys(changes()).length) { event.preventDefault(); event.returnValue = ""; } });
+  const policyEditor = window.PolicyEditor.create({ request: api, onError: errorMessage });
+  window.addEventListener("beforeunload", (event) => { if (Object.keys(changes()).length || policyEditor.isDirty()) { event.preventDefault(); event.returnValue = ""; } });
   api("/session").then((data) => showConsole(data.user)).catch((error) => { if (error.status !== 401) message("login-message", errorMessage(error)); });
 })();

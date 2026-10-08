@@ -15,7 +15,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   reporter: 'list',
-  use: { baseURL: webUrl, channel: 'msedge', trace: 'retain-on-failure' },
+  use: { baseURL: webUrl, channel: 'msedge', locale: 'ko-KR', trace: 'retain-on-failure' },
   projects: [
     {
       name: 'desktop',
@@ -25,8 +25,9 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `"${python}" -m uvicorn app.main:app --app-dir "${backend}" --host 127.0.0.1 --port ${apiPort}`,
+      command: `"${python}" -m uvicorn tests.e2e_server:app --app-dir "${backend}" --host 127.0.0.1 --port ${apiPort}`,
       url: `${apiUrl}/health`,
+      timeout: 120000,
       reuseExistingServer: false,
       env: {
         APP_ENV: 'test',
@@ -43,6 +44,7 @@ export default defineConfig({
     {
       command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${webPort}`,
       url: webUrl,
+      timeout: 120000,
       reuseExistingServer: false,
       env: { API_PROXY_TARGET: apiUrl },
     },

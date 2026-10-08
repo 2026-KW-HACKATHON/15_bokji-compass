@@ -1,0 +1,67 @@
+.member-address-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.auth-grid > .member-address-fields {
+  grid-column: 1 / -1;
+}
+.member-postcode-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+.member-postcode-row .field-label {
+  flex: 0 1 180px;
+}
+.member-postcode-row .button {
+  flex: 0 0 auto;
+}
+.member-address-fields input[readonly] {
+  background: var(--soft, #f3f7f3);
+}
+.member-address-search {
+  min-width: 0;
+  border: 1px solid var(--border, #bacabb);
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+}
+.member-address-search-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border, #bacabb);
+}
+.member-address-search-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.member-address-search-heading .text-button {
+  min-height: 44px;
+}
+.member-address-search > p {
+  padding: 12px;
+}
+.member-address-search-host {
+  width: 100%;
+  height: 400px;
+}
+.member-address-hint {
+  overflow-wrap: anywhere;
+}
+.member-address-clear {
+  justify-self: start;
+  min-height: 44px;
+}
+.easy-mode .member-address-fields input,
+.easy-mode .member-postcode-row .button {
+  min-height: 56px;
+}
+@media (max-width: 480px) {
+  .member-address-search-heading {
+    flex-wrap: wrap;
+  }
+}

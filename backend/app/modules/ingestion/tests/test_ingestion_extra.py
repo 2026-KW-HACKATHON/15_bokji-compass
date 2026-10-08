@@ -25,8 +25,12 @@ DOMAINS = ["youth.seoul.go.kr", "www.nowon.kr"]
 NOTICE_URL = "https://youth.seoul.go.kr/notice?id=123"
 BODY = ("서울시가 청년의 생활 안정을 위해 주거 지원사업 참여자를 모집합니다. "
         "신청자는 만 19세 이상입니다.")
-HTML = ("<html><title>공식 주거 지원 공고</title><nav>navigation</nav><main>" + BODY
-        + "</main><footer>footer</footer><a href='/forms/application.pdf'>서식</a></html>").encode()
+HTML = ("<html><head><meta property='article:published_time' "
+        "content='2026-09-01'><meta property='article:modified_time' "
+        "content='2026-09-12'></head><title>공식 주거 지원 공고</title>"
+        "<nav>navigation</nav><main>" + BODY
+        + "</main><footer>footer</footer><a href='/apply'>온라인 신청</a>"
+        "<a href='/forms/application.pdf'>서식</a></html>").encode()
 
 
 def forbidden(*args, **kwargs):
@@ -57,6 +61,7 @@ def extra_store():
 
 def settings(**changes):
     return Settings(_env_file=None, **{
+        "ingestion_kwangwoon_enabled": False,
         "ingestion_http_interval_seconds": 0,
         "ingestion_min_available_memory_mb": 0,
         "ingestion_min_free_disk_mb": 0,
@@ -117,11 +122,12 @@ def test_admitted_notice_uses_fetched_title_body_and_grounded_organization(
     cid = extra_store.list_candidates()[0]["candidate_id"]
     extra_store.queue_candidate(cid, time.time())
     fetches = []
+    notice_body = BODY + "\n신청 기간: 2026-10-01 ~ 2026-10-31"
 
     def fetch(url, domains, budget):
         fetches.append(url)
         assert domains == DOMAINS
-        return {"title": "공식 원문 제목", "text": BODY, "source_url": url,
+        return {"title": "공식 원문 제목", "text": notice_body, "source_url": url,
                 "attachment_status": "none_detected", "attachments": "[]"}, HTML
 
     report = worker.run_tick(settings(ingestion_max_jobs=1), extra_store, NoPolicyWrites(),
@@ -136,7 +142,9 @@ def test_admitted_notice_uses_fetched_title_body_and_grounded_organization(
     assert fetches == [NOTICE_URL]
     assert record["source_json"]["title"] == "공식 원문 제목"
     assert record["source_json"]["organization"] == expected
-    assert record["source_json"]["fields"]["text"] == BODY
+    assert record["source_json"]["fields"]["text"] == notice_body
+    assert record["source_json"]["fields"]["application_period"] == (
+        "신청 기간: 2026-10-01 ~ 2026-10-31")
     assert "추정 지역" not in json.dumps(record["source_json"], ensure_ascii=False)
     assert "추정 일정" not in json.dumps(record["source_json"], ensure_ascii=False)
     assert notice_job["status"] == "done" and parse_job["status"] == "pending"
@@ -199,7 +207,10 @@ def test_gov24_quota_or_account_fault_does_not_starve_bokjiro(
     assert calls["bokjiro"] == 1
     assert calls["gov24"] == (0 if fault == "daily_quota" else 1)
     assert extra_store.get_state("scan:bokjiro:list")["scan_complete"] is True
-    assert "scan:gov24:serviceDetail" in {error["source"] for error in report["errors"]}
+    entries = report["deferrals"] if fault == "daily_quota" else report["errors"]
+    assert "scan:gov24:serviceDetail" in {error["source"] for error in entries}
+    if fault == "daily_quota":
+        assert report["errors"] == [] and len(report["deferrals"]) == 1
     assert report["http_calls"] == (1 if fault == "daily_quota" else 2)
     if fault == "provider_api_fault":
         assert extra_store.get_state("blocked:gov24")["reason"] == "gov24_api_quota"
@@ -227,6 +238,29 @@ def test_bokjiro_detail_daily_quota_does_not_stop_gov24_scan(extra_store, tmp_pa
             m.jobs.c.kind == "detail")).mappings().one()
     assert detail["status"] == "pending" and detail["attempts"] == 0
     assert detail["error_code"] == "daily_calls_bokjiro"
+    assert report["errors"] == [] and len(report["deferrals"]) == 1
+
+
+def test_exhausted_provider_is_skipped_for_remaining_jobs_and_scan_rounds(extra_store, tmp_path):
+    with extra_store.engine.begin() as connection:
+        for index in range(5):
+            extra_store.observe_listing(connection, "bokjiro", {"servId": f"detail-{index}",
+                "servNm": "복지 후보"}, time.time(), 86400)
+    calls = []
+    def gov24(**kwargs):
+        calls.append((kwargs["endpoint"], kwargs["page"]))
+        return CollectionPage([], kwargs["page"], kwargs["per_page"], 0, b"offline-empty")
+    conf = settings(data_go_kr_api_key="fake", bokjiro_api_key="fake",
+        ingestion_profile="bootstrap", ingestion_daily_bokjiro_calls=0,
+        ingestion_max_jobs=10, ingestion_max_pages=10, ingestion_page_size=1)
+    report = worker.run_tick(conf, extra_store, NoPolicyWrites(), adapters={
+        "gov24": gov24, "bokjiro": forbidden, "bokjiro_detail": forbidden}, raw_root=tmp_path)
+    assert len(calls) == 3 and report["pages"] == 3
+    assert report["errors"] == [] and len(report["deferrals"]) == 1
+    with extra_store.engine.connect() as connection:
+        jobs = connection.execute(select(m.jobs)).mappings().all()
+    assert len(jobs) == 5 and all(j["status"] == "pending" and j["attempts"] == 0 for j in jobs)
+    assert sum(j["error_code"] == "daily_calls_bokjiro" for j in jobs) == 1
 
 
 def test_provider_page_size_mismatch_is_reported_without_saving_rows(extra_store, tmp_path):
@@ -323,8 +357,24 @@ def test_safe_redirect_rechecks_dns_and_budget_and_only_extracts_body(fake_web):
     assert result["text"] == BODY and raw == HTML
     assert result["attachment_status"] == "not_parsed"
     assert json.loads(result["attachments"]) == ["https://www.nowon.kr/forms/application.pdf"]
+    assert json.loads(result["links"]) == [
+        {"label": "온라인 신청", "url": "https://www.nowon.kr/apply"},
+        {"label": "서식", "url": "https://www.nowon.kr/forms/application.pdf"},
+    ]
+    assert result["published_date"] == "2026-09-01"
+    assert result["modified_date"] == "2026-09-12"
     # The attachment is retained as unresolved source metadata; no third request occurs.
     assert len(fake_web.requests) == 2
+
+
+def test_notice_preserves_conflicting_published_metadata_for_review(fake_web):
+    html = (HTML.decode().replace(
+        "content='2026-09-01'>",
+        "content='2026-09-01'><meta name='publishdate' content='2026-09-02'>"
+    )).encode()
+    fake_web.responses = [FakeResponse(body=html)]
+    result, _ = web.fetch_notice(NOTICE_URL, DOMAINS, FakeHttpBudget())
+    assert json.loads(result["published_date"]) == ["2026-09-01", "2026-09-02"]
 
 
 @pytest.mark.parametrize("location", [

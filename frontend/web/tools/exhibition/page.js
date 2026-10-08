@@ -7,8 +7,17 @@ let lastKey = '';
 let requestId = 0;
 let targets = null;
 
+function updateDownload() {
+  const link = $('android-download');
+  const available = !!targets && (!!apkOverride || status?.apkPresent === true);
+  if (available) link.href = targets.android;
+  else link.removeAttribute('href');
+  link.setAttribute('aria-disabled', String(!available));
+}
+
 function clearCards() {
   targets = null;
+  updateDownload();
   lastKey = '';
   for (const kind of ['android', 'web']) {
     $(kind + '-qr').hidden = true;
@@ -41,8 +50,9 @@ async function render() {
   $('apk-status').textContent = apkOverride
     ? '별도 다운로드 주소입니다. 배포 서명과 실제 APK 다운로드를 확인한 뒤 공유하세요.'
     : status?.apkPresent
-      ? `로컬 배포 폴더의 APK 확인 (${(status.apkBytes / 1024 / 1024).toFixed(1)} MB). 서명과 외부 다운로드 확인은 별도입니다.`
+      ? `APK 등록 완료 · ${(status.apkBytes / 1024 / 1024).toFixed(1)} MB. QR을 스캔하거나 아래 버튼으로 다운로드하세요.`
       : 'APK 미등록 · 설치 QR은 주소 준비용입니다. 배포용 APK를 올리기 전에는 다운로드되지 않습니다.';
+  updateDownload();
   if (!origin) {
     clearCards();
     return;
@@ -72,6 +82,7 @@ async function render() {
       $(kind + '-copy').disabled = false;
     }
     targets = next;
+    updateDownload();
     lastKey = key;
     $('temporary').hidden = !next.temporary;
     $('error').hidden = true;

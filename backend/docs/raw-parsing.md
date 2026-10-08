@@ -9,6 +9,10 @@ Gov24 JSON·복지로 상세 XML/JSON·저장된 `RawDocument` JSON을 공통 �
 프로젝트 루트 PowerShell에서 실행. Python 의존성은 기존 `backend/scripts/setup.ps1`로 설치하며 추가 Python 패키지 없음. Codex CLI 설치와 각 팀원의 `codex login`은 별도 필요.
 
 ```powershell
+# 광운대 정제 공고 190건도 같은 파이프라인 입력입니다. 아래 명령은
+# 모델 호출 없이 MySQL에 pending 작업을 등록합니다.
+.\backend\scripts\parse-raw.ps1 -InputPath 'database/seeds/kwangwoon_notices.json' -PrepareOnly
+
 # 파일 형태·ID·원문을 확인하고 MySQL에 pending 작업 저장. 모델 호출 없음.
 .\backend\scripts\parse-raw.ps1 -InputPath 'data/raw_documents/공지문.json' -PrepareOnly
 

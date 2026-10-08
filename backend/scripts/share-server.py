@@ -1,4 +1,4 @@
-"""Run the local API proxy with configured MySQL and server privacy keys."""
+"""Run the local API proxy with configured storage and authentication settings."""
 
 import sys
 from pathlib import Path

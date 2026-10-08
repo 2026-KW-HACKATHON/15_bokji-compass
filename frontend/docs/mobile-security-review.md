@@ -2,6 +2,15 @@
 
 검토일: 2026-10-01. 대상: `frontend/mobile`, `frontend/packages/decode-uri-component-compat` 및 모바일 문서. 이 기록은 소스 공유 전 점검 결과이며, 침투 테스트나 스토어 배포 인증을 대신하지 않습니다.
 
+## 2026-10-06 node-forge 보완
+
+- 아래 10월 2일에 남아 있던 node-forge 서명 검증 문제에 프로젝트 패치를 적용했다.
+  재설치 자동 적용, 버전·코드 해시 검사, 실제 Forge/Expo 정상·비정상 서명 회귀를 추가했다.
+  [구체적인 변경과 검증, 적용 범위, 남은 의존성 경고](node-forge-security-fix.md).
+- 모바일 전체 77개, 새 설치 환경의 보안 회귀 45개, 타입·린트, Android/iOS export 통과.
+- 공식 릴리스 버전은 1.4.0으로 유지되므로 버전 기반 audit 경고는 남는다. 재조회에서는 별도
+  braces 공지도 확인되었고 두 원인이 high 19개로 집계되었다. 아래 과거 수치는 당시 기록이다.
+
 ## 2026-10-02 통합 후 의존성 재검토
 
 - 웹 `npm audit --json`은 0건. 모바일은 `node-forge@1.4.0`의 [GHSA-86w9-cpqp-85rv / CVE-2026-85393](https://github.com/advisories/GHSA-86w9-cpqp-85rv) 한 원인이 상위 Expo 패키지까지 전파되어 high 4개로 보고됩니다. 아래 10월 1일의 0건 결과는 당시 조회 기록이며 현재 상태가 아닙니다.

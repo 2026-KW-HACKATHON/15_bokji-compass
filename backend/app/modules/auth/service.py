@@ -6,10 +6,24 @@ import secrets
 import time
 
 from fastapi import HTTPException
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, insert, inspect, select, update
 from sqlalchemy.exc import IntegrityError
 
-from app.modules.auth.models import PROFILE_FIELDS, accounts, limits, sessions
+from app.modules.auth import mail
+from app.modules.auth.account_write import account_write_transaction, require_active_account
+from app.modules.auth.consent import consented_profile, save_signup_consent
+from app.modules.auth.models import (
+    ADDRESS_FIELDS,
+    PROFILE_FIELDS,
+    accounts,
+    auth_consents,
+    email_verifications,
+    kakao_flows,
+    kakao_identities,
+    limits,
+    mobile_oauth_flows,
+    sessions,
+)
 from app.modules.auth.privacy import PrivacyError
 
 SESSION_SECONDS = 7 * 24 * 60 * 60
@@ -32,15 +46,23 @@ def check_password(password: str, encoded: str) -> bool:
 
 
 class AuthService:
-    def __init__(self, engine):
+    def __init__(self, engine, settings=None):
         self.engine = engine
+        self.settings = settings
         self.dummy_password = password_hash(secrets.token_urlsafe(32))
 
-    def throttle(self, key: str, maximum: int, seconds: int):
+    def throttle(self, key: str, maximum: int, seconds: int, *, account_id: str | None = None):
         now = int(time.time())
         key = digest(key)
         try:
-            with self.engine.begin() as connection:
+            transaction = (
+                account_write_transaction(self.engine)
+                if account_id is not None
+                else self.engine.begin()
+            )
+            with transaction as connection:
+                if account_id is not None:
+                    require_active_account(connection, account_id)
                 connection.execute(delete(limits).where(limits.c.expires_at <= now))
                 changed = connection.execute(
                     update(limits)
@@ -80,7 +102,11 @@ class AuthService:
             if account is None:
                 raise HTTPException(401, "로그인이 필요해요.")
             self.private_account(account)
-            values = data.model_dump(include={"name", "age", "gender", "region"})
+            values = data.model_dump(
+                include={"name", "age", "gender", "region", *ADDRESS_FIELDS}, exclude_unset=True
+            )
+            if not values:
+                return self.public_account(account)
             changed = connection.execute(
                 update(accounts).where(accounts.c.id == account_id).values(**values)
             )
@@ -88,28 +114,221 @@ class AuthService:
                 raise HTTPException(401, "로그인이 필요해요.")
         return self.public_account({**account, **values})
 
-    def register(self, data, ip: str):
+    def request_email_code(self, email: str, ip: str, previous: str = ""):
+        self.throttle("email-send-ip:" + ip, 20, 3600)
+        self.throttle("email-send-cooldown:" + email, 1, mail.RESEND_SECONDS)
+        self.throttle("email-send-hour:" + email, 6, 3600)
+        token = secrets.token_urlsafe(32)
+        code = f"{secrets.randbelow(1000000):06d}"
+        now = int(time.time())
+        with self.engine.begin() as connection:
+            connection.execute(
+                delete(email_verifications).where(email_verifications.c.expires_at <= now)
+            )
+            connection.execute(
+                insert(email_verifications).values(
+                    token_hash=digest(token),
+                    email=email,
+                    # The raw browser secret is required to check guesses against this hash.
+                    code_hash=digest("email-code:" + token + ":" + code),
+                    attempts=0,
+                    verified=False,
+                    expires_at=now + mail.EMAIL_SECONDS,
+                )
+            )
+        try:
+            mail.send_verification_code(self.settings, email, code)
+        except HTTPException:
+            with self.engine.begin() as connection:
+                connection.execute(
+                    delete(email_verifications).where(
+                        email_verifications.c.token_hash == digest(token)
+                    )
+                )
+            raise
+        if previous:
+            with self.engine.begin() as connection:
+                connection.execute(
+                    delete(email_verifications).where(
+                        email_verifications.c.token_hash == digest(previous)
+                    )
+                )
+        return token
+
+    def verify_email_code(self, email: str, code: str, token: str, ip: str):
+        self.throttle("email-verify-ip:" + ip, 60, 900)
+        now = int(time.time())
+        valid = False
+        with self.engine.begin() as connection:
+            # This write serializes simultaneous guesses and commits failed attempts too.
+            changed = connection.execute(
+                update(email_verifications)
+                .where(
+                    email_verifications.c.token_hash == digest(token),
+                    email_verifications.c.email == email,
+                    email_verifications.c.expires_at > now,
+                    email_verifications.c.verified.is_(False),
+                    email_verifications.c.attempts < 5,
+                )
+                .values(attempts=email_verifications.c.attempts + 1)
+            )
+            if changed.rowcount == 1:
+                stored = connection.execute(
+                    select(email_verifications.c.code_hash).where(
+                        email_verifications.c.token_hash == digest(token)
+                    )
+                ).scalar_one()
+                valid = hmac.compare_digest(stored, digest("email-code:" + token + ":" + code))
+                if valid:
+                    connection.execute(
+                        update(email_verifications)
+                        .where(email_verifications.c.token_hash == digest(token))
+                        .values(verified=True, expires_at=now + mail.EMAIL_SECONDS)
+                    )
+        if not valid:
+            raise HTTPException(
+                400, "인증번호를 확인해 주세요. 만료됐거나 5회 틀렸다면 다시 발송해 주세요."
+            )
+
+    def register(self, data, ip: str, email_token: str = ""):
+        from app.modules.auth.ai_privacy import validate_ai_consent
+
+        validate_ai_consent(data.consent, self.settings)
         self.throttle("signup-ip:" + ip, 20, 3600)
         now = int(time.time())
+        account_id = secrets.token_urlsafe(24)
         encoded = password_hash(data.password.get_secret_value())
         try:
             with self.engine.begin() as connection:
+                consumed = connection.execute(
+                    delete(email_verifications).where(
+                        email_verifications.c.token_hash == digest(email_token),
+                        email_verifications.c.email == data.email,
+                        email_verifications.c.verified.is_(True),
+                        email_verifications.c.expires_at > now,
+                    )
+                )
+                if consumed.rowcount != 1:
+                    raise HTTPException(
+                        401, "이메일 인증이 필요하거나 만료됐어요. 이메일을 다시 인증해 주세요."
+                    )
                 connection.execute(
                     insert(accounts).values(
-                        id=secrets.token_urlsafe(24),
+                        id=account_id,
                         username=data.username,
-                        name=data.name,
                         password_hash=encoded,
-                        age=data.age,
-                        gender=data.gender,
-                        region=data.region,
+                        **consented_profile(data),
                         phone=None,
+                        email=data.email,
+                        email_verified_at=now,
                         created_at=now,
                     )
                 )
+                save_signup_consent(connection, account_id, data.consent, now)
         except IntegrityError:
             raise HTTPException(409, "이미 사용 중인 아이디예요.") from None
         return {"message": "회원가입이 완료됐어요. 로그인해 주세요."}
+
+    def withdraw(
+        self,
+        token: str | None,
+        *,
+        signup_email_token: str = "",
+        kakao_flow_binding: str = "",
+        kakao_pending_token: str = "",
+    ):
+        from app.modules.admin.access import admin_grants
+        from app.modules.finance.storage import financial_profiles
+        from app.modules.monitoring.storage import MONITORING_TABLES
+        from app.modules.notifications.storage import devices, preferences
+
+        if not token:
+            raise HTTPException(401, "로그인이 필요해요.")
+        with account_write_transaction(self.engine) as connection:
+            # Recheck the live web session inside the deletion transaction.
+            account_id = connection.execute(
+                select(accounts.c.id)
+                .join(sessions, sessions.c.account_id == accounts.c.id)
+                .where(
+                    sessions.c.token_hash == self.session_digest(token),
+                    sessions.c.expires_at > int(time.time()),
+                )
+                .with_for_update()
+            ).scalar_one_or_none()
+            if account_id is None:
+                raise HTTPException(401, "로그인이 필요해요.")
+            account = require_active_account(connection, account_id)
+            connection.execute(
+                delete(mobile_oauth_flows).where(
+                    (mobile_oauth_flows.c.account_id == account_id)
+                    | mobile_oauth_flows.c.subject.in_(
+                        select(kakao_identities.c.subject).where(
+                            kakao_identities.c.account_id == account_id,
+                        )
+                    )
+                )
+            )
+            connection.execute(
+                delete(kakao_flows).where(
+                    kakao_flows.c.subject.in_(
+                        select(kakao_identities.c.subject).where(
+                            kakao_identities.c.account_id == account_id
+                        )
+                    )
+                )
+            )
+            for table in (financial_profiles, preferences, devices, *MONITORING_TABLES):
+                if inspect(connection).has_table(table.name):
+                    connection.execute(delete(table).where(table.c.account_id == account_id))
+            for table in (admin_grants, sessions, kakao_identities, auth_consents):
+                connection.execute(delete(table).where(table.c.account_id == account_id))
+            rate_limit_keys = [
+                "assistant:" + account_id,
+                "assistant-dialogue:" + account_id,
+                "assistant-dialogue-save:" + account_id,
+                "recommendations:" + account_id,
+                "monitoring:" + account_id,
+                "monitoring-refresh:" + account_id,
+                "login-user:" + account["username"],
+            ]
+            if (
+                account["email"]
+                and not connection.execute(
+                    select(accounts.c.id).where(
+                        accounts.c.email == account["email"], accounts.c.id != account_id
+                    )
+                ).first()
+            ):
+                rate_limit_keys.extend(
+                    [
+                        "email-send-cooldown:" + account["email"],
+                        "email-send-hour:" + account["email"],
+                    ]
+                )
+            connection.execute(
+                delete(limits).where(limits.c.key.in_([digest(key) for key in rate_limit_keys]))
+            )
+            if signup_email_token:
+                connection.execute(
+                    delete(email_verifications).where(
+                        email_verifications.c.token_hash == digest(signup_email_token)
+                    )
+                )
+            if kakao_flow_binding:
+                connection.execute(
+                    delete(kakao_flows).where(
+                        kakao_flows.c.binding_hash == digest(kakao_flow_binding)
+                    )
+                )
+            if kakao_pending_token:
+                connection.execute(
+                    delete(kakao_flows).where(
+                        kakao_flows.c.token_hash == digest(kakao_pending_token)
+                    )
+                )
+            deleted = connection.execute(delete(accounts).where(accounts.c.id == account_id))
+            if deleted.rowcount != 1:
+                raise HTTPException(401, "로그인이 필요해요.")
 
     def login(
         self,
@@ -145,7 +364,9 @@ class AuthService:
         user = self.public_account(account)
         token = secrets.token_urlsafe(32)
         now = int(time.time())
-        with self.engine.begin() as connection:
+        with account_write_transaction(self.engine) as connection:
+            # An in-flight login must not recreate a session after account withdrawal.
+            require_active_account(connection, account["id"])
             connection.execute(delete(sessions).where(sessions.c.expires_at <= now))
             if previous:
                 connection.execute(
@@ -172,6 +393,8 @@ class AuthService:
         private = self.private_account(account)
         return {
             "id": account["id"],
+            "email": account.get("email"),
+            "email_verified": account.get("email_verified_at") is not None,
             **{key: private[key] for key in PROFILE_FIELDS if key != "phone"},
         }
 

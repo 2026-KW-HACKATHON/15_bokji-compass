@@ -1,4 +1,4 @@
-"""Shared site keeps configured MySQL, privacy keys and callback destinations."""
+"""Shared site preserves configured storage and does not hide MySQL failures."""
 
 import importlib.util
 from pathlib import Path
@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 
 from app.api import policies
 from app.core.config import Settings
@@ -62,14 +63,22 @@ def test_share_policy_reads_use_configured_mysql(monkeypatch):
 
 
 @pytest.mark.parametrize("environment", ["development", "production"])
-def test_share_auth_never_falls_back_to_sqlite_outside_tests(tmp_path, environment):
+def test_share_auth_never_falls_back_to_sqlite_when_mysql_fails(
+    tmp_path, environment, monkeypatch,
+):
+    mysql = MagicMock()
+    mysql.connect.side_effect = OperationalError("SELECT 1", {}, RuntimeError("offline"))
+    monkeypatch.setattr("app.main.create_database_engine", lambda _: mysql)
     account_path = tmp_path / "must-not-exist.sqlite3"
-    settings = Settings(_env_file=None, app_env=environment, db_enabled=False,
-                        auth_sqlite_path=account_path)
+    settings = Settings(_env_file=None, app_env=environment, db_enabled=True,
+                        db_password="test-only", auth_sqlite_path=account_path)
     with TestClient(create_app(settings), headers={"X-Auth-Request": "1"}) as client:
         response = client.post("/v1/auth/login", json={
             "username": "existing", "password": "Password123!",
         })
         assert response.status_code == 503
-        assert "MySQL" in response.json()["detail"]
+        assert response.headers["cache-control"] == "no-store"
+        assert client.app.state.auth_service is None
+    mysql.connect.assert_called_once()
+    mysql.dispose.assert_called_once()
     assert not account_path.exists()

@@ -59,6 +59,18 @@ def overview(**changes):
         "benefits": {"status": "specified", "text": "교육 지원",
                      "evidence": [{"source_field": "title", "quote": "가상 정책"}],
                      "unresolved_reason": None},
+        "application_period": {"status": "not_stated", "text": None, "evidence": [],
+                               "unresolved_reason": None},
+        "application_method": {"status": "not_stated", "text": None, "evidence": [],
+                               "unresolved_reason": None},
+        "application_url": {"status": "not_stated", "text": None, "evidence": [],
+                            "unresolved_reason": None},
+        "contact": {"status": "not_stated", "text": None, "evidence": [],
+                    "unresolved_reason": None},
+        "published_date": {"status": "not_stated", "text": None, "evidence": [],
+                           "unresolved_reason": None},
+        "modified_date": {"status": "not_stated", "text": None, "evidence": [],
+                          "unresolved_reason": None},
         "policy_requirements": [{"condition_type": "age", "information_state": "specified",
                      "evidence_text": "만 19세 이상"}],
         "unresolved": [], **changes,
@@ -172,6 +184,72 @@ def test_policy_requirements_match_legacy_table_and_require_source_evidence():
         ]), source())
 
 
+def test_application_period_requires_exact_source_evidence():
+    source_record = normalize_record({
+        "document_id": "period-1", "title": "가상 정책",
+        "text": "신청 기간은 2026년 10월 1일부터 2026년 10월 31일까지입니다. 만 19세 이상",
+    })
+    result = overview(application_period={
+        "status": "specified",
+        "text": "2026년 10월 1일부터 2026년 10월 31일까지",
+        "evidence": [{"source_field": "text",
+                      "quote": "신청 기간은 2026년 10월 1일부터 2026년 10월 31일까지"}],
+        "unresolved_reason": None,
+    })
+    validate_overview(result, source_record)
+    wrong_source = normalize_record({
+        "document_id": "period-1", "title": "가상 정책", "text": "신청 기간 미정. 만 19세 이상",
+    })
+    with pytest.raises(ValueError, match="source"):
+        validate_overview(result, wrong_source)
+
+
+def test_application_metadata_requires_source_quotes():
+    record = normalize_record({
+        "document_id": "application-fields",
+        "title": "가상 정책",
+        "text": "온라인 신청은 공식 사이트에서 가능합니다. 문의: 02-1234-5678. 만 19세 이상",
+        "links": '[{"label":"온라인 신청","url":"https://example.gov/apply"}]',
+        "published_date": "2026-09-01",
+        "modified_date": "2026-09-12",
+    })
+    result = overview(
+        application_method={
+            "status": "specified", "text": "온라인 신청은 공식 사이트에서 가능합니다",
+            "evidence": [{"source_field": "text",
+                          "quote": "온라인 신청은 공식 사이트에서 가능합니다"}],
+            "unresolved_reason": None,
+        },
+        application_url={
+            "status": "specified", "text": "https://example.gov/apply",
+            "evidence": [{"source_field": "links",
+                          "quote": '"url":"https://example.gov/apply"'}],
+            "unresolved_reason": None,
+        },
+        contact={
+            "status": "specified", "text": "문의: 02-1234-5678",
+            "evidence": [{"source_field": "text", "quote": "문의: 02-1234-5678"}],
+            "unresolved_reason": None,
+        },
+        published_date={
+            "status": "specified", "text": "2026-09-01",
+            "evidence": [{"source_field": "published_date", "quote": "2026-09-01"}],
+            "unresolved_reason": None,
+        },
+        modified_date={
+            "status": "specified", "text": "2026-09-12",
+            "evidence": [{"source_field": "modified_date", "quote": "2026-09-12"}],
+            "unresolved_reason": None,
+        },
+    )
+    validate_overview(result, record)
+    with pytest.raises(ValueError, match="source"):
+        validate_overview(
+            result, normalize_record({"document_id": "other", "title": "가상 정책",
+                                      "text": "공고 정보 없음"})
+        )
+
+
 def test_code_complete_policy_still_generates_overview(tmp_path, monkeypatch):
     record = normalize_record({"document_id": "clear-1", "title": "가상 정책",
                                "text": "신청자 만 19세 이상"})
@@ -278,7 +356,7 @@ def test_config_model_loads_from_env_and_environment_wins(tmp_path, monkeypatch)
     assert config.load_settings().codex_model == "gpt-5.6-luna"
 
 
-def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch):
+def test_cli_overview_uses_expanded_category_prompt_and_schema(tmp_path, monkeypatch):
     executable = tmp_path / "codex.exe"
     executable.touch()
     executable.chmod(0o700)
@@ -301,18 +379,26 @@ def test_cli_overview_uses_six_category_prompt_and_schema(tmp_path, monkeypatch)
         source(), Settings(_env_file=None, codex_executable=str(executable)),
         tmp_path / "overview-attempt", "gpt-5.6-luna")
     assert result.category == "교육"
-    assert metadata["prompt_version"] == "welfare-overview-v2"
+    assert metadata["prompt_version"] == "welfare-overview-v5"
     assert all(category in captured["prompt"] for category in
-               ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화"))
+               ("생활·금융", "주거", "일자리", "교육", "건강·돌봄", "문화",
+                "농림축산·어업", "사업·창업"))
+    schema = json.loads((tmp_path / "overview-attempt" / "schema.json").read_text(encoding="utf-8"))
+    enum = schema["properties"]["category"]["anyOf"][0]["enum"]
+    assert "농림축산·어업" in enum and "사업·창업" in enum
+    assert "방식만으로 농어업·사업 지원을 생활·금융으로 분류하지 마라" in captured["prompt"]
     assert all(field in captured["prompt"] for field in (
         "title", "region_conditions", "gender_conditions", "age_conditions",
-        "other_conditions", "benefits"))
+        "other_conditions", "benefits", "application_period", "application_method",
+        "application_url", "contact", "published_date", "modified_date"))
     assert "신청자/가구의 주소·거주·주민등록 지역 자격만" in captured["prompt"]
     assert "전국 대상(지역 제한 없음)" in captured["prompt"]
     assert "지역 표현은 region_conditions에만 두고" in captured["prompt"]
     assert "policy_requirements 테이블 행에 대응" in captured["prompt"]
     assert "공고의 성별 자격 조건은 gender" in captured["prompt"]
     assert "ENUM('age','birth_region','residence_region','gender','other')" in captured["prompt"]
+    assert "fields.links" in captured["prompt"]
+    assert "크롤링 시각을 게시/수정일로 추정하지 않는다" in captured["prompt"]
 
 
 def test_cli_args_keep_credentials_out_and_validate_response(tmp_path, monkeypatch):

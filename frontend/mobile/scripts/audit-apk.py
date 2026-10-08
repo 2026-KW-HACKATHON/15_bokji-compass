@@ -41,6 +41,48 @@ def nodes(node, tag):
         yield from nodes(child, tag)
 
 
+def allowed_permissions(package):
+    # expo-notifications/FCM require these even in release. Storage, overlay and
+    # biometric permissions remain forbidden; never accept a whole prefix.
+    return {
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK",
+        "com.google.android.c2dm.permission.RECEIVE",
+        package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+    }
+
+
+def approved_component(tag, attrs, package):
+    name = attrs.get("name", "")
+    if tag == "activity":
+        return name in (".MainActivity", package + ".MainActivity")
+    if tag == "receiver":
+        return (
+            name == "androidx.profileinstaller.ProfileInstallReceiver"
+            and attrs.get("permission") == "android.permission.DUMP"
+        ) or (
+            name == "com.google.firebase.iid.FirebaseInstanceIdReceiver"
+            and attrs.get("permission") == "com.google.android.c2dm.permission.SEND"
+        )
+    return False
+
+
+def xml_resource_path(resources, resource, archive_names):
+    # AGP optimizeReleaseResources shortens APK paths (for example res/n-.xml).
+    # Resolve the logical name through the resource table, never guess a filename.
+    block = re.search(
+        r"^\s*resource 0x[0-9a-f]+ (?:[^\s:]+:)?xml/" + re.escape(resource)
+        + r"\s*\n(.*?)(?=^\s*resource |\Z)", resources, re.M | re.S,
+    )
+    paths = set(re.findall(r"\(file\)\s+(res/\S+)\s+type=XML", block[1])) if block else set()
+    if len(paths) != 1 or not paths.issubset(archive_names):
+        raise ValueError("Security XML must resolve to one audited APK entry")
+    return paths.pop()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
@@ -66,7 +108,7 @@ def main():
     check(app.get("testOnly", "false") == "false", "test_only", "Must be false")
     check(app.get("allowBackup") == "false", "backup", "Must explicitly disable backup")
     check(app.get("usesCleartextTraffic") == "false", "cleartext_manifest", "Must explicitly disable cleartext")
-    allowed = {"android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE", package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}
+    allowed = allowed_permissions(package)
     permissions = {n["attrs"].get("name", "") for n in nodes(manifest, "uses-permission")}
     check(not permissions - allowed, "permissions", ", ".join(sorted(permissions)))
     exported = []
@@ -75,11 +117,9 @@ def main():
             attrs = node["attrs"]
             if attrs.get("exported") == "true" or (attrs.get("exported") is None and any(nodes(node, "intent-filter"))):
                 name = attrs.get("name", "")
-                approved = tag == "activity" and name in (".MainActivity", package + ".MainActivity")
-                approved |= tag == "receiver" and name == "androidx.profileinstaller.ProfileInstallReceiver" and attrs.get("permission") == "android.permission.DUMP"
-                if not approved:
+                if not approved_component(tag, attrs, package):
                     exported.append(name)
-    check(not exported, "exported_components", ", ".join(exported) or "Only launcher and permission-protected profile receiver")
+    check(not exported, "exported_components", ", ".join(exported) or "Only launcher and permission-protected profile/FCM receivers")
     check(not re.search(r"expo\.modules\.devlauncher|expo-dev-launcher|DevSettingsActivity", dump("AndroidManifest.xml")), "dev_components", "No development launcher/components")
     with zipfile.ZipFile(args.apk) as archive:
         names = archive.namelist()
@@ -91,17 +131,22 @@ def main():
             match = re.search(r"resource (0x[0-9a-f]+) (?:[^\s:]+:)?xml/" + resource + r"\b", resources)
             check(match and app.get(attr, "").lower() == "@" + match[1].lower(), attr + "_binding", "Manifest must reference audited resource")
         try:
-            network = tree(dump("res/xml/bokji_network_security.xml"))
+            xml_paths = {
+                name: xml_resource_path(resources, name, set(names))
+                for name in ("bokji_network_security", "bokji_backup_rules",
+                             "bokji_data_extraction_rules")
+            }
+            network = tree(dump(xml_paths["bokji_network_security"]))
             bases = list(nodes(network, "base-config"))
             domains = list(nodes(network, "domain-config"))
             certs = list(nodes(network, "certificates"))
             check(len(bases) == 1 and bases[0]["attrs"].get("cleartextTrafficPermitted") == "false" and not domains and certs and all(n["attrs"].get("src") == "system" for n in certs), "network_policy", "Release: HTTPS only, system CAs only, no debug domain exceptions")
             for filename, tag in (("bokji_backup_rules", "full-backup-content"), ("bokji_data_extraction_rules", "cloud-backup"), ("bokji_data_extraction_rules", "device-transfer")):
-                policy = tree(dump("res/xml/" + filename + ".xml"))
+                policy = tree(dump(xml_paths[filename]))
                 sections = list(nodes(policy, tag))
                 domains = {"root", "file", "database", "sharedpref", "external", "device_root", "device_file", "device_database", "device_sharedpref"}
                 check(len(sections) == 1 and domains <= {n["attrs"].get("domain") for n in nodes(sections[0], "exclude") if n["attrs"].get("path") == "."} and not list(nodes(policy, "include")), tag, "Exclude all app data from backup/transfer")
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, ValueError):
             check(False, "policy_resources", "Required security XML missing/unreadable")
         known = []
         if args.secrets_env:

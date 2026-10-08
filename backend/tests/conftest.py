@@ -3,8 +3,19 @@
 import pytest
 
 from app.modules.assistant import public as assistant
+from app.modules.auth import mail
 from app.modules.llm.public import CodexRunError
 from app.modules.pipeline import public as pipeline
+from app.modules.policy_translation import public as policy_translation
+from tests.email_helpers import mailbox
+
+
+@pytest.fixture(autouse=True)
+def offline_signup_email(monkeypatch):
+    mailbox.clear()
+    monkeypatch.setattr(
+        mail, "send_verification_code", lambda settings, email, code: mailbox.update({email: code})
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -17,6 +28,7 @@ def offline_pipeline_models(monkeypatch):
     monkeypatch.setattr(pipeline, "extract_policy", unavailable)
     monkeypatch.setattr(pipeline, "extract_policy_overview", unavailable)
     monkeypatch.setattr(assistant, "answer_policy_question", unavailable)
+    monkeypatch.setattr(policy_translation, "translate_policy_display", unavailable)
 
 
 @pytest.fixture(autouse=True)

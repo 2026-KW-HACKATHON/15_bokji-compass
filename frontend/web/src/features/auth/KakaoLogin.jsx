@@ -1,3 +1,4 @@
+import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { authRequest } from './authApi.js';
@@ -11,10 +12,20 @@ export function kakaoOutcomeError(outcome) {
       : '카카오 로그인에 연결하지 못했어요. 다시 시도해 주세요.';
 }
 
-export default function KakaoLogin({ busy, onBusy, onError, label = '카카오 로그인' }) {
+export default function KakaoLogin({
+  busy,
+  onBusy,
+  onError,
+  onAvailability,
+  label = '카카오 로그인',
+}) {
+  const { t } = useI18n();
   const [enabled, setEnabled] = useState(null);
   const [starting, setStarting] = useState(false);
   const pending = useRef(null);
+  useEffect(() => {
+    if (enabled !== null) onAvailability?.(enabled);
+  }, [enabled, onAvailability]);
   useEffect(() => {
     const controller = new AbortController();
     authRequest('kakao/status', undefined, { signal: controller.signal })
@@ -26,9 +37,12 @@ export default function KakaoLogin({ busy, onBusy, onError, label = '카카오 �
       });
     return () => {
       controller.abort();
-      pending.current?.abort();
+      if (pending.current) {
+        pending.current.abort();
+        onBusy(false);
+      }
     };
-  }, []);
+  }, [onBusy]);
 
   async function start() {
     if (busy || pending.current || !enabled) return;
@@ -64,12 +78,12 @@ export default function KakaoLogin({ busy, onBusy, onError, label = '카카오 �
         onClick={start}
       >
         <MessageCircle size={20} aria-hidden="true" />
-        {starting ? '카카오로 이동 중…' : label}
+        {starting ? t('카카오로 이동 중…') : t(label)}
       </button>
-      {enabled === null && <p role="status">로그인 방법을 확인하고 있어요…</p>}
+      {enabled === null && <p role="status">{t('로그인 방법을 확인하고 있어요…')}</p>}
       {enabled === false && (
         <p className="auth-field-hint">
-          카카오 로그인을 준비 중이에요. 아이디로 가입하거나 로그인할 수 있어요.
+          {t('카카오 로그인을 준비 중이에요. 아이디로 가입하거나 로그인할 수 있어요.')}
         </p>
       )}
     </div>

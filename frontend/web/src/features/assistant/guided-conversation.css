@@ -1,0 +1,221 @@
+.chat-dialog:has(.guided-conversation) {
+  overflow: clip;
+}
+.chat-dialog:has(.guided-conversation) > .chat-header,
+.chat-dialog:has(.guided-conversation) > .chat-toolbar,
+.chat-dialog:has(.guided-conversation) > .chat-footer {
+  flex-shrink: 0;
+}
+.guided-conversation {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.guided-conversation p,
+.guided-conversation h4,
+.guided-conversation h5 {
+  margin: 0;
+}
+.guided-conversation h4 {
+  font-size: 1rem;
+}
+.guided-conversation h5 {
+  font-size: 0.95rem;
+}
+.guided-conversation ul,
+.guided-conversation ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+.guided-conversation li + li {
+  margin-top: 7px;
+}
+.guided-conversation form {
+  display: grid;
+  gap: 10px;
+}
+.guided-conversation label {
+  font-weight: 650;
+}
+.guided-conversation textarea,
+.guided-conversation input:not([type='checkbox']) {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+.guided-conversation textarea {
+  resize: vertical;
+}
+.guided-conversation .button {
+  white-space: normal;
+  text-align: left;
+  min-width: 0;
+  height: auto;
+}
+.guided-options,
+.guided-answer,
+.guided-sources {
+  display: grid;
+  gap: 10px;
+}
+.guided-conversation .guided-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.guided-policy-context,
+.guided-missing,
+.guided-followup,
+.guided-save,
+.guided-candidates article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+.guided-policy-context {
+  display: grid;
+  gap: 4px;
+}
+.guided-policy-context > span,
+.guided-candidate-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.guided-followup,
+.guided-save,
+.guided-candidates article {
+  display: grid;
+  gap: 12px;
+}
+.guided-followup {
+  border-color: #91bad8;
+  background: #f1f8fe;
+}
+.guided-practical {
+  padding: 16px;
+  border-left: 4px solid #cc9443;
+  border-radius: 4px 12px 12px 4px;
+  background: #fff6e7;
+}
+.guided-user-reply {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #e6f2fc;
+  color: #214b6a;
+  overflow-wrap: anywhere;
+}
+.guided-answer-text {
+  white-space: pre-wrap;
+}
+.guided-missing .button {
+  margin-top: 12px;
+}
+.guided-history {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.guided-history summary {
+  padding-block: 8px;
+  cursor: pointer;
+}
+.guided-history > div {
+  border-left: 2px solid var(--line);
+  padding: 10px 12px;
+}
+.guided-unknown {
+  justify-self: start;
+  min-height: 44px;
+  color: #355c7d;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.guided-candidates {
+  display: grid;
+  gap: 12px;
+}
+.guided-unavailable {
+  padding: 12px;
+  border: 1px solid #e1ccab;
+  background: #fffaf1;
+  border-radius: 8px;
+}
+.guided-sources a {
+  color: #075ca0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.guided-save dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.guided-save dl > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.guided-save dt {
+  color: var(--muted);
+}
+.guided-save dd {
+  margin: 0;
+  font-weight: 650;
+}
+.guided-conversation .guided-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.guided-consent input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+}
+.guided-busy {
+  display: grid;
+  gap: 10px;
+}
+.guided-reset {
+  justify-self: start;
+}
+.guided-selected {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.guided-selected summary {
+  cursor: pointer;
+}
+.guided-condition {
+  margin-top: 12px;
+}
+.guided-condition blockquote {
+  margin: 6px 0;
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+  color: var(--muted);
+}
+.chat-dialog-easy .guided-conversation {
+  font-size: 1rem;
+}
+.chat-dialog-easy .guided-conversation .guided-note,
+.chat-dialog-easy .guided-conversation .guided-consent,
+.chat-dialog-easy .guided-history {
+  font-size: 0.9rem;
+}

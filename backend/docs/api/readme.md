@@ -1,5 +1,9 @@
 # 공개 API
 
+2026-10-07: 공개 `GET /v1/policies/{policy_key}/translation?language=en`은 표시용 공고
+번역을 반환한다. 한국어·영어·중국어 간체·베트남어·일본어를 지원하고 현재 공개 상태를
+대조한다. 임의 원문·회원 정보를 입력받지 않는다. [성공/오류·필드·DB 준비](../policy-translation.md).
+
 엔드포인트별 입력·응답 예시, 접속 주소, 프록시/CORS, 담당 파일과 변경 절차는 루트 [API 관리대장](../../../api-management.md)에서 통합 관리합니다. 이 문서는 백엔드 HTTP 계약과 외부 공급자 문서의 진입점입니다.
 
 [실제 응답·가공 검토](../api-data-analysis.md): 2026-09-21 복지로·행안부 소량 실조회 결과. 기존 원천 API 초안과 실제 응답의 차이, 파서 한계 포함.
@@ -20,7 +24,7 @@ FastAPI의 `/docs/oauth2-redirect`는 Swagger UI 보조 경로이며 OAuth 구�
 | 경로 | 접근 | 역할 |
 | --- | --- | --- |
 | GET `/v1/finance/rules` | 공개 | 지원하는 산정 규칙 조회 |
-| POST `/v1/finance/calculate` | 공개 | 입력값 계산, DB 저장 없음 |
+| POST `/v1/finance/calculate` | 공개 | 입력값 계산, 명시적 선택 시 근사 참고값 제공, DB 저장 없음 |
 | GET `/v1/finance/profile` | 로그인 세션 | 본인이 저장한 입력과 다시 계산한 결과 조회 |
 | POST `/v1/finance/profile` | 로그인 세션·저장 동의 | 본인의 금융 원입력 저장 |
 | POST `/v1/finance/profile/delete` | 로그인 세션 | 본인의 금융 원입력 삭제 |

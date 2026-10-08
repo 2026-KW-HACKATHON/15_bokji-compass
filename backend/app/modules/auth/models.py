@@ -1,25 +1,44 @@
 """Separate auth tables; never modify the existing draft users/profile tables."""
 
-from sqlalchemy import Column, Index, Integer, MetaData, String, Table, Text
+from sqlalchemy import Boolean, Column, Index, Integer, MetaData, String, Table, Text
 
 metadata = MetaData()
-PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
+LEGACY_PROFILE_FIELDS = ("username", "name", "age", "gender", "region", "phone")
+ADDRESS_FIELDS = ("postal_code", "address", "address_detail")
+PROFILE_FIELDS = (*LEGACY_PROFILE_FIELDS, *ADDRESS_FIELDS)
 accounts = Table(
     "auth_accounts",
     metadata,
     Column("id", String(64), primary_key=True),
     Column("username", String(32), nullable=False, unique=True),
-    # Legacy accounts have no name; new signups require one at the API boundary.
+    # Social accounts can start with only a nickname and no recommendation profile.
     Column("name", String(50), nullable=True),
     Column("password_hash", String(256), nullable=False),
-    Column("age", Integer, nullable=False),
+    Column("age", Integer, nullable=True),
     Column("gender", String(16), nullable=False),
-    Column("region", String(32), nullable=False),
+    Column("region", String(32), nullable=True),
+    Column("postal_code", String(5), nullable=True),
+    Column("address", String(200), nullable=True),
+    Column("address_detail", String(200), nullable=True),
     Column("phone", String(16), nullable=True, unique=True),
+    # Nullable for existing members; both new signup APIs require an email.
+    Column("email", String(254), nullable=True),
+    Column("email_verified_at", Integer, nullable=True),
     Column("created_at", Integer, nullable=False),
     # Retained for one-time restoration of older encrypted databases.
     Column("username_lookup", String(64), nullable=True),
     Column("profile_ciphertext", Text, nullable=True),
+)
+auth_consents = Table(
+    "auth_consents",
+    metadata,
+    Column("account_id", String(64), primary_key=True),
+    Column("notice_version", String(32), nullable=False),
+    Column("collection", Boolean, nullable=False),
+    Column("profile", Boolean, nullable=False),
+    Column("ai", Boolean, nullable=False),
+    Column("ai_notice_version", String(64), nullable=True),
+    Column("accepted_at", Integer, nullable=False),
 )
 sessions = Table(
     "auth_sessions",
@@ -33,6 +52,16 @@ limits = Table(
     metadata,
     Column("key", String(64), primary_key=True),
     Column("hits", Integer, nullable=False),
+    Column("expires_at", Integer, nullable=False, index=True),
+)
+email_verifications = Table(
+    "auth_email_verifications",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("email", String(254), nullable=False),
+    Column("code_hash", String(64), nullable=False),
+    Column("attempts", Integer, nullable=False),
+    Column("verified", Boolean, nullable=False),
     Column("expires_at", Integer, nullable=False, index=True),
 )
 
@@ -59,6 +88,20 @@ privacy_state = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("lookup_fingerprint", String(64), nullable=False),
+)
+
+# One-use native OAuth handoffs. Provider tokens and PKCE verifiers are never stored.
+mobile_oauth_flows = Table(
+    "auth_mobile_oauth_flows",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("challenge", String(43), nullable=False),
+    Column("stage", String(16), nullable=False),
+    Column("expires_at", Integer, nullable=False, index=True),
+    Column("code_hash", String(64), nullable=True),
+    Column("account_id", String(64), nullable=True, index=True),
+    Column("subject", String(64), nullable=True),
+    Column("nickname", String(50), nullable=True),
 )
 
 username_lookup_index = Index(

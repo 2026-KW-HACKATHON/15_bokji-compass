@@ -9,6 +9,20 @@ const debugNetwork = productionNetwork.replace("</network-security-config>", `<d
 const exclude = ["root", "file", "database", "sharedpref", "external", "device_root", "device_file", "device_database", "device_sharedpref"].map(domain => `<exclude domain="${domain}" path="." />`).join("");
 const releaseGuard = `
 // BEGIN BOKJI RELEASE SECURITY
+// Ninja on Windows cannot stat generated codegen object paths beyond MAX_PATH.
+// Keep the staging directory short and let CMake hash long source paths.
+if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+    android {
+        externalNativeBuild {
+            cmake { buildStagingDirectory file('../../../../tmp/cxx') }
+        }
+        defaultConfig {
+            externalNativeBuild {
+                cmake { arguments '-DCMAKE_OBJECT_PATH_MAX=240' }
+            }
+        }
+    }
+}
 dependencies {
     constraints {
         implementation('com.google.code.gson:gson:2.10.1') { because 'CVE-2022-25647: patched deserialization; retain newer transitive versions' }
@@ -86,7 +100,8 @@ module.exports = function withSecurity(config) {
   return withAppBuildGradle(config, mod => {
     // Local releases are unsigned until a real signing config is supplied (EAS supplies its own).
     mod.modResults.contents = mod.modResults.contents.replace(/(release\s*\{[\s\S]*?)signingConfig signingConfigs\.debug/, "$1signingConfig null");
-    if (!mod.modResults.contents.includes("BEGIN BOKJI RELEASE SECURITY")) mod.modResults.contents += releaseGuard;
+    // Refresh existing generated blocks so plugin updates apply without --clean.
+    mod.modResults.contents = mod.modResults.contents.replace(/\r?\n\/\/ BEGIN BOKJI RELEASE SECURITY[\s\S]*?\/\/ END BOKJI RELEASE SECURITY\r?\n?/, "") + releaseGuard;
     return mod;
   });
 };

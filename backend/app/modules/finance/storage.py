@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.exc import IntegrityError
 
 from app.contracts.finance import FinancialProfile
+from app.modules.auth.account_write import account_write_transaction, require_active_account
 from app.modules.auth.models import accounts
 
 metadata = MetaData()
@@ -73,14 +74,16 @@ class FinancialProfileStore:
             .values(**values)
         )
         try:
-            with self.engine.begin() as connection:
+            with account_write_transaction(self.engine) as connection:
+                require_active_account(connection, account_id)
                 if not connection.execute(statement).rowcount:
                     connection.execute(
                         insert(financial_profiles).values(account_id=account_id, **values)
                     )
         except IntegrityError:
             # Two first saves can race on the primary key. Retry only the scoped update.
-            with self.engine.begin() as connection:
+            with account_write_transaction(self.engine) as connection:
+                require_active_account(connection, account_id)
                 if connection.execute(statement).rowcount != 1:
                     raise
         return StoredFinancialProfile(profile, updated_at)

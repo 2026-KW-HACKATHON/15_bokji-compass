@@ -4,13 +4,14 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.contracts.categories import POLICY_DISPLAY_CATEGORIES
 from app.contracts.parsing import SourceEvidence, StrictModel
 
 
 class GuidanceProfile(StrictModel):
     region: str | None = Field(default=None, max_length=100)
     age_band: str | None = Field(default=None, max_length=50)
-    interests: list[str] = Field(default_factory=list, max_length=6)
+    interests: list[str] = Field(default_factory=list, max_length=len(POLICY_DISPLAY_CATEGORIES))
 
 
 class PolicyAnswer(StrictModel):

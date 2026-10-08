@@ -1,0 +1,96 @@
+# 사용자 정보와 공고 조건 비교
+
+담당: 백엔드. 회원 DB 정보와 공개 공고의 정규화 조건을 연결하는 읽기 전용 모듈입니다.
+LLM·네트워크 외부 호출·회원/금융정보 저장·신청 자격 확정은 수행하지 않습니다.
+
+## 호출
+
+- `build_facts(member, profile, financial=None) -> MatchingFacts`: 인증된 회원의 나이·성별·지역을
+  우선합니다. 회원 값이 없으면 요청 값으로 대신 확정하지 않습니다. 비회원은 요청 연령대를
+  범위로 비교합니다. 직업은 이번 요청의 직장인/자영업자만 명시적으로 연결합니다.
+- `compare_policy(record, facts, catalog=None, today=None) -> dict`: 원문 근거와 공식 지역코드를
+  재검증한 뒤 `checks`, `notes`, `status`, `matching_enabled`, `eligibility_decided=false` 반환.
+- `recommend(repository, facts, profile=None, limit=3, today=None) -> dict`: 공고별 최신 공개
+  개정만 조회합니다. 최근 최대 500건의 자격 논리·원문 대상·신청 기간을 검증하고 최대 3건을
+  정렬합니다. 충분한 정보로 비교한 공고가 있으면 개인 추천, 없으면 원문에 누구나 이용할 수
+  있다고 명시된 신청 중 공고만 일반 안내로 제공합니다. 안전한 후보가 없으면 빈 배열입니다.
+  `items:[{policy,reason,matching}]`, `summary`, `truncated`, `eligibility_decided=false`,
+  `mode`, `profile_sufficient`, `guidance`, `missing_fields`를 반환합니다.
+
+`compare_policy`의 잘못된 계약/인용/스냅샷은 ValueError입니다. 추천에서는 해당 공고를 제외하고
+요약에 알립니다. DB 오류는 전파되어 API에서 개인정보 없는 503으로 응답합니다.
+날짜는 기본 Asia/Seoul이며 테스트에서는 `today`를 고정할 수 있습니다.
+
+## 비교 범위
+
+- 나이: 수치·범위·포함/제외 경계. 연령대가 조건 경계를 걸치면 unknown.
+- 성별: MALE/FEMALE과 회원값 비교. 기타/미공개는 unknown.
+- 거주지역: 공식 ADMIN/LEGAL 계층으로 비교. 서울 입력만으로 노원구 거주를 확정하지 않습니다.
+- 주민등록/실거주/출생/학교/직장 지역: 회원 region의 의미가 충분하지 않아 unknown.
+- 가구원 수: 사용을 선택한 금융정보의 심사 가구 범위 확인이 있는 경우만 비교.
+- 소득·자산·주택 소유·장애·수급 여부: 금액/공제/기준연도/심사대상 매핑 없이 추정하지 않습니다.
+- 별도 기준 시점/산정 기준(`reference_basis`)이 있거나 신청자 외 인물 조건이면 추가 확인.
+- state_code 0은 명시적 제한 없음, 9는 미해석/미기재입니다. 미기재를 통과로 바꾸지 않습니다.
+- all/any/not은 참/거짓/미상으로 평가합니다. exclusion은 저장된 논리의 not을 통해 적용하며,
+  priority/application/reference를 필수 자격 조건으로 바꾸지 않습니다.
+
+자동 매칭이 꺼져 있거나 coverage가 partial이면 상태는 항상 needs_review입니다.
+공개 상태·matching_enabled·완전한 논리가 모두 준비된 경우에도 potential_match는 조건 비교
+결과일 뿐 기관의 자격 판정이 아닙니다. 비교 상세와 메인 추천의 기준을 구분합니다.
+메인 추천은 needs_review·not_matched를 제외하고 potential_match만 사용합니다.
+비활성·부분 정규화 공고는 전체 탐색에서 확인할 수 있지만 메인 추천을 채우는 용도로 쓰지 않습니다.
+
+## 메인 추천의 안전 기준
+
+- `profile_sufficient=true`는 해당 공고의 자격 논리를 실제 입력 정보로 충분히 비교한 경우입니다.
+  나이만 필요한 공고에 나이가 있으면 지역·금융정보를 모두 입력하지 않아도 충분합니다.
+  OR의 다른 분기 정보가 없다는 이유로 성공한 분기를 제거하지 않으며 NOT 제외조건도 보존합니다.
+  입력값으로 불일치를 확인할 수 있으면 충분한 정보로 인정합니다. 이때 일치하는 공고가 없으면
+  personalized 모드의 빈 배열과 '현재 입력한 조건에 맞는 신청 중 공고가 없어요' 안내를 반환합니다.
+- 개별 필드의 제한 없음(state_code=0)은 실제 프로필 일치 근거로 세지 않습니다. 빈 사용자
+  정보로도 논리가 성공하는 공고는 원문에 전체 지원 대상이 누구나 이용 가능하다는 근거가 있을
+  때만 일반 안내 후보가 됩니다. 나이 제한 없음·지역 제한 없음 한 항목만으로 판단하지 않습니다.
+- 제목·지원 대상 원문에 자립준비/보호종료·장애·한부모·수급·저소득·보훈 등 대상이 있지만
+  필수 자격 논리에 해당 조건이 없으면 제외합니다. 소득 조건이 있는 문화비 지원이나 지역 제한이
+  있는 교통비 지원을 분야명만 보고 전체 대상 공고로 만들지 않습니다.
+- 상시/연중 또는 현재 날짜가 확인된 신청 기간의 공고만 사용합니다. 종료·시작 전·기간 미확인,
+  신청 기간의 미비교 조건·제외 경계, 원문 검증 실패, 예산 소진률 100%는 제외합니다.
+- 충분한 개인 후보는 관심 분야·성공 분기의 입력 근거 수·공식 누적 조회수 순으로 정렬합니다.
+  일반 후보는 상시 여부·공식 누적 조회수·문화/교통 분야 순으로 정렬합니다.
+  후보가 부족해도 검증되지 않은 공고로 3건을 채우지 않습니다.
+
+| 응답 mode | 의미 |
+| --- | --- |
+| personalized | 실제 입력 정보로 조건 논리를 충분히 비교함. 일치 후보가 없으면 빈 배열 |
+| popular | 안전한 일반 후보가 있고 표시되는 후보에 실제 공급자 누적 조회수가 있음 |
+| general | 안전한 일반 후보가 있지만 확인된 조회수가 없음 |
+| profile_required | 안전한 메인 후보가 없음. 추가 정보와 전체 탐색 안내 |
+
+`guidance`는 모든 모드에서 설명을 제공하며 일반/인기 모드는 개인 추천에 필요한 정보가 부족해
+일반 공고를 보여준 이유와 정보 입력 안내를 포함합니다. `missing_fields`는 해당 공고 비교에서
+부족한 정규화 필드 키이며 지원되지 않는 특수 대상 키도 포함할 수 있습니다. 개인 후보가 있으면
+빈 배열입니다. 사용자 이름·회원 ID·금융 원입력은 반환하지 않습니다.
+
+`presentation.public.load_popularity()`로 실제 수집 목록의 갱신된 조회수를 읽고
+`policy_signals()`로 `policy.popularity`, `policy.budget`, `policy.budgetNotice`를 선택적으로
+추가합니다. 누적 조회수는 최근 인기 상승이나 실제 신청 인원이 아닙니다. 공식 원문에 확인된
+예산 소진률만 표시하며 알 수 없는 수치를 만들어 넣지 않습니다.
+
+## HTTP·검증
+
+`POST /v1/recommendations`: 웹 쿠키와 앱 Bearer 모두 지원. 요청은
+`{profile?,limit?:1..3,financialProfile?,use_saved_financial_profile?:false}`입니다.
+회원은 빈 본문으로 DB 프로필을 이용하며 비회원도 빈 본문으로 안전한 일반 후보를 요청할 수 있습니다.
+저장 금융정보 사용과 직접 전달은 동시에 선택할 수 없습니다. 저장 정보는 명시적인 true일
+때에만 인증 계정의 account_id로 조회합니다. 저장·조회·삭제 결과를 추천 과정에서 변경하지 않습니다.
+무효 세션은 비회원으로 바꾸지 않고 401입니다. X-Auth-Request:1, no-store, 회원당 분당 20회.
+추천 선호값은 이번 요청에만 사용하며 서버 DB에 새로 저장하지 않습니다.
+
+```powershell
+# backend 폴더
+.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider tests/test_matching.py
+.\.venv\Scripts\python.exe -m ruff check --no-cache app/modules/matching app/api/recommendations.py
+```
+
+[사용자 DB 확인 및 필드 대응표](../../../docs/member-policy-matching.md).
+[추천 안전 기준과 검증 기록](../../../docs/recommendation-safety.md).

@@ -58,8 +58,10 @@ class IngestionRepository:
         with self.engine.connect() as c:
             return c.scalar(select(m.state.c.payload).where(m.state.c.state_key == key)) or {}
 
-    def set_state(self, key, payload):
+    def set_state(self, key, payload, *, worker_token=None):
         with self.engine.begin() as c:
+            if worker_token:
+                self.assert_worker(c, worker_token, time.time())
             self._set_state(c, key, payload)
 
     def _set_state(self, c, key, payload):
@@ -80,10 +82,44 @@ class IngestionRepository:
         if row["lease_token"] != token or row["lease_until"] <= now:
             raise LeaseLost("Worker lease expired")
 
+    def renew_worker(self, token, now, seconds, *, renew_jobs=False):
+        with self.engine.begin() as c:
+            self.assert_worker(c, token, now)
+            c.execute(update(m.state).where(m.state.c.state_key == "worker").values(
+                lease_until=now + seconds))
+            if renew_jobs:
+                c.execute(update(m.jobs).where(m.jobs.c.lease_token == token,
+                    m.jobs.c.status == "running", m.jobs.c.lease_until > now).values(
+                        lease_until=now + seconds))
+
+    def seed_all_existing(self, policies, signature, *, limit=100, worker_token,
+                          progress=None, adopt_legacy=False):
+        """Commit small batches, renew ownership, and resume until the cursor is exhausted."""
+        total = {"indexed": 0, "reused": 0, "scanned": 0, "batches": 0, "complete": False}
+        while not total["complete"]:
+            self.renew_worker(worker_token, time.time(), 660)
+            result = self.seed_existing(policies, signature, time.time(), limit=limit,
+                worker_token=worker_token, adopt_legacy=adopt_legacy)
+            for name in ("indexed", "reused", "scanned"):
+                total[name] += result[name]
+            total["batches"] += 1
+            total["complete"] = result["complete"]
+            if not total["complete"] and not result["scanned"]:
+                raise RuntimeError("Existing index made no progress")
+            if progress:
+                progress(dict(total))
+        return total
+
     def release_worker(self, token):
         with self.engine.begin() as c:
             c.execute(update(m.state).where(m.state.c.state_key == "worker",
                 m.state.c.lease_token == token).values(lease_token=None, lease_until=0))
+
+    def worker_owned(self, token, now):
+        with self.engine.connect() as c:
+            return bool(c.scalar(select(func.count()).select_from(m.state).where(
+                m.state.c.state_key == "worker", m.state.c.lease_token == token,
+                m.state.c.lease_until > now)))
 
     def reserve_call(self, provider, now, limit, *, timezone="Asia/Seoul"):
         day = datetime.fromtimestamp(now, ZoneInfo(timezone)).date().isoformat()
@@ -98,16 +134,35 @@ class IngestionRepository:
                 except IntegrityError:
                     pass
                 row = c.execute(query).mappings().one()
-            if row["calls"] >= limit:
+            if limit is not None and row["calls"] >= limit:
                 return False
             c.execute(update(m.usage).where(m.usage.c.provider == provider,
                 m.usage.c.day == day).values(calls=m.usage.c.calls + 1))
             return True
 
-    def pending_count(self):
+    def pending_count(self, kinds=None):
         with self.engine.connect() as c:
-            return c.scalar(select(func.count()).select_from(m.jobs).where(
-                m.jobs.c.status.in_(("pending", "running"))))
+            query = select(func.count()).select_from(m.jobs).where(
+                m.jobs.c.status.in_(("pending", "running")))
+            if kinds:
+                query = query.where(m.jobs.c.kind.in_(kinds))
+            return c.scalar(query)
+
+    def next_pending_at(self, kinds):
+        with self.engine.connect() as c:
+            return c.scalar(select(func.min(m.jobs.c.next_attempt_at)).where(
+                m.jobs.c.status == "pending", m.jobs.c.kind.in_(kinds)))
+
+    def requeue_version(self, job, signature, now):
+        """A configuration upgrade gets a fresh work identity without losing the original source."""
+        source = SourcePolicy.model_validate(job["payload"]["source"])
+        with self.engine.begin() as c:
+            self._owned(c, job, now)
+            self._enqueue(c, "parse", source.policy_key, {**job["payload"], "signature": signature},
+                [content_hash(source), signature], now, priority=job["priority"])
+            c.execute(update(m.jobs).where(m.jobs.c.job_id == job["job_id"]).values(
+                status="done", lease_token=None, lease_until=0,
+                error_code="processing_version_changed", updated_at=now))
 
     def _enqueue(self, c, kind, key, payload, identity, now, *, priority=20):
         work_key = digest([kind, key, identity])
@@ -136,19 +191,53 @@ class IngestionRepository:
         old = c.execute(select(m.records).where(
             m.records.c.policy_key == key).with_for_update()).mappings().first()
         new_hash = listing_hash(row)
+        listing = {**row, "_views_observed_at": now}
         if old is None:
             c.execute(insert(m.records).values(policy_key=key, provider=provider,
-                external_id=external_id, listing_json=row, listing_hash=new_hash,
+                external_id=external_id, listing_json=listing, listing_hash=new_hash,
                 last_seen_at=now, next_check_at=0))
         else:
             c.execute(update(m.records).where(m.records.c.policy_key == key).values(
-                listing_json=row, listing_hash=new_hash, last_seen_at=now))
+                listing_json=listing, listing_hash=new_hash, last_seen_at=now))
         if provider == "bokjiro" and (old is None or old["source_json"] is None
                 or old["listing_hash"] != new_hash or old["next_check_at"] <= now):
             identity = [new_hash, int(now // recheck_seconds)]
             _, queued = self._enqueue(c, "detail", key, {"provider": provider,
                 "external_id": external_id}, identity, now,
                 priority=10 if old and old["listing_hash"] != new_hash else 20)
+            return int(queued)
+        return 0
+
+    def observe_notice_listing(self, c, row, now, recheck_seconds):
+        """Queue a linked official notice with its listing and cursor in one transaction."""
+        if not isinstance(row, dict) or any(not isinstance(row.get(name), str)
+                or not row[name].strip() for name in ("url", "title", "organization")):
+            raise ValueError("Notice listing requires URL, title and organization")
+        url = canonical_url(row["url"])
+        external_id = hashlib.sha256(row["url"].strip().encode()).hexdigest()[:16]
+        key = "notice:" + external_id
+        old = c.execute(select(m.records).where(
+            m.records.c.provider == "notice", m.records.c.url_hash == digest(url)
+            ).order_by(m.records.c.last_seen_at.desc()).limit(1).with_for_update()).mappings().first()
+        if old is None:
+            old = c.execute(select(m.records).where(
+                m.records.c.policy_key == key).with_for_update()).mappings().first()
+        if old:
+            key, external_id = old["policy_key"], old["external_id"]
+        new_hash = listing_hash(row)
+        if old is None:
+            c.execute(insert(m.records).values(policy_key=key, provider="notice",
+                external_id=external_id, url_hash=digest(url), listing_json=row,
+                listing_hash=new_hash, last_seen_at=now, next_check_at=0))
+        else:
+            c.execute(update(m.records).where(m.records.c.policy_key == key).values(
+                listing_json=row, listing_hash=new_hash, last_seen_at=now))
+        if (old is None or old["source_json"] is None or old["listing_hash"] != new_hash
+                or old["next_check_at"] <= now):
+            _, queued = self._enqueue(c, "notice", key, {"url": url,
+                "candidate": {"organization": row["organization"]}},
+                [url, new_hash, int(now // recheck_seconds)], now,
+                priority=10 if old and old["listing_hash"] != new_hash else 15)
             return int(queued)
         return 0
 

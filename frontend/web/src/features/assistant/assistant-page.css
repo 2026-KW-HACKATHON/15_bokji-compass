@@ -1,0 +1,78 @@
+.assistant-page {
+  padding-bottom: 36px;
+}
+.assistant-page-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 40px 0 28px;
+}
+.assistant-page-hero h1 {
+  margin: 12px 0;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  letter-spacing: -0.05em;
+}
+.assistant-page-hero p {
+  color: var(--muted);
+  max-width: 640px;
+  line-height: 1.8;
+}
+.assistant-page-hero > .button {
+  flex-shrink: 0;
+}
+.assistant-page .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.assistant-conversation-section {
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--white);
+  scroll-margin-top: 100px;
+}
+.assistant-conversation-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+.assistant-conversation-heading > svg {
+  color: var(--green);
+  flex-shrink: 0;
+}
+.assistant-conversation-heading h2 {
+  margin: 8px 0;
+  font-size: 1.3rem;
+}
+.assistant-conversation-heading p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.assistant-page .guided-conversation {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.easy-mode .assistant-page-hero p,
+.easy-mode .assistant-conversation-heading p {
+  font-size: 1.05rem;
+}
+@media (max-width: 760px) {
+  .assistant-page-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+    padding: 28px 0 20px;
+  }
+  .assistant-page-hero > .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .assistant-conversation-section {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+}

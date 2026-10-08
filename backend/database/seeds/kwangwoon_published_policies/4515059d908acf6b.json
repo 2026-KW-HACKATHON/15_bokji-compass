@@ -1,0 +1,681 @@
+{
+  "method": "code_then_codex_cli",
+  "source": {
+    "title": "[등록/장학] [논산시]2026년도 하반기 재단법인 논산시장학회 장학생 선발 안내",
+    "fields": {
+      "text": "[등록/장학] [논산시]2026년도 하반기 재단법인 논산시장학회 장학생 선발 안내\n조회수 338 |\n작성일 2026.09.28 | 수정일 2026.09.28 | 학생복지팀\nAttachment2026년도 하반기 재단법인 논산시장학회 장학생 선발 공고문(발췌본).hwpx\nAttachment2026년도 하반기 재단법인 논산시장학회 장학생 신청 서식.hwpx\n2026년도 하반기 재단법인 논산시장학회 장학생 선발 공고\n우리 고장에 대한 애향심 및 자긍심을 고취시키고, 우리 지역발전에 기여할 수 있는 자랑스러운 인재 육성을 위해 2026년도 하반기 재단법인 논산시장학회 장학생을 선발하고자 다음과 같이 공고합니다.\n2026년 9월 28일\n재단법인 논산시장학회 이사장\n1. 선발개요\n❍ 신청자격 : 논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀로서 논산시 관내 중·고등학교의\n재학생이거나, 국내 정규대학교(2년제 포함)의 신입생\n* 신입생 장학금은 상반기 미신청자에 한해 신청 가능\n​\n❍ 공고 및 접수기간 : 2026년 9월 28일(월) ~ 2026년 10월 30일(금)\n※ 시 홈페이지, 읍·면·동 단체회의 등 홍보\n❍ 신청·접수방법\n① 국내 정규대학교(2년제 포함)의 신입생\n- (학업장려 장학금) 개별 신청\n② 논산시 관내 대학교(2년제 포함)의 신입생 및 특성화 학과생\n- (지역대학진학 장학금) 대학교 총장/학장 추천\n③ 관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자\n- (취업장려 장학금) 학교장 추천\n❍ 장학금 지급 : 2026년 12월 초 지급 예정\n❍ 장학금 신청 방법\n- 공고문에 첨부된 신청서 및 기타 구비서류 지참하여 해당 접수처에 방문 신청\n❍ 문의처 : 논산시청 인구청년교육과 교육지원팀(041-746-5771~3)",
+      "published_date": "2026-09-28"
+    },
+    "policy_key": "notice:4515059d908acf6b",
+    "source_url": "https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID=53394&searchKey=1&searchVal=&srCategoryId=4",
+    "source_hash": "dda76a3242e5edd66f7c55bfe1cf72322b55b6b8df92fc167dc8cce2b23bc606",
+    "organization": "광운대학교"
+  },
+  "status": "needs_review",
+  "analysis": {
+    "groups": [
+      {
+        "group_id": "g1",
+        "relation": "all",
+        "scope_text": "모든 신청자는 거주·주소 요건을 충족해야 함.",
+        "source_field": "text",
+        "evidence_quote": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀"
+      },
+      {
+        "group_id": "g2",
+        "relation": "any",
+        "scope_text": "g1 충족자 중 학교 재학 자격의 대안.",
+        "source_field": "text",
+        "evidence_quote": "재학생이거나, 국내 정규대학교(2년제 포함)의 신입생"
+      },
+      {
+        "group_id": "g3",
+        "relation": "exception",
+        "scope_text": "신입생 장학금 신청자에게만 적용되는 추가 제한.",
+        "source_field": "text",
+        "evidence_quote": "신입생 장학금은 상반기 미신청자에 한해 신청 가능"
+      },
+      {
+        "group_id": "g4",
+        "relation": "all",
+        "scope_text": "공통 접수기간.",
+        "source_field": "text",
+        "evidence_quote": "2026년 9월 28일(월) ~ 2026년 10월 30일(금)"
+      },
+      {
+        "group_id": "g5",
+        "relation": "reference",
+        "scope_text": "학업장려 장학금 신청 방식.",
+        "source_field": "text",
+        "evidence_quote": "(학업장려 장학금) 개별 신청"
+      },
+      {
+        "group_id": "g6",
+        "relation": "reference",
+        "scope_text": "지역대학진학 장학금 대상 및 추천 방식.",
+        "source_field": "text",
+        "evidence_quote": "(지역대학진학 장학금) 대학교 총장/학장 추천"
+      },
+      {
+        "group_id": "g7",
+        "relation": "all",
+        "scope_text": "취업장려 장학금 대상 및 추천 방식.",
+        "source_field": "text",
+        "evidence_quote": "③ 관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자\n- (취업장려 장학금) 학교장 추천"
+      }
+    ],
+    "coverage": "partial",
+    "conditions": [
+      {
+        "role": "application",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "국내 정규대학교(2년제 포함)의 신입생: 학업장려 장학금 개별 신청"
+        },
+        "subject": "applicant",
+        "group_id": "g5",
+        "operator": "EQ",
+        "field_key": "application_method",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c6",
+        "source_field": "text",
+        "evidence_quote": "국내 정규대학교(2년제 포함)의 신입생\n- (학업장려 장학금) 개별 신청",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "논산시 관내 대학교(2년제 포함)의 신입생 및 특성화 학과생: 지역대학진학 장학금, 대학교 총장/학장 추천"
+        },
+        "subject": "applicant",
+        "group_id": "g6",
+        "operator": "EQ",
+        "field_key": "application_method",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c7",
+        "source_field": "text",
+        "evidence_quote": "논산시 관내 대학교(2년제 포함)의 신입생 및 특성화 학과생\n- (지역대학진학 장학금) 대학교 총장/학장 추천",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "취업장려 장학금: 학교장 추천"
+        },
+        "subject": "applicant",
+        "group_id": "g7",
+        "operator": "EQ",
+        "field_key": "application_method",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c9",
+        "source_field": "text",
+        "evidence_quote": "(취업장려 장학금) 학교장 추천",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": {
+          "kind": "DATE_RANGE",
+          "date_max": "2026-10-30",
+          "date_min": "2026-09-28",
+          "max_inclusive": true,
+          "min_inclusive": true
+        },
+        "subject": "applicant",
+        "group_id": "g4",
+        "operator": "RANGE",
+        "field_key": "application_period",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c5",
+        "source_field": "text",
+        "evidence_quote": "2026년 9월 28일(월) ~ 2026년 10월 30일(금)",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀"
+        },
+        "subject": "unknown",
+        "group_id": "g1",
+        "operator": "EQ",
+        "field_key": "eligibility_residence_requirement",
+        "state_code": 1,
+        "review_note": "주소지 요건이 주민 본인과 그 자녀 중 누구에게 적용되는지 분리할 수 없어 원문대로 보존.",
+        "condition_id": "c1",
+        "source_field": "text",
+        "evidence_quote": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자"
+        },
+        "subject": "applicant",
+        "group_id": "g7",
+        "operator": "EQ",
+        "field_key": "employment_promotion_scholarship_eligibility",
+        "state_code": 1,
+        "review_note": "취업자와 취업예정자를 표준 employment_status로 확정할 수 없음.",
+        "condition_id": "c8",
+        "source_field": "text",
+        "evidence_quote": "관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "상반기 미신청"
+        },
+        "subject": "applicant",
+        "group_id": "g3",
+        "operator": "EQ",
+        "field_key": "prior_first_half_application",
+        "state_code": 1,
+        "review_note": "신입생 장학금에만 적용.",
+        "condition_id": "c4",
+        "source_field": "text",
+        "evidence_quote": "신입생 장학금은 상반기 미신청자에 한해 신청 가능",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "논산시 관내 중·고등학교 재학생"
+        },
+        "subject": "applicant",
+        "group_id": "g2",
+        "operator": "EQ",
+        "field_key": "student_status",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c2",
+        "source_field": "text",
+        "evidence_quote": "논산시 관내 중·고등학교의\n재학생",
+        "unknown_reason": null,
+        "reference_basis": null
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": {
+          "kind": "TEXT",
+          "text": "국내 정규대학교(2년제 포함)의 신입생"
+        },
+        "subject": "applicant",
+        "group_id": "g2",
+        "operator": "EQ",
+        "field_key": "student_status",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c3",
+        "source_field": "text",
+        "evidence_quote": "국내 정규대학교(2년제 포함)의 신입생",
+        "unknown_reason": null,
+        "reference_basis": null
+      }
+    ],
+    "policy_key": "notice:4515059d908acf6b",
+    "unresolved": [
+      "거주·주소 요건이 주민 본인과 그 자녀 각각에 적용되는 방식 및 주소지의 등록지 여부가 명확하지 않음.",
+      "특성화 학과생의 정의와 취업예정자의 판정 기준이 원문에 없음."
+    ]
+  },
+  "attempts": [
+    {
+      "model": "gpt-5.6-luna",
+      "status": "validation_failed"
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "usage": [
+        {
+          "input_tokens": 10609,
+          "output_tokens": 2150,
+          "cached_input_tokens": 0,
+          "reasoning_output_tokens": 516,
+          "cache_write_input_tokens": 0
+        }
+      ],
+      "status": "validated",
+      "prompt_version": "welfare-extract-v3",
+      "elapsed_seconds": 57.88,
+      "reasoning_effort": "medium"
+    }
+  ],
+  "overview": {
+    "title": "[등록/장학] [논산시]2026년도 하반기 재단법인 논산시장학회 장학생 선발 안내",
+    "contact": {
+      "text": "논산시청 인구청년교육과 교육지원팀(041-746-5771~3)",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "❍ 문의처 : 논산시청 인구청년교육과 교육지원팀(041-746-5771~3)",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "benefits": {
+      "text": "2026년도 하반기 재단법인 논산시장학회 장학생을 선발하며, 장학금은 2026년 12월 초 지급 예정이다.",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "2026년도 하반기 재단법인 논산시장학회 장학생을 선발",
+          "source_field": "text"
+        },
+        {
+          "quote": "장학금 지급 : 2026년 12월 초 지급 예정",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "category": "교육",
+    "source_url": "https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID=53394&searchKey=1&searchVal=&srCategoryId=4",
+    "unresolved": [],
+    "modified_date": {
+      "text": "2026.09.28",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "수정일 2026.09.28",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "age_conditions": {
+      "text": null,
+      "status": "not_stated",
+      "evidence": [],
+      "unresolved_reason": null
+    },
+    "published_date": {
+      "text": "2026-09-28",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "2026-09-28",
+          "source_field": "published_date"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "application_url": {
+      "text": null,
+      "status": "not_stated",
+      "evidence": [],
+      "unresolved_reason": null
+    },
+    "category_reason": "장학생 선발 및 장학금 지급을 지원하는 공고이다.",
+    "other_conditions": [
+      {
+        "text": "논산시 관내 중·고등학교 재학생 또는 국내 정규대학교(2년제 포함) 신입생",
+        "evidence": [
+          {
+            "quote": "논산시 관내 중·고등학교의\n재학생이거나, 국내 정규대학교(2년제 포함)의 신입생",
+            "source_field": "text"
+          }
+        ]
+      },
+      {
+        "text": "신입생 장학금은 상반기 미신청자만 신청 가능",
+        "evidence": [
+          {
+            "quote": "신입생 장학금은 상반기 미신청자에 한해 신청 가능",
+            "source_field": "text"
+          }
+        ]
+      },
+      {
+        "text": "취업장려 장학금은 관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자 대상",
+        "evidence": [
+          {
+            "quote": "관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자",
+            "source_field": "text"
+          }
+        ]
+      }
+    ],
+    "category_evidence": [
+      {
+        "quote": "2026년도 하반기 재단법인 논산시장학회 장학생을 선발",
+        "source_field": "text"
+      }
+    ],
+    "gender_conditions": {
+      "text": null,
+      "status": "not_stated",
+      "evidence": [],
+      "unresolved_reason": null
+    },
+    "region_conditions": {
+      "text": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "application_method": {
+      "text": "공고문에 첨부된 신청서 및 기타 구비서류 지참하여 해당 접수처에 방문 신청",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "- 공고문에 첨부된 신청서 및 기타 구비서류 지참하여 해당 접수처에 방문 신청",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "application_period": {
+      "text": "2026년 9월 28일(월) ~ 2026년 10월 30일(금)",
+      "status": "specified",
+      "evidence": [
+        {
+          "quote": "❍ 공고 및 접수기간 : 2026년 9월 28일(월) ~ 2026년 10월 30일(금)",
+          "source_field": "text"
+        }
+      ],
+      "unresolved_reason": null
+    },
+    "policy_requirements": [
+      {
+        "evidence_text": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+        "condition_type": "residence_region",
+        "information_state": "specified"
+      },
+      {
+        "evidence_text": "논산시 관내 중·고등학교의\n재학생이거나, 국내 정규대학교(2년제 포함)의 신입생",
+        "condition_type": "other",
+        "information_state": "specified"
+      },
+      {
+        "evidence_text": "신입생 장학금은 상반기 미신청자에 한해 신청 가능",
+        "condition_type": "other",
+        "information_state": "specified"
+      },
+      {
+        "evidence_text": "관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자",
+        "condition_type": "other",
+        "information_state": "specified"
+      }
+    ]
+  },
+  "canonical": {
+    "logic": {
+      "op": "unknown",
+      "reason": "LLM 그룹 간 논리는 검토 후 명시적으로 연결 필요",
+      "children": [],
+      "condition_id": null
+    },
+    "coverage": "partial",
+    "conditions": [
+      {
+        "role": "application",
+        "unit": null,
+        "value": {
+          "kind": "DATE_RANGE",
+          "date_max": "2026-10-30",
+          "date_min": "2026-09-28",
+          "max_inclusive": true,
+          "min_inclusive": true
+        },
+        "subject": "applicant",
+        "group_id": "g4",
+        "operator": "RANGE",
+        "field_key": "application_period",
+        "state_code": 1,
+        "review_note": "",
+        "condition_id": "c5",
+        "source_field": "text",
+        "evidence_quote": "2026년 9월 28일(월) ~ 2026년 10월 30일(금)",
+        "unknown_reason": null,
+        "reference_basis": null,
+        "source_field_key": "application_period"
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g2",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "UNREGISTERED_FIELD",
+        "condition_id": "c2",
+        "source_field": "text",
+        "evidence_quote": "논산시 관내 중·고등학교의\n재학생",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "student_status"
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g2",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "UNREGISTERED_FIELD",
+        "condition_id": "c3",
+        "source_field": "text",
+        "evidence_quote": "국내 정규대학교(2년제 포함)의 신입생",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "student_status"
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g3",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "신입생 장학금에만 적용.; UNREGISTERED_FIELD",
+        "condition_id": "c4",
+        "source_field": "text",
+        "evidence_quote": "신입생 장학금은 상반기 미신청자에 한해 신청 가능",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "prior_first_half_application"
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g5",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "UNREGISTERED_FIELD",
+        "condition_id": "c6",
+        "source_field": "text",
+        "evidence_quote": "국내 정규대학교(2년제 포함)의 신입생\n- (학업장려 장학금) 개별 신청",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "application_method"
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g6",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "UNREGISTERED_FIELD",
+        "condition_id": "c7",
+        "source_field": "text",
+        "evidence_quote": "논산시 관내 대학교(2년제 포함)의 신입생 및 특성화 학과생\n- (지역대학진학 장학금) 대학교 총장/학장 추천",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "application_method"
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g7",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "취업자와 취업예정자를 표준 employment_status로 확정할 수 없음.; UNREGISTERED_FIELD",
+        "condition_id": "c8",
+        "source_field": "text",
+        "evidence_quote": "관내 고등학교 재학생 중 관내 중소·중견 기업 취업자 및 취업예정자",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "employment_promotion_scholarship_eligibility"
+      },
+      {
+        "role": "application",
+        "unit": null,
+        "value": null,
+        "subject": "applicant",
+        "group_id": "g7",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "UNREGISTERED_FIELD",
+        "condition_id": "c9",
+        "source_field": "text",
+        "evidence_quote": "(취업장려 장학금) 학교장 추천",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "application_method"
+      },
+      {
+        "role": "eligibility",
+        "unit": null,
+        "value": null,
+        "subject": "unknown",
+        "group_id": "g1",
+        "operator": null,
+        "field_key": "unmapped",
+        "state_code": 9,
+        "review_note": "주소지 요건이 주민 본인과 그 자녀 중 누구에게 적용되는지 분리할 수 없어 원문대로 보존.; UNREGISTERED_FIELD",
+        "condition_id": "c1",
+        "source_field": "text",
+        "evidence_quote": "논산시에 1년 이상 주소를 두고 실제 거주하는 주민 또는 그 자녀",
+        "unknown_reason": "UNREGISTERED_FIELD",
+        "reference_basis": null,
+        "source_field_key": "eligibility_residence_requirement"
+      }
+    ],
+    "policy_key": "notice:4515059d908acf6b",
+    "unresolved": [
+      "거주·주소 요건이 주민 본인과 그 자녀 각각에 적용되는 방식 및 주소지의 등록지 여부가 명확하지 않음.",
+      "특성화 학과생의 정의와 취업예정자의 판정 기준이 원문에 없음.",
+      "c1: UNREGISTERED_FIELD",
+      "c1: SUBJECT_UNKNOWN",
+      "c2: UNREGISTERED_FIELD",
+      "c3: UNREGISTERED_FIELD",
+      "c4: UNREGISTERED_FIELD",
+      "c6: UNREGISTERED_FIELD",
+      "c7: UNREGISTERED_FIELD",
+      "c8: UNREGISTERED_FIELD",
+      "c9: UNREGISTERED_FIELD",
+      "LLM 그룹 간 논리는 검토 후 명시적으로 연결 필요"
+    ],
+    "schema_version": "welfare-conditions-v2",
+    "region_snapshot_version": "mois-2026-07-20"
+  },
+  "rule_version": "conditions-rules-v1",
+  "code_analysis": null,
+  "review_status": "draft",
+  "schema_version": "welfare-parsing-v2",
+  "overview_status": "validated",
+  "matching_enabled": false,
+  "processing_state": null,
+  "overview_attempts": [
+    {
+      "model": "gpt-5.6-luna",
+      "status": "validation_failed"
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "usage": [
+        {
+          "input_tokens": 11460,
+          "output_tokens": 2055,
+          "cached_input_tokens": 0,
+          "reasoning_output_tokens": 954,
+          "cache_write_input_tokens": 0
+        }
+      ],
+      "status": "validated",
+      "prompt_version": "welfare-overview-v4",
+      "elapsed_seconds": 57.61,
+      "reasoning_effort": "medium"
+    }
+  ],
+  "reported_coverage": "partial",
+  "processing_signature": {
+    "hash": "b5c19c01a20cc08f88eddf7bf183f870184004cf2dcc7de549cd8bad50d2d743",
+    "model": "gpt-5.6-luna",
+    "code_hashes": {
+      "app/contracts/parsing.py": "fcb0d60ff0f50de9b71a6752695316fd08bc8af43cc7551f0930fe373975ee4e",
+      "app/modules/llm/public.py": "a303a607d341977c2dee4a4164da9427cbf42e145707447a4ca2a2bf1f006d14",
+      "app/contracts/conditions.py": "83beb4b45f2780f016856ce89e708a8e1d1c2d509369ea768c56c14a014d4728",
+      "app/modules/regions/public.py": "2437c681b105662fbbdee8314d85f853b611971f20e3a57444cb5ea2456f7021",
+      "app/modules/pipeline/public.py": "982d8201f213d68393e46b7fa52f9be1b02aee9b442e35aee93a3fb7bbfbb5fa",
+      "app/modules/normalization/raw.py": "821b8a6fa0543b5a1242be3ad1641b7e0c9716c3a5a5a46e4d89e0e138970590",
+      "app/modules/validation/public.py": "af8336e2b58286c489f241d37aa9ad8c5fe9f4c553e1fc319ddac3d1d92a3401",
+      "app/modules/parsers/conditions.py": "dc093dbeddfb911472c3cd935ded268c992232c034bd5e137da29c7e3c0b5996",
+      "app/modules/normalization/conditions.py": "006329af85e52746c0772f69963d068ec60fb97d04e0c6961cef6526247b5e34"
+    },
+    "prompt_hash": "cce59320a5a7402ea066e04a49de6ecc1a2f9a181a0c7063f8779be91f46f6f9",
+    "rule_version": "conditions-rules-v1",
+    "schemas_hash": "cdd13d0287975efb0f1843c07481380c792cbd5db4abac80d8937f259b2bf47f",
+    "fallback_model": "gpt-5.6-terra",
+    "prompt_version": "welfare-extract-v3",
+    "schema_version": "welfare-parsing-v2",
+    "reasoning_effort": "medium",
+    "overview_prompt_hash": "b98166b640c45c27127637dc2694617a11882ce6e388c7914589e8415587a8e0",
+    "region_snapshot_hash": "8af2868464f8fda1868517f0262d0d9b37df3bde2fef6d1648988269a09fa32a",
+    "overview_prompt_version": "welfare-overview-v4",
+    "region_snapshot_version": "mois-2026-07-20"
+  },
+  "unresolved_code_fields": [
+    "text"
+  ]
+}

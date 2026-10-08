@@ -2,6 +2,7 @@ import { parsePolicy } from '../policies/policyModel.js';
 import { recommendationProfile } from '../profile/profileModel.js';
 import { ApiError } from '../../shared/api/httpClient.js';
 import { toFinancialProfile } from '../finance/financeModel.js';
+import { parseRecommendationContext } from './recommendationModel.js';
 export function createRecommendationRepository({ mode, request, path = '/v1/recommendations' }) {
   return {
     async recommend(profile, { signal, financialProfile = null } = {}) {
@@ -17,6 +18,7 @@ export function createRecommendationRepository({ mode, request, path = '/v1/reco
         },
         signal,
         timeoutMs: 30000,
+        authenticated: true,
       });
       if (
         !result ||
@@ -29,10 +31,16 @@ export function createRecommendationRepository({ mode, request, path = '/v1/reco
       const items = result.items.map((item) => ({
         policy: parsePolicy(item.policy),
         reason: item.reason,
+        matching: item.matching || null,
       }));
       if (new Set(items.map((item) => item.policy.id)).size !== items.length)
         throw new ApiError('추천 공고가 중복되었어요.', 'invalid_response');
-      return { items, summary: result.summary, source: 'api' };
+      return {
+        items,
+        summary: result.summary,
+        source: 'api',
+        ...parseRecommendationContext(result),
+      };
     },
   };
 }

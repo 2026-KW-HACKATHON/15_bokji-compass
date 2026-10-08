@@ -4,6 +4,7 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 import pytest
+from pydantic import ValidationError
 
 from app.contracts.parsing import PolicyOverview
 from app.core.config import Settings
@@ -29,6 +30,18 @@ def overview():
         "category_evidence": [{"source_field": "title", "quote": source().title}],
         "region_conditions": absent, "gender_conditions": absent, "age_conditions": absent,
         "other_conditions": [], "benefits": absent, "unresolved": ["지원 분야 정보 없음"],
+        "application_period": {"status": "not_stated", "text": None, "evidence": [],
+                               "unresolved_reason": None},
+        "application_method": {"status": "not_stated", "text": None, "evidence": [],
+                               "unresolved_reason": None},
+        "application_url": {"status": "not_stated", "text": None, "evidence": [],
+                            "unresolved_reason": None},
+        "contact": {"status": "not_stated", "text": None, "evidence": [],
+                    "unresolved_reason": None},
+        "published_date": {"status": "not_stated", "text": None, "evidence": [],
+                           "unresolved_reason": None},
+        "modified_date": {"status": "not_stated", "text": None, "evidence": [],
+                          "unresolved_reason": None},
         "policy_requirements": [{"condition_type": "other", "information_state": "unknown",
                                   "evidence_text": "공식 기관의 별도 심사로 결정"}],
     })
@@ -128,6 +141,29 @@ def test_validation_fallback_counts_calls_and_usage(tmp_path, monkeypatch, model
                               budget=work, save_checkpoint=saved.append)
     assert work.model_calls == 2 and work.tokens == 80
     assert models[1].call_count == 1 and saved[-1]["status"] == "pending"
+
+
+def test_validation_failure_diagnostic_omits_rejected_input():
+    error = ValidationError.from_exception_data("PolicyOverview", [{
+        "type": "string_type", "loc": ("title",), "input": "private rejected value",
+    }])
+
+    summary = pipeline._safe_validation_summary(error)
+
+    assert "title" in summary
+    assert "valid string" in summary
+    assert "private rejected value" not in summary
+
+
+def test_validation_failure_diagnostic_omits_custom_exception_messages():
+    private_message = "private rejected value"
+    error = ValidationError.from_exception_data("PolicyOverview", [{
+        "type": "value_error", "loc": ("title",), "input": private_message,
+        "ctx": {"error": ValueError(private_message)},
+    }])
+
+    assert pipeline._safe_validation_summary(error) == "title: schema_validation_failed"
+    assert pipeline._safe_validation_summary(ValueError(private_message)) == "ValueError"
 
 
 def test_budget_limited_cli_timeout_is_failed_after_an_actual_attempt(

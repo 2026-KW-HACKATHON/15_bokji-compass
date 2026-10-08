@@ -1,0 +1,117 @@
+.policy-search-options {
+  margin: -4px 0 20px;
+}
+
+.policy-search-options > summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+  color: var(--muted);
+}
+
+.policy-search-options-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding-top: 10px;
+}
+
+.policy-search-options-content label {
+  display: grid;
+  gap: 7px;
+  min-width: 150px;
+  font-size: 0.9rem;
+}
+
+.policy-search-options-content p {
+  flex: 1 1 280px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.easy-mode .policy-search-options label,
+.easy-mode .policy-search-options p {
+  font-size: 1rem;
+}
+
+@media (max-width: 600px) {
+  .policy-search-options label {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.search-interpretation {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f0f8ff;
+  overflow-wrap: anywhere;
+}
+
+.search-interpretation > p,
+.search-corrections p {
+  margin: 0 0 10px;
+}
+
+.search-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.search-alternatives button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.search-alternatives button[aria-pressed='true'] {
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 700;
+}
+
+.policy-search-match {
+  margin: 12px 0;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.policy-search-match p {
+  margin: 0 0 6px;
+  line-height: 1.7;
+}
+
+.policy-search-match summary {
+  min-height: 44px;
+  align-content: center;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.policy-search-match blockquote {
+  margin: 6px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+  line-height: 1.7;
+}
+
+.policy-search-match blockquote span {
+  display: block;
+  color: var(--muted);
+}
+
+.easy-mode .policy-search-match,
+.easy-mode .search-alternatives button {
+  font-size: 1rem;
+}

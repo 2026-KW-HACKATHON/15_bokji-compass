@@ -1,7 +1,8 @@
 """ASGI entrypoint: app.main:app. Imports do not connect to MySQL."""
 
+import asyncio
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from threading import BoundedSemaphore, Lock, RLock
 
@@ -14,19 +15,25 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.admin import router as admin_router
 from app.api.assistant import router as assistant_router
+from app.api.assistant_dialogue import router as assistant_dialogue_router
 from app.api.auth import database_error_handler
 from app.api.auth import router as auth_router
 from app.api.finance import router as finance_router
 from app.api.health import router
 from app.api.kakao_auth import router as kakao_auth_router
 from app.api.mobile_auth import router as mobile_auth_router
+from app.api.mobile_oauth import router as mobile_oauth_router
+from app.api.monitoring import router as monitoring_router
 from app.api.notifications import router as notifications_router
 from app.api.policies import router as policies_router
+from app.api.recommendations import router as recommendations_router
 from app.api.server_admin import pages as server_admin_pages
 from app.api.server_admin import router as server_admin_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_database_engine
+from app.modules.assistant.dialogue_models import DialogueStore
 from app.modules.auth.privacy import PrivacyError
+from app.modules.server_admin.operations import Operations
 from app.modules.server_admin.public import configuration_path
 
 
@@ -37,9 +44,21 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     async def lifespan(application: FastAPI):
         engine = create_database_engine(configuration) if configuration.db_enabled else None
         application.state.database_engine = engine
+
+        async def expire_dialogues():
+            while True:
+                await asyncio.sleep(30)
+                await asyncio.to_thread(application.state.dialogue_store.prune_expired)
+
+        cleanup_task = asyncio.create_task(expire_dialogues())
         try:
             yield
         finally:
+            cleanup_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await cleanup_task
+            application.state.dialogue_store.clear()
+            await asyncio.to_thread(application.state.server_operations.close)
             if application.state.auth_engine is not None:
                 application.state.auth_engine.dispose()
             if engine is not None:
@@ -49,6 +68,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.settings = configuration
     application.state.server_config_path = config_path or configuration_path()
     application.state.server_config_lock = RLock()
+    application.state.server_operations = Operations()
     application.state.server_started_at = time.time()
     application.state.auth_service = None
     application.state.auth_engine = None
@@ -57,9 +77,13 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.state.finance_lock = Lock()
     application.state.notification_store = None
     application.state.notification_lock = Lock()
+    application.state.monitoring_store = None
+    application.state.monitoring_lock = Lock()
     application.state.policy_repository = None
     application.state.policy_lock = Lock()
     application.state.assistant_slots = BoundedSemaphore(2)
+    application.state.policy_translation_slots = BoundedSemaphore(1)
+    application.state.dialogue_store = DialogueStore()
     application.add_middleware(
         CORSMiddleware,
         allow_origins=configuration.cors_origins,
@@ -81,7 +105,15 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
 
     @application.exception_handler(SQLAlchemyError)
     async def safe_database_error(request, exc):
-        if request.url.path.startswith(("/v1/policies", "/v1/assistant/", "/v1/admin/policies")):
+        if (request.url.path.startswith("/v1/policies/")
+                and request.url.path.endswith("/translation")):
+            return JSONResponse(
+                status_code=503, content={"detail": {"code": "translation_unavailable"}},
+                headers={"Cache-Control": "no-store"},
+            )
+        if request.url.path.startswith(
+            ("/v1/policies", "/v1/assistant/", "/v1/admin/policies", "/v1/recommendations")
+        ):
             return JSONResponse(
                 status_code=503,
                 content={
@@ -97,10 +129,35 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
                 },
                 headers={"Cache-Control": "no-store"},
             )
+        if request.url.path.startswith("/v1/monitoring"):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "지속 안내 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."},
+                headers={"Cache-Control": "no-store"},
+            )
         return await database_error_handler(request, exc)
 
     @application.exception_handler(RequestValidationError)
     async def safe_validation_error(request, exc):
+        if (request.url.path.startswith("/v1/policies/")
+                and request.url.path.endswith("/translation")):
+            return JSONResponse(
+                status_code=422, content={"detail": {"code": "translation_invalid_request"}},
+                headers={"Cache-Control": "no-store"},
+            )
+        if request.url.path.startswith("/v1/monitoring"):
+            return JSONResponse(
+                status_code=422,
+                content={"detail": "생활 정보와 저장 동의, 지속 안내 설정을 확인해 주세요."},
+                headers={"Cache-Control": "no-store"},
+            )
+        if request.url.path.startswith("/v1/recommendations"):
+            return JSONResponse(
+                status_code=422,
+                content={"detail": "추천 정보와 금융정보 사용 선택을 확인해 주세요."},
+                headers={"Cache-Control": "no-store"},
+            )
         if request.url.path.startswith("/v1/server-admin/"):
             return JSONResponse(
                 status_code=422,
@@ -159,8 +216,10 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
                 "/v1/mobile/auth/",
                 "/v1/finance/",
                 "/v1/mobile/notifications/",
+                "/v1/monitoring",
                 "/v1/assistant/",
                 "/v1/policies",
+                "/v1/recommendations",
                 "/v1/admin/",
                 "/v1/server-admin/",
             )
@@ -187,10 +246,14 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.include_router(server_admin_pages)
     application.include_router(server_admin_router)
     application.include_router(mobile_auth_router)
+    application.include_router(mobile_oauth_router)
     application.include_router(notifications_router)
+    application.include_router(monitoring_router)
     application.include_router(finance_router)
     application.include_router(policies_router)
     application.include_router(assistant_router)
+    application.include_router(assistant_dialogue_router)
+    application.include_router(recommendations_router)
     return application
 
 

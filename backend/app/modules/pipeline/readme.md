@@ -1,5 +1,10 @@
 # 원문 처리 파이프라인
 
+2026-10-06: 서버 수집 프리셋은 `batching.parse_policy_batch`로 최대 4건의 요약+조건을
+한 호출로 처리한다. 코드로 조건을 완료한 공고는 요약만 요청하며 검증 실패 공고만 상위
+모델로 재처리한다. 공고별 checkpoint/근거 검증과 shared usage 1회 집계를 유지한다.
+기존 단건 parse_policy 계약은 유지한다. [모드·예산·근거](../../../docs/ingestion-tuning.md).
+
 2026-10-02: MySQL 저장 시 `POLICY_AUTO_PUBLISH=true` 기본값에 따라 검증된 새 개정은 자동 공개합니다. 순수 parse_policy/JSON 내보내기의 결과는 기존 draft 형식을 유지합니다. false는 수동 승인 방식이며 미검증 failed/pending은 공개하지 않습니다.
 
 담당: 백엔드. 원문 → 코드/LLM 추출 → 근거 검증 → MySQL 저장.
@@ -16,6 +21,9 @@
   save_checkpoint(full_draft)는 단계별 실패 시도·검증된 요약·완료 결과를 즉시 전달한다.
   중간 결과는 pending이며 요약 검증 후 overview_status=validated이다.
   성공한 완료 결과는 needs_review이며 모델 실패 결과는 failed이다.
+  검증 실패 시 attempts/overview_attempts의 error에 최대 300자 진단을 추가합니다.
+  Pydantic 필드 경로·기본 오류 문구만 남기고 입력값·context·사용자 정의 예외 문구는 제외합니다.
+  일반 ValueError는 예외 유형만 기록합니다. 반환 상태와 fallback/예산 동작은 유지합니다.
   같은 원문과 처리 signature인 checkpoint를 다시 검증한 후 재사용한다.
 - processing_signature(settings) → 모델/추론/프롬프트/코드/스키마/정규화/지역
   스냅샷과 hash를 포함하는 dict. 실행 ID·timeout·실행 파일 경로는 제외한다.
@@ -23,7 +31,7 @@
 
 DB_ENABLED=true와 python -m app.modules.storage init이 필요하다. DB 오류를 파일로 우회하지 않는다.
 prepare_only는 원문/pending 작업만 DB에 저장하고 모델을 호출하지 않는다.
-요약/6개 분야 분류는 별도 LLM 호출이며 미해결 조건에만 조건 추출 LLM을 추가 호출한다.
+요약/8개 분야 분류는 별도 LLM 호출이며 미해결 조건에만 조건 추출 LLM을 추가 호출한다.
 overview/analysis/canonical/부분 코드 결과와 근거를 보존한다. 모델 호출 중 트랜잭션을 잡지 않는다.
 전송용 임시 파일은 사용 후 제거한다. 중복 입력 ID는 거부하고 부분 실패는 실패로 보고한다.
 

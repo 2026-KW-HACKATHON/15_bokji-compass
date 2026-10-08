@@ -29,8 +29,49 @@ test("policy filters are encoded, unfiltered values omitted, cursor preserved", 
   assert.equal(params.get("cursor"), "6");
   assert.equal(params.get("limit"), "3");
   assert.equal(params.get("region"), "서울");
+  assert.equal(params.get("sort"), null);
+  assert.equal(
+    new URL("https://example.test" + policyPath()).searchParams.get("sort"),
+    "popular",
+  );
+  assert.equal(
+    new URL(
+      "https://example.test" + policyPath({ sort: "recent" }),
+    ).searchParams.get("sort"),
+    "recent",
+  );
   assert.equal(
     new URL("https://example.test" + policyPath()).searchParams.has("category"),
+    false,
+  );
+});
+test("mobile search scopes forward the requested intent and omit the default", () => {
+  for (const searchScope of ["all", "organization", "content"]) {
+    const params = new URL(
+      "https://example.test" +
+        policyPath({
+          query: " 광운대 장학 ",
+          searchScope,
+          category: "교육",
+          region: "서울",
+          cursor: "6",
+          limit: 3,
+        }),
+    ).searchParams;
+    assert.equal(params.get("q"), "광운대 장학");
+    assert.equal(
+      params.get("search_scope"),
+      searchScope === "all" ? null : searchScope,
+    );
+    assert.equal(params.get("category"), "교육");
+    assert.equal(params.get("region"), "서울");
+    assert.equal(params.get("cursor"), "6");
+    assert.equal(params.get("limit"), "3");
+  }
+  assert.equal(
+    new URL("https://example.test" + policyPath()).searchParams.has(
+      "search_scope",
+    ),
     false,
   );
 });
@@ -83,10 +124,16 @@ test("catalog requests use public API, encoded IDs and cancellation", async () =
       },
     }),
   );
-  await api.listPolicies({}, controller.signal);
+  await api.listPolicies(
+    { query: "광운대", searchScope: "organization" },
+    controller.signal,
+  );
   await api.getPolicy(policy.id, controller.signal);
   assert.equal(calls[0].options.headers.Authorization, undefined);
   assert.equal(calls[0].options.credentials, "omit");
+  const params = new URL(calls[0].url).searchParams;
+  assert.equal(params.get("q"), "광운대");
+  assert.equal(params.get("search_scope"), "organization");
   assert.equal(calls[1].url, "https://example.test/v1/policies/source%2Fa%3Fb");
   controller.abort();
   await assert.rejects(api.listPolicies({}, controller.signal), {

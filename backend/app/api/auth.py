@@ -4,17 +4,28 @@ import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import BACKEND_ROOT
 from app.modules.admin.access import with_capabilities
+from app.modules.auth.consent import ACCOUNT_RETENTION, NOTICE_VERSION, SignupConsentInput
+from app.modules.auth.mail import EMAIL_SECONDS, RESEND_SECONDS, normalize_email
 from app.modules.auth.migration import ensure_plaintext_storage
 from app.modules.auth.schema import initialize_auth_schema
 from app.modules.auth.service import SESSION_SECONDS, AuthService
 
 COOKIE = "bokji_session"
+EMAIL_COOKIE = "bokji_signup_email"
 REGIONS = {
     "서울",
     "경기",
@@ -71,7 +82,7 @@ def get_service(request: Request):
                 state.auth_engine = engine
             if settings.auth_uses_mysql:
                 ensure_plaintext_storage(engine)
-            state.auth_service = AuthService(engine)
+            state.auth_service = AuthService(engine, settings)
     return state.auth_service
 
 
@@ -94,14 +105,28 @@ class LoginInput(UsernameInput):
 class ProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=50)
-    age: int = Field(strict=True, ge=0, le=120)
-    gender: Literal["male", "female", "other", "undisclosed"]
-    region: str = Field(max_length=32)
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    age: int | None = Field(default=None, strict=True, ge=0, le=120)
+    gender: Literal["male", "female", "other", "undisclosed"] = "undisclosed"
+    region: str | None = Field(default=None, max_length=32)
+    postal_code: str | None = Field(default=None, pattern=r"^[0-9]{5}$")
+    address: str | None = Field(default=None, max_length=200)
+    address_detail: str | None = Field(default=None, max_length=200)
+
+    @field_validator("postal_code", "address", "address_detail", mode="before")
+    @classmethod
+    def normalize_address(cls, value):
+        if isinstance(value, str):
+            if any(ord(character) < 32 or ord(character) == 127 for character in value):
+                raise ValueError("주소를 확인해 주세요.")
+            return value.strip() or None
+        return value
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value):
+        if value is None:
+            return None
         value = value.strip()
         if not value or any(ord(character) < 32 for character in value):
             raise ValueError("이름을 입력해 주세요.")
@@ -110,12 +135,34 @@ class ProfileInput(BaseModel):
     @field_validator("region")
     @classmethod
     def validate_region(cls, value):
-        if value not in REGIONS:
+        if value is not None and value not in REGIONS:
             raise ValueError("거주 지역을 선택해 주세요.")
         return value
 
 
-class SignupInput(LoginInput, ProfileInput):
+class EmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value):
+        return normalize_email(value)
+
+
+class EmailVerifyInput(EmailInput):
+    code: SecretStr = Field(min_length=6, max_length=6)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value):
+        if not re.fullmatch(r"[0-9]{6}", value.get_secret_value()):
+            raise ValueError("6자리 인증번호를 입력해 주세요.")
+        return value
+
+
+class SignupInput(LoginInput, ProfileInput, EmailInput):
+    consent: SignupConsentInput
     confirm_password: SecretStr = Field(min_length=8, max_length=128)
 
     @model_validator(mode="after")
@@ -128,14 +175,81 @@ class SignupInput(LoginInput, ProfileInput):
         return self
 
 
+class WithdrawalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    notice_version: Literal["2026-10-07.3"]
+    confirmation: StrictBool
+
+    @field_validator("confirmation")
+    @classmethod
+    def explicit_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("탈퇴와 저장한 개인정보의 즉시 삭제에 동의해 주세요.")
+        return value
+
+
 def ip(request: Request):
     # Do not trust arbitrary X-Forwarded-For; configure trusted proxies in the ASGI server.
     return request.client.host if request.client else "unknown"
 
 
+@router.get("/privacy-notice")
+def privacy_notice(request: Request):
+    from app.modules.auth.ai_privacy import get_ai_notice
+
+    settings = request.app.state.settings
+    return {
+        "version": NOTICE_VERSION,
+        "operator_name": settings.privacy_operator_name,
+        "contact_email": settings.privacy_contact_email,
+        "retention": ACCOUNT_RETENTION,
+        "ai": get_ai_notice(settings),
+    }
+
+
 @router.post("/signup", status_code=201)
-def signup(data: SignupInput, request: Request, service: Service):
-    return service.register(data, ip(request))
+def signup(data: SignupInput, request: Request, response: Response, service: Service):
+    result = service.register(data, ip(request), request.cookies.get(EMAIL_COOKIE, ""))
+    email_cookie(response, request)
+    return result
+
+
+def email_cookie(response, request, token=""):
+    options = dict(
+        httponly=True,
+        samesite="lax",
+        path="/",
+        secure=request.app.state.settings.app_env == "production",
+    )
+    if token:
+        response.set_cookie(EMAIL_COOKIE, token, max_age=EMAIL_SECONDS, **options)
+    else:
+        response.delete_cookie(EMAIL_COOKIE, **options)
+
+
+@router.post("/email/request")
+def request_email(data: EmailInput, request: Request, response: Response, service: Service):
+    token = service.request_email_code(
+        data.email, ip(request), request.cookies.get(EMAIL_COOKIE, "")
+    )
+    email_cookie(response, request, token)
+    return {
+        "message": "인증번호를 보냈어요. 이메일을 확인해 주세요.",
+        "expires_in": EMAIL_SECONDS,
+        "resend_after": RESEND_SECONDS,
+    }
+
+
+@router.post("/email/verify")
+def verify_email(data: EmailVerifyInput, request: Request, response: Response, service: Service):
+    token = request.cookies.get(EMAIL_COOKIE, "")
+    service.verify_email_code(data.email, data.code.get_secret_value(), token, ip(request))
+    email_cookie(response, request, token)
+    return {
+        "message": "이메일 인증이 완료됐어요. 10분 안에 가입을 마쳐 주세요.",
+        "expires_in": EMAIL_SECONDS,
+    }
 
 
 @router.post("/username/check")
@@ -182,6 +296,27 @@ def logout(request: Request, response: Response, service: Service):
         secure=request.app.state.settings.app_env == "production",
     )
     return {"message": "로그아웃했어요."}
+
+
+@router.post("/withdraw")
+def withdraw(data: WithdrawalInput, request: Request, response: Response, service: Service):
+    account_id = service.me(request.cookies.get(COOKIE))["id"]
+    service.withdraw(
+        request.cookies.get(COOKIE),
+        signup_email_token=request.cookies.get(EMAIL_COOKIE, ""),
+        kakao_flow_binding=request.cookies.get("bokji_kakao_flow", ""),
+        kakao_pending_token=request.cookies.get("bokji_kakao_signup", ""),
+    )
+    request.app.state.dialogue_store.discard_account(account_id)
+    for name in (COOKIE, EMAIL_COOKIE, "bokji_kakao_flow", "bokji_kakao_signup"):
+        response.delete_cookie(
+            name,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=request.app.state.settings.app_env == "production",
+        )
+    return {"deleted": True, "message": "회원 탈퇴와 저장한 개인정보 삭제가 완료됐어요."}
 
 
 async def database_error_handler(request: Request, exc: SQLAlchemyError):

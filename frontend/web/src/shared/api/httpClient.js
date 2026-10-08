@@ -11,7 +11,10 @@ export function createHttpClient({
   fetchImpl = globalThis.fetch,
   timeout = 15000,
 } = {}) {
-  return async function request(path, { method = 'GET', body, signal, timeoutMs = timeout } = {}) {
+  return async function request(
+    path,
+    { method = 'GET', body, signal, timeoutMs = timeout, authenticated = false } = {},
+  ) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     if (signal?.aborted) abort();
@@ -25,11 +28,12 @@ export function createHttpClient({
       const response = await fetchImpl(baseUrl.replace(/\/$/, '') + '/' + path.replace(/^\//, ''), {
         method,
         signal: controller.signal,
-        credentials: 'omit',
+        credentials: authenticated ? 'include' : 'omit',
         cache: 'no-store',
         redirect: 'error',
         headers: {
           Accept: 'application/json',
+          ...(authenticated ? { 'X-Auth-Request': '1' } : {}),
           ...(body ? { 'Content-Type': 'application/json' } : {}),
         },
         ...(body ? { body: JSON.stringify(body) } : {}),

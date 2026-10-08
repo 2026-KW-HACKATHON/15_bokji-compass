@@ -6,18 +6,33 @@ import re
 from copy import deepcopy
 from uuid import uuid4
 
-from sqlalchemy import MetaData, Table, case, delete, func, insert, null, select, update
+from sqlalchemy import (
+    LargeBinary,
+    MetaData,
+    Table,
+    case,
+    cast,
+    delete,
+    func,
+    insert,
+    null,
+    select,
+    update,
+)
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.exc import IntegrityError
 
 from app.contracts.conditions import CanonicalPolicy
 from app.contracts.parsing import (
     LegacyPolicyOverview,
+    PeriodPolicyOverview,
     PolicyExtraction,
     PolicyOverview,
     SourcePolicy,
+    StoredPolicyOverview,
 )
 from app.modules.normalization.public import normalize_conditions
+from app.modules.storage.application_dates import application_date_columns
 from app.modules.validation.public import validate_canonical, validate_extraction, validate_overview
 
 TABLES = (
@@ -31,6 +46,21 @@ STORAGE_VERSION = "policy-storage-v1"
 def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                     separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def _legacy_policy_upsert(policies, values):
+    statement = mysql_insert(policies).values(**values)
+    # MySQL evaluates assignments left to right. Compare the old source before replacing it.
+    updates = [("review_status", case(
+        (cast(policies.c.source_text, LargeBinary)
+         != cast(statement.inserted.source_text, LargeBinary), "draft"),
+        else_=policies.c.review_status,
+    ))]
+    updates.extend((key, statement.inserted[key]) for key in (
+        "title", "organization", "source_url", "source_text",
+        "application_start", "application_end", "is_synthetic",
+    ))
+    return statement.on_duplicate_key_update(updates)
 
 
 def validate_draft(payload: dict) -> dict:
@@ -60,8 +90,14 @@ def validate_draft(payload: dict) -> dict:
                 c.condition_id for c in canonical.conditions}:
             raise ValueError("Extraction/canonical condition identities differ")
     if draft.get("overview") is not None:
-        overview_model = (PolicyOverview if "policy_requirements" in draft["overview"]
-                          else LegacyPolicyOverview)
+        if "application_method" in draft["overview"]:
+            overview_model = PolicyOverview
+        elif "application_period" in draft["overview"]:
+            overview_model = PeriodPolicyOverview
+        elif "policy_requirements" in draft["overview"]:
+            overview_model = StoredPolicyOverview
+        else:
+            overview_model = LegacyPolicyOverview
         validate_overview(overview_model.model_validate(draft["overview"]), source)
         if draft.get("overview_status") != "validated":
             raise ValueError("Overview status mismatch")
@@ -105,13 +141,14 @@ class PolicyRepository:
         from app.modules.storage.publication import (
             change_publication,
             events_table,
+            has_manual_edits,
             publication_transaction,
         )
 
         automatic = self.auto_publish and draft["status"] == "needs_review"
         events = events_table(self) if automatic else None
         transaction = (publication_transaction(self, source["policy_key"])
-                       if automatic else self.engine.begin())
+                       if draft["status"] == "needs_review" else self.engine.begin())
         with transaction as connection:
             item = connection.execute(select(items).where(
                 items.c.run_id == run_id, items.c.policy_key == source["policy_key"]
@@ -124,8 +161,10 @@ class PolicyRepository:
             reused = False
             if draft["status"] == "needs_review":
                 revision_id, reused = self._save_revision(connection, draft, processing)
-                self._save_legacy_policy(connection, draft)
-                if automatic and not reused:
+                manual = has_manual_edits(self, connection, source["policy_key"])
+                if not manual:
+                    self._save_legacy_policy(connection, draft)
+                if automatic and not reused and not manual:
                     change_publication(self, connection, events, revision_id,
                                        policy_key=source["policy_key"], action="publish",
                                        expected_status="draft", actor_id="system:auto-publish",
@@ -190,14 +229,17 @@ class PolicyRepository:
         provider, _, identity = source_key.partition(":")
         source_url = source["source_url"] or f"{provider}://service/{identity}"
         source_text = json.dumps(source, ensure_ascii=False, sort_keys=True)
+        overview = draft.get("overview") or {}
+        application_start, application_end = application_date_columns(
+            source["fields"], overview.get("application_period"))
         values = {
             "source_key": source_key,
             "title": source["title"],
             "organization": source["organization"] or "미상",
             "source_url": source_url,
             "source_text": source_text,
-            "application_start": None,
-            "application_end": None,
+            "application_start": application_start,
+            "application_end": application_end,
             "review_status": "draft",
             "is_synthetic": False,
         }
@@ -211,22 +253,12 @@ class PolicyRepository:
             connection.execute(update(policies).where(policies.c.id == prior_id).values(
                 source_key=source_key))
 
-        statement = mysql_insert(policies).values(**values)
-        updates = {key: statement.inserted[key] for key in (
-            "title", "organization", "source_url", "source_text",
-            "application_start", "application_end", "is_synthetic",
-        )}
-        updates["review_status"] = case(
-            (policies.c.source_text != statement.inserted.source_text, "draft"),
-            else_=policies.c.review_status,
-        )
-        connection.execute(statement.on_duplicate_key_update(**updates))
+        connection.execute(_legacy_policy_upsert(policies, values))
         policy_id = connection.execute(select(policies.c.id).where(
             policies.c.source_key == source_key).with_for_update()).scalar_one()
 
         connection.execute(delete(requirements).where(
             requirements.c.policy_id == policy_id))
-        overview = draft.get("overview") or {}
         requirement_rows = overview.get("policy_requirements") or [{
             "condition_type": "other",
             "information_state": "not_stated",
