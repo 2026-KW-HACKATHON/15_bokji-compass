@@ -37,7 +37,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await expect(page.locator('#web-target')).toHaveAttribute(
     'href',
-    'https://bokji.commitnaru.com/',
+    'https://bokji.commitnaru.com/#guide',
   );
   await expect(page.locator('#apk-status')).toContainText('APK 미등록');
   await expect(page.locator('#android-download')).toHaveAttribute('aria-disabled', 'true');
@@ -47,7 +47,7 @@ try {
   await state('https://second.trycloudflare.com');
   await expect(page.locator('#web-target')).toHaveAttribute(
     'href',
-    'https://bokji.commitnaru.com/',
+    'https://bokji.commitnaru.com/#guide',
     { timeout: 12000 },
   );
   await expect(page.locator('#android-target')).toHaveAttribute(
@@ -80,7 +80,10 @@ try {
   await page.getByLabel('고정 주소 직접 입력', { exact: true }).check();
   await page.locator('#origin').fill('https://expo.example.org');
   await page.getByRole('button', { name: 'QR 주소 적용' }).click();
-  await expect(page.locator('#web-target')).toHaveAttribute('href', 'https://expo.example.org/');
+  await expect(page.locator('#web-target')).toHaveAttribute(
+    'href',
+    'https://expo.example.org/#guide',
+  );
   await expect(page.locator('#temporary')).toBeHidden();
   const downloadEvent = page.waitForEvent('download');
   await page.locator('#android-save').click();

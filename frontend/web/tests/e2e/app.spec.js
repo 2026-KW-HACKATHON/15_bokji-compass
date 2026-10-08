@@ -172,12 +172,8 @@ test('category switches and easy mode preserve unfinished profile inputs and sto
     .selectOption('65세 이상');
   await page.getByRole('tab', { name: '직업·가구', exact: true }).click();
   await page.getByRole('button', { name: '직업·가구 추가', exact: true }).click();
-  await page
-    .getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true })
-    .selectOption('기타');
-  await page
-    .getByRole('combobox', { name: '함께 사는 사람 (선택)', exact: true })
-    .selectOption('혼자 살아요');
+  await page.getByRole('combobox', { name: '경제활동 구분', exact: true }).selectOption('other');
+  await page.getByRole('combobox', { name: '가구 구성', exact: true }).selectOption('혼자 살아요');
   await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
   await page.getByRole('button', { name: '관심 분야 추가', exact: true }).click();
   await page.getByRole('checkbox', { name: '건강·돌봄', exact: true }).check();
@@ -193,16 +189,16 @@ test('category switches and easy mode preserve unfinished profile inputs and sto
   );
   await expect(page.locator('.profile-page').getByRole('combobox')).toHaveCount(2);
   await page.getByRole('tab', { name: '직업·가구', exact: true }).click();
-  await expect(
-    page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true }),
-  ).toHaveValue('기타');
-  await expect(
-    page.getByRole('combobox', { name: '함께 사는 사람 (선택)', exact: true }),
-  ).toHaveValue('혼자 살아요');
+  await expect(page.getByRole('combobox', { name: '경제활동 구분', exact: true })).toHaveValue(
+    'other',
+  );
+  await expect(page.getByRole('combobox', { name: '가구 구성', exact: true })).toHaveValue(
+    '혼자 살아요',
+  );
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
-  await expect(
-    page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true }),
-  ).toHaveValue('기타');
+  await expect(page.getByRole('combobox', { name: '경제활동 구분', exact: true })).toHaveValue(
+    'other',
+  );
   await page.getByRole('tab', { name: '관심 분야', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: '건강·돌봄', exact: true })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: '이 브라우저에 내 정보 저장' })).toBeChecked();
@@ -212,7 +208,8 @@ test('switching easy mode preserves search text, applied filters and tag', async
   await page.goto('/#explore?tag=' + encodeURIComponent('청년'));
   await page.getByRole('textbox', { name: '공고 검색', exact: true }).fill('지원');
   await page.getByRole('button', { name: '검색', exact: true }).click();
-  await page.getByRole('button', { name: '주거', exact: true }).click();
+  await page.locator('details.explorer-advanced > summary').click();
+  await page.getByRole('combobox', { name: '분야', exact: true }).selectOption('주거');
   await page.getByRole('combobox', { name: '지역', exact: true }).selectOption('서울');
   await page.getByRole('combobox', { name: '대상', exact: true }).selectOption('청년');
   await page.getByRole('combobox', { name: '정렬', exact: true }).selectOption('name');
@@ -231,7 +228,9 @@ test('switching easy mode preserves search text, applied filters and tag', async
   await expect(page.locator('.filter-panel > summary')).toContainText(
     '주거 · 서울 · 청년 · 이름순',
   );
-  await page.locator('.filter-panel > summary').click();
+  if ((await page.locator('details.explorer-advanced').getAttribute('open')) === null) {
+    await page.locator('details.explorer-advanced > summary').click();
+  }
   await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('주거');
   await expect(page.getByRole('combobox', { name: '지역', exact: true })).toHaveValue('서울');
   await expect(page.getByRole('combobox', { name: '대상', exact: true })).toHaveValue('청년');
@@ -242,10 +241,7 @@ test('switching easy mode preserves search text, applied filters and tag', async
     '아직 검색하지 않은 글',
   );
   await expect(page.getByRole('combobox', { name: '정렬', exact: true })).toHaveValue('name');
-  await expect(page.getByRole('button', { name: '주거', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('combobox', { name: '분야', exact: true })).toHaveValue('주거');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page).toHaveURL(/#explore\?tag=/);
 });

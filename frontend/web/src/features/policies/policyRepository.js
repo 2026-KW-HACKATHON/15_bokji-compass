@@ -41,6 +41,20 @@ export function filterPolicies(
 }
 export function createPolicyRepository({ mode, request, path = '/v1/policies' }) {
   return {
+    async options({ signal } = {}) {
+      const result = await request(path + '/options', { signal });
+      if (!Array.isArray(result?.providers))
+        throw new ApiError('검색 범위를 불러오지 못했어요.', 'invalid_response');
+      return result.providers.filter(
+        (item) =>
+          typeof item.id === 'string' &&
+          /^[a-zA-Z0-9_-]{1,50}$/.test(item.id) &&
+          Array.isArray(item.organizations) &&
+          item.organizations.every(
+            (name) => typeof name === 'string' && name.length > 0 && name.length <= 100,
+          ),
+      );
+    },
     async get(id, { signal } = {}) {
       if (mode !== 'api' || !request)
         throw new ApiError('공고 연결 설정을 확인해 주세요.', 'configuration');
@@ -79,9 +93,23 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
         typeof result.truncated !== 'boolean'
       )
         throw new ApiError('캘린더 정보의 형식이 올바르지 않아요.', 'invalid_response');
-      const items = result.items.map(parsePolicy),
+      const items = result.items.map((policy) => ({
+          ...parsePolicy(policy),
+          calendarMonth: month,
+        })),
         undatedItems = result.undatedItems.map(parsePolicy);
       for (const policy of [...result.items, ...result.undatedItems]) {
+        if (
+          (policy.applicationPrecision === 'month_end' &&
+            (policy.scheduleStatus !== 'dated' ||
+              policy.applicationStart !== null ||
+              !isCalendarDate(policy.applicationEnd))) ||
+          (policy.applicationRecurrence &&
+            (!['yearly', 'monthly'].includes(policy.applicationRecurrence) ||
+              policy.scheduleStatus !== 'dated' ||
+              ![policy.applicationStart, policy.applicationEnd].some(isCalendarDate)))
+        )
+          throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');
         if (
           policy.applicationPrecision === 'month' &&
           (policy.scheduleStatus !== 'dated' ||
@@ -119,6 +147,10 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
       const params = new URLSearchParams({ limit: String(limit) });
       if (filters.sort && filters.sort !== 'auto') params.set('sort', filters.sort);
       else if (!filters.query?.trim()) params.set('sort', 'popular');
+      for (const band of filters.ageBands || []) params.append('age_bands', band);
+      if (filters.ageMin !== '' && filters.ageMin != null) params.set('age_min', filters.ageMin);
+      if (filters.ageMax !== '' && filters.ageMax != null) params.set('age_max', filters.ageMax);
+      if (filters.eligibleOnly) params.set('eligible_only', 'true');
       for (const [key, value] of Object.entries({
         q: filters.query,
         search_scope: filters.searchScope,
@@ -129,6 +161,9 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
         region: filters.region,
         audience: filters.audience,
         cursor,
+        provider: filters.provider,
+        organization: filters.organization,
+        status: filters.status,
       })) {
         const unfiltered =
           ((key === 'category' || key === 'audience') && value === '전체') ||

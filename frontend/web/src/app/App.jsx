@@ -23,7 +23,7 @@ import CalendarPage from '../features/calendar/CalendarPage.jsx';
 import PolicyExplorer from '../features/policies/PolicyExplorer.jsx';
 import PolicyCard from '../features/policies/PolicyCard.jsx';
 import PolicyDetail from '../features/policies/PolicyDetail.jsx';
-import { parsePolicy } from '../features/policies/policyModel.js';
+import { mergePolicyDetail, parsePolicy } from '../features/policies/policyModel.js';
 import ProfilePage from '../features/profile/ProfilePage.jsx';
 import {
   defaultProfile,
@@ -39,19 +39,11 @@ import { recommendationFailure } from '../features/assistant/recommendationFeedb
 import SourceFooter from './SourceFooter.jsx';
 import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 import MonitoringPanel from '../features/monitoring/MonitoringPanel.jsx';
+import PortalNavigation from './PortalNavigation.jsx';
+import { portalRoutes } from './portalNavigation.js';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
 const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
 
-const navigation = [
-  { id: 'home', label: '홈', icon: 'house' },
-  { id: 'assistant', label: 'AI 복지비서', mobileLabel: 'AI 비서', icon: 'compass' },
-  { id: 'explore', label: '전체 공고', mobileLabel: '공고', icon: 'search' },
-  { id: 'calendar', label: '공고 캘린더', mobileLabel: '캘린더', icon: 'calendar' },
-  { id: 'saved', label: '저장한 공고', mobileLabel: '저장', icon: 'bookmark' },
-  { id: 'calculator', label: '계산기', icon: 'calculator' },
-  { id: 'profile', label: '내 정보', icon: 'user' },
-  { id: 'guide', label: '서비스 소개', icon: 'book' },
-];
 const profileKey = 'bokji.profile.v2';
 const savedKey = 'bokji.saved.v2.' + appConfig.dataMode;
 const easyKey = 'bokji.easy.v1';
@@ -71,13 +63,7 @@ function recommendationForAccount(previous, current) {
 }
 function readRoute() {
   const [name, query = ''] = window.location.hash.slice(1).split('?');
-  const page = [
-    ...navigation.map((item) => item.id),
-    'calculator-details',
-    'login',
-    'signup',
-    'admin',
-  ].includes(name)
+  const page = [...portalRoutes, 'calculator-details', 'login', 'signup', 'admin'].includes(name)
     ? name
     : 'home';
   const params = new URLSearchParams(query);
@@ -269,7 +255,9 @@ export default function App() {
       .get(selectedId, { signal: controller.signal })
       .then((policy) => {
         if (!controller.signal.aborted)
-          setSelected((current) => (current?.id === selectedId ? policy : current));
+          setSelected((current) =>
+            current?.id === selectedId ? mergePolicyDetail(current, policy) : current,
+          );
       })
       .catch((error) => {
         if (!controller.signal.aborted && error.status === 404) {
@@ -310,7 +298,7 @@ export default function App() {
     const nav = header.current?.querySelector('.portal-nav');
     if (!nav) return;
     const revealActiveLink = () => {
-      const activeLink = nav.querySelector('[aria-current="page"]');
+      const activeLink = nav.querySelector('[aria-current]');
       if (!activeLink || nav.scrollWidth <= nav.clientWidth) return;
       const container = nav.getBoundingClientRect();
       const link = activeLink.getBoundingClientRect();
@@ -571,25 +559,7 @@ export default function App() {
               <small>{t('나를 위한 복지 비서')}</small>
             </span>
           </a>
-          <nav className="portal-nav" aria-label={t('주 메뉴')}>
-            {navigation.map((item) => (
-              <a
-                key={item.id}
-                href={'#' + item.id}
-                aria-current={
-                  route.page === item.id ||
-                  (item.id === 'calculator' && route.page === 'calculator-details')
-                    ? 'page'
-                    : undefined
-                }
-              >
-                {t(item.label)}
-                {item.id === 'saved' && saved.length > 0 && (
-                  <span className="nav-count">{saved.length}</span>
-                )}
-              </a>
-            ))}
-          </nav>
+          <PortalNavigation page={route.page} savedCount={saved.length} />
           <div className="header-actions">
             <LanguageSelector />
             <button className="mode-switch" role="switch" aria-checked={easy} onClick={toggleEasy}>
@@ -667,10 +637,25 @@ export default function App() {
               mode={appConfig.dataMode}
             />
           )}
-          {route.page === 'assistant' && (
+          {['assistant', 'assistant-intro', 'assistant-overview'].includes(route.page) && (
             <Suspense fallback={<p role="status">{t('AI 복지비서를 불러오고 있어요.')}</p>}>
               <AssistantPage
-                key={user?.id || 'guest'}
+                key={`${user?.id || 'guest'}:${route.page}`}
+                initialView={
+                  route.page === 'assistant-intro'
+                    ? 'introduction'
+                    : route.page === 'assistant-overview'
+                      ? 'overview'
+                      : 'auto'
+                }
+                initialProfileEntry={route.page === 'assistant-overview' && route.setup}
+                onContinue={
+                  route.page === 'assistant-intro'
+                    ? () => {
+                        window.location.hash = 'assistant-overview?setup=1';
+                      }
+                    : undefined
+                }
                 user={user}
                 profile={profile}
                 mode={appConfig.dataMode}
@@ -681,7 +666,7 @@ export default function App() {
                 onProfileDeleted={discardGuidance}
                 onProfileChanged={discardGuidance}
                 conversation={
-                  guidance?.owner === (user?.id || null) ? (
+                  route.page !== 'assistant-intro' && guidance?.owner === (user?.id || null) ? (
                     <GuidedConversation
                       key={guidance.key}
                       user={user}
@@ -724,6 +709,7 @@ export default function App() {
           {route.page === 'calendar' && <CalendarPage {...shared} repository={policyRepository} />}
           {route.page === 'explore' && (
             <PolicyExplorer
+              user={user}
               key={[route.tag, route.query, route.region, route.category].join('|')}
               initialQuery={route.query}
               initialRegion={route.region}
@@ -958,7 +944,9 @@ export default function App() {
         easy={easy}
         user={user}
         repository={policyRepository}
-        hideLauncher={route.page === 'guide'}
+        hideLauncher={['guide', 'assistant', 'assistant-intro', 'assistant-overview'].includes(
+          route.page,
+        )}
         blocked={
           Boolean(selected) ||
           ['login', 'signup', 'admin'].includes(route.page) ||

@@ -1,6 +1,78 @@
 // UI copy added by the assistant and service-introduction merge.
 // Server dialogue, policy text, form values and user input remain original content.
 const rows = `
+맞춤 지원 탐색|Find relevant support|查找适合的支持|Tìm hỗ trợ phù hợp|自分に合う支援を探す
+거주 지역과 생활정보를 바탕으로 관련 지원 공고를 확인합니다.|Find relevant support notices based on your location and circumstances.|根据您的居住地区和生活信息，查找相关支持公告。|Tìm thông báo hỗ trợ liên quan dựa trên nơi cư trú và hoàn cảnh của bạn.|居住地域や生活情報を基に、関連する支援の公示を確認します。
+부족한 정보 확인|Fill in missing details|补充所需信息|Bổ sung thông tin còn thiếu|不足している情報を確認
+확인되지 않은 조건은 질문으로 보완하고, 신청 전 준비 사항을 안내합니다.|We ask about missing details and help you prepare before applying.|我们会通过提问补充尚未确认的条件，并说明申请前需要准备的事项。|Chúng tôi hỏi thêm về các điều kiện chưa rõ và hướng dẫn chuẩn bị trước khi đăng ký.|未確認の条件は質問で補い、申請前に準備することをご案内します。
+새 공고와 진행 관리|New notices and application progress|新公告与申请进度|Thông báo mới và tiến độ đăng ký|新しい公示と申請状況の管理
+지속 안내를 켜면 새 공고를 모아보고, 신청 진행 상태를 직접 관리할 수 있습니다.|Turn on ongoing guidance to collect new notices and track your application progress.|开启持续指导后，即可汇总查看新公告，并自行管理申请进度。|Bật hướng dẫn liên tục để xem thông báo mới và tự quản lý tiến độ đăng ký.|継続案内をオンにすると、新しい公示をまとめて確認し、申請の進み具合をご自身で管理できます。
+나에게 맞는 복지,|Support that fits your needs,|适合您的福利，|Phúc lợi phù hợp với bạn,|自分に合う福祉を、
+한곳에서 관리하세요.|all in one place.|在此统一管理。|quản lý tại một nơi.|ひとつの場所で管理。
+내 정보에 맞는 지원을 찾고, 신청 준비와 새로운 기회까지 이어드립니다.|Find support that fits your circumstances, prepare your applications, and keep up with new opportunities.|寻找适合您情况的支持，协助准备申请，并及时了解新的机会。|Tìm hỗ trợ phù hợp với hoàn cảnh, chuẩn bị đăng ký và nắm bắt cơ hội mới.|ご自身の情報に合う支援を探し、申請準備や新しい機会の確認までお手伝いします。
+로그인하고 시작하기|Sign in to get started|登录并开始|Đăng nhập để bắt đầu|ログインして始める
+필요한 정보만 선택 입력하고, 동의한 정보만 저장합니다.|Share only the information you choose. We save it only with your consent.|按需选择填写信息，仅在您同意后保存。|Chỉ nhập thông tin bạn chọn. Chúng tôi chỉ lưu khi bạn đồng ý.|必要な情報だけを選んで入力でき、同意した情報だけが保存されます。
+AI 복지비서 주요 기능|AI welfare assistant features|AI福利助手主要功能|Tính năng chính của trợ lý phúc lợi AI|AI福祉アシスタントの主な機能
+시작은 간단한 정보 등록부터|Start by adding a few details|填写简单信息，即可开始|Bắt đầu bằng vài thông tin cơ bản|簡単な情報登録からスタート
+경제활동 상태, 가구 구성, 관심 분야를 선택하세요. 필요한 경우 주거·피해 정보를 추가할 수 있습니다.|Select your employment status, household composition, and interests. You can also add housing or damage information when relevant.|选择您的就业状态、家庭构成及关注领域。如有需要，还可补充住房或受损信息。|Chọn tình trạng việc làm, thành phần hộ gia đình và lĩnh vực quan tâm. Bạn có thể thêm thông tin nhà ở hoặc thiệt hại khi cần.|就業状況、世帯構成、関心のある分野を選択してください。必要に応じて住居・被害情報も追加できます。
+정보 수정·삭제와 지속 안내 설정은 언제든 변경할 수 있습니다.|You can edit or delete your information and change ongoing guidance settings at any time.|您随时可以修改或删除信息，并更改持续指导设置。|Bạn có thể sửa hoặc xóa thông tin và thay đổi cài đặt hướng dẫn liên tục bất cứ lúc nào.|情報の変更・削除や継続案内の設定変更はいつでもできます。
+AI 복지비서 이용 안내|How to use the AI welfare assistant|AI福利助手使用指南|Hướng dẫn sử dụng trợ lý phúc lợi AI|AI福祉アシスタントのご利用案内
+경제활동 구분|Employment category|就业类别|Nhóm tình trạng việc làm|就業区分
+취업·사업|Employment or self-employment|受雇或经营业务|Làm công hoặc kinh doanh|雇用・自営業
+미취업|Not employed|未就业|Chưa có việc làm|未就業
+세부 상태|Detailed status|具体状态|Tình trạng cụ thể|詳細な状況
+임금근로자|Employee|受雇员工|Người làm công hưởng lương|賃金労働者
+무직|Not currently working|目前无职业|Hiện không làm việc|無職
+경제활동 상태 확인 필요|Employment status needs confirmation|需要确认就业状态|Cần xác nhận tình trạng việc làm|就業状況の確認が必要
+기존 은퇴 정보가 저장되어 있습니다. 현재 경제활동 상태를 선택해 주세요.|Retirement was saved previously. Please select your current employment status.|此前已保存退休信息。请选择您目前的就业状态。|Trước đây bạn đã lưu thông tin nghỉ hưu. Vui lòng chọn tình trạng việc làm hiện tại.|以前の退職情報が保存されています。現在の就業状況を選択してください。
+가구 구성|Household composition|家庭构成|Thành phần hộ gia đình|世帯構成
+1인 가구|One-person household|一人家庭|Hộ một người|単身世帯
+가족 동거 가구|Household living with family|与家人同住的家庭|Hộ sống cùng gia đình|家族と同居する世帯
+구직 상태|Job-seeking status|求职状态|Tình trạng tìm việc|求職状況
+구직 활동 없음|Not looking for work|未在求职|Không tìm việc|求職活動なし
+경제활동 정보는 맞춤 공고 추천에 활용됩니다. 지원 자격과 가구원 수는 사업별 기준을 확인해 주세요.|Employment information is used to recommend relevant notices. Check each program’s criteria for eligibility and household size.|就业信息用于推荐相关公告。申请资格及家庭人数请以各项目标准为准。|Thông tin việc làm được dùng để gợi ý thông báo phù hợp. Vui lòng kiểm tra tiêu chí của từng chương trình về điều kiện và số thành viên hộ.|就業情報は関連する公示のおすすめに使用します。対象条件と世帯人数は事業ごとの基準をご確認ください。
+경제활동 상태와 가구 구성|Employment status and household composition|就业状态与家庭构成|Tình trạng việc làm và thành phần hộ gia đình|就業状況と世帯構成
+경제활동 상태|Employment status|就业状态|Tình trạng việc làm|就業状況
+나이와 지역을 바꾸려면 회원 정보로 이동해요. 작성 중인 내용은 먼저 저장해 주세요.|Go to your account information to change your age or region. Save your current edits first.|如需更改年龄或地区，请前往账户信息。请先保存正在填写的内容。|Đến thông tin tài khoản để đổi tuổi hoặc khu vực. Hãy lưu nội dung đang nhập trước.|年齢や地域の変更は会員情報で行います。入力中の内容は先に保存してください。
+내 정보가 저장됐어요. 새 공고 안내를 켜면 관련 지원을 찾아드려요.|Your information is saved. Turn on new notice updates to find relevant support.|您的信息已保存。开启新公告通知后，我们会为您寻找相关支持。|Thông tin của bạn đã được lưu. Bật thông báo mới để chúng tôi tìm hỗ trợ phù hợp.|情報を保存しました。新しい公示の案内をオンにすると、関連する支援を探します。
+새 공고 안내 켜기|Turn on new notice updates|开启新公告通知|Bật thông báo mới|新しい公示の案内をオンにする
+나이|Age|年龄|Tuổi|年齢
+나에게 맞는 지원을 위한 정보|Information to find support for you|寻找适合您的支持所需的信息|Thông tin để tìm hỗ trợ phù hợp|自分に合う支援を探すための情報
+아는 항목만 선택해 주세요. 모르는 정보는 비워 두어도 괜찮아요.|Fill in what you know. You can leave anything you are unsure about blank.|请填写您了解的项目，不确定的信息可以留空。|Chỉ điền thông tin bạn biết. Bạn có thể để trống những mục chưa rõ.|分かる項目だけ入力してください。分からない情報は空欄でも大丈夫です。
+기본 생활정보|Basic life information|基本生活信息|Thông tin đời sống cơ bản|基本的な生活情報
+관심 있는 지원|Support you are interested in|您感兴趣的支持|Hỗ trợ bạn quan tâm|関心のある支援
+여러 개를 선택해도 좋아요. 나중에 바꿀 수 있어요.|Choose as many as you like. You can change them later.|可选择多项，之后也可以修改。|Bạn có thể chọn nhiều mục và thay đổi sau.|複数選べます。後から変更できます。
+필요한 정보가 더 있다면 함께 입력해 주세요.|Add any other relevant information here.|如有其他相关信息，也请在这里填写。|Hãy bổ sung thông tin liên quan khác tại đây.|ほかに関連する情報があれば、こちらに入力してください。
+주거 정보|Housing information|住房信息|Thông tin nhà ở|住居情報
+모르면 비워 두세요.|Leave blank if you do not know.|不知道可以留空。|Để trống nếu bạn chưa biết.|分からなければ空欄にしてください。
+최근 피해 정보|Recent damage information|近期受损信息|Thông tin thiệt hại gần đây|最近の被害情報
+직접 겪은 피해만 알려주세요. 지역의 재난 발생만으로 피해를 판단하지 않아요.|Tell us only about damage you experienced. We do not assume you were affected just because a disaster occurred in your area.|请只填写您实际遭受的损失。我们不会仅因所在地区发生灾害就认定您受灾。|Chỉ cho biết thiệt hại bạn thực sự trải qua. Chúng tôi không mặc định bạn bị ảnh hưởng chỉ vì nơi bạn sống có thiên tai.|実際に受けた被害だけを教えてください。地域で災害が起きただけで被害があったとは判断しません。
+정보 저장과 안내 설정|Information storage and update settings|信息保存与通知设置|Cài đặt lưu thông tin và cập nhật|情報の保存と案内設定
+새 공고도 계속 알려받기|Keep me updated on new notices|持续接收新公告通知|Tiếp tục nhận thông báo mới|新しい公示の案内を受け取る
+저장한 정보로 새 공고를 확인하고, 이 화면에서 알려드려요.|We check new notices using your saved information and show updates on this page.|我们会根据您保存的信息查看新公告，并在此页面提供通知。|Chúng tôi dùng thông tin đã lưu để kiểm tra thông báo mới và cập nhật tại trang này.|保存した情報を基に新しい公示を確認し、この画面でお知らせします。
+새 공고도 계속 알려받기 (선택)|Keep me updated on new notices (optional)|持续接收新公告通知（可选）|Tiếp tục nhận thông báo mới (không bắt buộc)|新しい公示の案内を受け取る（任意）
+저장한 정보는 언제든 수정하거나 삭제할 수 있어요.|You can edit or delete your saved information at any time.|您随时可以修改或删除已保存的信息。|Bạn có thể sửa hoặc xóa thông tin đã lưu bất cứ lúc nào.|保存した情報はいつでも変更・削除できます。
+저장하고 지원 찾기|Save and find support|保存并查找支持|Lưu và tìm hỗ trợ|保存して支援を探す
+내 정보 저장하기|Save my information|保存我的信息|Lưu thông tin của tôi|自分の情報を保存
+내 정보부터 간단히 알려주세요|Start with a little about yourself|先简单介绍一下您的情况|Bắt đầu với một chút thông tin về bạn|まずはご自身の情報を教えてください
+생활정보와 관심 분야를 알려주시면 나에게 맞는 지원을 찾는 데 도움이 돼요.|Your life information and interests help us find support that fits your needs.|您的生活信息和兴趣领域有助于我们寻找适合您的支持。|Thông tin đời sống và lĩnh vực quan tâm giúp chúng tôi tìm hỗ trợ phù hợp với bạn.|生活情報や関心のある分野を教えていただくと、自分に合う支援を探しやすくなります。
+내 정보 입력하기|Add my information|填写我的信息|Nhập thông tin của tôi|自分の情報を入力
+모든 정보는 선택 사항이에요. 아는 내용만 입력해 주세요.|All information is optional. Fill in only what you know.|所有信息均为选填，请只填写您了解的内容。|Mọi thông tin đều không bắt buộc. Chỉ điền những gì bạn biết.|すべて任意です。分かる内容だけ入力してください。
+맞춤 지원|Support for you|适合您的支持|Hỗ trợ phù hợp|自分に合う支援
+새 공고를 계속 확인하고 있어요.|We are checking for new notices.|我们会持续查看新公告。|Chúng tôi đang tiếp tục kiểm tra thông báo mới.|新しい公示を継続して確認しています。
+새 공고 알림이 꺼져 있어요.|New notice updates are off.|新公告通知已关闭。|Thông báo về các công bố mới đang tắt.|新しい公示の案内はオフです。
+AI에게 물어보기|Ask AI|向AI提问|Hỏi AI|AIに質問する
+생활정보를 더 입력하면 지원을 찾는 데 도움이 돼요.|Adding more life information helps us find support for you.|补充生活信息有助于我们为您寻找支持。|Bổ sung thông tin đời sống giúp chúng tôi tìm hỗ trợ cho bạn.|生活情報を追加すると、支援を探しやすくなります。
+내 정보 수정|Edit my information|修改我的信息|Sửa thông tin của tôi|自分の情報を編集
+새 안내 {count}개 보기|View {count} new updates|查看{count}条新通知|Xem {count} cập nhật mới|新しい案内{count}件を見る
+신청 현황 {count}개 보기|View {count} applications|查看{count}项申请进度|Xem tiến độ {count} đơn đăng ký|申請状況{count}件を見る
+새 공고 안내 켜짐|New notice updates on|新公告通知已开启|Thông báo mới đang bật|新しい公示の案内：オン
+새 공고 안내 꺼짐|New notice updates off|新公告通知已关闭|Thông báo mới đang tắt|新しい公示の案内：オフ
+더 정확한 안내를 위해 확인할 정보가 있어요.|There is some information to check for more accurate guidance.|有些信息需要确认，以便提供更准确的指导。|Cần kiểm tra một số thông tin để hướng dẫn chính xác hơn.|より正確な案内のために、確認が必要な情報があります。
+{count}개 확인하기|Review {count} items|确认{count}项|Kiểm tra {count} mục|{count}件を確認
+나에게 맞는 복지를 찾고, 다음 기회도 챙겨요.|Find support that fits your needs and keep up with new opportunities.|寻找适合您的福利，及时了解新的机会。|Tìm phúc lợi phù hợp và nắm bắt các cơ hội mới.|自分に合う福祉を探し、新しい機会も確認しましょう。
+내 정보를 알려주시면 지원받을 만한 공고와 신청 준비를 도와드려요.|Share your information to find relevant support notices and prepare your applications.|提供您的信息，我们会帮助您查找可能适用的支持公告并准备申请。|Chia sẻ thông tin để được giúp tìm thông báo hỗ trợ phù hợp và chuẩn bị đăng ký.|情報を入力すると、利用できそうな支援の公示探しや申請準備をお手伝いします。
+궁금한 점 물어보기|Ask a question|咨询问题|Đặt câu hỏi|質問する
 AI 비서|AI assistant|AI助手|Trợ lý AI|AIアシスタント
 AI 복지비서|AI welfare assistant|AI福利助手|Trợ lý phúc lợi AI|AI福祉アシスタント
 서비스 소개|About this service|服务介绍|Giới thiệu dịch vụ|サービス紹介

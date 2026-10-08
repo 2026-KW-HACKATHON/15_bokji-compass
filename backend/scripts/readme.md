@@ -74,12 +74,16 @@ Install 기본은 비활성 작업이며 worker 명령에도 `--live`를 넣지 
 작업을 자동 덮어쓰지 않으므로 변경 시 Status 확인, Remove, Install 순서로 처리합니다.
 Remove는 이 workspace 소유의 예약 작업만 해제하고 수집 데이터는 지우지 않습니다.
 
-현재 로그인 사용자·일반 권한, backend 작업 디렉터리와 Python 절대 경로를 사용합니다.
+현재 로그인 사용자·일반 권한, backend 작업 디렉터리와 `pythonw.exe` 절대 경로를 사용합니다.
+예약 실행 때 CMD/콘솔 창이 열리지 않습니다. `-PythonExecutable`에 `python.exe`를 지정하면
+동일 폴더의 `pythonw.exe`로 변환하며, 해당 파일이 없으면 등록을 중단합니다.
 10분 간격, IgnoreNew, StartWhenAvailable, 최대 11분이며 기본 AC 시작/배터리 전환 중단
 조건을 유지합니다. 별도 MySQL 가동과 이 사용자의 Codex 로그인이 필요합니다. API/MySQL
 기동과 24시간 실행을 보장하지 않으며 절전·종료 이후에는 DB cursor/lease/checkpoint를
 기준으로 소량 재개합니다. discovery는 별도 설정으로 기본 비활성입니다.
 
-스크립트는 작업 stdout을 파일에 자동 저장하지 않습니다. LastTaskResult와 CLI `status`의
-최근 worker 결과·실패·예산을 함께 확인합니다. 이번 작업에서는 실제 Install/Remove나
-수집/DB/모델을 실행하지 않았고 PowerShell 구문과 오프라인 대역으로 검증합니다.
+창 없는 예약 실행은 콘솔 출력을 표시하거나 stdout을 파일에 자동 저장하지 않습니다.
+LastTaskResult와 CLI `status`의 최근 worker 결과·실패·예산을 함께 확인합니다.
+직접 결과를 볼 때는 기존처럼 `python.exe -m app.modules.ingestion status`를 사용합니다.
+기존 등록 작업은 스크립트 수정만으로 바뀌지 않으므로 실행 파일도 동일 환경의
+`pythonw.exe`로 갱신해야 합니다. 현재 PC 적용·검증 기록은 [작업 기록](../docs/worklog.md)을 참고합니다.

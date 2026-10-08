@@ -56,11 +56,6 @@ def test_explicit_year_is_shared_with_abbreviated_date(period, start, end):
         None,
         "",
         "2026-10-15",
-        "10월 1일 ~ 10월 31일",
-        "신청기간: 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00",
-        "마감일: 10월 15일",
-        "10.15.까지",
-        "접수 시작일: 10월 15일",
         "2026-11-01 ~ 2026-10-01",
         "2026-02-29 ~ 2026-03-01",
         "2026-10-01 ~ 2026-10-31 / 추가 2026-11-03",
@@ -72,6 +67,20 @@ def test_ambiguous_invalid_and_partial_periods_are_not_invented(period):
         "applicationStart": None,
         "applicationEnd": None,
         "scheduleStatus": "unknown",
+    }
+
+
+@pytest.mark.parametrize("period,start,end", [
+    ("10월 1일 ~ 10월 31일", "2027-10-01", "2027-10-31"),
+    ("신청기간: 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00", "2027-09-28", "2027-10-07"),
+    ("마감일: 10월 15일", None, "2027-10-15"),
+    ("10.15.까지", None, "2027-10-15"),
+    ("접수 시작일: 10월 15일", "2027-10-15", None),
+])
+def test_yearless_application_dates_use_selected_year_and_keep_absent_endpoints(period, start, end):
+    assert application_schedule(period, reference_year=2027) == {
+        "applicationStart": start, "applicationEnd": end, "scheduleStatus": "dated",
+        "applicationRecurrence": "yearly", "applicationYear": None,
     }
 
 

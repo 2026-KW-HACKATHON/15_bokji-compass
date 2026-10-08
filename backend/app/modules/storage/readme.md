@@ -1,5 +1,13 @@
 # 공고 저장소
 
+2026-10-08 일정 보완: `application_schedule(value,reference_year=None,reference_month=None)`는
+매년/매월 월말·연도 없는 월일·분기/반기·복수 회차를 계산합니다. `applicationWindows`는
+회차 사이 공백을 유지합니다. `schedule_rules.build_calendar_rule(period,expression,fields)`는
+검증된 `{expression,period}` 또는 None, `resolve_calendar_schedule(fields,overview,rule=None,
+reference_year=None,reference_month=None)`는 원문 우선 달력 응답을 반환합니다.
+검증된 CLI 표준 표현은 원문과 별도로 저장·조회하고 날짜 숫자·인용·상대 기준을 재검증합니다.
+[날짜 계약·공식 검색 보강·검증](../../../docs/application-schedules.md).
+
 2026-10-08: `catalog.card(record, full=False)`의 `audience`는 연령만이 아니라 원천
 지원 대상 전체를 표시합니다. 원문 대상이 없으면 확인된 개요/요건 근거로 보완하고
 관리자 표시 수정은 우선합니다. 빈 기타 조건 개요는 원문 대상·선정 기준 또는 확인된

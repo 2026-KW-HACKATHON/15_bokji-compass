@@ -127,6 +127,37 @@ def test_saved_current_profile_avoids_repeat_questions_but_is_not_new_confirmati
     assert profile.building_year == 1990
 
 
+@pytest.mark.parametrize("answer,occupation", [
+    ("임금근로자", "직장인"), ("직장인", "직장인"), ("무직", "무직"),
+    ("프리랜서", "프리랜서"), ("취업 준비 중", "취업 준비 중"),
+])
+def test_economic_activity_answers_preserve_canonical_values_and_ask_job_search_separately(
+        answer, occupation):
+    store = DialogueStore()
+    result = reply(store, ask(store, "취업 지원을 찾고 싶어요"), "self")
+    assert result["follow_up"]["slot"] == "occupation"
+    assert "경제활동 상태" in result["follow_up"]["question"]
+    options = result["follow_up"]["options"]
+    assert not any(option["value"] == "은퇴 후" for option in options)
+    assert {"value": "직장인", "label": "임금근로자"} in options
+    result = reply(store, result, answer)
+    assert result["profile_draft"]["occupation"] == occupation
+    assert result["profile_draft"]["job_seeking"] is None
+    assert result["follow_up"]["slot"] == "job_seeking"
+    assert store.get_confirmed(MEMBER["id"], result["continuation"]) == {
+        "occupation": occupation}
+
+
+def test_legacy_retirement_survives_saved_profile_without_current_employment_inference():
+    store = DialogueStore()
+    profile = MonitoringProfile(occupation="은퇴 후", household="혼자 살아요")
+    result = reply(store, ask(store, "재취업 지원", profile=profile), "self", profile=profile)
+    assert result["profile_draft"]["occupation"] == "은퇴 후"
+    assert result["profile_draft"]["household"] == "혼자 살아요"
+    assert result["follow_up"]["slot"] == "job_seeking"
+    assert not result["confirmed_fields"]
+
+
 @pytest.mark.parametrize("subject", ["other", "hypothetical", None])
 def test_nonself_context_uses_no_account_profile_and_cannot_be_saved(monkeypatch, subject):
     calls = []

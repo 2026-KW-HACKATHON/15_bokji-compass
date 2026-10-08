@@ -1,4 +1,5 @@
 import { regions, categories } from '../policies/policyModel.js';
+import { currentOccupations } from './economicActivityModel.js';
 export const ageBands = [
   '선택하지 않음',
   '19세 미만',
@@ -7,7 +8,7 @@ export const ageBands = [
   '50~64세',
   '65세 이상',
 ];
-export const occupations = ['선택하지 않음', '학생', '취업 준비 중', '직장인', '자영업자', '기타'];
+export const occupations = ['선택하지 않음', ...currentOccupations];
 export const households = ['선택하지 않음', '혼자 살아요', '가족과 살아요'];
 export const defaultProfile = {
   region: '전국',

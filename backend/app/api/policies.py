@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 
+from app.api.mobile_auth import Credentials
 from app.contracts.translation import PolicyLanguage, PolicyTranslationResponse
 from app.modules.policy_translation.public import TranslationError, translate_public_policy
 from app.modules.storage import catalog
@@ -26,6 +27,20 @@ Repository = Annotated[PolicyRepository, Depends(get_repository)]
 Filter = Annotated[str, Query(max_length=100)]
 
 
+def explorer_member(request: Request, credentials: Credentials, eligible_only: bool = False):
+    if not eligible_only:
+        return None
+    from app.api.auth import get_service
+    from app.api.members import get_member
+
+    return get_member(request, get_service(request), credentials)
+
+
+@router.get("/options")
+def search_options(repository: Repository):
+    return catalog.explorer_options(repository)
+
+
 @router.get("")
 def list_policies(
     repository: Repository,
@@ -40,7 +55,21 @@ def list_policies(
     region: Filter = "",
     audience: Filter = "",
     tag: Filter = "",
+    provider: Annotated[str, Query(pattern=r"^[a-zA-Z0-9_-]{0,50}$")] = "",
+    organization: Filter = "",
+    status: Literal[
+        "", "upcoming", "open", "closed", "selecting", "selected", "paying", "paid"
+    ] = "",
+    age_bands: Annotated[
+        list[Literal["0-18", "19-24", "25-30", "31-39", "40-64", "65-120"]], Query(max_length=6)
+    ] = [],
+    age_min: Annotated[int | None, Query(ge=0, le=120)] = None,
+    age_max: Annotated[int | None, Query(ge=0, le=120)] = None,
+    eligible_only: bool = False,
+    member: Annotated[dict | None, Depends(explorer_member)] = None,
 ):
+    if age_min is not None and age_max is not None and age_min > age_max:
+        raise HTTPException(422, "최소 나이는 최대 나이보다 클 수 없어요.")
     return catalog.list_policies(
         repository,
         limit=limit,
@@ -54,6 +83,14 @@ def list_policies(
         region=region,
         audience=audience,
         tag=tag,
+        provider=provider,
+        organization=organization,
+        status=status,
+        age_bands=age_bands,
+        age_min=age_min,
+        age_max=age_max,
+        eligible_only=eligible_only,
+        member=member,
     )
 
 
@@ -70,10 +107,15 @@ def calendar(
     audience: Filter = "",
 ):
     return catalog.list_calendar(
-        repository, month=month, q=q, search_scope=search_scope, search_mode=search_mode,
+        repository,
+        month=month,
+        q=q,
+        search_scope=search_scope,
+        search_mode=search_mode,
         search_relation=search_relation,
         category=category,
-        region=region, audience=audience
+        region=region,
+        audience=audience,
     )
 
 
@@ -88,8 +130,11 @@ def get_policy(policy_key: str, repository: Repository):
 async def validate_translation_request(request: Request):
     # Only published policy identity and a fixed language can reach the generation service.
     items = list(request.query_params.multi_items())
-    if (len(items) != 1 or items[0][0] != "language"
-            or items[0][1] not in {"ko", "en", "zh", "vi", "ja"}):
+    if (
+        len(items) != 1
+        or items[0][0] != "language"
+        or items[0][1] not in {"ko", "en", "zh", "vi", "ja"}
+    ):
         raise HTTPException(422, {"code": "translation_invalid_request"})
     async for chunk in request.stream():
         if chunk:
@@ -104,12 +149,15 @@ def translation_repository(request: Request):
 
 
 @router.get(
-    "/{policy_key}/translation", response_model=PolicyTranslationResponse,
+    "/{policy_key}/translation",
+    response_model=PolicyTranslationResponse,
     dependencies=[Depends(validate_translation_request)],
-    responses={404: {"description": "Published policy not found"},
-               422: {"description": "Only a policy ID and supported language are accepted"},
-               429: {"description": "Translation generation is busy"},
-               503: {"description": "Translation provider or durable cache is unavailable"}},
+    responses={
+        404: {"description": "Published policy not found"},
+        422: {"description": "Only a policy ID and supported language are accepted"},
+        429: {"description": "Translation generation is busy"},
+        503: {"description": "Translation provider or durable cache is unavailable"},
+    },
 )
 def translate_policy(
     request: Request,
@@ -119,7 +167,10 @@ def translate_policy(
 ):
     try:
         return translate_public_policy(
-            repository, policy_key, language, request.app.state.settings,
+            repository,
+            policy_key,
+            language,
+            request.app.state.settings,
             request.app.state.policy_translation_slots,
         )
     except TranslationError as error:

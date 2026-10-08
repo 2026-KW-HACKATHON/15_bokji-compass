@@ -132,3 +132,91 @@ def test_explicit_cross_year_period_overrides_query_year(repository):
     assert result["items"][0]["applicationEnd"] == "2028-02-29"
     assert result["items"][0]["applicationYear"] == 2027
     assert catalog.list_calendar(repository, month="2029-02")["total"] == 0
+
+
+@pytest.mark.parametrize("year", [2025, 2027, 2028])
+def test_annual_april_deadline_rebases_calendar_year_without_inventing_start(repository, year):
+    add_policy(repository, "annual-april", "매년 4월 말까지")
+    result = catalog.list_calendar(repository, month=f"{year}-04")
+    assert ids(result) == {"annual-april"}
+    assert result["total"] == 1 and result["undatedTotal"] == 0
+    item = result["items"][0]
+    assert item["applicationStart"] is None
+    assert item["applicationEnd"] == f"{year}-04-30"
+    assert item["applicationPrecision"] == "month_end"
+    assert item["applicationRecurrence"] == "yearly"
+    assert item["applicationYear"] is None
+    assert catalog.list_calendar(repository, month=f"{year}-03")["total"] == 0
+    assert catalog.list_calendar(repository, month=f"{year}-05")["total"] == 0
+
+
+@pytest.mark.parametrize("month,end", [
+    ("2025-02", "2025-02-28"), ("2027-02", "2027-02-28"),
+    ("2028-02", "2028-02-29"), ("2028-04", "2028-04-30"),
+    ("2028-05", "2028-05-31"),
+])
+def test_monthly_deadline_uses_real_query_month_end_and_leap_year(repository, month, end):
+    add_policy(repository, "monthly-deadline", "매월 말일")
+    result = catalog.list_calendar(repository, month=month)
+    assert ids(result) == {"monthly-deadline"} and result["undatedTotal"] == 0
+    item = result["items"][0]
+    assert item["applicationStart"] is None
+    assert item["applicationEnd"] == end
+    assert item["applicationRecurrence"] == "monthly"
+    assert item["applicationPrecision"] == "month_end"
+
+
+def test_two_rounds_in_one_month_keep_all_start_end_markers_and_daily_gap(repository):
+    add_policy(repository, "two-may-rounds",
+               "(1차)2026년5월1일~5월10일 (2차)2026년5월20일~5월31일")
+    result = catalog.list_calendar(repository, month="2026-05")
+    assert ids(result) == {"two-may-rounds"} and result["total"] == 1
+    assert result["undatedTotal"] == 0
+    item = result["items"][0]
+    assert item["applicationStart"] == "2026-05-01"
+    assert item["applicationEnd"] == "2026-05-10"
+    assert item["applicationWindows"] == [
+        {"applicationStart": "2026-05-01", "applicationEnd": "2026-05-10"},
+        {"applicationStart": "2026-05-20", "applicationEnd": "2026-05-31"},
+    ]
+    assert all(not (window["applicationStart"] <= "2026-05-15" <= window["applicationEnd"])
+               for window in item["applicationWindows"])
+
+
+def test_calendar_checks_every_round_but_excludes_whole_month_gap(repository):
+    add_policy(repository, "separate-rounds",
+               "(1차)2026년5월22일~6월22일 (2차)2026년8월12일~9월9일")
+    for month, start, end in [
+        ("2026-05", "2026-05-22", "2026-06-22"),
+        ("2026-06", "2026-05-22", "2026-06-22"),
+        ("2026-08", "2026-08-12", "2026-09-09"),
+        ("2026-09", "2026-08-12", "2026-09-09"),
+    ]:
+        result = catalog.list_calendar(repository, month=month)
+        assert ids(result) == {"separate-rounds"}
+        item = result["items"][0]
+        assert item["applicationStart"] == start and item["applicationEnd"] == end
+        assert len(item["applicationWindows"]) == 2
+    assert catalog.list_calendar(repository, month="2026-07")["total"] == 0
+    assert catalog.list_calendar(repository, month="2026-10")["total"] == 0
+
+
+def test_explicit_and_annual_rounds_keep_each_year_and_selected_recurrence(repository):
+    add_policy(repository, "mixed-rounds",
+               "(1차)2025년4월1일~4월30일 (2차)매년9월1일~9월30일")
+    historic = catalog.list_calendar(repository, month="2025-04")["items"][0]
+    assert historic["applicationStart"] == "2025-04-01"
+    assert historic["applicationEnd"] == "2025-04-30"
+    assert historic.get("applicationRecurrence") is None
+    assert catalog.list_calendar(repository, month="2027-04")["total"] == 0
+
+    future = catalog.list_calendar(repository, month="2027-09")["items"][0]
+    assert future["applicationStart"] == "2027-09-01"
+    assert future["applicationEnd"] == "2027-09-30"
+    assert future["applicationRecurrence"] == "yearly"
+    assert future["applicationYear"] is None
+    assert future["applicationWindows"] == [
+        {"applicationStart": "2025-04-01", "applicationEnd": "2025-04-30"},
+        {"applicationStart": "2027-09-01", "applicationEnd": "2027-09-30"},
+    ]
+    assert catalog.list_calendar(repository, month="2027-08")["total"] == 0

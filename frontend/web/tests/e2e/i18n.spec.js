@@ -53,6 +53,7 @@ test('browser preference selects English; a saved selection takes precedence', a
 test('switching language preserves typed input and original filter values', async ({ page }) => {
   await page.goto('/#explore');
   await page.getByRole('textbox', { name: '공고 검색', exact: true }).fill('주거');
+  await page.locator('details.explorer-advanced > summary').click();
   await page.getByRole('combobox', { name: '지역', exact: true }).selectOption('서울');
   await page.getByRole('combobox', { name: '언어 선택', exact: true }).selectOption('en');
   await expect(page.locator('#main-content .search-field input').first()).toHaveValue('주거');
@@ -135,6 +136,6 @@ for (const width of [1440, 1280, 1180, 768, 600, 390, 320]) {
       }
     }
     await page.locator('.portal-nav a').last().press('Enter');
-    await expect(page).toHaveURL(/#guide$/);
+    await expect(page).toHaveURL(/#profile$/);
   });
 }

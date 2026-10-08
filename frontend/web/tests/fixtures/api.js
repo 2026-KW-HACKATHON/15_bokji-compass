@@ -38,6 +38,17 @@ export async function mockPolicyApi(page) {
       },
     });
   });
+  await page.route('**/api/v1/policies/options', (route) =>
+    route.fulfill({
+      json: {
+        providers: [
+          { id: 'notice', organizations: ['광운대학교', '노원구'] },
+          { id: 'gov24', organizations: ['서울시'] },
+          { id: 'bokjiro', organizations: ['보건복지부'] },
+        ],
+      },
+    }),
+  );
   await page.route('**/api/v1/recommendations', (route) => {
     const { profile } = route.request().postDataJSON();
     const scored = demoPolicies

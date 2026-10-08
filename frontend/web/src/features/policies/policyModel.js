@@ -1,7 +1,11 @@
 import { ApiError } from '../../shared/api/httpClient.js';
 import { parseSearchMatch, parseSearchMetadata } from './searchMetadata.js';
 import { emptyTranslationFields } from './policyTranslationModel.js';
+<<<<<<< HEAD
 import { safeWebUrl } from '../../../../packages/core/src/safeUrl.js';
+=======
+import { isCalendarDate } from '../calendar/calendarModel.js';
+>>>>>>> 6c0530f07ee6710a5f9e0f7d06a8416dda852b0a
 export const categories = [
   '전체',
   '생활·금융',
@@ -94,6 +98,30 @@ export function parseBudget(value) {
     evidence: value.evidence,
   };
 }
+function parseApplicationWindows(value) {
+  if (value === null || value === undefined) return [];
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (window) =>
+        !window ||
+        typeof window !== 'object' ||
+        Array.isArray(window) ||
+        ![window.applicationStart, window.applicationEnd].some(isCalendarDate) ||
+        ![window.applicationStart, window.applicationEnd].every(
+          (date) => date === null || isCalendarDate(date),
+        ) ||
+        (window.applicationStart &&
+          window.applicationEnd &&
+          window.applicationStart > window.applicationEnd),
+    )
+  )
+    throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');
+  return value.map(({ applicationStart, applicationEnd }) => ({
+    applicationStart,
+    applicationEnd,
+  }));
+}
 export function parsePolicy(item) {
   if (
     !item ||
@@ -130,10 +158,21 @@ export function parsePolicy(item) {
     paymentSchedule: text('paymentSchedule', null),
     applicationStart: text('applicationStart', null),
     applicationEnd: text('applicationEnd', null),
+    applicationWindows: parseApplicationWindows(item.applicationWindows),
     scheduleStatus: ['dated', 'ongoing', 'unknown'].includes(item.scheduleStatus)
       ? item.scheduleStatus
       : 'unknown',
-    applicationPrecision: item.applicationPrecision === 'month' ? 'month' : null,
+    applicationPrecision: ['month', 'month_end'].includes(item.applicationPrecision)
+      ? item.applicationPrecision
+      : null,
+    applicationRecurrence: ['yearly', 'monthly'].includes(item.applicationRecurrence)
+      ? item.applicationRecurrence
+      : null,
+    calendarMonth:
+      typeof item.calendarMonth === 'string' &&
+      /^20\d{2}-(?:0[1-9]|1[0-2])$/.test(item.calendarMonth)
+        ? item.calendarMonth
+        : null,
     applicationMonths: Array.isArray(item.applicationMonths)
       ? [
           ...new Set(
@@ -198,4 +237,44 @@ export function parsePolicyPage(result) {
     nextCursor: result.nextCursor,
     ...(search ? { search } : {}),
   };
+}
+
+export function mergePolicyDetail(current, detail) {
+  const recurringCalendarSchedule =
+    current?.applicationYear === null &&
+    detail.applicationYear === null &&
+    (current.applicationPrecision === 'month' || current.applicationRecurrence !== null) &&
+    current.applicationPrecision === detail.applicationPrecision &&
+    current.applicationRecurrence === detail.applicationRecurrence;
+  const multipleCalendarSchedule =
+    current?.applicationWindows?.length > 1 &&
+    detail.applicationWindows?.length === current.applicationWindows.length &&
+    current.applicationWindows.some(
+      (window) =>
+        window.applicationStart === current.applicationStart &&
+        window.applicationEnd === current.applicationEnd,
+    );
+  const calendarSchedule =
+    current?.calendarMonth &&
+    (recurringCalendarSchedule || multipleCalendarSchedule) &&
+    current.id === detail.id &&
+    current.revisionId === detail.revisionId &&
+    current.applicationPeriod === detail.applicationPeriod &&
+    [current.applicationStart, current.applicationEnd].some(isCalendarDate) &&
+    [current.applicationStart, current.applicationEnd].every(
+      (value) => value === null || isCalendarDate(value),
+    );
+  return calendarSchedule
+    ? {
+        ...detail,
+        applicationStart: current.applicationStart,
+        applicationEnd: current.applicationEnd,
+        applicationMonths: current.applicationMonths,
+        applicationWindows: current.applicationWindows,
+        applicationPrecision: current.applicationPrecision,
+        applicationRecurrence: current.applicationRecurrence,
+        applicationYear: current.applicationYear,
+        calendarMonth: current.calendarMonth,
+      }
+    : detail;
 }

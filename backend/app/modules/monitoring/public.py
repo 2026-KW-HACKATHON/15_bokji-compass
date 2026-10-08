@@ -90,6 +90,11 @@ def derive_needs(member: dict, profile: MonitoringProfile, *,
                        "직접 선택한 취업 준비 상황을 바탕으로 취업 지원 공고를 찾아요."])
         if profile.occupation in {"직장인", "자영업자"}:
             reasons.append("재직·사업 상태를 유지한 채 참여할 수 있는 지원인지 확인해요.")
+        elif profile.occupation == "프리랜서":
+            reasons.append("프리랜서 활동만으로 근로계약이나 사업자 등록 여부를 판단하지 않아요.")
+            questions.append("근로계약에 따라 재직 중인가요, 개인사업자로 활동 중인가요?")
+        elif profile.occupation == "무직":
+            reasons.append("직접 선택한 현재 무직 상태를 바탕으로 공고 조건을 비교해요.")
         elif profile.occupation == "학생":
             reasons.append("학생 정보만으로 실업 상태를 판단하지 않아요.")
             questions.append("학업 중 참여할 수 있는 지원을 찾으시나요, 취업 준비를 하고 계신가요?")
@@ -97,8 +102,8 @@ def derive_needs(member: dict, profile: MonitoringProfile, *,
             reasons.append("취업 준비·구직 의사를 확인했어요. 미취업 여부는 추가 확인이 필요해요.")
             questions.append("현재 재직 중이거나 사업을 운영하고 계신가요?")
         else:
-            questions.append("현재 학생·재직·사업·취업 준비 중 어떤 상황인가요?")
-        if profile.job_seeking is None and profile.occupation != "취업 준비 중":
+            questions.append("현재 경제활동 상태를 알려주세요.")
+        if profile.job_seeking is None:
             questions.append("현재 새 일자리를 찾거나 취업 지원을 받고 싶으신가요?")
         needs.append({"id": "youth_employment" if youth else "employment_support",
                       "title": "청년 일자리 지원 찾기" if youth else "취업 지원 찾기",
@@ -141,10 +146,8 @@ def monitoring_facts(member: dict, profile: MonitoringProfile) -> matching.Match
     facts = matching.build_facts(member, preference)
     # Renting this home does not establish that the applicant owns no other home.
     ownership = True if profile.housing_tenure == "owner" else None
-    preparing = (profile.job_seeking if profile.job_seeking is not None else
-                 True if profile.occupation == "취업 준비 중" else None)
     return replace(facts, region=_registered_region(member), home_ownership=ownership,
-                   employment_preparation=preparing)
+                   employment_preparation=profile.job_seeking)
 
 
 def _compact(value):

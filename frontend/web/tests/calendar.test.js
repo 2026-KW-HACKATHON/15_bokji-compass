@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   calendarCells,
   calendarEvents,
+  applicationWindowOnDay,
   isCalendarDate,
   policiesOnDay,
   reconcileCalendarResult,
@@ -233,4 +234,111 @@ test('month precision dates accept leap month endings and application windows ac
   };
   assert.deepEqual(policiesOnDay([crossing], '2027-01-15'), [crossing]);
   assert.equal(calendarEvents([crossing], '2027-02').at(-1).date, '2027-02-28');
+});
+
+test('separate application rounds keep all markers and exclude the dates between rounds', async () => {
+  const rounds = {
+    ...policy,
+    applicationStart: '2026-10-01',
+    applicationEnd: '2026-10-10',
+    applicationWindows: [
+      { applicationStart: '2026-10-01', applicationEnd: '2026-10-10' },
+      { applicationStart: '2026-10-20', applicationEnd: '2026-10-31' },
+    ],
+  };
+  const payload = {
+    month: '2026-10',
+    items: [rounds],
+    total: 1,
+    undatedItems: [],
+    undatedTotal: 0,
+    truncated: false,
+  };
+  const result = await createPolicyRepository({
+    mode: 'api',
+    request: async () => payload,
+  }).calendar('2026-10');
+  assert.deepEqual(result.items[0].applicationWindows, rounds.applicationWindows);
+  assert.notEqual(result.items[0].applicationWindows, rounds.applicationWindows);
+  assert.deepEqual(
+    calendarEvents(result.items, '2026-10').map(({ date, type }) => ({ date, type })),
+    [
+      { date: '2026-10-01', type: 'start' },
+      { date: '2026-10-10', type: 'end' },
+      { date: '2026-10-20', type: 'start' },
+      { date: '2026-10-31', type: 'end' },
+    ],
+  );
+  assert.deepEqual(policiesOnDay(result.items, '2026-10-25'), result.items);
+  assert.deepEqual(policiesOnDay(result.items, '2026-10-20', 'start'), result.items);
+  assert.deepEqual(policiesOnDay(result.items, '2026-10-31', 'end'), result.items);
+  assert.equal(policiesOnDay(result.items, '2026-10-15').length, 0);
+  assert.equal(policiesOnDay(result.items, '2026-10-25', 'start').length, 0);
+  assert.deepEqual(
+    applicationWindowOnDay(result.items[0], '2026-10-25'),
+    rounds.applicationWindows[1],
+  );
+  assert.equal(applicationWindowOnDay(result.items[0], '2026-10-15'), null);
+  const overlapping = {
+    ...rounds,
+    applicationWindows: [...rounds.applicationWindows, rounds.applicationWindows[1]],
+  };
+  assert.equal(calendarEvents([overlapping], '2026-10').length, 4);
+  assert.deepEqual(policiesOnDay([overlapping], '2026-10-25'), [overlapping]);
+  const touching = {
+    ...rounds,
+    applicationWindows: [
+      rounds.applicationWindows[0],
+      { applicationStart: '2026-10-10', applicationEnd: '2026-10-20' },
+    ],
+  };
+  assert.deepEqual(
+    applicationWindowOnDay(touching, '2026-10-10', 'start'),
+    touching.applicationWindows[1],
+  );
+  assert.deepEqual(
+    applicationWindowOnDay(touching, '2026-10-10', 'end'),
+    touching.applicationWindows[0],
+  );
+});
+
+test('separate end-only rounds and leap-day windows reject malformed schedule responses', async () => {
+  const ends = {
+    ...policy,
+    applicationStart: null,
+    applicationEnd: '2028-02-29',
+    applicationWindows: [
+      { applicationStart: null, applicationEnd: '2028-02-29' },
+      { applicationStart: null, applicationEnd: '2028-04-30' },
+    ],
+  };
+  const payload = {
+    month: '2028-02',
+    items: [ends],
+    total: 1,
+    undatedItems: [],
+    undatedTotal: 0,
+    truncated: false,
+  };
+  const repo = (windows) =>
+    createPolicyRepository({
+      mode: 'api',
+      request: async () => ({ ...payload, items: [{ ...ends, applicationWindows: windows }] }),
+    });
+  const result = await repo(ends.applicationWindows).calendar('2028-02');
+  assert.deepEqual(
+    calendarEvents(result.items, '2028-02').map(({ date, type }) => ({ date, type })),
+    [{ date: '2028-02-29', type: 'end' }],
+  );
+  assert.equal(policiesOnDay(result.items, '2028-02-15').length, 0);
+  assert.deepEqual(policiesOnDay(result.items, '2028-04-30'), result.items);
+  for (const malformed of [
+    {},
+    [null],
+    [{ applicationStart: null, applicationEnd: null }],
+    [{ applicationStart: null, applicationEnd: '2027-02-29' }],
+    [{ applicationStart: '2028-04-30', applicationEnd: '2028-04-01' }],
+    [{ applicationEnd: '2028-04-30' }],
+  ])
+    await assert.rejects(repo(malformed).calendar('2028-02'), { code: 'invalid_response' });
 });

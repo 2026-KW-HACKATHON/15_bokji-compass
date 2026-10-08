@@ -85,7 +85,10 @@ def build_facts(member: dict | None, profile: RecommendationProfile | None,
         AGE_RANGES.get(preference.ageBand))
     region = member.get("region") if member is not None else preference.region
     gender = {"male": "MALE", "female": "FEMALE"}.get((member or {}).get("gender"))
-    employment = {"직장인": "EMPLOYED", "자영업자": "SELF_EMPLOYED"}.get(preference.occupation)
+    # Job preparation, freelance work and a past retirement do not establish current
+    # unemployment or self-employment. Only explicit current states become comparison facts.
+    employment = {"직장인": "EMPLOYED", "자영업자": "SELF_EMPLOYED",
+                  "무직": "UNEMPLOYED"}.get(preference.occupation)
     return MatchingFacts(age_range, gender, REGION_NAMES.get(region), employment, financial)
 
 

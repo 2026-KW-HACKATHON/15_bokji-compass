@@ -1,4 +1,5 @@
 import { housingTenures, housingTypes } from '../monitoring/monitoringModel.js';
+import { householdLabel, occupationLabel } from '../profile/economicActivityModel.js';
 
 export function assistantOverview(snapshot, user) {
   const profile = snapshot.profile;
@@ -8,11 +9,13 @@ export function assistantOverview(snapshot, user) {
     label(housingTenures, profile?.housing_tenure),
     label(housingTypes, profile?.housing_type),
     profile?.building_year ? `${profile.building_year}년 준공` : null,
-    profile?.occupation,
+    occupationLabel(profile?.occupation),
+    householdLabel(profile?.household),
+    ...(profile?.interests || []),
     profile?.job_seeking === true ? '구직 중' : null,
     profile?.repair_needed === true ? '주택 수리 필요' : null,
     profile?.disaster_damage === true ? '재난 피해 있음' : null,
-  ].filter(Boolean);
+  ].filter((fact, index, values) => Boolean(fact) && values.indexOf(fact) === index);
   const active = snapshot.candidates.filter((item) => item.active);
   const byPolicy = new Map();
   for (const candidate of snapshot.candidates) {

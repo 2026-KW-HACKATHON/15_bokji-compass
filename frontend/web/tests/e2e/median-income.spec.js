@@ -24,12 +24,12 @@ test('legacy retirement preference preserves other saved information and is abse
   await expect(page.locator('.profile-page')).toContainText('65세 이상');
   await page.getByRole('button', { name: '직업·가구 상세 보기', exact: true }).click();
   await page.getByRole('button', { name: '직업·가구 수정', exact: true }).click();
-  const occupation = page.getByRole('combobox', { name: '일·학업 상태 (선택)', exact: true });
-  await expect(occupation).toHaveValue('선택하지 않음');
+  const occupation = page.getByRole('combobox', { name: '경제활동 구분', exact: true });
+  await expect(occupation).toHaveValue('');
   await expect(occupation.locator('option').filter({ hasText: '은퇴 후' })).toHaveCount(0);
-  await expect(
-    page.getByRole('combobox', { name: '함께 사는 사람 (선택)', exact: true }),
-  ).toHaveValue('혼자 살아요');
+  await expect(page.getByRole('combobox', { name: '가구 구성', exact: true })).toHaveValue(
+    '혼자 살아요',
+  );
 });
 
 test('quick calculator immediately shows official amounts and optional income ratio without finance requests', async ({

@@ -1,6 +1,12 @@
 export const featureDynamicMessages = {
-  "마감 D+{count}": {
-    en: "Closed D+{count}",
+  "일정 확인 출처": {
+    en: "Verified schedule source",
+    zh: "日程核实来源",
+    vi: "Nguồn xác minh lịch đăng ký",
+    ja: "日程の確認元",
+  },
+  "접수 마감 D+{count}": {
+    en: "Applications closed D+{count}",
     zh: "已截止 D+{count}",
     vi: "Đã hết hạn D+{count}",
     ja: "締切済み D+{count}",

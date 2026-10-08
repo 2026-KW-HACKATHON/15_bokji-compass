@@ -36,7 +36,7 @@ Windows에서는 루트의 `start-server-prod.bat`를 더블클릭하면 프론�
 ## 연결 확인
 
 - 외부 HTTPS 루트가 웹을 표시하고 `/api/health`가 200을 반환하는지 확인합니다.
-- `/admin/exhibition/`은 비로그인 접근을 차단하고, 관리자 로그인 후 QR 주소가 `https://bokji.commitnaru.com/`인지 확인합니다.
+- `/admin/exhibition/`은 비로그인 접근을 차단하고, 관리자 로그인 후 웹 QR 주소가 `https://bokji.commitnaru.com/#guide`인지 확인합니다.
 - 터널 연결 로그만으로 DNS·사이트 정상 동작을 확인했다고 보지 않습니다. 휴대폰 데이터망에서 웹 로그인·공고 목록·질문 응답을 확인합니다.
 - APK를 배포하기 전에 고정 API 주소로 별도 release 빌드·서명·설치 검증을 수행합니다. 도메인 연결만으로 APK가 생성되지는 않습니다.
 - 도메인 연결과 서버 가동은 별개입니다. PC·API·Caddy·cloudflared·필요한 MySQL이 실행되어 있어야 합니다.

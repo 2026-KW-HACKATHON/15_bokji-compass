@@ -7,6 +7,8 @@ export const occupations = [
   "취업 준비 중",
   "직장인",
   "자영업자",
+  "프리랜서",
+  "무직",
   "기타",
 ];
 export const households = ["선택하지 않음", "혼자 살아요", "가족과 살아요"];

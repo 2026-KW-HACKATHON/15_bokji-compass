@@ -1,0 +1,235 @@
+.explorer-search-settings {
+  margin: 0 0 26px;
+}
+.explorer-quick-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.explorer-quick-field {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-width: 0;
+}
+.explorer-quick-field > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.explorer-quick-field select {
+  width: 100%;
+  min-width: 0;
+}
+.explorer .explorer-advanced {
+  padding: 0;
+  margin: 14px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.explorer .explorer-advanced > summary {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  list-style: none;
+}
+.explorer-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.explorer-advanced > summary > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.explorer-advanced[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.explorer-advanced .filter-summary-label {
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.explorer-advanced .filter-summary-value {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+.explorer-advanced-body {
+  padding: 0 20px 20px;
+}
+.explorer-eligibility {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.explorer-eligibility label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 650;
+}
+.explorer-eligibility p,
+.explorer-filter-note,
+.explorer-filter-footer p {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.explorer .explorer-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0;
+}
+.explorer-filter-fields label {
+  min-width: 0;
+}
+.explorer-filter-fields select {
+  width: 100%;
+  min-width: 0;
+}
+.explorer-age-bands {
+  margin: 22px 0 14px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.explorer-age-bands legend {
+  font-size: 0.88rem;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+.explorer-age-bands legend span {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.explorer-age-bands > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.explorer-age-bands label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+.explorer-age-bands label:has(:checked) {
+  color: var(--green);
+  background: var(--green-light, #eef5ff);
+  border-color: var(--green);
+}
+.explorer-search-settings input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+.explorer-age-range {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+.explorer-age-range label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.explorer-age-range input {
+  width: 76px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+.explorer-age-range .button {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+}
+.explorer-advanced .policy-search-options {
+  margin: 18px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.explorer-filter-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.explorer-filter-footer .text-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.explorer-options-error {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+@media (max-width: 760px) {
+  .explorer .explorer-filter-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .explorer-quick-field {
+    padding: 14px;
+  }
+  .explorer .explorer-advanced > summary {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px;
+  }
+  .explorer-advanced .filter-summary-value {
+    margin-left: 0;
+    flex: 1 1 140px;
+  }
+  .explorer-advanced-body {
+    padding: 0 16px 16px;
+  }
+}
+@media (max-width: 420px) {
+  .explorer-quick-filters {
+    gap: 10px;
+  }
+  .explorer-quick-field {
+    padding: 12px 10px;
+  }
+  .explorer-quick-field select {
+    padding: 10px 6px;
+    font-size: 0.85rem;
+  }
+  .explorer-quick-field > span {
+    font-size: 0.82rem;
+  }
+  .explorer-age-range > span:first-child {
+    flex-basis: 100%;
+  }
+  .explorer-age-range input {
+    width: 65px;
+  }
+  .explorer-age-bands label {
+    flex: 1 1 100px;
+  }
+}

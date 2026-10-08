@@ -93,6 +93,23 @@ def test_default_pause_saved_needs_persistence_and_account_isolation(client):
         assert restored["updated_at"] == result["updated_at"]
 
 
+@pytest.mark.parametrize("occupation", ["무직", "프리랜서", "직장인", "은퇴 후"])
+@pytest.mark.parametrize("household", ["혼자 살아요", "가족과 살아요"])
+def test_activity_and_legacy_household_roundtrip_without_job_search_inference(
+        client, occupation, household):
+    response = save(client, profile={"occupation": occupation, "household": household,
+                                    "building_year": 1990})
+    assert response.status_code == 200
+    saved = response.json()["profile"]
+    assert saved["occupation"] == occupation and saved["household"] == household
+    assert saved["job_seeking"] is None
+    assert saved["building_year"] == 1990
+    assert client.get(PREFIX).json()["profile"] == saved
+    with TestClient(create_app(client.app.state.settings)) as reopened:
+        reopened.cookies.set("bokji_session", TOKENS[0])
+        assert reopened.get(PREFIX).json()["profile"] == saved
+
+
 def test_disabled_database_keeps_profile_and_marks_scan_unavailable(client):
     result = save(client, enabled=True)
     assert result.status_code == 200

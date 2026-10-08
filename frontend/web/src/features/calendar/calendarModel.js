@@ -31,19 +31,60 @@ export function calendarCells(month) {
   });
 }
 
+export function policyApplicationWindows(policy) {
+  return policy.applicationWindows?.length
+    ? policy.applicationWindows
+    : [{ applicationStart: policy.applicationStart, applicationEnd: policy.applicationEnd }];
+}
+
+function windowMatchesDay(window, day, type = 'all') {
+  return type === 'start'
+    ? window.applicationStart === day
+    : type === 'end'
+      ? window.applicationEnd === day
+      : window.applicationStart === day ||
+        window.applicationEnd === day ||
+        (window.applicationStart &&
+          window.applicationEnd &&
+          window.applicationStart <= day &&
+          day <= window.applicationEnd);
+}
+
+export function applicationWindowOnDay(policy, day, type = 'all') {
+  const windows = policyApplicationWindows(policy);
+  return (
+    windows.find(
+      (window) =>
+        (type !== 'end' && window.applicationStart === day) ||
+        (type !== 'start' && window.applicationEnd === day),
+    ) ||
+    windows.find((window) => windowMatchesDay(window, day, type)) ||
+    null
+  );
+}
+
 export function calendarEvents(items, month, type = 'all') {
   return items
-    .flatMap((policy) =>
-      [
-        { date: policy.applicationStart, type: 'start', policy },
-        { date: policy.applicationEnd, type: 'end', policy },
-      ].filter(
-        (event) =>
-          isCalendarDate(event.date) &&
-          event.date.startsWith(month + '-') &&
-          (type === 'all' || event.type === type),
-      ),
-    )
+    .flatMap((policy) => {
+      const seen = new Set();
+      return policyApplicationWindows(policy)
+        .flatMap((window) => [
+          { date: window.applicationStart, type: 'start', policy },
+          { date: window.applicationEnd, type: 'end', policy },
+        ])
+        .filter((event) => {
+          if (
+            !isCalendarDate(event.date) ||
+            !event.date.startsWith(month + '-') ||
+            (type !== 'all' && event.type !== type)
+          )
+            return false;
+          const key = event.date + event.type;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    })
     .sort(
       (a, b) =>
         a.date.localeCompare(b.date) ||
@@ -54,16 +95,7 @@ export function calendarEvents(items, month, type = 'all') {
 
 export function policiesOnDay(items, day, type = 'all') {
   return items.filter((policy) =>
-    type === 'start'
-      ? policy.applicationStart === day
-      : type === 'end'
-        ? policy.applicationEnd === day
-        : policy.applicationStart === day ||
-          policy.applicationEnd === day ||
-          (policy.applicationStart &&
-            policy.applicationEnd &&
-            policy.applicationStart <= day &&
-            day <= policy.applicationEnd),
+    policyApplicationWindows(policy).some((window) => windowMatchesDay(window, day, type)),
   );
 }
 

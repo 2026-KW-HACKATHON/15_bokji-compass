@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from pydantic import Field, field_validator
 
 from app.contracts.categories import POLICY_DISPLAY_CATEGORIES, PolicyDisplayCategory
+from app.contracts.matching import Occupation
 from app.contracts.parsing import StrictModel
 
 
@@ -15,9 +16,7 @@ def seoul_today() -> date:
 
 
 class MonitoringProfile(StrictModel):
-    occupation: Literal[
-        "학생", "취업 준비 중", "직장인", "자영업자", "은퇴 후", "기타"
-    ] | None = None
+    occupation: Occupation | None = None
     household: Literal["혼자 살아요", "가족과 살아요"] | None = None
     interests: list[PolicyDisplayCategory] = Field(
         default_factory=list, max_length=len(POLICY_DISPLAY_CATEGORIES))

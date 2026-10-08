@@ -9,14 +9,16 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { assistantOverview, questionForNeed } from '../assistant/assistantPageModel.js';
 import { categories, safeSourceUrl } from '../policies/policyModel.js';
 import { households } from '../profile/profileModel.js';
+import EconomicActivityFields from '../profile/EconomicActivityFields.jsx';
+import { householdLabel } from '../profile/economicActivityModel.js';
 import { createMonitoringApi } from './monitoringApi.js';
+import AssistantProfileForm, { AssistantMemberSummary } from './AssistantProfileForm.jsx';
 import {
   candidateStates,
   disasterTypes,
   housingTenures,
   housingTypes,
   initialMonitoringProfile,
-  monitoringOccupations,
   todayInSeoul,
 } from './monitoringModel.js';
 import './monitoring.css';
@@ -42,6 +44,7 @@ export default function MonitoringPanel({
   onProfileChanged,
   variant = 'default',
   refreshKey = 0,
+  profileEntryRequest = 0,
 }) {
   const { t, intlLocale } = useI18n();
 
@@ -74,6 +77,7 @@ export default function MonitoringPanel({
   const [view, setView] = useState('candidates');
   const assistant = variant === 'assistant';
   const refreshVersion = useRef(refreshKey);
+  const handledProfileEntry = useRef(0);
   const detail = useRef(null);
   const editingRef = useRef(editing);
   editingRef.current = editing;
@@ -89,7 +93,7 @@ export default function MonitoringPanel({
   const id = (name) => `${prefix}-${name}`;
   const displayedCandidates =
     view === 'progress' && assistant ? overview?.progress || [] : activeCandidates;
-  const show = (section) => !assistant || view === section;
+  const show = (section) => !assistant || (!!snapshot?.profile && !editing && view === section);
 
   function selectView(next) {
     setView(next);
@@ -106,8 +110,32 @@ export default function MonitoringPanel({
       setEnabled(snapshot?.enabled || false);
       setConsent(false);
     }
+    setError('');
+    setMessage('');
     setEditing(true);
     selectView('settings');
+  }
+
+  useEffect(() => {
+    if (
+      !assistant ||
+      !snapshot ||
+      busy === 'load' ||
+      profileEntryRequest <= handledProfileEntry.current
+    )
+      return;
+    handledProfileEntry.current = profileEntryRequest;
+    if (!snapshot.profile) editProfile();
+  }, [profileEntryRequest, snapshot, busy, assistant]);
+
+  function cancelAssistantEdit() {
+    setEditing(false);
+    setDraft(snapshot?.profile || initial.current);
+    setEnabled(snapshot?.enabled || false);
+    setConsent(false);
+    setError('');
+    setView('candidates');
+    window.requestAnimationFrame(() => document.getElementById(id('profile-action'))?.focus());
   }
 
   useEffect(() => {
@@ -258,6 +286,7 @@ export default function MonitoringPanel({
         setEnabled(value.enabled);
         setConsent(false);
         setEditing(false);
+        if (assistant) setView('candidates');
         onProfileChanged?.();
       },
     );
@@ -314,32 +343,42 @@ export default function MonitoringPanel({
       aria-labelledby={id('heading')}
       aria-busy={!!busy}
     >
-      <div className="monitoring-heading">
-        <div>
-          {!assistant && (
-            <span className="eyebrow">
-              <Icon name="compass" size={18} /> {t('내 상황에 맞춰 이어가는 안내')}{' '}
-            </span>
-          )}
-          <h2 id={id('heading')}>{assistant ? t('나를 위한 지원 현황') : t('지속 복지 안내')}</h2>
-          <p>
-            {assistant
-              ? t('저장한 생활정보와 등록된 공고를 기준으로 정리했어요.')
-              : t('거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.')}
+      {assistant ? (
+        <h2 id={id('heading')} className="sr-only">
+          {t('나를 위한 지원 현황')}
+        </h2>
+      ) : (
+        <>
+          <div className="monitoring-heading">
+            <div>
+              {!assistant && (
+                <span className="eyebrow">
+                  <Icon name="compass" size={18} /> {t('내 상황에 맞춰 이어가는 안내')}{' '}
+                </span>
+              )}
+              <h2 id={id('heading')}>
+                {assistant ? t('나를 위한 지원 현황') : t('지속 복지 안내')}
+              </h2>
+              <p>
+                {assistant
+                  ? t('저장한 생활정보와 등록된 공고를 기준으로 정리했어요.')
+                  : t('거주 지역과 생활정보를 기준으로 새 공고와 필요한 지원을 계속 살펴봐요.')}
+              </p>
+            </div>
+            {snapshot && (
+              <span className={'monitoring-status' + (snapshot.enabled ? ' is-on' : '')}>
+                {snapshot.enabled ? t('지속 안내 켜짐') : t('지속 안내 꺼짐')}
+              </span>
+            )}
+          </div>
+          <p className="monitoring-service-note">
+            {' '}
+            {t(
+              '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요. 새 안내는 이 화면에서 확인할 수 있어요.',
+            )}{' '}
           </p>
-        </div>
-        {snapshot && (
-          <span className={'monitoring-status' + (snapshot.enabled ? ' is-on' : '')}>
-            {snapshot.enabled ? t('지속 안내 켜짐') : t('지속 안내 꺼짐')}
-          </span>
-        )}
-      </div>
-      <p className="monitoring-service-note">
-        {' '}
-        {t(
-          '등록된 재난 지원 공고를 찾으면 실제 피해 여부부터 확인해요. 새 안내는 이 화면에서 확인할 수 있어요.',
-        )}{' '}
-      </p>
+        </>
+      )}
       {!owner ? (
         <p className="notice-box">
           <a href={assistant ? '#login?return=assistant' : '#login?return=profile'}>
@@ -357,7 +396,7 @@ export default function MonitoringPanel({
               {t('계정에 저장된 지속 안내를 불러오고 있어요.')}{' '}
             </p>
           )}
-          {error && (
+          {error && !(assistant && editing) && (
             <div className="notice-box monitoring-error" role="alert">
               <p>{t(error)}</p>
               {(!snapshot || error.includes('로그인 상태')) && (
@@ -396,25 +435,51 @@ export default function MonitoringPanel({
           )}
           {snapshot && (
             <>
-              {assistant && (
+              {assistant && editing && (
+                <AssistantProfileForm
+                  user={user}
+                  draft={draft}
+                  setDraft={setDraft}
+                  enabled={enabled}
+                  setEnabled={setEnabled}
+                  consent={consent}
+                  setConsent={setConsent}
+                  busy={busy}
+                  error={error}
+                  onSubmit={submit}
+                  onCancel={cancelAssistantEdit}
+                  onProfile={onProfile}
+                />
+              )}
+              {assistant && !editing && !snapshot.profile && (
+                <div className="assistant-onboarding">
+                  <h3>{t('내 정보부터 간단히 알려주세요')}</h3>
+                  <p>
+                    {t('생활정보와 관심 분야를 알려주시면 나에게 맞는 지원을 찾는 데 도움이 돼요.')}
+                  </p>
+                  <button
+                    id={id('profile-action')}
+                    className="button primary"
+                    disabled={!!busy}
+                    onClick={editProfile}
+                  >
+                    {t('내 정보 입력하기')} <Icon name="arrow" size={18} />
+                  </button>
+                  <p className="assistant-onboarding-note">
+                    {t('모든 정보는 선택 사항이에요. 아는 내용만 입력해 주세요.')}
+                  </p>
+                  <AssistantMemberSummary user={user} onProfile={onProfile} />
+                </div>
+              )}
+              {assistant && !editing && snapshot.profile && (
                 <>
-                  {!snapshot.enabled && (
-                    <p className="monitoring-paused">
-                      <Icon name="info" size={18} />
-                      {snapshot.profile
-                        ? t(
-                            '지속 안내가 꺼져 있어요. 저장된 기록은 확인할 수 있고, 안내 설정에서 다시 켤 수 있어요.',
-                          )
-                        : t('생활정보를 추가하면 내 상황에 맞는 지원을 함께 살펴볼 수 있어요.')}
-                    </p>
-                  )}
                   <DashboardOverview
                     snapshot={snapshot}
                     overview={overview}
                     disabled={!!busy}
                     onEdit={editProfile}
                     onView={selectView}
-                    onStartConversation={onStartConversation}
+                    actionId={id('profile-action')}
                   />
                   <div className="monitoring-dashboard-tools">
                     <p>
@@ -432,11 +497,10 @@ export default function MonitoringPanel({
                   </div>
                   <nav className="monitoring-dashboard-nav" aria-label={t('AI 복지비서 상세 항목')}>
                     {[
-                      ['candidates', '관련 지원 후보'],
-                      ['questions', '추가 확인 정보'],
-                      ['progress', '신청 진행 상태'],
+                      ['candidates', '맞춤 지원'],
+                      ['progress', '신청 현황'],
                       ['alerts', '새 안내'],
-                      ['settings', '안내 설정'],
+                      ['settings', '내 정보'],
                     ].map(([key, label]) => (
                       <button key={key} aria-pressed={view === key} onClick={() => selectView(key)}>
                         {t(label)}
@@ -448,37 +512,52 @@ export default function MonitoringPanel({
               )}
               {show('settings') && (
                 <>
-                  <div className="monitoring-overview">
-                    <p>
-                      <strong>{t('최근 공고 확인')}</strong>{' '}
-                      {monitoringDate(snapshot.last_checked_at)}
-                    </p>
-                    <p>
-                      <strong>{t('회원 거주 지역')}</strong> {t(user.region || '미입력')}
-                      {user.address ? ` · ${user.address}` : ''}{' '}
-                      <a
-                        className="text-button"
-                        href="#profile"
-                        onClick={
-                          onProfile
-                            ? (event) => {
-                                event.preventDefault();
-                                onProfile();
-                              }
-                            : undefined
-                        }
-                      >
-                        {' '}
-                        {t('회원 정보에서 수정')}{' '}
-                      </a>
-                    </p>
-                  </div>
+                  {assistant ? (
+                    <>
+                      <AssistantMemberSummary user={user} onProfile={onProfile} />
+                      <p className="assistant-settings-state">
+                        {snapshot.enabled
+                          ? t('새 공고를 계속 확인하고 있어요.')
+                          : t('새 공고 알림이 꺼져 있어요.')}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="monitoring-overview">
+                      <p>
+                        <strong>{t('최근 공고 확인')}</strong>{' '}
+                        {monitoringDate(snapshot.last_checked_at)}
+                      </p>
+                      <p>
+                        <strong>{t('회원 거주 지역')}</strong> {t(user.region || '미입력')}
+                        {user.address ? ` · ${user.address}` : ''}{' '}
+                        <a
+                          className="text-button"
+                          href="#profile"
+                          onClick={
+                            onProfile
+                              ? (event) => {
+                                  event.preventDefault();
+                                  onProfile();
+                                }
+                              : undefined
+                          }
+                        >
+                          {' '}
+                          {t('회원 정보에서 수정')}{' '}
+                        </a>
+                      </p>
+                    </div>
+                  )}
                   {snapshot.profile && (
                     <div className="monitoring-actions">
                       <button
                         className="button secondary"
                         disabled={!!busy}
                         onClick={() => {
+                          if (assistant) {
+                            editProfile();
+                            return;
+                          }
                           setDraft(snapshot.profile);
                           setEnabled(snapshot.enabled);
                           setConsent(false);
@@ -532,22 +611,18 @@ export default function MonitoringPanel({
                       <fieldset disabled={!!busy}>
                         <legend>{t('일과 가구')}</legend>
                         <div className="monitoring-form-grid">
-                          {optionField(
-                            'occupation',
-                            '일·학업 상태',
-                            monitoringOccupations.map((value) => [value, value]),
-                          )}
+                          <EconomicActivityFields
+                            value={draft.occupation}
+                            onChange={(occupation) =>
+                              setDraft((value) => ({ ...value, occupation }))
+                            }
+                          />
                           {optionField(
                             'household',
-                            '함께 사는 사람',
-                            households.slice(1).map((value) => [value, value]),
+                            '가구 구성',
+                            households.slice(1).map((value) => [value, householdLabel(value)]),
                           )}
-                          {booleanField(
-                            'job_seeking',
-                            '현재 구직 중인가요?',
-                            '구직 중',
-                            '구직 중 아님',
-                          )}
+                          {booleanField('job_seeking', '구직 상태', '구직 중', '구직 활동 없음')}
                         </div>
                       </fieldset>
                       <fieldset disabled={!!busy}>
@@ -734,7 +809,7 @@ export default function MonitoringPanel({
                                   onClick={() => onStartConversation?.(questionForNeed(need.id))}
                                 >
                                   {' '}
-                                  {t('대화로 정보 추가하기')} <Icon name="arrow" size={16} />
+                                  {t('AI에게 물어보기')} <Icon name="arrow" size={16} />
                                 </button>
                               )}
                             </article>
@@ -803,15 +878,38 @@ export default function MonitoringPanel({
                             ? t(
                                 '아직 신청 진행 기록이 없어요. 관련 지원 후보에서 신청 준비 중 또는 신청 완료로 표시하면 여기에 모아볼 수 있어요.',
                               )
-                            : !snapshot.profile
+                            : assistant && !snapshot.enabled && !snapshot.last_checked_at
                               ? t(
-                                  '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.',
+                                  '내 정보가 저장됐어요. 새 공고 안내를 켜면 관련 지원을 찾아드려요.',
                                 )
-                              : t(
-                                  '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.',
-                                )}
+                              : !snapshot.profile
+                                ? t(
+                                    '아직 저장한 생활정보가 없어요. 내 상황을 추가하고 지속 안내를 켜면 관련 지원 후보를 찾아드려요.',
+                                  )
+                                : t(
+                                    '현재 등록된 공고에서 관련 지원 후보를 찾지 못했어요. 받을 수 있는 지원이 없다는 뜻은 아니에요. 새 공고가 확인되면 여기서 안내해요.',
+                                  )}
                         </p>
                       )}
+                      {assistant &&
+                        view === 'candidates' &&
+                        !snapshot.enabled &&
+                        !displayedCandidates.length && (
+                          <button
+                            className="button secondary"
+                            disabled={!!busy}
+                            onClick={() =>
+                              void change(
+                                'preferences',
+                                (options) => api.preferences(true, options),
+                                '지속 안내를 켰어요.',
+                                (value) => setEnabled(value.enabled),
+                              )
+                            }
+                          >
+                            {t('새 공고 안내 켜기')}
+                          </button>
+                        )}
                       {displayedCandidates.length > 3 && (
                         <div className="monitoring-actions">
                           {candidateLimit < displayedCandidates.length && (
@@ -1013,125 +1111,61 @@ export default function MonitoringPanel({
   );
 }
 
-function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onStartConversation }) {
+function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, actionId }) {
   const { t } = useI18n();
-
   return (
-    <div className="monitoring-dashboard-grid">
-      <article className="monitoring-dashboard-card monitoring-dashboard-profile">
-        <div className="monitoring-dashboard-card-title">
-          <Icon name="user" size={22} />
-          <h3>{t('내 상황 요약')}</h3>
+    <div className="assistant-summary">
+      <div className="assistant-summary-profile">
+        <div>
+          <h3>
+            <Icon name="user" size={20} />
+            {t('내 정보')}
+          </h3>
+          {overview.facts.length > 0 ? (
+            <ul className="monitoring-fact-chips">
+              {overview.facts.map((fact) => {
+                const year = /^(\d+)년 준공$/.exec(fact)?.[1];
+                return <li key={fact}>{year ? t('{year}년 준공', { year }) : t(fact)}</li>;
+              })}
+            </ul>
+          ) : (
+            <p>{t('생활정보를 더 입력하면 지원을 찾는 데 도움이 돼요.')}</p>
+          )}
         </div>
-        {overview.facts.length > 0 ? (
-          <ul className="monitoring-fact-chips">
-            {overview.facts.map((fact) => {
-              const year = /^(\d+)년 준공$/.exec(fact)?.[1];
-              return <li key={fact}>{year ? t('{year}년 준공', { year }) : t(fact)}</li>;
-            })}
-          </ul>
-        ) : (
-          <p className="monitoring-card-empty">{t('아직 저장한 생활정보가 없어요.')}</p>
-        )}
-        <p className="monitoring-card-note">
-          {snapshot.profile
-            ? t('직접 저장한 정보로 살펴봐요. 상황이 달라지면 알려주세요.')
-            : t('주거·일·재난 피해 등 필요한 정보만 추가해 주세요.')}
-        </p>
-        <button className="text-button" disabled={disabled} onClick={onEdit}>
-          {snapshot.profile ? t('생활정보 수정하기') : t('생활정보 추가하기')}{' '}
-          <Icon name="arrow" size={16} />
+        <button id={actionId} className="text-button" disabled={disabled} onClick={onEdit}>
+          {t('내 정보 수정')}
+          <Icon name="right" size={16} />
         </button>
-      </article>
-      <article className="monitoring-dashboard-card">
-        <div className="monitoring-dashboard-card-title">
-          <Icon name="sparkles" size={22} />
-          <h3>{t('새 안내')}</h3>
-          <strong className="monitoring-count">
-            {snapshot.unread_count}
-            <small>{t('개')}</small>
+      </div>
+      <div className="assistant-summary-counts">
+        <button
+          onClick={() => onView('alerts')}
+          aria-label={t('새 안내 {count}개 보기', { count: snapshot.unread_count })}
+        >
+          <Icon name="sparkles" size={18} />
+          {t('새 안내')} <strong>{snapshot.unread_count}</strong>
+        </button>
+        <button
+          onClick={() => onView('progress')}
+          aria-label={t('신청 현황 {count}개 보기', { count: overview.progress.length })}
+        >
+          <Icon name="bookmark" size={18} />
+          {t('신청 현황')} <strong>{overview.progress.length}</strong>
+        </button>
+        <span>{snapshot.enabled ? t('새 공고 안내 켜짐') : t('새 공고 안내 꺼짐')}</span>
+      </div>
+      {overview.questions.length > 0 && (
+        <button className="assistant-next-information" onClick={() => onView('questions')}>
+          <span>
+            <Icon name="info" size={19} />
+            {t('더 정확한 안내를 위해 확인할 정보가 있어요.')}
+          </span>
+          <strong>
+            {t('{count}개 확인하기', { count: overview.questions.length })}
+            <Icon name="right" size={16} />
           </strong>
-        </div>
-        {overview.newAlerts.length ? (
-          <ul className="monitoring-card-list">
-            {overview.newAlerts.slice(0, 2).map((alert) => (
-              <li key={alert.id}>{alert.title}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="monitoring-card-empty">
-            {snapshot.enabled
-              ? t('새로 도착한 안내가 없어요.')
-              : t('지속 안내를 켜면 새 공고와 변경 내용을 모아드려요.')}
-          </p>
-        )}
-        <button className="text-button" onClick={() => onView('alerts')}>
-          {' '}
-          {t('안내함 확인하기')} <Icon name="arrow" size={16} />
         </button>
-      </article>
-      <article className="monitoring-dashboard-card">
-        <div className="monitoring-dashboard-card-title">
-          <Icon name="help" size={22} />
-          <h3>{t('추가 확인 정보')}</h3>
-          <strong className="monitoring-count">
-            {overview.questions.length}
-            <small>{t('개')}</small>
-          </strong>
-        </div>
-        {overview.questions.length ? (
-          <ul className="monitoring-card-list">
-            {overview.questions.slice(0, 2).map((item) => (
-              <li key={item.question}>{item.question}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="monitoring-card-empty">
-            {snapshot.profile
-              ? t('현재 안내에서 추가로 요청한 정보가 없어요. 신청 자격은 공고별로 확인해 주세요.')
-              : t('궁금한 상황을 이야기하면 필요한 정보를 하나씩 확인해요.')}
-          </p>
-        )}
-        {overview.questions.length ? (
-          <button className="text-button" onClick={() => onView('questions')}>
-            {' '}
-            {t('확인할 정보 살펴보기')} <Icon name="arrow" size={16} />
-          </button>
-        ) : (
-          <button className="text-button" onClick={() => onStartConversation?.()}>
-            {' '}
-            {t('대화로 상황 추가하기')} <Icon name="arrow" size={16} />
-          </button>
-        )}
-      </article>
-      <article className="monitoring-dashboard-card">
-        <div className="monitoring-dashboard-card-title">
-          <Icon name="bookmark" size={22} />
-          <h3>{t('신청 진행 상태')}</h3>
-        </div>
-        <dl className="monitoring-progress-counts">
-          <div>
-            <dt>{t('준비 중')}</dt>
-            <dd>{overview.progressCounts.preparing}</dd>
-          </div>
-          <div>
-            <dt>{t('신청 완료')}</dt>
-            <dd>{overview.progressCounts.applied}</dd>
-          </div>
-          <div>
-            <dt>{t('확인 완료')}</dt>
-            <dd>{overview.progressCounts.completed}</dd>
-          </div>
-        </dl>
-        <p className="monitoring-card-note">
-          {' '}
-          {t('직접 표시한 진행 상태예요. 기관의 접수 결과와는 별도로 관리해요.')}{' '}
-        </p>
-        <button className="text-button" onClick={() => onView('progress')}>
-          {' '}
-          {t('진행 중인 지원 보기')} <Icon name="arrow" size={16} />
-        </button>
-      </article>
+      )}
     </div>
   );
 }
