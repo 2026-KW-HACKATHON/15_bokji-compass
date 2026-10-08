@@ -78,9 +78,23 @@ export function financeQuestions(draft) {
           '거주 지역',
           financeRegions,
           draft.region === 'jeonnam_gwangju'
-            ? '통합 지역의 재산 공제 기준은 추가 확인이 필요해요. 관련 계산 결과는 ‘확인 필요’로 표시합니다.'
+            ? '전남광주통합특별시를 선택하면 실제 거주 권역을 추가로 선택해 주세요.'
             : '전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.',
         ),
+        {
+          ...select(
+            'region_subdivision',
+            'region-subdivision',
+            '전남광주통합특별시 거주 권역',
+            [
+              ['gwangju', '광주광역시'],
+              ['other', '그 외 지역'],
+            ],
+            '거주지에 해당하는 권역을 선택해 주세요.',
+            (profile) => profile.region === 'jeonnam_gwangju',
+          ),
+          required: true,
+        },
         select(
           'household_size',
           'household',
@@ -309,6 +323,12 @@ export function validateQuestion(question, draft) {
           min: field.min ?? 0,
           max: field.max ?? MAX_MONEY,
         });
+      } else if (
+        field.type === 'select' &&
+        field.required &&
+        (value === null || value === undefined || value === '')
+      ) {
+        throw new Error(`${field.label}을(를) 선택해 주세요.`);
       } else if (
         field.type === 'select' &&
         !field.options.some(([key]) => String(key) === String(value ?? 'unknown'))

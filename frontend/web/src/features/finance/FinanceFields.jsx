@@ -74,7 +74,7 @@ function FinanceField({ field, draft, onChange, easy }) {
           />
           <span>
             {field.label}
-            {field.optional && <small className="finance-optional">선택 · 필수 아님</small>}
+            {field.optional && <small className="finance-optional">(선택)</small>}
           </span>
         </label>
         {field.hint && (
@@ -90,10 +90,15 @@ function FinanceField({ field, draft, onChange, easy }) {
         <label htmlFor={field.id}>{field.label}</label>
         <select
           id={field.id}
-          value={value ?? 'unknown'}
+          value={value ?? (field.required ? '' : 'unknown')}
           aria-describedby={hintId}
           onChange={(event) => onChange(field.path, event.target.value)}
         >
+          {field.required && (
+            <option value="" disabled>
+              선택해 주세요
+            </option>
+          )}
           {field.options.map(([key, label]) => (
             <option key={key} value={key}>
               {label}

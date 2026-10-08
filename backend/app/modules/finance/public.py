@@ -245,9 +245,15 @@ def deduct_in_order(balances, amount):
 
 def recognized_assets(profile, *, financial_rate=D("0.0626")):
     missing, breakdown = [], []
-    if profile.region not in REGIONAL_ALLOWANCES:
+    region = profile.region
+    if region == "jeonnam_gwangju":
+        region = {
+            "gwangju": "metropolitan",
+            "other": "other",
+        }.get(profile.region_subdivision)
+    if region not in REGIONAL_ALLOWANCES:
         missing.append(
-            "전남광주통합특별시에 적용할 기본재산 공제 기준을 담당 기관에 확인해 주세요."
+            "전남광주통합특별시 안의 거주 권역을 선택해 기본재산 공제 기준을 확인해 주세요."
             if profile.region == "jeonnam_gwangju"
             else "기본재산 공제에 사용할 거주 지역을 선택해 주세요."
         )
@@ -265,7 +271,7 @@ def recognized_assets(profile, *, financial_rate=D("0.0626")):
     missing.extend(car_missing)
     if missing:
         return None, missing, car_breakdown
-    allowance, cap = REGIONAL_ALLOWANCES[profile.region]
+    allowance, cap = REGIONAL_ALLOWANCES[region]
     residence = D(profile.assets.housing) + D(profile.assets.rental_deposit) * D("0.95")
     general = D(profile.assets.general + cars) + max(D(0), residence - cap)
     balances = [min(residence, D(cap)), general, D(max(0, profile.assets.financial - 5_000_000))]

@@ -320,11 +320,29 @@ test('large households keep the actual count and unified region without changing
   draft.members = Array.from({ length: 13 }, emptyMember);
   draft.region = 'jeonnam_gwangju';
   const household = financeQuestions(draft)[0];
+  const subregion = household.fields.find((field) => field.path === 'region_subdivision');
+  assert.deepEqual(
+    visibleFields(household, draft).map((field) => field.path),
+    ['region', 'region_subdivision', 'household_size'],
+  );
+  assert.deepEqual(
+    subregion.options.map(([, label]) => label),
+    ['광주광역시', '그 외 지역'],
+  );
+  assert.equal(validateQuestion(household, draft).field, 'finance-region-subdivision');
+  draft.region_subdivision = 'gwangju';
   assert.equal(validateQuestion(household, draft), null);
   const profile = toFinancialProfile(draft);
   assert.equal(profile.household_size, 13);
   assert.equal(profile.members.length, 13);
   assert.equal(profile.region, 'jeonnam_gwangju');
+  assert.equal(profile.region_subdivision, 'gwangju');
+  draft.region = 'other';
+  assert.equal(
+    visibleFields(household, draft).some((field) => field.path === 'region_subdivision'),
+    false,
+  );
+  assert.equal(toFinancialProfile(draft).region_subdivision, null);
   assert.equal(profile.household_scope_confirmed, false);
   assert.equal(profile.additional_review, false);
   for (const count of ['', 0, 101, '12.5']) {

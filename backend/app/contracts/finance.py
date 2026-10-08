@@ -75,6 +75,7 @@ class FinancialProfile(FinanceModel):
     region: Literal["seoul", "gyeonggi", "jeonnam_gwangju", "metropolitan", "other", "unknown"] = (
         "unknown"
     )
+    region_subdivision: Literal["gwangju", "other"] | None = None
     household_scope_confirmed: bool = Field(default=False, strict=True)
     minor_children: int | None = Field(default=None, strict=True, ge=0, le=100)
     recipient_status: Literal["none", "near_poor", "basic", "unknown"] = "unknown"

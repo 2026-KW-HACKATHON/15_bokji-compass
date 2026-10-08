@@ -109,6 +109,7 @@ export const emptyFinancialProfile = () => ({
   reference_year: 2026,
   household_size: 1,
   region: 'unknown',
+  region_subdivision: null,
   household_scope_confirmed: false,
   minor_children: null,
   recipient_status: 'unknown',
@@ -202,6 +203,10 @@ export function toFinancialProfile(draft) {
     }),
     household_size,
     region: choice(draft.region, financeRegions, '지역'),
+    region_subdivision:
+      draft.region === 'jeonnam_gwangju'
+        ? choice(draft.region_subdivision, [['gwangju'], ['other']], '통합특별시 권역')
+        : null,
     household_scope_confirmed: draft.household_scope_confirmed === true,
     minor_children,
     recipient_status: choice(draft.recipient_status, recipientTypes, '수급 상태'),

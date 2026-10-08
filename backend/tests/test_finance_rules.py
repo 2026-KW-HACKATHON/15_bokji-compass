@@ -70,6 +70,21 @@ def test_unified_region_requires_review_without_assuming_regional_allowance():
         assert any("전남광주통합특별시" in message for message in item["missing"])
 
 
+@pytest.mark.parametrize(
+    ("subdivision", "expected_allowance"),
+    [("gwangju", 77_000_000), ("other", 53_000_000)],
+)
+def test_unified_region_uses_selected_subdivision_allowance(subdivision, expected_allowance):
+    profile = facts(region="jeonnam_gwangju", region_subdivision=subdivision)
+    result = assessment(profile)
+    allowance = next(
+        item["amount"]
+        for item in result["breakdown"]
+        if item["label"] == "지역별 기본재산 공제 한도"
+    )
+    assert allowance == expected_allowance
+
+
 def car(**changes):
     return {
         "value": 4_999_999,

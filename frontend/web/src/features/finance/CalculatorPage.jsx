@@ -162,6 +162,12 @@ export default function CalculatorPage({
         setMessage('줄어든 가구원은 계산에서 제외했어요. 다시 늘리면 작성한 내용이 복구됩니다.');
       return;
     }
+    if (path === 'region') {
+      next.region = value;
+      next.region_subdivision = null;
+      change(next);
+      return;
+    }
     if (path === 'vehicle_status') {
       if (draft.vehicles.length) vehicleCache.current = draft.vehicles;
       next.vehicle_status = value;

@@ -134,8 +134,17 @@ test('household choices explain unified region, optional checks and actual large
 }) => {
   await start(page);
   await page.getByLabel('거주 지역', { exact: true }).selectOption('jeonnam_gwangju');
-  await expect(page.locator('#finance-region-hint')).toContainText('재산 공제 기준은 추가 확인');
-  await expect(page.getByText('선택 · 필수 아님', { exact: true })).toHaveCount(2);
+  await expect(page.locator('#finance-region-hint')).toContainText('실제 거주 권역');
+  const subregion = page.getByLabel('전남광주통합특별시 거주 권역', { exact: true });
+  await expect(subregion.locator('option')).toHaveText([
+    '선택해 주세요',
+    '광주광역시',
+    '그 외 지역',
+  ]);
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('전남광주통합특별시 거주 권역');
+  await subregion.selectOption('gwangju');
+  await expect(page.getByText('(선택)', { exact: true })).toHaveCount(2);
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   await expect(page.getByRole('checkbox').nth(0)).not.toBeChecked();
   await expect(page.getByRole('checkbox').nth(1)).not.toBeChecked();
@@ -157,6 +166,7 @@ test('household choices explain unified region, optional checks and actual large
   await page.getByRole('switch', { name: /쉬운 화면/ }).click();
   await expect(count).toHaveValue('13');
   await expect(page.getByLabel('거주 지역', { exact: true })).toHaveValue('jeonnam_gwangju');
+  await expect(subregion).toHaveValue('gwangju');
   await next(page);
   await expect(page.getByLabel('만 나이', { exact: true }).nth(12)).toHaveValue('47');
 });
