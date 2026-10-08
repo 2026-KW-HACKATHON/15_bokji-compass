@@ -110,6 +110,8 @@ def prepare_settings(state, data: RunInput) -> Settings:
 
 
 def scheduler(action: Literal["Status", "Install", "Remove"]) -> dict:
+    if action not in {"Status", "Install", "Remove"}:
+        raise OperationError("invalid_command")
     if os.name != "nt":
         return {"supported": False, "state": "unsupported"}
     executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / (
@@ -120,7 +122,7 @@ def scheduler(action: Literal["Status", "Install", "Remove"]) -> dict:
     if action == "Install":
         command.extend(["-EnableLiveCollection", "-PythonExecutable", sys.executable])
     result = subprocess.run(command, cwd=BACKEND_ROOT, capture_output=True, timeout=30,
-                            creationflags=subprocess.CREATE_NO_WINDOW)
+                            creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
     if result.returncode or len(result.stdout) > 65536:
         raise OperationError("schedule_failed")
     try:

@@ -27,6 +27,14 @@ class ControlInput(BaseModel):
 
 
 def command(action, *, target="backend", job_id=None):
+    if action not in {"Status", "Stop", "Restart"} or target not in {"backend", "frontend", "all"}:
+        raise RuntimeErrorCode("invalid_command")
+    if job_id is not None:
+        try:
+            if not isinstance(job_id, str) or str(UUID(job_id)) != job_id:
+                raise ValueError
+        except ValueError:
+            raise RuntimeErrorCode("invalid_command") from None
     executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / (
         "System32/WindowsPowerShell/v1.0/powershell.exe")
     args = [str(executable), "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -41,7 +49,7 @@ def status():
     if os.name != "nt":
         return {"supported": False, "mode": "unsupported"}
     result = subprocess.run(command("Status"), capture_output=True, timeout=15,
-                            creationflags=subprocess.CREATE_NO_WINDOW)
+                            creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
     if result.returncode or len(result.stdout) > 65536:
         raise RuntimeErrorCode("inspection_failed")
     try:
@@ -141,6 +149,7 @@ def start(state, data: ControlInput):
                 command(data.action.title(), target=data.target, job_id=job_id),
                 cwd=BACKEND_ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                shell=False,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
             )
         except (OSError, subprocess.SubprocessError):

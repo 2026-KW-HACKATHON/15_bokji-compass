@@ -6,8 +6,8 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.config import BACKEND_ROOT, load_settings
-from app.core.database import create_database_engine
+from app.core.config import load_settings
+from app.modules.auth.database import create_member_engine
 from app.modules.auth.migration import import_sqlite_accounts, restore_plaintext_data
 from app.modules.auth.privacy import PrivacyError
 from app.modules.auth.schema import initialize_auth_schema
@@ -15,13 +15,7 @@ from app.modules.finance.schema import initialize_finance_schema
 
 
 def member_engine(settings):
-    if settings.db_enabled:
-        return create_database_engine(settings)
-    path = settings.auth_sqlite_path
-    if not path.is_absolute():
-        path = BACKEND_ROOT / path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return create_engine("sqlite:///" + path.as_posix())
+    return create_member_engine(settings)
 
 
 def main():

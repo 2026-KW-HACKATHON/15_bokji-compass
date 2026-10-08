@@ -197,6 +197,7 @@ def stop_codex_process(process: subprocess.Popen) -> None:
         try:
             subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
                            capture_output=True, check=False, timeout=10,
+                           shell=False,
                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except (OSError, subprocess.TimeoutExpired):
             pass
@@ -317,7 +318,8 @@ def _extract_structured[T: StrictModel](
     with (output / "events.jsonl").open("wb") as stdout, (output / "stderr.log").open("wb") as err:
         try:
             process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=stdout, stderr=err,
-                                       cwd=workspace, env=cli_environment(), **process_options)
+                                       cwd=workspace, env=cli_environment(), shell=False,
+                                       **process_options)
         except OSError:
             raise CodexRunError(
                 "codex_start_failed: check CLI installation and permissions"

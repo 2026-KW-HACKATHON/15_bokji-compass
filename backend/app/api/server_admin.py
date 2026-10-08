@@ -2,7 +2,6 @@
 
 import subprocess
 from typing import Annotated
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -14,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.auth import LoginInput, Service, get_service, ip
 from app.api.policies import get_repository
 from app.core.config import BACKEND_ROOT
+from app.core.web_security import WRITE_METHODS, origin_key
 from app.modules.admin.access import admin_role
 from app.modules.auth.service import SESSION_SECONDS
 from app.modules.server_admin import public as console
@@ -61,19 +61,11 @@ def guard_console(request: Request):
         raise HTTPException(403, "같은 백엔드 주소에서 관리 페이지를 열어 주세요.")
     origin = request.headers.get("Origin")
     if origin is not None:
-        try:
-            supplied = urlsplit(origin)
-            own = urlsplit(str(request.base_url))
-            valid = (supplied.scheme in {"http", "https"} and not supplied.username
-                     and not supplied.password and supplied.hostname == own.hostname
-                     and supplied.port == own.port and supplied.scheme == own.scheme
-                     and supplied.path in {"", "/"} and not supplied.query
-                     and not supplied.fragment)
-        except ValueError:
-            valid = False
+        valid = (len(request.headers.getlist("origin")) == 1 and origin_key(origin) is not None
+                 and origin_key(origin) == origin_key(str(request.base_url)))
         if not valid:
             raise HTTPException(403, "같은 백엔드 주소에서 관리 페이지를 열어 주세요.")
-    if request.method in {"POST", "PATCH"} and request.headers.get("X-Auth-Request") != "1":
+    if request.method in WRITE_METHODS and request.headers.getlist("X-Auth-Request") != ["1"]:
         raise HTTPException(403, "올바른 관리자 요청이 아닙니다.")
 
 

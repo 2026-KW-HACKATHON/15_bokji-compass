@@ -6,6 +6,7 @@ import time
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import load_settings
+from app.core.database import create_database_engine
 from app.modules.auth.__main__ import member_engine
 from app.modules.auth.service import AuthService
 from app.modules.monitoring.schema import initialize_monitoring_schema
@@ -31,12 +32,14 @@ def main(argv=None):
     if not settings.auth_enabled and not args.init:
         raise SystemExit("Monitoring requires AUTH_ENABLED=true.")
     engine = member_engine(settings)
+    policy_engine = None
     try:
         if args.init:
             initialize_monitoring_schema(engine)
             print("Monitoring profile, application and inbox tables initialized.")
             return
-        repository = PolicyRepository(engine, auto_publish=settings.policy_auto_publish)
+        policy_engine = create_database_engine(settings)
+        repository = PolicyRepository(policy_engine, auto_publish=settings.policy_auto_publish)
         store = MonitoringStore(engine)
         service = AuthService(engine, settings)
         while True:
@@ -59,6 +62,8 @@ def main(argv=None):
         raise SystemExit("Monitoring storage setup failed: " + type(exc).__name__) from None
     finally:
         engine.dispose()
+        if policy_engine is not None:
+            policy_engine.dispose()
 
 
 if __name__ == "__main__":

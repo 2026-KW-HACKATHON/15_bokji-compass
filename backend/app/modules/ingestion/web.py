@@ -15,6 +15,28 @@ from app.modules.collectors.data_go_kr import CollectionTransportError
 from app.modules.discovery.models import canonicalize_url
 
 
+def public_address(value):
+    """Require unicast Internet addresses, including embedded IPv4 destinations."""
+    try:
+        if "%" in value:
+            return False
+        address = ipaddress.ip_address(value)
+        if (not address.is_global or address.is_multicast or address.is_reserved
+                or address.is_unspecified or address.is_loopback or address.is_link_local):
+            return False
+        if isinstance(address, ipaddress.IPv6Address):
+            if address.is_site_local or address.sixtofour is not None or address.teredo is not None:
+                return False
+            if address.ipv4_mapped is not None:
+                return public_address(str(address.ipv4_mapped))
+            # Translation prefixes can route globally classified IPv6 to private IPv4.
+            if address in ipaddress.ip_network("64:ff9b::/96"):
+                return public_address(str(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)))
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 def resolve_public(host, port, timeout=15):
     result = Queue(maxsize=1)
     def lookup():
@@ -30,7 +52,7 @@ def resolve_public(host, port, timeout=15):
         raise CollectionTransportError("notice_dns_timeout", retryable=True) from None
     if addresses is None:
         raise CollectionTransportError("notice_dns_failed", retryable=True)
-    if not addresses or any(not ipaddress.ip_address(row[4][0]).is_global for row in addresses):
+    if not addresses or any(not public_address(row[4][0]) for row in addresses):
         raise CollectionTransportError("notice_private_address")
     return addresses[0][4][0]
 

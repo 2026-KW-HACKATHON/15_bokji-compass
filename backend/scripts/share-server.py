@@ -14,7 +14,9 @@ from app.main import create_app  # noqa: E402
 
 def share_settings() -> Settings:
     configuration = load_settings().model_dump()
-    configuration.update(server_host="127.0.0.1", server_port=8001, cors_origins=[])
+    configuration.update(
+        app_env="production", server_host="127.0.0.1", server_port=8001, cors_origins=[]
+    )
     return Settings(
         _env_file=None,
         **configuration,

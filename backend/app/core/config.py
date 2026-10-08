@@ -11,7 +11,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True
+    )
 
     app_env: Literal["development", "test", "production"] = "development"
     server_host: str = "127.0.0.1"
@@ -35,6 +37,10 @@ class Settings(BaseSettings):
     kakao_redirect_uri: str = ""
     kakao_web_url: str = ""
     auth_sqlite_path: Path = Path("data/auth.sqlite3")
+    # Optional member-only DB identity; public policy queries continue to use DB_USER.
+    auth_db_user: str = ""
+    auth_db_password: SecretStr = SecretStr("")
+    auth_db_ssl_ca: str = ""
     smtp_host: str = ""
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_security: Literal["starttls", "ssl"] = "starttls"
@@ -101,6 +107,8 @@ class Settings(BaseSettings):
             (self.db_host, self.db_name, self.db_user, self.db_password.get_secret_value())
         ):
             raise ValueError("DB_ENABLED requires host, database, user and password")
+        if bool(self.auth_db_user) != bool(self.auth_db_password.get_secret_value()):
+            raise ValueError("AUTH_DB_USER and AUTH_DB_PASSWORD must be configured together")
         return self
 
     @property

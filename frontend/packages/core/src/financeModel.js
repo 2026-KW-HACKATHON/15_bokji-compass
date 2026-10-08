@@ -1,3 +1,5 @@
+import { safeWebUrl } from './safeUrl.js';
+
 export const MAX_MONEY = 1_000_000_000_000;
 export const MAX_HOUSEHOLD_SIZE = 100;
 export const financeRegions = [
@@ -275,12 +277,7 @@ export const formatMoney = (value) =>
     ? formatter.format(value) + '원'
     : '확인 필요';
 export function officialSourceUrl(value) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
-  } catch {
-    return null;
-  }
+  return safeWebUrl(value, { httpsOnly: true });
 }
 export function parseCalculation(value) {
   const numberOrNull = (item) =>

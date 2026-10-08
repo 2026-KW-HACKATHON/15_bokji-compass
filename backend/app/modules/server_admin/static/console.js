@@ -253,7 +253,7 @@
     else section.body.replaceChildren(table(["공고", "변경된 항목", "확인 시간"], items.map((row) => { const fields = element("div"); for (const value of row.changed_fields || []) fields.append(element("span", "code-chip", value)); return [element("strong", "", row.policy_key), fields, date(row.observed_at)]; })));
     $("collection-content").replaceChildren(section.node);
   }
-  function safeLink(url, title) { try { const parsed = new URL(url); if (!["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password) return element("strong", "", title); const link = element("a", "text-link", title); link.href = parsed.href; link.target = "_blank"; link.rel = "noopener noreferrer"; link.append(icon("link")); return link; } catch { return element("strong", "", title); } }
+  function safeLink(url, title) { try { if (typeof url !== "string" || url.length > 2048 || /[\u0000-\u0020\u007f\\]/.test(url) || !/^https?:\/\//i.test(url)) return element("strong", "", title); const parsed = new URL(url); if (!["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password) return element("strong", "", title); const link = element("a", "text-link", title); link.href = parsed.href; link.target = "_blank"; link.rel = "noopener noreferrer"; link.append(icon("link")); return link; } catch { return element("strong", "", title); } }
   function renderCandidates(items) {
     const section = panel("외부 공고 후보", "검색 결과의 후보입니다. 원문과 기존 공고를 검토한 뒤 수집 대상으로 등록하세요.");
     if (!items.length) empty(section.body, "아직 저장된 검색 후보가 없습니다.", "외부 검색을 활성화하고 스케줄이 실행되면 후보가 저장됩니다.");

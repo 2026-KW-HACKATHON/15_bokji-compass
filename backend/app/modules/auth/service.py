@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import re
 import secrets
 import time
 
@@ -42,6 +43,12 @@ def password_hash(password: str, salt: str | None = None) -> str:
 
 
 def check_password(password: str, encoded: str) -> bool:
+    if not isinstance(encoded, str) or not re.fullmatch(
+        r"scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}", encoded
+    ):
+        # Corrupt/unsupported stored credentials never produce an error or skip the KDF.
+        password_hash(password, "0" * 32)
+        return False
     return hmac.compare_digest(password_hash(password, encoded.split("$")[1]), encoded)
 
 
@@ -92,15 +99,20 @@ class AuthService:
             ).first()
         return {"username": username, "available": exists is None}
 
-    def update_profile(self, account_id: str, data):
-        with self.engine.begin() as connection:
-            account = (
-                connection.execute(select(accounts).where(accounts.c.id == account_id))
-                .mappings()
-                .first()
-            )
-            if account is None:
-                raise HTTPException(401, "로그인이 필요해요.")
+    def update_profile(self, account_id: str, data, *, token: str | None = None):
+        # HTTP callers supply the current web token; tokenless calls are trusted local operations.
+        with account_write_transaction(self.engine) as connection:
+            account = require_active_account(connection, account_id)
+            if token is not None:
+                active = connection.execute(
+                    select(sessions.c.token_hash).where(
+                        sessions.c.account_id == account_id,
+                        sessions.c.token_hash == self.session_digest(token),
+                        sessions.c.expires_at > int(time.time()),
+                    ).with_for_update()
+                ).first()
+                if active is None:
+                    raise HTTPException(401, "로그인이 필요해요.")
             self.private_account(account)
             values = data.model_dump(
                 include={"name", "age", "gender", "region", *ADDRESS_FIELDS}, exclude_unset=True
@@ -361,12 +373,14 @@ class AuthService:
         return self.issue_session(account, previous, mobile=mobile, console=console)
 
     def issue_session(self, account, previous=None, *, mobile=False, console=False):
-        user = self.public_account(account)
         token = secrets.token_urlsafe(32)
         now = int(time.time())
         with account_write_transaction(self.engine) as connection:
             # An in-flight login must not recreate a session after account withdrawal.
-            require_active_account(connection, account["id"])
+            current = require_active_account(connection, account["id"])
+            if not hmac.compare_digest(current["password_hash"], account["password_hash"]):
+                raise HTTPException(401, "아이디 또는 비밀번호를 확인해 주세요.")
+            user = self.public_account(current)
             connection.execute(delete(sessions).where(sessions.c.expires_at <= now))
             if previous:
                 connection.execute(

@@ -1,5 +1,7 @@
 # 배포 구성 예시
 
+웹 공격 방어의 요청 출처 검사·JSON 본문 한도·CSP 변경은 [웹 보안 안내](../../../backend/docs/web-security.md)를 따릅니다. 공유 API는 공개 실행 시 production 설정으로 Secure 쿠키를 사용하며, 빌드 후 공유 API와 Caddy를 다시 불러와야 새 코드와 헤더가 적용됩니다.
+
 회원 주소 검색은 카카오 우편번호 SDK를 버튼 클릭 시 불러옵니다. `Caddyfile.tunnel`의 CSP에는 스크립트 `https://t1.kakaocdn.net`과 프레임 `https://postcode.map.kakao.com`, `https://postcode.map.daum.net`을 허용합니다. 별도 배포에서 CSP를 설정한다면 같은 출처를 허용해야 합니다. MySQL 배포에는 `python -m app.modules.auth init`으로 회원 주소 열도 준비합니다. [회원 주소 입력](../../docs/member-address.md).
 
 ## Windows PC 외부 시연
