@@ -219,6 +219,8 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if request.url.path.startswith(
@@ -237,6 +239,13 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
             )
         ):
             response.headers["Cache-Control"] = "no-store"
+        if request.url.path.startswith("/v1/"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            )
+            response.headers.add_vary_header(
+                "Origin, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest"
+            )
         if request.url.path == "/" or request.url.path.startswith(
             ("/v1/server-admin/", "/server-admin-assets/")
         ):
