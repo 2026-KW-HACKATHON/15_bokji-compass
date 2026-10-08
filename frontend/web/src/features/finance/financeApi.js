@@ -72,9 +72,15 @@ export function createFinanceApi({
   }
   return {
     rules: ({ signal } = {}) => request('rules', { signal }),
-    calculate: async (profile, { signal } = {}) =>
+    calculate: async (profile, { signal, allowApproximation = false } = {}) =>
       parseCalculation(
-        await request('calculate', { body: { profile: toFinancialProfile(profile) }, signal }),
+        await request('calculate', {
+          body: {
+            profile: toFinancialProfile(profile),
+            allow_approximation: allowApproximation,
+          },
+          signal,
+        }),
       ),
     getProfile: async ({ signal } = {}) =>
       stored(await request('profile', { member: true, signal })),

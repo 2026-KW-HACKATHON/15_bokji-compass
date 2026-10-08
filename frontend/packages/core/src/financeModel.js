@@ -305,6 +305,7 @@ export function parseCalculation(value) {
       numberOrNull(value.assets[key]),
     ) ||
     !Array.isArray(value.assessments) ||
+    (value.approximations !== undefined && !stringList(value.approximations)) ||
     !value.assessments.every(
       (item) =>
         typeof item.rule_id === 'string' &&

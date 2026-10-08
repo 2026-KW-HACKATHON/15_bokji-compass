@@ -77,11 +77,11 @@ const rows = [
     "計算した満年齢を入力してください",
   ],
   [
-    "오늘 기준으로 올해 연도에서 태어난 연도를 빼세요. 올해 생일이 아직 오지 않았다면 1을 더 빼세요. 예: 연도 차이가 66이면 생일이 지났거나 오늘일 때 만 66세, 생일 전이면 만 65세예요.",
-    "Subtract the birth year from the current year. Subtract one more if the birthday has not occurred yet this year. For example, a year difference of 66 means age 66 on or after the birthday, or 65 before it.",
-    "用今年年份减去出生年份。若今年生日尚未到来，再减1。例如相差66年，生日当天或之后为66周岁，生日之前为65周岁。",
-    "Lấy năm hiện tại trừ năm sinh. Trừ thêm 1 nếu chưa đến sinh nhật năm nay. Ví dụ chênh lệch 66 năm: đã đến sinh nhật là 66 tuổi, trước sinh nhật là 65 tuổi.",
-    "今年から出生年を引き、今年の誕生日がまだならさらに1を引きます。差が66年なら誕生日以降は満66歳、誕生日前は満65歳です。",
+    "**만 나이 계산 방법**\n1. **올해 연도 − 출생 연도**를 계산합니다.\n2. **올해 생일이 지나지 않았다면** 결과에서 **1년**을 뺍니다.\n예) 차이가 66세인 경우: 생일 지남 → **만 66세** / 생일 전 → **만 65세**",
+    "**How to calculate age in full years**\n1. Calculate the current year minus the birth year.\n2. **If your birthday has not occurred yet this year**, subtract **one year** from the result.\nExample: If the difference is 66, you are **66** after your birthday and **65** before it.",
+    "**周岁年龄计算方法**\n1. 计算今年年份减去出生年份。\n2. **如果今年生日还没到**，结果减去**1岁**。\n例如：相差66岁时，生日已过为**66周岁**，生日之前为**65周岁**。",
+    "**Cách tính tuổi tròn**\n1. Tính năm hiện tại trừ năm sinh.\n2. **Nếu chưa đến sinh nhật năm nay**, hãy trừ **1 tuổi** khỏi kết quả.\nVí dụ: Nếu chênh lệch là 66, đã qua sinh nhật là **66 tuổi**, trước sinh nhật là **65 tuổi**.",
+    "**満年齢の計算方法**\n1. 今年の年から出生年を引きます。\n2. **今年の誕生日をまだ迎えていない場合**、結果から**1歳**引きます。\n例：差が66歳の場合、誕生日以降は**満66歳**、誕生日前は**満65歳**です。",
   ],
   [
     "이 가구원의 공제 유형",
@@ -739,6 +739,34 @@ const rows = [
     "车辆{index}的估值",
     "Giá trị xe {index}",
     "車両{index}の価額",
+  ],
+  [
+    "미지원 기준을 임시 대체해 근사 계산",
+    "Use proxy assumptions to calculate an approximation",
+    "使用临时替代标准进行近似计算",
+    "Dùng tiêu chuẩn thay thế tạm thời để tính gần đúng",
+    "未対応の基準を一時的に代用して概算する",
+  ],
+  [
+    "선택하면 전남광주통합특별시는 ‘그 밖의 지역’ 기준을, 세후 근로소득은 입력액 그대로 임시 적용합니다. 공식 기준으로 환산한 값이 아니며 자격 판단에 사용할 수 없습니다.",
+    "If selected, the calculator temporarily uses the ‘other regions’ rules for Jeonnam–Gwangju and applies reported after-tax wages as entered. These are not official conversions and cannot determine eligibility.",
+    "选择后，计算器将临时对全南光州统合特别市采用“其他地区”标准，并直接使用输入的税后工资。这些并非官方换算值，不能用于资格判断。",
+    "Nếu chọn, máy tính tạm dùng tiêu chuẩn ‘khu vực khác’ cho Jeonnam–Gwangju và dùng nguyên mức lương sau thuế đã nhập. Đây không phải quy đổi chính thức và không thể xác định điều kiện hưởng.",
+    "選択すると、全南光州統合特別市には「その他地域」の基準を、税引後給与には入力額をそのまま一時適用します。公式換算値ではなく、資格判定には使用できません。",
+  ],
+  [
+    "근사 계산 참고값",
+    "Approximate reference calculation",
+    "近似参考计算",
+    "Kết quả tính gần đúng để tham khảo",
+    "概算参考値",
+  ],
+  [
+    "아래 금액은 공식 기준이 등록되지 않았거나 입력한 소득 기준이 다른 항목을 임시 대체해 계산한 값입니다. 공식 산정값이나 수급·입주 자격 판정이 아닙니다.",
+    "The amounts below use temporary proxies where official rules are unavailable or the reported income basis differs. They are not official calculations or eligibility decisions.",
+    "以下金额在缺少官方标准或输入收入依据不同时使用临时替代值计算，并非官方计算结果或资格判定。",
+    "Các khoản tiền dưới đây dùng giả định thay thế tạm thời khi chưa có tiêu chuẩn chính thức hoặc cơ sở thu nhập khác. Đây không phải kết quả chính thức hay quyết định điều kiện.",
+    "以下の金額は、公式基準が未登録または入力した所得基準が異なる項目を一時的に代用して計算した値です。公式算定額や資格判定ではありません。",
   ],
 ];
 export const financeMessages = Object.fromEntries(

@@ -142,7 +142,7 @@ test('household choices explain unified region, optional checks and actual large
   await expect(page.locator('#finance-region-hint')).toContainText(
     '통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요.',
   );
-  await expect(page.getByText('선택 · 필수 아님', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('선택 사항', { exact: true })).toHaveCount(2);
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   await expect(page.getByRole('checkbox').nth(0)).not.toBeChecked();
   await expect(page.getByRole('checkbox').nth(1)).not.toBeChecked();
@@ -228,6 +228,27 @@ test('results group missing information once and keep one footer notice in both 
   await expect(footerNotice).toBeVisible();
   await expect(unknownChecks).toHaveText(['확인 필요', '확인 필요']);
   await expect(incomplete.locator('li')).toHaveCount(1);
+});
+
+test('approximation requires opt-in and is visibly labeled in results', async ({ page }) => {
+  let submitted;
+  await page.route('**/v1/finance/calculate', (route) => {
+    submitted = route.request().postDataJSON();
+    const result = calculation();
+    result.approximations = ['전남광주통합특별시에 그 밖의 지역 기준을 임시 적용했어요.'];
+    return route.fulfill({ json: result });
+  });
+  await start(page);
+  await review(page);
+  const option = page.getByRole('checkbox', { name: '미지원 기준을 임시 대체해 근사 계산' });
+  await expect(option).not.toBeChecked();
+  await option.check();
+  await page.getByRole('button', { name: '계산하기', exact: true }).click();
+  await expect(page.locator('.finance-approximation-notice')).toContainText('근사 계산 참고값');
+  await expect(page.locator('.finance-approximation-notice')).toContainText(
+    '그 밖의 지역 기준을 임시 적용',
+  );
+  expect(submitted.allow_approximation).toBe(true);
 });
 
 test('loading a large household shows the actual count in review and editing', async ({ page }) => {

@@ -61,7 +61,7 @@
 | 경로                              | 인증·입력                             | 결과                                                        |
 | --------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
 | `GET /v1/finance/rules`           | 비회원 가능                           | 지원 연도·규칙 버전·공식 출처                               |
-| `POST /v1/finance/calculate`      | 비회원 가능, `{profile}`              | 중위소득·자산·사업별 참고 계산                              |
+| `POST /v1/finance/calculate`      | 비회원 가능, `{profile, allow_approximation?}` | 중위소득·자산·사업별 참고 계산. 근사 옵션은 명시적 선택 시만 적용 |
 | `GET /v1/finance/profile`         | 회원 세션                             | `{profile, calculation, updated_at}`, 미저장 시 모두 `null` |
 | `POST /v1/finance/profile`        | 회원 세션, `{profile, consent: true}` | 저장한 원입력과 서버 재계산 결과                            |
 | `POST /v1/finance/profile/delete` | 회원 세션, `{}`                       | `{deleted: true}`                                           |

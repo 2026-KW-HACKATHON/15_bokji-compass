@@ -207,13 +207,21 @@ test('all money fields use manwon only for UI drafts and API normalization stays
   const submitted = [];
   const api = createFinanceApi({
     fetchImpl: async (_, options) => {
-      submitted.push(JSON.parse(options.body).profile);
+      submitted.push(JSON.parse(options.body));
       return response(calculation());
     },
   });
   await api.calculate(draft);
   await api.calculate(raw);
-  assert.deepEqual(submitted, [raw, raw]);
+  await api.calculate(raw, { allowApproximation: true });
+  assert.deepEqual(
+    submitted.map(({ profile }) => profile),
+    [raw, raw, raw],
+  );
+  assert.deepEqual(
+    submitted.map(({ allow_approximation }) => allow_approximation),
+    [false, false, true],
+  );
 });
 
 test('money validation handles editable invalid text and keeps income basis conditional', () => {
@@ -367,6 +375,7 @@ test('calculation requires usable server fields and permits unknown results with
   assert.throws(() =>
     parseCalculation({ ...data, assessments: [{ ...data.assessments[0], missing: null }] }),
   );
+  assert.throws(() => parseCalculation({ ...data, approximations: [1] }));
   assert.equal(officialSourceUrl('javascript:alert(1)'), null);
   assert.equal(officialSourceUrl('https://secret:password@example.com/'), null);
   assert.equal(officialSourceUrl('https://www.mohw.go.kr/'), 'https://www.mohw.go.kr/');

@@ -91,6 +91,9 @@ export default function DetailedCalculatorPage({
   const [step, setStep] = useState(session?.step ?? 'household');
   const [calculation, setCalculation] = useState(session?.calculation ?? null);
   const [consent, setConsent] = useState(false);
+  const [allowApproximation, setAllowApproximation] = useState(
+    session?.allowApproximation === true,
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -148,8 +151,9 @@ export default function DetailedCalculatorPage({
       dirty: dirty.current,
       memberCache: memberCache.current,
       vehicleCache: vehicleCache.current,
+      allowApproximation,
     });
-  }, [draft, mode, step, calculation, onSessionChange]);
+  }, [draft, mode, step, calculation, allowApproximation, onSessionChange]);
   useEffect(
     () => () => {
       revision.current += 1;
@@ -310,7 +314,7 @@ export default function DetailedCalculatorPage({
     setCalculation(null);
     move('result');
     perform('calculate', async (signal) => {
-      const result = await api.calculate(raw, { signal });
+      const result = await api.calculate(raw, { signal, allowApproximation });
       return () => {
         setCalculation(result);
         focusHeading();
@@ -326,6 +330,7 @@ export default function DetailedCalculatorPage({
     memberCache.current = [];
     vehicleCache.current = [];
     setCalculation(saved.calculation);
+    setAllowApproximation(false);
     move(nextMode, 'household');
   }
   function save() {
@@ -372,6 +377,7 @@ export default function DetailedCalculatorPage({
     vehicleCache.current = [];
     setDraft(emptyFinancialProfile());
     setCalculation(null);
+    setAllowApproximation(false);
     setConsent(false);
     setConfirmDelete(false);
     onProfileChange(null);
@@ -635,6 +641,20 @@ export default function DetailedCalculatorPage({
               </button>
             </div>
             <FinanceReview questions={questions} sections={sections} draft={draft} onEdit={edit} />
+            <label className="finance-check finance-approximation-option">
+              <input
+                type="checkbox"
+                checked={allowApproximation}
+                onChange={(event) => setAllowApproximation(event.target.checked)}
+                disabled={Boolean(busy)}
+              />
+              <span>{t('미지원 기준을 임시 대체해 근사 계산')}</span>
+            </label>
+            <p className="finance-help">
+              {t(
+                '선택하면 전남광주통합특별시는 ‘그 밖의 지역’ 기준을, 세후 근로소득은 입력액 그대로 임시 적용합니다. 공식 기준으로 환산한 값이 아니며 자격 판단에 사용할 수 없습니다.',
+              )}
+            </p>
             <div className="finance-actions finance-step-actions">
               <button type="button" className="button primary" onClick={calculate}>
                 {' '}
