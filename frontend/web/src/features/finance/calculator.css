@@ -584,34 +584,14 @@
 .finance-check-state.over {
   color: #963e2d;
 }
-.finance-missing {
-  padding: 14px 16px;
-  border-radius: 8px;
-  background: #fffaed;
-}
-.finance-missing h4 {
-  margin: 0 0 8px;
-}
-.finance-missing ul,
 .finance-note-list {
   margin-block: 8px;
   padding-left: 22px;
   color: var(--muted);
   font-size: 0.9rem;
 }
-.finance-note-list li,
-.finance-missing li {
+.finance-note-list li {
   margin-block: 6px;
-}
-.finance-disclaimer {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-block: 24px;
-  padding: 18px;
-  background: #f5f7fa;
-  border-radius: 10px;
-  color: #46596c;
 }
 .finance-sources {
   margin-block: 24px;
@@ -669,7 +649,6 @@
 .easy-mode .finance-help,
 .easy-mode .finance-details > p,
 .easy-mode .finance-note-list,
-.easy-mode .finance-missing ul,
 .easy-mode .finance-reference,
 .easy-mode .finance-status,
 .easy-mode .finance-check-state,

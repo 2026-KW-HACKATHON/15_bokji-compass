@@ -1,5 +1,16 @@
 // The first column is the unchanged Korean UI source; other columns are en, zh, vi, ja.
 const rows = String.raw`
+[필수] | [Required] | [必选] | [Bắt buộc] | [必須]
+[선택] | [Optional] | [可选] | [Tùy chọn] | [任意]
+내용 보기 | View details | 查看详情 | Xem chi tiết | 詳細を見る
+항목을 눌러 전문을 확인하고 동의해 주세요. | Open each item to read the full notice, then choose your consent. | 点击各项查看完整说明，再选择是否同意。 | Mở từng mục để đọc toàn bộ thông báo, rồi chọn đồng ý. | 各項目を開いて全文を確認し、同意するか選んでください。
+선택 항목에 동의하지 않아도 가입할 수 있어요. | You can sign up without agreeing to optional items. | 不同意可选项也可以注册。 | Bạn vẫn có thể đăng ký mà không đồng ý với các mục tùy chọn. | 任意項目に同意しなくても登録できます。
+회원가입 개인정보 | Sign-up information | 注册个人信息 | Thông tin để đăng ký | 登録時の個人情報
+맞춤 안내용 개인정보 | Information for tailored guidance | 个性化指引的个人信息 | Thông tin để hướng dẫn phù hợp | 個別案内のための個人情報
+외부 AI 처리 및 국외이전 | External AI processing and overseas transfer | 外部AI处理与境外传输 | Xử lý bằng AI bên ngoài và chuyển ra nước ngoài | 外部AI処理と国外移転
+회원가입 개인정보 수집·이용 내용 보기 | View sign-up privacy details | 查看注册个人信息说明 | Xem chi tiết về thông tin cá nhân khi đăng ký | 登録時の個人情報の詳細を見る
+맞춤 안내용 개인정보 수집·이용 내용 보기 | View tailored guidance privacy details | 查看个性化指引的个人信息说明 | Xem chi tiết về thông tin cá nhân để hướng dẫn phù hợp | 個別案内の個人情報の詳細を見る
+외부 AI 처리 및 국외이전 내용 보기 | View external AI and overseas transfer details | 查看外部AI处理与境外传输说明 | Xem chi tiết về AI bên ngoài và chuyển ra nước ngoài | 外部AI処理と国外移転の詳細を見る
 인증번호를 보냈어요. | Verification code sent. | 验证码已发送。 | Đã gửi mã xác minh. | 認証コードを送信しました。
 이메일 인증이 완료됐어요. | Email verification is complete. | 邮箱验证已完成。 | Đã hoàn tất xác minh email. | メール認証が完了しました。
 회원가입이 완료됐어요. 로그인해 주세요. | Sign-up is complete. Please log in. | 注册已完成，请登录。 | Đã đăng ký thành công. Vui lòng đăng nhập. | 登録が完了しました。ログインしてください。

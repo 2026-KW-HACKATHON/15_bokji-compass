@@ -1,5 +1,14 @@
 # 공고 저장소
 
+2026-10-08: `catalog.card(record, full=False)`의 `audience`는 연령만이 아니라 원천
+지원 대상 전체를 표시합니다. 원문 대상이 없으면 확인된 개요/요건 근거로 보완하고
+관리자 표시 수정은 우선합니다. 빈 기타 조건 개요는 원문 대상·선정 기준 또는 확인된
+other 요건으로 보완합니다. `audience.audience_text(fields,overview,editorial=None)`는
+문자열, `audience.other_conditions(fields,overview)`는 문자열 목록을 반환합니다.
+사업주 대상의 업무용 보조공학기기·장비 지원은 SQL 필터와 카드에서 사업·창업으로
+일치하게 표시합니다. 읽기 전용이며 기존 원문·조건·DB를 수정하지 않습니다.
+[대상 표시·분야 보완 규칙과 검증](../../../docs/policy-audience.md).
+
 2026-10-07: 명시적 초기화는 011의 표시용 `policy_translations`와 UTC 일일 예산
 `policy_translation_usage`를 추가한다. 조회/파싱 요청에서는 생성하지 않으며 원문·조건·
 회원 행을 바꾸지 않는다. [공고 번역 모듈](../policy_translation/readme.md).
@@ -131,12 +140,29 @@ MySQL의 순차 대입을 고려해 기존 원문과 새 원문을 바이트 기
 
 ## 신청일 파싱 (2026-10-06 통합)
 
-`application_dates.application_schedule(period)`는 `{applicationStart,applicationEnd,scheduleStatus}`를,
+`application_dates.application_schedule(period, reference_year=None, reference_month=None)`는
+`{applicationStart,applicationEnd,scheduleStatus}`를,
 `application_date_columns(fields, extracted_period=None)`는 `(date | None, date | None)`를 반환합니다.
 번호가 붙은 신청기간 줄, `9시`/`18시 30분`/`09:00`과 요일을 인식합니다.
 한 기간에 연도가 명시된 날짜가 있으면 반대쪽의 생략된 연도에만 그 연도를 적용합니다.
 예: `2026. 9. 28.(월) 09:00 ~ 10. 7.(수) 18:00` → 2026-09-28~2026-10-07.
-연도가 양쪽 모두 없거나 날짜가 잘못됐거나 기간이 역전되면 unknown/NULL을 유지합니다.
-현재 연도나 지급 시기로 신청일을 추정하지 않습니다. 읽기 전용이며 DB·외부 API에 접근하지 않습니다.
+일 단위 기간의 연도가 양쪽 모두 없거나 날짜가 잘못됐거나 기간이 역전되면 unknown/NULL을 유지합니다.
+일 단위 기간의 연도나 지급 시기로 신청일을 추정하지 않습니다. 날짜 파서는 DB·외부 API에 접근하지 않습니다.
 
-검증: `python -m pytest tests/test_policy_calendar.py app/modules/storage/tests/test_application_dates.py`.
+2026-10-08: `3~4월`, `3월 ~ 4월`, `매년 3월부터 4월까지`, `2026년 3~4월`,
+`2월`처럼 월만 확인되는 기간은 첫 월의 1일을 접수 시작, 마지막 월의 말일을 접수 마감으로
+확장하여 `scheduleStatus="dated"`를 반환합니다. 예: `3~4월` → 3월 1일~4월 30일.
+`applicationPrecision="month"`, `applicationMonths=[3,4]`, `applicationYear=2026|null`을
+함께 반환하여 원문의 월 단위 정밀도를 보존합니다. 연도 미기재면 `applicationYear`는 null이고,
+목록·상세는 한국 시간의 올해, 캘린더는 선택한 연도를 사용합니다. 연도 명시 기간은 원문 연도를
+우선하며 `applicationYear`는 기간 시작 연도입니다. 월 범위 공고는 일반 접수 시작·마감
+마커와 날짜별 공고에 표시하고 날짜 미확인 목록/건수에서 제외합니다. 별도 월별 참고 목록은 없습니다.
+`11~2월`은 11월 1일~다음 해 2월 말일입니다. 연도 미기재 기간을 1~2월에 조회하면
+이전 해 11월부터 조회 연도 2월까지로 연결합니다. 2월 말일은 윤년에 29일, 평년에 28일입니다.
+새 결과를 저장할 때 `application_date_columns`도 같은 월초·월말 날짜를 투영하며,
+기존 DB를 조회 중에 갱신하지 않습니다. 다음 해 실제 접수 일정은 새 공고 확인이 필요합니다.
+마감된 공고도 원래 기간과 겹치는 월에서 조회할 수 있으며 현재 날짜를 기준으로 제외하지 않습니다.
+
+검증: `python -m pytest -p no:cacheprovider tests/test_policy_calendar.py app/modules/storage/tests/test_application_dates.py app/modules/storage/tests/test_calendar_months.py app/modules/storage/tests/test_catalog_published.py`.
+월초·월말 확장과 원문 정밀도, 한국 시간 연도 경계, 윤년·연도를 넘는 기간, 과거/내년 조회, 지난 마감 공고,
+인용 개요·목록·상세·캘린더의 같은 기간과 미공개 제외를 외부 DB 없이 확인합니다.

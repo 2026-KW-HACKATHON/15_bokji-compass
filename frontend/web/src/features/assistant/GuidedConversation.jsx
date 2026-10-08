@@ -10,11 +10,6 @@ import ContentLanguageNotice from '../../shared/i18n/ContentLanguageNotice.jsx';
 import './guided-conversation.css';
 
 const api = createDialogueApi(request);
-const examples = [
-  '리모델링 지원금을 받을 수 있어?',
-  '집에 누수가 생겼어. 어떻게 해야 해?',
-  '취업 준비에 도움이 되는 지원이 있을까?',
-];
 
 export default function GuidedConversation(props) {
   return (
@@ -198,21 +193,6 @@ function GuidedSession({
           {!dialogue && (
             <>
               <p>{t('지금 겪는 일을 알려 주세요. 부족한 정보는 한 가지씩 여쭤볼게요.')}</p>
-              <div className="guided-examples" role="group" aria-label={t('생활 상담 질문 예시')}>
-                {examples.map((example) => (
-                  <button
-                    key={t(example)}
-                    className="button secondary"
-                    disabled={!!busy}
-                    onClick={() => {
-                      setQuestion(example);
-                      questionInput.current?.focus();
-                    }}
-                  >
-                    {t(example)}
-                  </button>
-                ))}
-              </div>
               <form onSubmit={start}>
                 <label htmlFor={`${id}-question`}>{t('어떤 도움이 필요하세요?')}</label>
                 <textarea
@@ -224,7 +204,7 @@ function GuidedSession({
                   maxLength={2000}
                   disabled={!!busy}
                   required
-                  placeholder={t('예: 집수리 비용을 지원받을 수 있을까요?')}
+                  placeholder={t('현재 상황이나 궁금한 내용을 자유롭게 적어 주세요.')}
                 />
                 <p className="guided-note">
                   {' '}
@@ -565,7 +545,7 @@ function GuidedSession({
             </button>
           </div>
           <p className="guided-note">
-            {onOpenAssistant && t('AI 복지비서로 이동하면 입력한 내용을 이어볼 수 있어요. ')}{' '}
+            {onOpenAssistant && t('AI 복지비서로 이동하면 입력한 내용을 이어볼 수 있어요.')}{' '}
             {t(
               '새로고침하거나 로그아웃하면 화면의 대화는 초기화돼요. 입력한 상담 정보는 서버에서 최대 30분간 임시로 사용하고, 저장을 선택한 생활정보만 계정에 남아요.',
             )}{' '}

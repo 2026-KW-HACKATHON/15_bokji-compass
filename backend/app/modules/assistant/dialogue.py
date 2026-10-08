@@ -14,6 +14,7 @@ from app.modules.assistant.dialogue_models import (
     DialogueState,
     DialogueStore,
 )
+from app.modules.assistant.dialogue_search import general_candidates, prepare_search
 from app.modules.matching import public as matching
 from app.modules.monitoring import public as monitoring
 from app.modules.monitoring.models import MonitoringProfile, seoul_today
@@ -27,9 +28,8 @@ def _options(*items):
 
 
 QUESTIONS = {
-    "topic": ("어떤 도움이 필요한가요?", "select", _options(
-        ("housing_repair", "집수리·리모델링 지원"), ("employment", "취업·일자리 지원"),
-        ("disaster_recovery", "재난 피해 지원"), ("housing_leak", "집에 누수가 생겼어요"))),
+    "search_query": ("어떤 지원이나 도움이 필요한지 핵심 내용을 200자 이내로 알려주세요.",
+                     "text", []),
     "subject": ("이번 안내는 누구의 어떤 상황에 관한 것인가요?", "select", _options(
         ("self", "본인의 현재 상황"), ("other", "가족 등 다른 사람의 상황"),
         ("hypothetical", "가정하거나 관심이 있어 알아보는 중"))),
@@ -62,7 +62,7 @@ LABELS = {
     "occupation": "현재 직업", "job_seeking": "구직·취업 준비 여부",
     "disaster_damage": "실제 피해 여부", "disaster_type": "피해 유형",
     "disaster_occurred_on": "피해 발생일", "topic": "도움이 필요한 분야",
-    "support_interest": "수리 지원 탐색 의사",
+    "support_interest": "수리 지원 탐색 의사", "search_query": "더 구체적인 지원 요청",
 }
 TOPIC_SLOTS = {
     "housing_repair": ["housing_tenure", "building_year", "housing_type", "repair_needed"],
@@ -120,14 +120,14 @@ def _known_region(value):
 
 
 def _slots(state: DialogueState, member: dict) -> list[str]:
-    if state.topic == "general":
-        return ["topic"]
     if state.topic == "housing_leak" and state.support_interest is not True:
         return [] if "support_interest" in state.answered else ["support_interest"]
     result = ["subject"]
     if not state.region and not (state.subject == "self" and _known_region(member.get("region"))):
         result.append("region")
-    result.extend(TOPIC_SLOTS[state.topic])
+    result.extend(TOPIC_SLOTS.get(state.topic, []))
+    if state.topic == "general" and state.needs_search_details and not state.revision_id:
+        result.append("search_query")
     if state.profile.disaster_damage is not True:
         result = [slot for slot in result if slot not in {"disaster_type", "disaster_occurred_on"}]
     return result
@@ -156,6 +156,10 @@ def _parse(slot, value):
         return None
     if isinstance(value, str):
         value = value.strip()
+    if slot == "search_query":
+        if not isinstance(value, str) or len(value) > 200:
+            raise ValueError("핵심 내용을 200자 이내로 입력해 주세요.")
+        return value
     if slot == "building_year":
         if isinstance(value, str):
             found = re.fullmatch(r"(?:준공\s*|건축\s*)?(\d{4})\s*(?:년\s*)?(?:건축|준공)?", value)
@@ -189,6 +193,8 @@ def _apply(state, slot, value, saved_profile):
         state.subject = value
         if value == "self" and saved_profile is not None:
             state.profile = saved_profile.model_copy(deep=True)
+    elif slot == "search_query":
+        pass  # Search intent is temporary context, never a MonitoringProfile fact.
     elif slot in {"topic", "support_interest", "region"}:
         if value is not None:
             setattr(state, slot, value)
@@ -206,9 +212,11 @@ def _need(state):
     elif state.topic == "employment":
         identifier, title = "employment_support", "문의한 취업 지원 찾기"
         keywords = monitoring.EMPLOYMENT_KEYWORDS.copy()
-    else:
+    elif state.topic == "disaster_recovery":
         identifier, title = "disaster_recovery", "문의한 재난 지원 살펴보기"
         keywords = monitoring.DISASTER_WATCH_KEYWORDS.copy()
+    else:
+        raise ValueError("General enquiries use public catalog search")
     return {"id": identifier, "title": title, "keywords": keywords,
             "reason": ("질문의 관심 분야를 바탕으로 공고를 탐색하며, "
                        "개인의 피해나 자격을 추정하지 않아요."),
@@ -238,7 +246,7 @@ def _selected(record, member, state):
 
 
 def _compare(repository, state, member):
-    requested = state.topic != "general" and "subject" in state.answered
+    requested = "subject" in state.answered
     if state.topic == "housing_leak" and state.support_interest is not True:
         requested = False
     if not requested:
@@ -251,7 +259,13 @@ def _compare(repository, state, member):
     try:
         selected = (_selected(_read_revision(repository, state.revision_id), context, state)
                     if state.revision_id else None)
-        candidates = monitoring.scan_candidates(repository, context, state.profile, [_need(state)])
+        candidates = (
+            general_candidates(repository, state.search_plan, context, state.profile)
+            if state.topic == "general" else
+            monitoring.scan_candidates(repository, context, state.profile, [_need(state)])
+        )
+        if state.topic == "general" and not selected and state.search_plan is None:
+            return [], None, "not_requested"
         # Do not expose a revision withdrawn while its conditions were being evaluated.
         if state.revision_id:
             _read_revision(repository, state.revision_id)
@@ -269,8 +283,8 @@ def _message(state, pending, candidates, catalog_status, *, acknowledged=None, s
         parts.append(f"{state.profile.building_year}년 준공으로 확인했어요. "
                      "준공 연도만으로 지원 자격을 결정할 수는 없어요.")
     if state.topic == "general":
-        parts.append("생활에서 어려운 점도 말씀해 주세요. 현재는 주택 수리·누수, 취업, "
-                     "재난 피해를 중심으로 필요한 정보와 관련 지원을 안내해요.")
+        parts.append("말씀하신 요청을 바탕으로 공개된 지원 공고를 찾아보고, "
+                     "확인된 정보로 공고 조건을 비교해요.")
     elif state.topic == "housing_leak" or state.practical_help:
         parts.append("누수가 있다면 먼저 안전한 곳에서 상황을 확인하고 관리 주체에 알려주세요.")
     if selected:
@@ -287,10 +301,10 @@ def _message(state, pending, candidates, catalog_status, *, acknowledged=None, s
     if pending:
         parts.append("현재 정보만으로 지원 여부를 확정하기 어려워요. "
                      "필요한 정보를 하나씩 확인할게요."
-                     if pending not in {"subject", "topic", "support_interest"} else
+                     if pending not in {"subject", "topic", "support_interest", "search_query"} else
                      "질문 내용을 개인의 확정된 상황으로 저장하기 전에 안내 대상을 확인할게요."
                      if pending == "subject" else "")
-    elif state.topic != "general" and catalog_status == "ready":
+    elif catalog_status == "ready":
         parts.append("확인해 주신 정보로 관련 공고를 살펴봤어요. 소득·거주 요건, 접수 기간 등 "
                      "공고별 조건이 남아 있어 지원 자격을 확정한 결과는 아니에요.")
     if catalog_status == "unavailable":
@@ -299,6 +313,10 @@ def _message(state, pending, candidates, catalog_status, *, acknowledged=None, s
     elif catalog_status == "ready" and not candidates and not selected:
         parts.append("현재 등록된 공개 공고에서는 조건 비교 후보를 찾지 못했어요. "
                      "지원 제도가 전혀 없다는 뜻은 아니에요.")
+        if state.topic == "general":
+            parts.append("필요한 도움이나 찾는 지원의 내용을 조금 더 구체적으로 알려주세요. "
+                         "관련 공고를 다시 찾을 수 있으며, "
+                         "일반 생활 문제의 해결을 보장하지 않아요.")
     elif candidates:
         parts.append(f"관련 공고 {len(candidates)}건을 확인 후보로 찾았어요.")
     return " ".join(part for part in parts if part)
@@ -321,6 +339,13 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
                 unavailable_selected = True
         state = DialogueState(topic=topic, revision_id=data.revision_id,
                               practical_help=bool(LEAK_PATTERN.search(data.question)))
+        if topic == "general" and not data.revision_id:
+            try:
+                state.search_plan = prepare_search(data.question, repository)
+            except (SQLAlchemyError, KeyError, TypeError, ValueError):
+                state.search_plan = prepare_search(data.question)
+                unavailable_selected = True
+            state.needs_search_details = state.search_plan is None
         token = store.create(account_id, state)
         error = None
     else:
@@ -333,6 +358,13 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
         error = None
         try:
             value = _parse(pending, data.answer.value)
+            search_plan = None
+            if pending == "search_query" and value is not None:
+                try:
+                    search_plan = prepare_search(value, repository)
+                except (SQLAlchemyError, KeyError, TypeError):
+                    search_plan = prepare_search(value)
+                    unavailable_selected = True
         except (ValueError, TypeError):
             error = ("준공 연도는 1800년부터 올해까지의 연도로 입력해 주세요. 예: 1920년 건축"
                      if pending == "building_year" else
@@ -340,15 +372,27 @@ def respond(repository, member: dict, data: DialogueInput, store: DialogueStore,
                      if pending == "disaster_occurred_on" else
                      "시·도와 시·군·구 이름을 함께 입력해 주세요. 예: 서울특별시 노원구"
                      if pending == "region" else
+                     "찾는 지원의 핵심 내용을 200자 이내로 입력해 주세요."
+                     if pending == "search_query" else
                      "질문 아래 항목을 선택하거나 짧은 답을 입력해 주세요. "
                      "모르면 건너뛸 수 있어요.")
         else:
             _apply(state, pending, value, saved_profile)
+            if pending == "search_query":
+                if value is not None:
+                    state.search_plan = search_plan
+                state.needs_search_details = value is None
             acknowledged = pending if value is not None else None
             store.update(token, account_id, state, version)
     candidates, selected, catalog_status = _compare(repository, state, member)
     if unavailable_selected:
         catalog_status = "unavailable"
+    if (state.topic == "general" and catalog_status == "ready" and not candidates
+            and not selected and "search_query" not in state.answered):
+        state.needs_search_details = True
+        saved_state, version = store.read(token, account_id)
+        if saved_state.search_plan == state.search_plan and saved_state.answered == state.answered:
+            store.update(token, account_id, state, version)
     pending = _next(state, member)
     confirmed = sorted(state.confirmed)
     practical = LEAK_GUIDANCE if practical_guidance is None else practical_guidance

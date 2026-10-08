@@ -140,6 +140,9 @@
 .calendar-day:focus-visible {
   outline-offset: -3px;
 }
+.calendar-day[aria-disabled='true'] {
+  cursor: wait;
+}
 .calendar-day-number {
   display: inline-grid;
   place-items: center;

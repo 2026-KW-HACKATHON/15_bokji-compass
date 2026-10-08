@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.contracts.parsing import SourcePolicy
 from app.modules.collectors.bokjiro_services import _parse_detail_response, _parse_list_response
+from app.modules.normalization.source_urls import policy_source_url
 
 
 def _text(row: dict, *keys: str) -> str:
@@ -110,7 +111,8 @@ def normalize_record(row: dict) -> SourcePolicy:
         row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()).hexdigest()
     return SourcePolicy(policy_key=f"{provider}:{identity}", title=title,
-                        organization=organization, source_url=url or None,
+                        organization=organization,
+                        source_url=policy_source_url(f"{provider}:{identity}", url, row),
                         fields=fields, source_hash=digest)
 
 

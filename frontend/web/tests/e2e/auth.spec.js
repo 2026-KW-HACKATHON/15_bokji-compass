@@ -11,7 +11,9 @@ import {
   aiConsentLabel,
   consentVersion,
   expectedConsent,
+  openPrivacyNotice,
   privacyNotice,
+  privacyNoticeWithAi,
   profileConsentLabel,
   requiredConsentLabel,
 } from '../fixtures/privacy-consent.js';
@@ -197,7 +199,9 @@ test('signup requires an explicit collection decision before opening signup meth
   await expect(page.getByLabel('아이디', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('이메일', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '아이디로 회원가입' })).toHaveCount(0);
-  const accountNotice = page.getByRole('region', { name: '회원가입 개인정보 안내', exact: true });
+  await expect(page.getByRole('checkbox', { name: aiConsentLabel, exact: true })).toHaveCount(0);
+  const dialog = await openPrivacyNotice(page);
+  const accountNotice = dialog.getByRole('region', { name: '회원가입 개인정보 안내', exact: true });
   await expect(accountNotice.locator('dt')).toHaveText([
     '수집 항목',
     '이용 목적',
@@ -206,15 +210,17 @@ test('signup requires an explicit collection decision before opening signup meth
   ]);
   await expect(accountNotice).toContainText('회원 탈퇴');
   await expect(accountNotice).toContainText(/(?:즉시|지체 없이) 삭제/);
-  const aiNotice = page.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
+  const aiNotice = dialog.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
   await expect(aiNotice).toContainText('질문 내용');
   await expect(aiNotice).toContainText('국외이전');
-  await expect(page.getByRole('checkbox', { name: aiConsentLabel, exact: true })).toHaveCount(0);
-  await page.getByText('관련 법령 확인', { exact: true }).click();
-  await expect(page.getByRole('link', { name: '국가법령정보센터에서 법령 보기' })).toHaveAttribute(
-    'href',
-    'https://www.law.go.kr/법령/개인정보보호법',
-  );
+  await dialog.getByText('관련 법령 확인', { exact: true }).click();
+  await expect(
+    dialog.getByRole('link', { name: '국가법령정보센터에서 법령 보기' }),
+  ).toHaveAttribute('href', 'https://www.law.go.kr/법령/개인정보보호법');
+  await dialog.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(required).not.toBeChecked();
+  await expect(profile).not.toBeChecked();
   await profile.check();
   await expect(proceed).toBeDisabled();
   await required.check();
@@ -250,26 +256,9 @@ test('an outdated privacy notice blocks signup until a current notice is loaded'
 test('external AI consent is a separate opt-in recorded with its notice version', async ({
   page,
 }) => {
-  const aiVersion = 'ai-test-notice.1';
+  const aiVersion = privacyNoticeWithAi.ai.notice_version;
   await page.route('**/v1/auth/privacy-notice', (route) =>
-    route.fulfill({
-      json: {
-        ...privacyNotice,
-        ai: {
-          enabled: true,
-          notice_version: aiVersion,
-          provider_name: '테스트 AI 처리 업체',
-          contact: 'processor@example.com',
-          countries: ['미국'],
-          purpose: '사용자 질문에 대한 복지 안내 답변 생성',
-          items: ['질문 내용', '지역', '연령대'],
-          transfer_time: '사용자가 질문을 전송하는 시점',
-          transfer_method: '암호화된 통신',
-          retention: '테스트용 보유 기간',
-          training: '모델 학습에 사용하지 않음',
-        },
-      },
-    }),
+    route.fulfill({ json: privacyNoticeWithAi }),
   );
   await mockSignup(page);
   let submitted;
@@ -280,10 +269,14 @@ test('external AI consent is a separate opt-in recorded with its notice version'
   await page.goto('/#signup');
   const aiChoice = page.getByRole('checkbox', { name: aiConsentLabel, exact: true });
   await expect(aiChoice).not.toBeChecked();
-  const aiNotice = page.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
+  const dialog = await openPrivacyNotice(page, 'ai');
+  const aiNotice = dialog.getByRole('region', { name: 'AI 개인정보 처리 안내', exact: true });
   await expect(aiNotice).toContainText('테스트 AI 처리 업체');
   await expect(aiNotice).toContainText('미국');
   await expect(aiNotice).toContainText('모델 학습에 사용하지 않음');
+  await dialog.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(aiChoice).not.toBeChecked();
   await aiChoice.check();
   await expect(
     page.getByRole('button', { name: '동의하고 가입 방법 선택', exact: true }),

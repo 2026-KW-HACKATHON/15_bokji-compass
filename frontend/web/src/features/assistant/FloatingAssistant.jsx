@@ -423,7 +423,7 @@ function AssistantDialog({
               />
               <div className="chat-policy-actions">
                 <button className="button secondary" onClick={() => openAssistant({ policy })}>
-                  AI 복지비서에서 확인하기
+                  {t('AI 복지비서에서 확인하기')}
                 </button>
                 <button
                   className="button secondary"

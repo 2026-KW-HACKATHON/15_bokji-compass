@@ -353,11 +353,34 @@
 
 .privacy-consent {
   display: grid;
-  gap: 20px;
+  gap: 12px;
 }
 .privacy-consent > h2 {
-  font-size: 1.3rem;
+  font-size: 1.12rem;
   line-height: 1.5;
+}
+.privacy-consent > h2:focus {
+  outline: none;
+}
+.auth-experience .auth-card:has(.privacy-consent) {
+  padding-block: 24px;
+}
+.auth-card:has(.privacy-consent) .auth-route-nav {
+  margin-bottom: 16px;
+}
+.auth-card:has(.privacy-consent) .auth-heading {
+  margin-bottom: 16px;
+}
+.auth-card:has(.privacy-consent) .auth-heading p {
+  margin-top: 6px;
+}
+.auth-experience .auth-card:has(.privacy-consent) .auth-switch {
+  margin: 12px 0 0;
+  padding-top: 12px;
+}
+.auth-card:has(.privacy-consent) .privacy-policy-access {
+  margin-top: 12px;
+  padding-top: 8px;
 }
 .privacy-notice-content {
   display: grid;
@@ -415,43 +438,111 @@
   padding: 0;
   border: 0;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 .privacy-choices legend {
-  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.88rem;
   line-height: 1.6;
   margin-bottom: 12px;
 }
-.privacy-choices label {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px;
+.privacy-choice {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  padding: 0 10px 0 4px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  line-height: 1.6;
+  background: #fff;
+}
+.privacy-choice:focus-within {
+  border-color: #83b5dc;
+}
+.privacy-choices .privacy-choice-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
 }
 .privacy-choices input {
   width: 22px;
   height: 22px;
   min-width: 22px;
-  margin: 2px 0 0;
-  accent-color: var(--primary);
+  margin: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+.privacy-choice-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  min-height: 60px;
+  padding: 10px 2px;
+  color: var(--ink);
+  text-align: left;
+  border-radius: 6px;
+  line-height: 1.55;
+}
+.privacy-choice-open:hover {
+  color: var(--green);
+}
+.privacy-choice-name {
+  display: grid;
+  gap: 3px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.privacy-choice-badge {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+.privacy-choice-badge.required {
+  color: var(--green);
+}
+.privacy-choice-view {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.privacy-choice-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+@media (max-width: 480px) {
+  .privacy-choice-view > span {
+    display: none;
+  }
 }
 .easy-mode .privacy-consent .button,
-.easy-mode .privacy-choices label {
+.easy-mode .privacy-choice-open {
   min-height: 56px;
+}
+.easy-mode .privacy-choice-name {
+  font-size: 1rem;
 }
 .privacy-policy-access {
   margin-top: 22px;
   border-top: 1px solid var(--line);
   padding-top: 16px;
 }
-.privacy-policy-access > summary {
+.privacy-policy-access > button {
   cursor: pointer;
   text-decoration: underline;
-  margin-bottom: 12px;
+  text-underline-offset: 3px;
+  text-align: left;
+  min-height: 36px;
+  padding: 4px 0;
 }
 .account-withdrawal {
   margin-top: 24px;

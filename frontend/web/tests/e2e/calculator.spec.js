@@ -139,7 +139,9 @@ test('household choices explain unified region, optional checks and actual large
   });
   await start(page);
   await page.getByLabel('거주 지역', { exact: true }).selectOption('jeonnam_gwangju');
-  await expect(page.locator('#finance-region-hint')).toContainText('재산 공제 기준은 추가 확인');
+  await expect(page.locator('#finance-region-hint')).toContainText(
+    '통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요.',
+  );
   await expect(page.getByText('선택 · 필수 아님', { exact: true })).toHaveCount(2);
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   await expect(page.getByRole('checkbox').nth(0)).not.toBeChecked();
@@ -176,6 +178,56 @@ test('household choices explain unified region, optional checks and actual large
   await calculateAndExpect(page);
   expect(submitted.profile.household_size).toBe(13);
   expect(submitted.profile.members).toHaveLength(13);
+});
+
+test('results group missing information once and keep one footer notice in both display modes', async ({
+  page,
+}) => {
+  const result = calculation();
+  result.assessments.push({
+    ...result.assessments[0],
+    rule_id: 'second-test-rule',
+    label: '다른 사업 계산 결과',
+  });
+  await page.route('**/v1/finance/calculate', (route) => route.fulfill({ json: result }));
+  await start(page);
+  const easySwitch = page.getByRole('switch', { name: /쉬운 화면/ });
+  if (await easySwitch.isChecked()) await easySwitch.click();
+  await review(page);
+  await calculateAndExpect(page);
+
+  const assessments = page.locator('.finance-assessment');
+  await expect(assessments).toHaveCount(2);
+  await expect(assessments.locator('.finance-missing')).toHaveCount(0);
+  await expect(assessments.getByText('보장가구 범위 확인', { exact: true })).toHaveCount(0);
+  const unknownChecks = assessments.locator('.finance-check-state.unknown');
+  await expect(unknownChecks).toHaveText(['확인 필요', '확인 필요']);
+  await expect(unknownChecks.nth(0)).toBeVisible();
+  await expect(unknownChecks.nth(1)).toBeVisible();
+
+  const incomplete = page.locator('details.finance-incomplete');
+  await expect(incomplete).toHaveCount(1);
+  await expect(incomplete.locator('summary')).toHaveText('계산에 반영하지 못한 정보');
+  await expect(incomplete).toHaveJSProperty('open', false);
+  const missingInformation = incomplete.getByText('보장가구 범위 확인', { exact: true });
+  await expect(missingInformation).not.toBeVisible();
+  await incomplete.locator('summary').click();
+  await expect(missingInformation).toHaveCount(1);
+  await expect(missingInformation).toBeVisible();
+  await expect(incomplete.locator('li')).toHaveCount(1);
+  await expect(page.locator('.finance-disclaimer')).toHaveCount(0);
+
+  const disclaimerText =
+    'AI는 실수할 수 있어요. 안내와 계산 결과는 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따라 달라질 수 있어요.';
+  const footerNotice = page.locator('.page-footer').getByText(disclaimerText, { exact: true });
+  await expect(page.getByText(disclaimerText, { exact: true })).toHaveCount(1);
+  await expect(footerNotice).toBeVisible();
+  await easySwitch.click();
+  await expect(easySwitch).toBeChecked();
+  await expect(page.getByText(disclaimerText, { exact: true })).toHaveCount(1);
+  await expect(footerNotice).toBeVisible();
+  await expect(unknownChecks).toHaveText(['확인 필요', '확인 필요']);
+  await expect(incomplete.locator('li')).toHaveCount(1);
 });
 
 test('loading a large household shows the actual count in review and editing', async ({ page }) => {

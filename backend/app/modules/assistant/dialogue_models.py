@@ -11,13 +11,14 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from app.contracts.parsing import StrictModel
+from app.contracts.search import SearchPlan
 from app.modules.monitoring.models import MonitoringProfile
 
 Topic = Literal["housing_repair", "employment", "disaster_recovery", "housing_leak", "general"]
 Slot = Literal[
     "subject", "topic", "support_interest", "housing_tenure", "building_year", "housing_type",
     "repair_needed", "occupation", "job_seeking", "disaster_damage", "disaster_type",
-    "disaster_occurred_on", "region",
+    "disaster_occurred_on", "region", "search_query",
 ]
 
 
@@ -72,10 +73,13 @@ class DialogueState:
     subject: str | None = None
     region: str | None = None
     support_interest: bool | None = None
+    search_plan: SearchPlan | None = None
+    needs_search_details: bool = False
     profile: MonitoringProfile = field(default_factory=MonitoringProfile)
     answered: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
-    # No question, transcript, member details or policy results are retained here.
+    # Search intent contains derived terms only, never the original full question.
+    # No transcript, member details or policy results are retained here.
 
 
 class DialogueStore:

@@ -84,7 +84,7 @@ export default function CalculatorPage({ draft, onChange, prefill, hasSavedProfi
               min={1}
               max={MAX_HOUSEHOLD_SIZE}
               groupFrom={7}
-              manualFrom={12}
+              manualFrom={7}
               allowUnknown={false}
               exactLabel="실제 가구원 수"
               hint={t(

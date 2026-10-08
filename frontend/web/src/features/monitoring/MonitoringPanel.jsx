@@ -439,7 +439,7 @@ export default function MonitoringPanel({
                       ['settings', '안내 설정'],
                     ].map(([key, label]) => (
                       <button key={key} aria-pressed={view === key} onClick={() => selectView(key)}>
-                        {label}
+                        {t(label)}
                       </button>
                     ))}
                   </nav>
@@ -454,7 +454,7 @@ export default function MonitoringPanel({
                       {monitoringDate(snapshot.last_checked_at)}
                     </p>
                     <p>
-                      <strong>{t('회원 거주 지역')}</strong> {user.region || t('미입력')}
+                      <strong>{t('회원 거주 지역')}</strong> {t(user.region || '미입력')}
                       {user.address ? ` · ${user.address}` : ''}{' '}
                       <a
                         className="text-button"
@@ -642,7 +642,7 @@ export default function MonitoringPanel({
                                   }))
                                 }
                               />
-                              {category}
+                              {t(category)}
                             </label>
                           ))}
                         </div>
@@ -1025,9 +1025,10 @@ function DashboardOverview({ snapshot, overview, disabled, onEdit, onView, onSta
         </div>
         {overview.facts.length > 0 ? (
           <ul className="monitoring-fact-chips">
-            {overview.facts.map((fact) => (
-              <li key={fact}>{fact}</li>
-            ))}
+            {overview.facts.map((fact) => {
+              const year = /^(\d+)년 준공$/.exec(fact)?.[1];
+              return <li key={fact}>{year ? t('{year}년 준공', { year }) : t(fact)}</li>;
+            })}
           </ul>
         ) : (
           <p className="monitoring-card-empty">{t('아직 저장한 생활정보가 없어요.')}</p>

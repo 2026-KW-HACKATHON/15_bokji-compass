@@ -102,6 +102,21 @@ def test_guest_rules_and_calculation_do_not_create_a_database(tmp_path, auth_ena
         response = client.post("/v1/finance/calculate", json={"profile": PROFILE})
         assert catalog.status_code == response.status_code == 200
         assert isinstance(catalog.json(), dict) and isinstance(response.json(), dict)
+        regional_rules = {
+            item["region"]: item for item in catalog.json()["regional_property_rules"]
+        }
+        assert regional_rules["seoul"] == {
+            "region": "seoul",
+            "status": "supported",
+            "basic_property_allowance": 99_000_000,
+            "residential_property_limit": 172_000_000,
+        }
+        assert regional_rules["jeonnam_gwangju"] == {
+            "region": "jeonnam_gwangju",
+            "status": "unavailable",
+            "basic_property_allowance": None,
+            "residential_property_limit": None,
+        }
         assert response.headers["cache-control"] == catalog.headers["cache-control"] == "no-store"
         assert app.state.auth_service is None and app.state.auth_engine is None
         assert app.state.finance_store is None and not path.exists()

@@ -1,4 +1,16 @@
 export const featureDynamicMessages = {
+  "{value1} 공고 일정을 불러오는 중이에요.": {
+    en: "Loading notice schedules for {value1}.",
+    zh: "正在加载{value1}的公告日程。",
+    vi: "Đang tải lịch thông báo cho {value1}.",
+    ja: "{value1}の公示日程を読み込んでいます。",
+  },
+  "접수 마감": {
+    en: "Applications closed",
+    zh: "申请已截止",
+    vi: "Đã hết hạn đăng ký",
+    ja: "受付終了",
+  },
   "생활 상황으로 상담하고 싶어요": {
     en: "I want advice for my life situation",
     zh: "想咨询生活情况",

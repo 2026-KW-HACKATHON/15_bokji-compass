@@ -147,6 +147,8 @@ AssistantHome({profile,result,state,error,onRetry,onProfile,onExplore,easy,saved
 
 ## 다국어 화면
 
-`useI18n()`의 `t(source, values)`로 한국어·영어·중국어 간체·베트남어·일본어의 버튼, 입력 안내, FAQ 선택지와 자체 이용 안내를 표시합니다. 번역 문구는 `frontend/packages/core/src/i18n/featureMessages.js`에 있습니다. 언어 변경은 질문 초안·상담 상태와 API 요청값을 바꾸지 않습니다. 예시 질문은 화면의 설명만 번역하며 서버에 전달하는 기존 한국어 질문은 유지합니다.
+2026-10-08: `AssistantPage`의 설명과 자유 입력 시작 버튼, `MonitoringPanel`의 요약 카드·상세 메뉴·생활정보 칩, 챗봇의 AI 복지비서 연결 버튼도 현재 언어로 표시합니다. 신규 문구는 공통 `assistantMessages.js`에 등록합니다. 새 상담은 `onStartConversation()`으로 빈 질문에서 시작합니다. 사용자가 입력한 질문과 상담·프로필 API 값은 원본을 사용하며, 언어 변경은 입력 초안과 진행 중 대화를 유지합니다.
+
+`useI18n()`의 `t(source, values)`로 한국어·영어·중국어 간체·베트남어·일본어의 버튼, 입력 안내, FAQ 선택지와 자체 이용 안내를 표시합니다. 번역 문구는 `frontend/packages/core/src/i18n/featureMessages.js`에 있습니다. 언어 변경은 질문 초안·상담 상태와 API 요청값을 바꾸지 않습니다. 고정 예시 질문과 분야별 시작 카드는 제거했으며 자유 입력 안내만 번역합니다.
 
 추천 공고와 챗봇의 공고 선택·선택 중인 공고·질문 이력·생활 상담 공고 제목은 공유 공고 번역 API를 사용합니다. 공고 ID/revision과 상담에 전달하는 원본 공고는 보존합니다. 사용자 질문, AI 답변, 후보 추천 이유와 근거 인용은 원문 그대로 표시하며 `ContentLanguageNotice`로 현재 AI 상담은 한국어임을 안내합니다. 이력 날짜는 선택 언어와 한국 시간으로 표시합니다. 검증은 웹 단위 테스트, 운영 빌드 및 다국어 E2E에서 언어 변경·질문·쉬운 화면·내용 보존을 확인합니다.

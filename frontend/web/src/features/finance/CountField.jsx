@@ -6,6 +6,7 @@ import { countChoices, readCount } from '../../../../packages/core/src/countChoi
  * Controlled exact-count field with a grouped first choice.
  * onChange receives an exact number, null (unknown/pending exact selection), or manual input text.
  * groupFrom/manualFrom only affect presentation; saved values are never capped or rounded.
+ * When manualFrom <= groupFrom, the grouped choice opens manual input directly.
  * The main select uses id, the exact select `${id}-exact`, and manual input `${id}-count`.
  */
 export default function CountField({
@@ -29,6 +30,7 @@ export default function CountField({
   const [inputMode, setInputMode] = useState(null);
   const lastEdited = useRef(value);
   const choices = countChoices({ min, max, groupFrom, manualFrom });
+  const directManual = manualFrom <= groupFrom;
   const count = readCount(value);
   const empty = value == null || String(value).trim() === '';
   const malformed = !empty && count === null;
@@ -62,7 +64,7 @@ export default function CountField({
 
   function selectPrimary(key) {
     if (key === 'group') {
-      setInputMode(count >= manualFrom ? 'manual' : 'group');
+      setInputMode(directManual || count >= manualFrom ? 'manual' : 'group');
       if (count === null || count < groupFrom) change(null);
     } else {
       setInputMode(null);
@@ -101,7 +103,7 @@ export default function CountField({
           </option>
         )}
       </select>
-      {grouped && (
+      {grouped && !directManual && (
         <>
           <label htmlFor={`${id}-exact`}>{t(exactLabel)}</label>
           <select

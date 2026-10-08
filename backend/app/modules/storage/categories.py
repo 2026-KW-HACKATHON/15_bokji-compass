@@ -42,6 +42,11 @@ SOURCE_FIELDS = ("purpose_summary", "benefits")
 # An explicit industry restriction can identify an agricultural startup whose
 # title is generic. Other audience lists often include unrelated occupations.
 AGRICULTURE_INDUSTRY_TERMS = ("농림축산식품업종", "농림축산식품분야")
+# Assistive equipment for a business owner supports operating their enterprise.
+# A worker using the same equipment is not evidence of business support.
+BUSINESS_RECIPIENT_TERMS = ("장애인기업", "중소기업", "소상공인", "사업자", "사업주")
+EMPLOYEE_RECIPIENT_TERMS = ("근로자", "노동자", "직원", "퇴직자")
+BUSINESS_EQUIPMENT_TERMS = ("보조공학기기", "사업용장비", "업무용장비", "생산장비")
 WHITESPACE = (" ", "\t", "\r", "\n")
 
 
@@ -94,6 +99,11 @@ def effective_category(record) -> str:
         return AGRICULTURE_CATEGORY
     if any(term in subject for term in BUSINESS_TERMS):
         return BUSINESS_CATEGORY
+    if (any(term in industry for term in BUSINESS_RECIPIENT_TERMS)
+            and not any(term in industry for term in EMPLOYEE_RECIPIENT_TERMS)
+            and any(term in _compact(title + "|" + subject)
+                    for term in BUSINESS_EQUIPMENT_TERMS)):
+        return BUSINESS_CATEGORY
     return category
 
 
@@ -134,6 +144,14 @@ def effective_category_expression(catalog):
     business = or_(*(subject.contains(term, autoescape=True) for term in BUSINESS_TERMS))
     agricultural_industry = or_(
         *(industry.contains(term, autoescape=True) for term in AGRICULTURE_INDUSTRY_TERMS))
+    equipment = func.concat(title, "|", subject)
+    for whitespace in WHITESPACE:
+        equipment = func.replace(equipment, whitespace, "")
+    business_equipment = and_(
+        or_(*(industry.contains(term, autoescape=True) for term in BUSINESS_RECIPIENT_TERMS)),
+        ~or_(*(industry.contains(term, autoescape=True) for term in EMPLOYEE_RECIPIENT_TERMS)),
+        or_(*(equipment.contains(term, autoescape=True) for term in BUSINESS_EQUIPMENT_TERMS)),
+    )
     return case(
         (manual.in_(POLICY_DISPLAY_CATEGORIES), manual),
         (or_(manual != "", reason == "관리자 분류 수정"), base),
@@ -145,5 +163,6 @@ def effective_category_expression(catalog):
         (title_business, BUSINESS_CATEGORY),
         (and_(eligible, agriculture), AGRICULTURE_CATEGORY),
         (and_(eligible, business), BUSINESS_CATEGORY),
+        (and_(eligible, business_equipment), BUSINESS_CATEGORY),
         else_=base,
     )

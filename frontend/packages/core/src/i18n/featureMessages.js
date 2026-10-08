@@ -2496,4 +2496,58 @@ export const featureMessages = {
   ...featureMainMessages,
   ...featureTailMessages,
   ...featureDynamicMessages,
+  "공고 원문 보기": {
+    en: "View original notice",
+    zh: "查看公告原文",
+    vi: "Xem thông báo gốc",
+    ja: "お知らせ原文を見る",
+  },
+  "근거 법령": {
+    en: "Legal basis",
+    zh: "法律依据",
+    vi: "Cơ sở pháp lý",
+    ja: "根拠法令",
+  },
+  "지원 형태": {
+    en: "Type of support",
+    zh: "支持形式",
+    vi: "Hình thức hỗ trợ",
+    ja: "支援形態",
+  },
+  "지원 주기": {
+    en: "Support frequency",
+    zh: "支持周期",
+    vi: "Chu kỳ hỗ trợ",
+    ja: "支援周期",
+  },
+  "서비스 분야": {
+    en: "Service category",
+    zh: "服务领域",
+    vi: "Lĩnh vực dịch vụ",
+    ja: "サービス分野",
+  },
+  "접수 기관": {
+    en: "Receiving agency",
+    zh: "受理机构",
+    vi: "Cơ quan tiếp nhận",
+    ja: "受付機関",
+  },
+  "첨부 파일": {
+    en: "Attachments",
+    zh: "附件",
+    vi: "Tệp đính kèm",
+    ja: "添付ファイル",
+  },
+  "관련 링크": {
+    en: "Related links",
+    zh: "相关链接",
+    vi: "Liên kết liên quan",
+    ja: "関連リンク",
+  },
+  "첨부 파일 확인 상태": {
+    en: "Attachment status",
+    zh: "附件确认状态",
+    vi: "Trạng thái tệp đính kèm",
+    ja: "添付ファイルの確認状態",
+  },
 };

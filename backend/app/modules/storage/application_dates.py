@@ -1,7 +1,8 @@
 """Conservative dates from a published period or an explicitly labelled notice line."""
 
 import re
-from datetime import date
+from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
 
 DATE = r"(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?:\s*[.일])?"
 DATE_WITH_OPTIONAL_YEAR = (
@@ -13,6 +14,70 @@ TIME = (
     r"(?:\s*(?:\d{1,2}:\d{2}|\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?))?"
 )
 PREFIX = r"(?:(?:신청|접수)\s*(?:기간|기한)(?:은|는|이|가)?\s*[:：]?\s*)?"
+MONTH = r"(?:(20\d{2})\s*(?:년|[-./])\s*)?(\d{1,2})\s*"
+KST = timezone(timedelta(hours=9))
+
+
+def application_reference_year(now=None):
+    """Use Korea's calendar year even when the execution host uses UTC."""
+    return (now or datetime.now(KST)).astimezone(KST).year
+
+
+def monthly_schedule(value, *, reference_year=None, reference_month=None):
+    """Expand a published month range to its first day and final calendar day."""
+    prefix = PREFIX + r"(?:매년\s*)?"
+    period = re.fullmatch(
+        prefix + MONTH + r"월?\s*[~～–—]\s*" + MONTH + r"월", value,
+    )
+    korean_period = re.fullmatch(
+        prefix + MONTH + r"월\s*부터\s*" + MONTH + r"월\s*까지", value,
+    )
+    single = re.fullmatch(prefix + MONTH + r"월", value)
+    match = period or korean_period
+    if match is not None:
+        start_year, start_month, end_year, end_month = match.groups()
+        first, last = int(start_month), int(end_month)
+    elif single is not None:
+        parsed_year, parsed_month = single.groups()
+        start_year = end_year = parsed_year
+        first = last = int(parsed_month)
+    else:
+        return None
+    if not (1 <= first <= 12 and 1 <= last <= 12):
+        return None
+    year_specified = bool(start_year or end_year)
+    if start_year:
+        year = int(start_year)
+        final_year = int(end_year) if end_year else year + (first > last)
+    elif end_year:
+        final_year = int(end_year)
+        year = final_year - (first > last)
+    else:
+        year = reference_year if reference_year is not None else application_reference_year()
+        # January/February and the preceding November/December belong to the
+        # same year-spanning application window when querying those months.
+        if first > last and reference_month is not None and reference_month <= last:
+            year -= 1
+        final_year = year + (first > last)
+    try:
+        start = date(year, first, 1)
+        end = date(final_year, last, monthrange(final_year, last)[1])
+    except (TypeError, ValueError):
+        return None
+    if start > end:
+        return None
+    months = (list(range(first, last + 1)) if year == final_year else
+              list(dict.fromkeys(list(range(first, 13)) + list(range(1, last + 1)))))
+    if final_year - year > 1:
+        months = list(range(1, 13))
+    return {
+        "applicationStart": start.isoformat(),
+        "applicationEnd": end.isoformat(),
+        "scheduleStatus": "dated",
+        "applicationPrecision": "month",
+        "applicationMonths": months,
+        "applicationYear": year if year_specified else None,
+    }
 
 
 def application_period(fields):
@@ -35,7 +100,7 @@ def application_period(fields):
     return re.sub(r"^\d+\s*[.)、]\s*", "", lines.pop())
 
 
-def application_schedule(value):
+def application_schedule(value, *, reference_year=None, reference_month=None):
     result = {"applicationStart": None, "applicationEnd": None, "scheduleStatus": "unknown"}
     if not isinstance(value, str):
         return result
@@ -44,6 +109,11 @@ def application_schedule(value):
         r"(?:상시\s*(?:신청|접수)?|연중|수시\s*(?:신청|접수)?)(?:\s*\([^\n]*\))?", value
     ):
         return {**result, "scheduleStatus": "ongoing"}
+    monthly = monthly_schedule(
+        value, reference_year=reference_year, reference_month=reference_month,
+    )
+    if monthly is not None:
+        return monthly
     period = re.fullmatch(
         PREFIX + DATE_WITH_OPTIONAL_YEAR + TIME + r"\s*[~～–—]\s*"
         + DATE_WITH_OPTIONAL_YEAR + TIME,
@@ -104,7 +174,7 @@ def resolved_application_period(fields, overview=None):
 
 
 def application_date_columns(fields, extracted_period=None):
-    """Return only unambiguous application dates for the legacy policy columns."""
+    """Project parsed application dates, including first/last days of month periods."""
     value = resolved_application_period(fields, {"application_period": extracted_period})
     schedule = application_schedule(value)
     start = schedule["applicationStart"]

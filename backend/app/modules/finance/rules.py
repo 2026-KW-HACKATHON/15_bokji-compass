@@ -1,6 +1,6 @@
 """2026 reference data, checked against official sources on 2026-09-25."""
 
-RULES_VERSION = "2026.09.25-v2"
+RULES_VERSION = "2026.10.08-v1"
 MEDIAN_2026 = (2_564_238, 4_199_292, 5_359_036, 6_494_738, 7_556_719, 8_555_952, 9_515_150)
 REGIONAL_ALLOWANCES = {
     "seoul": (99_000_000, 172_000_000),

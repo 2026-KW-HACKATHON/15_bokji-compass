@@ -63,19 +63,9 @@ export default function AssistantPage({
           <Icon name="compass" size={34} />
         </div>
         {conversation || (
-          <div className="assistant-conversation-starters">
-            {[
-              ['house', '집수리 지원이 궁금해요', '주택 수리 지원을 알아보고 싶어요'],
-              ['briefcase', '취업을 준비하고 있어요', '취업 지원을 알아보고 싶어요'],
-              ['shield', '재난 피해를 입었어요', '재난 피해 지원을 알아보고 싶어요'],
-            ].map(([icon, title, question]) => (
-              <button key={icon} onClick={() => onStartConversation?.(question)}>
-                <Icon name={icon} size={22} />
-                <span>{title}</span>
-                <Icon name="arrow" size={18} />
-              </button>
-            ))}
-          </div>
+          <button className="button secondary" onClick={() => onStartConversation?.()}>
+            <Icon name="headset" size={20} /> {t('내 상황 입력하기')}
+          </button>
         )}
       </section>
     </div>

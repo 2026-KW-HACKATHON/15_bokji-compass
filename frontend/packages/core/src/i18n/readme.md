@@ -25,6 +25,8 @@ translate(locale, '{count}명', { count: 3 }); // '3 người'
 
 ## 공고 표시 번역 클라이언트
 
+`assistantMessages.js`는 `#assistant`와 상단의 AI 복지비서·서비스 소개 메뉴에 추가된 UI 사전입니다. `messageCatalogs`와 `messages`에 함께 등록하며 제목·설명·요약 카드·신청 상태·챗봇 이어보기·로딩 안내를 다섯 언어로 제공합니다. `{year}년 준공`은 연도 값만 삽입해 표시합니다. `translate(locale, source, values)`의 반환값과 기존 fallback 계약은 동일합니다.
+
 `policyTranslation.js`는 UI 사전과 별도 진입점입니다.
 
 - `policyTranslationFields` → 제목·본문·신청 방법 등 표시 필드 허용 목록. ID·링크·지역/분야 코드·필터 날짜를 포함하지 않습니다.

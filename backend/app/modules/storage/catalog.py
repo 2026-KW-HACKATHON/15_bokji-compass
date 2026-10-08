@@ -7,6 +7,7 @@ from sqlalchemy import JSON, String, and_, func, inspect, literal, or_, select
 
 from app.modules.ingestion.models import records as collection_records
 from app.modules.ingestion.popularity import listing_popularity, view_count_expression
+from app.modules.normalization.source_urls import policy_source_url
 from app.modules.presentation.public import format_notice_text, payment_schedule, policy_description
 from app.modules.search.public import search_records
 from app.modules.search.relations import institution_names
@@ -14,6 +15,7 @@ from app.modules.storage.application_dates import (
     application_schedule,
     resolved_application_period,
 )
+from app.modules.storage.audience import audience_text, other_conditions
 from app.modules.storage.categories import effective_category, effective_category_expression
 from app.modules.storage.search import SearchScope, search_predicates
 
@@ -106,7 +108,7 @@ def with_popularity(catalog, connection):
                 collection_records.c.policy_key == catalog.c.policy_key).subquery()
 
 
-def card(record, *, full=False):
+def card(record, *, full=False, reference_year=None, reference_month=None):
     source = record["source_json"]
     fields = source["fields"]
     overview = record["draft_json"].get("overview") or {}
@@ -133,20 +135,23 @@ def card(record, *, full=False):
         "benefit": format_notice_text(section("benefits", fields.get("benefits")
                                                or "지원 내용 확인 필요")),
         "region": format_notice_text(section("region_conditions", "지역 확인 필요")),
-        "audience": format_notice_text(section("age_conditions", "지원 대상 확인 필요")),
+        "audience": format_notice_text(audience_text(fields, overview, editorial)),
         "paymentSchedule": payment_schedule(fields),
         "applicationPeriod": period or "공식 공고에서 확인",
-        **application_schedule(period),
+        **application_schedule(
+            period, reference_year=reference_year, reference_month=reference_month,
+        ),
         "date": record["created_at"].date().isoformat(),
-        "sourceUrl": source["source_url"],
+        "sourceUrl": policy_source_url(record["policy_key"], source.get("source_url"),
+                                       record.get("popularity_listing")),
         "category": category,
         "tags": [category],
         "popularity": listing_popularity(record.get("popularity_provider"),
                                          record.get("popularity_listing")),
         "content": (fields.get("text") or fields.get("eligibility") or "") if full else "",
         "gender": format_notice_text(section("gender_conditions", "")),
-        "otherConditions": [format_notice_text(x["text"])
-                            for x in overview.get("other_conditions", [])],
+        "otherConditions": [format_notice_text(text)
+                            for text in other_conditions(fields, overview)],
         **{name: format_notice_text(section(field, fields.get(field) or ""))
            for name, field in (("applicationMethod", "application_method"),
                                ("contact", "contact"))},
@@ -296,7 +301,7 @@ def list_calendar(repository, *, month, q="", search_scope: SearchScope = "all",
         else:
             matches = ((record, None) for record in records)
         for record, match in matches:
-            item = card(record)
+            item = card(record, reference_year=year, reference_month=number)
             if match is not None:
                 item["searchMatch"] = match
             start, end = item["applicationStart"], item["applicationEnd"]

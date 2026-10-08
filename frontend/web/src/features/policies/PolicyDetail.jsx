@@ -13,7 +13,6 @@ export default function PolicyDetail({
   onSave,
   onClose,
   onTag,
-  mode,
   easy,
   user,
   onAsk,
@@ -23,6 +22,7 @@ export default function PolicyDetail({
   const { policy } = translation;
 
   const source = safeSourceUrl(policy.sourceUrl);
+  const application = safeSourceUrl(policy.applicationUrl);
   const sourceLabels = {
     text: '공고 본문',
     purpose_summary: '사업 목적',
@@ -36,6 +36,15 @@ export default function PolicyDetail({
     documents: '제출 서류',
     published_date: '게시일',
     modified_date: '수정일',
+    laws: '근거 법령',
+    support_type: '지원 형태',
+    support_cycle: '지원 주기',
+    provider_category: '서비스 분야',
+    receipt_agency: '접수 기관',
+    attachments: '첨부 파일',
+    source_year: '기준 연도',
+    links: '관련 링크',
+    attachment_status: '첨부 파일 확인 상태',
   };
   const relatedTags = (
     <div className="tags detail-tags">
@@ -61,6 +70,14 @@ export default function PolicyDetail({
         <span className="soft-badge">{t(policy.region)}</span>
       </div>
       <p className="modal-description">{policy.summary}</p>
+      {source && (
+        <p className="detail-original-link">
+          <a href={source} target="_blank" rel="noopener noreferrer">
+            {t('공고 원문 보기')} <Icon name="external" size={16} />
+            <span className="sr-only">{t('새 창')}</span>
+          </a>
+        </p>
+      )}
       <div className="detail-highlight">
         <h3>{t('지원 내용')}</h3>
         <p>{policy.benefit}</p>
@@ -191,17 +208,17 @@ export default function PolicyDetail({
       />
       <div className="notice-box detail-source">
         <p>{t('신청 전에 공식 공고에서 자세한 지원 조건과 최신 일정을 확인해 주세요.')}</p>
-        {mode === 'api' && source && (
+        {source && (
           <a className="button primary" href={source} target="_blank" rel="noopener noreferrer">
             {' '}
             {t('자세한 공고 확인하기')} <Icon name="external" size={18} />
             <span className="sr-only">{t('새 창')}</span>
           </a>
         )}
-        {policy.applicationUrl && (
+        {application && (
           <a
             className="button secondary"
-            href={policy.applicationUrl}
+            href={application}
             target="_blank"
             rel="noopener noreferrer"
           >

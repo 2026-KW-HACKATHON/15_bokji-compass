@@ -71,7 +71,8 @@ def processing_signature(settings: Settings) -> dict:
     files = (
         "app/contracts/parsing.py", "app/contracts/conditions.py",
         "app/modules/parsers/conditions.py", "app/modules/normalization/conditions.py",
-        "app/modules/normalization/raw.py", "app/modules/regions/public.py",
+        "app/modules/normalization/raw.py", "app/modules/normalization/source_urls.py",
+        "app/modules/regions/public.py",
         "app/modules/validation/public.py", "app/modules/pipeline/public.py",
         "app/modules/llm/public.py",
         "app/modules/pipeline/batching.py",

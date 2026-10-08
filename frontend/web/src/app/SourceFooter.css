@@ -61,6 +61,17 @@
 .source-footer .page-footer {
   margin-top: 0;
 }
+.page-footer .footer-disclaimer {
+  max-width: 72ch;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.easy-mode .page-footer .footer-disclaimer {
+  font-size: 1rem;
+}
 .easy-mode .notice-sources-heading h2 {
   font-size: 1.1rem;
 }
@@ -75,6 +86,9 @@
   }
 }
 @media (max-width: 600px) {
+  .page-footer .footer-disclaimer {
+    margin-top: 10px;
+  }
   .source-footer {
     margin-top: 32px;
   }

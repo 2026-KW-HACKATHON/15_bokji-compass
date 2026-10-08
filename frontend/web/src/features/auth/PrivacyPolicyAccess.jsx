@@ -1,6 +1,7 @@
 import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useState } from 'react';
 import { PrivacyNoticeContent, usePrivacyNotice } from './PrivacyConsent.jsx';
+import PrivacyNoticeDialog from './PrivacyNoticeDialog.jsx';
 
 function Content() {
   const { t } = useI18n();
@@ -25,12 +26,20 @@ export default function PrivacyPolicyAccess() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
-    <details
-      className="privacy-policy-access"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>{t('개인정보 처리 안내 다시 보기')}</summary>
-      {open && <Content />}
-    </details>
+    <div className="privacy-policy-access">
+      <button
+        type="button"
+        className="text-button"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        {t('개인정보 처리 안내 다시 보기')}
+      </button>
+      {open && (
+        <PrivacyNoticeDialog onClose={() => setOpen(false)}>
+          <Content />
+        </PrivacyNoticeDialog>
+      )}
+    </div>
   );
 }

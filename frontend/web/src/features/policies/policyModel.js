@@ -140,6 +140,22 @@ export function parsePolicy(item) {
     scheduleStatus: ['dated', 'ongoing', 'unknown'].includes(item.scheduleStatus)
       ? item.scheduleStatus
       : 'unknown',
+    applicationPrecision: item.applicationPrecision === 'month' ? 'month' : null,
+    applicationMonths: Array.isArray(item.applicationMonths)
+      ? [
+          ...new Set(
+            item.applicationMonths.filter(
+              (month) => Number.isInteger(month) && month >= 1 && month <= 12,
+            ),
+          ),
+        ]
+      : [],
+    applicationYear:
+      Number.isInteger(item.applicationYear) &&
+      item.applicationYear >= 2000 &&
+      item.applicationYear <= 2099
+        ? item.applicationYear
+        : null,
     sourceUrl: safeSourceUrl(item.sourceUrl),
     content: text('content', ''),
     gender: text('gender', ''),

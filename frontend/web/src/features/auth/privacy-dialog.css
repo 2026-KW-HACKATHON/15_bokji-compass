@@ -1,0 +1,168 @@
+.privacy-notice-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(82vh, calc(100vh - 32px));
+  max-height: min(82dvh, calc(100dvh - 32px));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line, #d4e2ed);
+  border-radius: 20px;
+  background: var(--white, #fff);
+  color: var(--ink, #17324d);
+  box-shadow: 0 24px 80px #112b4d33;
+}
+.privacy-notice-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.privacy-notice-dialog::backdrop {
+  background: #102b4d80;
+  backdrop-filter: blur(3px);
+}
+.privacy-notice-dialog .privacy-notice-dialog-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line, #d4e2ed);
+  background: var(--white, #fff);
+}
+.privacy-notice-dialog .privacy-notice-dialog-title {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.5;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+.privacy-notice-dialog .privacy-notice-dialog-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted, #506579);
+  background: #f2f6fb;
+}
+.privacy-notice-dialog .privacy-notice-dialog-close:hover {
+  color: var(--ink, #17324d);
+  background: #e5eef8;
+}
+.privacy-notice-dialog .privacy-notice-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 25px 26px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  color: var(--ink, #17324d);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.privacy-notice-dialog .privacy-notice-dialog-body:focus-visible {
+  outline: 2px solid var(--green, #0068b7);
+  outline-offset: -4px;
+}
+.privacy-notice-dialog .privacy-notice-content {
+  min-width: 0;
+  gap: 20px;
+}
+.privacy-notice-dialog .privacy-notice-content section {
+  scroll-margin-block-start: 0;
+}
+.privacy-notice-dialog .privacy-notice-content p,
+.privacy-notice-dialog .privacy-notice-content dd {
+  line-height: 1.8;
+}
+.privacy-notice-dialog .privacy-notice-content h3 {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.privacy-notice-dialog .privacy-notice-dialog-footer {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 17px 26px;
+  border-top: 1px solid var(--line, #d4e2ed);
+  background: #f8fafd;
+}
+.privacy-notice-dialog .privacy-notice-dialog-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  min-height: 46px;
+  padding: 11px 25px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--green, #0068b7);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.privacy-notice-dialog .privacy-notice-dialog-confirm:hover {
+  background: #075995;
+}
+.privacy-notice-dialog .privacy-notice-dialog-close:focus-visible,
+.privacy-notice-dialog .privacy-notice-dialog-confirm:focus-visible {
+  outline: 3px solid #946019;
+  outline-offset: 3px;
+}
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-body,
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-confirm {
+  font-size: 1rem;
+}
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-title {
+  font-size: 1.3rem;
+}
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-close,
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-confirm {
+  min-height: 48px;
+}
+.easy-mode .privacy-notice-dialog .privacy-notice-dialog-close {
+  width: 48px;
+  height: 48px;
+}
+@media (max-width: 560px) {
+  .privacy-notice-dialog {
+    border-radius: 16px;
+  }
+  .privacy-notice-dialog .privacy-notice-dialog-header {
+    gap: 10px;
+    padding: 16px 18px;
+  }
+  .privacy-notice-dialog .privacy-notice-dialog-title,
+  .easy-mode .privacy-notice-dialog .privacy-notice-dialog-title {
+    font-size: 1.12rem;
+  }
+  .privacy-notice-dialog .privacy-notice-dialog-body {
+    padding: 20px 18px;
+  }
+  .privacy-notice-dialog .privacy-notice-content section {
+    padding: 15px;
+    border-radius: 10px;
+  }
+  .privacy-notice-dialog .privacy-notice-dialog-footer {
+    padding: 14px 18px;
+  }
+  .privacy-notice-dialog .privacy-notice-dialog-confirm {
+    width: 100%;
+  }
+}
+@media (max-height: 480px) {
+  .privacy-notice-dialog .privacy-notice-dialog-header,
+  .privacy-notice-dialog .privacy-notice-dialog-footer {
+    padding-block: 10px;
+  }
+}

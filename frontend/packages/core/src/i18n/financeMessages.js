@@ -1,5 +1,19 @@
 const rows = [
   [
+    "계산에 반영하지 못한 정보",
+    "Information not included in the calculation",
+    "未计入计算的信息",
+    "Thông tin chưa được tính đến",
+    "計算に反映できなかった情報",
+  ],
+  [
+    "마이너스통장, 1년 이내 카드론, 기업대출, 개인 간 차용금은 ‘추가 확인이 필요한 부채’에 입력하세요. 이 항목에 금액이 있으면 현재 계산에서는 소득인정액을 산출하지 않아요.",
+    "Enter overdrafts, card loans taken within the past year, business loans, and private loans under ‘Debts requiring further review’. The current calculation cannot determine recognized income when this field contains an amount.",
+    "透支账户、近一年内的信用卡贷款、企业贷款及个人借款请填入“需进一步确认的债务”。该项有金额时，当前计算无法得出认定收入。",
+    "Nhập thấu chi, khoản vay thẻ trong vòng một năm, vay doanh nghiệp và vay cá nhân vào ‘Nợ cần kiểm tra thêm’. Phép tính hiện tại không xác định thu nhập được công nhận khi mục này có số tiền.",
+    "当座貸越、1年以内のカードローン、企業向け融資、個人間の借入は「追加確認が必要な負債」に入力してください。この項目に金額がある場合、現在の計算では所得認定額を算出できません。",
+  ],
+  [
     "어디에서, 몇 명이 함께 생활하나요?",
     "Where do you live, and with how many people?",
     "您住在哪里，共有几人一起生活？",
@@ -7,11 +21,11 @@ const rows = [
     "どこで何人で暮らしていますか？",
   ],
   [
-    "통합 지역의 재산 공제 기준은 추가 확인이 필요해요. 관련 계산 결과는 ‘확인 필요’로 표시합니다.",
-    "Asset deductions for the merged region require further review. Related results are marked “Needs review”.",
-    "合并地区的财产扣除标准需进一步确认。相关结果将显示为“需确认”。",
-    "Cần kiểm tra thêm tiêu chuẩn khấu trừ tài sản của khu vực sáp nhập. Kết quả liên quan được ghi “Cần kiểm tra”.",
-    "統合地域の資産控除基準は追加確認が必要です。関連結果は「要確認」と表示します。",
+    "통합 지역의 재산 공제 기준은 아직 계산에 반영되지 않아요.",
+    "Asset deduction rules for the merged region are not yet supported by the calculator.",
+    "计算器尚未支持合并地区的财产扣除标准。",
+    "Máy tính chưa hỗ trợ tiêu chuẩn khấu trừ tài sản của khu vực sáp nhập.",
+    "統合地域の資産控除基準は、まだ計算に対応していません。",
   ],
   [
     "전남광주통합특별시에 거주하면 ‘전남광주통합특별시’를 선택하세요.",

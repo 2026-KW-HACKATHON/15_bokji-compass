@@ -41,7 +41,7 @@ body {
   margin-left: 0;
 }
 .portal-shell .portal-header {
-  /* Reserve space for the longest translations; only viewport width changes rows. */
+  /* Keep menu and account columns stable across login and language changes. */
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr) 500px;
   position: sticky;
@@ -50,7 +50,7 @@ body {
   min-height: 76px;
   height: 76px;
   padding: 0 max(28px, calc((100vw - 1344px) / 2));
-  gap: 28px;
+  gap: 20px;
   background: #ffffffed;
   backdrop-filter: blur(18px);
   border-bottom: 1px solid #edf1f5;
@@ -79,7 +79,7 @@ body {
   align-items: stretch;
   justify-content: safe center;
   flex-wrap: nowrap;
-  gap: 22px;
+  gap: 12px;
   margin: 0;
   min-width: 0;
   overflow-x: auto;
@@ -156,6 +156,8 @@ body {
 }
 .portal-header .auth-username {
   max-width: 78px;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .portal-shell.easy-mode .portal-header {
   padding-block: 0;
@@ -222,11 +224,11 @@ body {
   gap: 8px;
   min-height: 44px;
 }
-.portal-shell .policy-grid {
+.portal-shell .policy-grid:not(.easy-policy-list) {
   align-items: stretch;
   gap: 20px;
 }
-.portal-shell .policy-card {
+.portal-shell .policy-card:not(.easy-policy-card) {
   display: flex;
   flex-direction: column;
   border-color: var(--line);
@@ -671,7 +673,7 @@ body {
     font-size: 0.59rem;
   }
 }
-@media (max-width: 1180px) {
+@media (max-width: 1380px) {
   :root {
     --guide-sticky-top: 116px;
   }
@@ -1005,7 +1007,7 @@ body {
     bottom: 14px;
   }
 }
-@media (max-width: 380px) {
+@media (max-width: 480px) {
   .portal-shell .portal-header {
     grid-template-rows: 32px 102px 46px;
   }

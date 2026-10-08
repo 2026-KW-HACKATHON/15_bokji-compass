@@ -81,6 +81,24 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
         throw new ApiError('캘린더 정보의 형식이 올바르지 않아요.', 'invalid_response');
       const items = result.items.map(parsePolicy),
         undatedItems = result.undatedItems.map(parsePolicy);
+      for (const policy of [...result.items, ...result.undatedItems]) {
+        if (
+          policy.applicationPrecision === 'month' &&
+          (policy.scheduleStatus !== 'dated' ||
+            !policy.applicationStart ||
+            !policy.applicationEnd ||
+            !Array.isArray(policy.applicationMonths) ||
+            !policy.applicationMonths.length ||
+            !policy.applicationMonths.every(
+              (value) => Number.isInteger(value) && value >= 1 && value <= 12,
+            ) ||
+            (policy.applicationYear !== null &&
+              (!Number.isInteger(policy.applicationYear) ||
+                policy.applicationYear < 2000 ||
+                policy.applicationYear > 2099)))
+        )
+          throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');
+      }
       for (const policy of [...items, ...undatedItems]) {
         if (
           [policy.applicationStart, policy.applicationEnd].some(

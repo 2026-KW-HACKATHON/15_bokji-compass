@@ -13,7 +13,7 @@ const sources = [
   },
 ];
 
-export default function SourceFooter({ easy, showSources = false }) {
+export default function SourceFooter({ showSources = false }) {
   const { t } = useI18n();
   return (
     <footer className={showSources ? 'source-footer' : undefined}>
@@ -43,7 +43,11 @@ export default function SourceFooter({ easy, showSources = false }) {
         <span className="footer-brand">
           <img src="/brand-logo.png" alt="" /> {t('복지나침반')}{' '}
         </span>
-        {!easy && <span>{t('추천을 참고하고, 신청 조건은 공식 공고에서 확인하세요.')}</span>}
+        <p className="footer-disclaimer">
+          {t(
+            'AI는 실수할 수 있어요. 안내와 계산 결과는 참고용이며, 실제 지원 여부와 금액은 심사 결과에 따라 달라질 수 있어요.',
+          )}
+        </p>
       </div>
     </footer>
   );

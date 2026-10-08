@@ -68,6 +68,25 @@ def test_unified_region_requires_review_without_assuming_regional_allowance():
         item = result["assessments"][index]
         assert item["status"] == "needs_review"
         assert any("전남광주통합특별시" in message for message in item["missing"])
+        assert any("현재 계산에서 지원하지 않아" in message for message in item["missing"])
+        assert all("담당 기관" not in message for message in item["missing"])
+        assert item["checks"][0]["value"] is None
+        assert item["checks"][0]["state"] == "unknown"
+
+
+def test_interest_in_additional_benefits_is_not_a_missing_calculation_fact():
+    profile = facts(additional_review=True)
+    assert calculate(profile) == calculate(facts())
+    assert evaluate_policy(profile, criteria()) == evaluate_policy(facts(), criteria())
+
+
+def test_request_for_more_benefits_preserves_actual_missing_input():
+    result = calculate(facts(additional_review=True, assets={}))
+    basic = result["assessments"][0]
+    assert basic["status"] == "needs_review"
+    assert basic["checks"][0]["value"] is None
+    assert any("재산 금액을 입력" in message for message in basic["missing"])
+    assert all("담당 기관" not in message for message in basic["missing"])
 
 
 def car(**changes):

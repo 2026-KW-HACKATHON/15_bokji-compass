@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.modules.assistant import dialogue
+from app.modules.assistant import dialogue, dialogue_search
 from app.modules.assistant.dialogue_models import (
     DialogueError,
     DialogueInput,
@@ -40,6 +40,7 @@ TODAY = date(2026, 10, 7)
 def stable_date(monkeypatch):
     monkeypatch.setattr(models, "seoul_today", lambda: TODAY)
     monkeypatch.setattr(dialogue, "seoul_today", lambda: TODAY)
+    monkeypatch.setattr(dialogue_search, "seoul_today", lambda: TODAY)
 
 
 def ask(store, question="리모델링 지원금을 받을 수 있어?", *, member=MEMBER, repository=None,
@@ -447,3 +448,152 @@ def test_incomplete_catalog_does_not_erase_temporary_answers(repository):
     result = reply(store, result, "owner", repository=repository)
     assert result["catalog_status"] == "unavailable" and not result["candidates"]
     assert result["profile_draft"]["housing_tenure"] == "owner"
+
+
+def general_record(key, title, *, owner=True, published=True, period="상시"):
+    record = make_record(key, owner=owner, published=published)
+    record["title"] = record["source_json"]["title"] = title
+    record["source_json"]["fields"]["text"] = title + ". 본인 소유 주택만 신청."
+    record["source_json"]["fields"]["application_period"] = period
+    return record
+
+
+@pytest.mark.parametrize("question,title", [
+    ("의료비 지원을 받고 싶어요", "의료비 지원"),
+    ("아이 돌봄 지원이 필요해요", "아이 돌봄 지원"),
+    ("난방비 지원을 알려주세요", "난방 에너지 지원"),
+])
+def test_general_request_searches_all_policy_topics_without_example_choices(repository,
+                                                                           question, title):
+    notice = general_record("wanted", title)
+    unrelated = general_record("unrelated", "재난 복구 지원")
+    hidden = general_record("hidden", title, published=False)
+    repository.save(notice, unrelated, hidden)
+    store = DialogueStore()
+    initial = ask(store, question, repository=repository)
+    assert initial["topic"] == "general"
+    assert initial["follow_up"]["slot"] == "subject"
+    assert initial["profile_draft"] == MonitoringProfile().model_dump()
+    result = reply(store, initial, "self", repository=repository)
+    assert result["catalog_status"] == "ready" and result["follow_up"] is None
+    assert [candidate["policy_id"] for candidate in result["candidates"]] == [notice["policy_key"]]
+    candidate = result["candidates"][0]
+    assert candidate["need_id"] == "general_support"
+    assert candidate["questions"] and candidate["status"] == "needs_review"
+    assert candidate["evidence"] and title in candidate["reason"]
+    assert candidate["policy"]["sourceUrl"] == notice["source_json"]["source_url"]
+    assert not candidate["eligibility_decided"] and not result["eligibility_decided"]
+    assert not result["confirmed_fields"] and not result["can_save_profile"]
+    state, _ = store.read(result["continuation"], MEMBER["id"])
+    assert state.search_plan.original_query == state.search_plan.normalized_query == ""
+    assert question not in repr(state)
+
+
+def test_general_search_refines_absent_results_with_free_text_without_saving_it(repository):
+    notice = general_record("medical", "의료비 지원")
+    repository.save(notice)
+    store = DialogueStore()
+    initial = ask(store, "없는검색표현", repository=repository)
+    result = reply(store, initial, "self", repository=repository)
+    assert result["catalog_status"] == "ready" and result["candidates"] == []
+    assert "지원 제도가 전혀 없다는 뜻은 아니에요" in result["answer"]
+    assert result["follow_up"]["slot"] == "search_query"
+    assert result["follow_up"]["input_type"] == "text"
+    assert result["follow_up"]["options"] == []
+    invalid = reply(store, result, "긴 검색어 " * 50, repository=repository)
+    assert invalid["answer_accepted"] is False
+    assert invalid["follow_up"]["slot"] == "search_query"
+    refined = reply(store, invalid, "의료비 지원", repository=repository)
+    assert refined["follow_up"] is None and len(refined["candidates"]) == 1
+    assert not refined["can_save_profile"] and refined["confirmed_fields"] == []
+    assert "search_query" not in refined["profile_draft"]
+    with pytest.raises(DialogueError):
+        store.save_confirmed(MEMBER["id"], refined["continuation"], lambda patch: patch)
+
+
+def test_general_long_question_asks_for_bounded_search_without_silent_truncation(repository):
+    store = DialogueStore()
+    initial = ask(store, "현재 상황을 설명합니다. " * 20, repository=repository)
+    result = reply(store, initial, "self", repository=repository)
+    assert result["catalog_status"] == "not_requested"
+    assert result["follow_up"]["slot"] == "search_query"
+    assert "공고를 살펴봤어요" not in result["answer"]
+    skipped = reply(store, result, None, repository=repository)
+    assert skipped["follow_up"] is None and skipped["catalog_status"] == "not_requested"
+    assert not skipped["candidates"]
+
+
+@pytest.mark.parametrize("subject", ["other", "hypothetical", None])
+def test_general_request_does_not_use_member_facts_until_confirmed_self(repository, subject):
+    owned = general_record("owned", "의료비 지원", owner=True)
+    rented = general_record("rented", "의료비 지원", owner=False)
+    repository.save(owned, rented)
+    profile = MonitoringProfile(housing_tenure="owner")
+    store = DialogueStore()
+    initial = ask(store, "의료비 지원", repository=repository, profile=profile)
+    result = reply(store, initial, subject, repository=repository, profile=profile)
+    assert result["follow_up"]["slot"] == "region"
+    assert len(result["candidates"]) == 2
+    assert result["profile_draft"]["housing_tenure"] is None
+    assert not result["can_save_profile"]
+    own_store = DialogueStore()
+    own = reply(own_store, ask(own_store, "의료비 지원", repository=repository, profile=profile),
+                "self", repository=repository, profile=profile)
+    assert [candidate["policy_id"] for candidate in own["candidates"]] == [owned["policy_key"]]
+
+
+def test_selected_general_policy_is_compared_without_forcing_example_topic(repository):
+    notice = general_record("selected-medical", "의료비 지원", owner=False)
+    repository.save(notice)
+    profile = MonitoringProfile(housing_tenure="owner")
+    store = DialogueStore()
+    initial = ask(store, "이 공고에 신청할 수 있나요?", repository=repository,
+                  revision_id=notice["revision_id"])
+    assert initial["topic"] == "general" and initial["follow_up"]["slot"] == "subject"
+    result = reply(store, initial, "self", repository=repository, profile=profile)
+    assert result["follow_up"] is None and result["selected_policy"] is not None
+    assert result["selected_policy"]["comparison"]["status"] == "not_matched"
+    assert result["candidates"] == [] and not result["eligibility_decided"]
+
+
+def test_general_search_excludes_ended_and_withdrawn_notices(repository):
+    ended = general_record("ended-medical", "의료비 지원", period="2020-01-01 ~ 2020-12-31")
+    withdrawn = general_record("withdrawn-medical", "의료비 지원")
+    repository.save(ended, withdrawn)
+    repository.records[withdrawn["revision_id"]]["review_status"] = "draft"
+    store = DialogueStore()
+    result = reply(store, ask(store, "의료비 지원", repository=repository),
+                   "self", repository=repository)
+    assert not result["candidates"] and result["catalog_status"] == "ready"
+
+
+def test_general_source_failure_keeps_request_context_without_false_empty_result(repository,
+                                                                                monkeypatch):
+    def unavailable(*_args, **_kwargs):
+        raise SQLAlchemyError("private database credentials")
+
+    store = DialogueStore()
+    initial = ask(store, "의료비 지원", repository=repository)
+    monkeypatch.setattr(dialogue, "general_candidates", unavailable)
+    result = reply(store, initial, "self", repository=repository)
+    assert result["catalog_status"] == "unavailable" and not result["candidates"]
+    assert "후보를 찾지 못했어요" not in result["answer"]
+    assert "private database" not in repr(result)
+    state, _ = store.read(result["continuation"], MEMBER["id"])
+    assert "medical" in state.search_plan.concepts
+
+
+def test_general_search_caps_only_after_filtering_and_returns_compatible_status(repository):
+    unsuitable = [general_record("unsuitable-" + str(index), "의료비 지원", owner=False)
+                  for index in range(15)]
+    suitable = [general_record("suitable-" + str(index), "의료비 지원", owner=True)
+                for index in range(15)]
+    repository.save(*unsuitable, *suitable)
+    store = DialogueStore()
+    result = reply(store, ask(store, "의료비 지원", repository=repository), "self",
+                   repository=repository, profile=MonitoringProfile(housing_tenure="owner"))
+    assert len(result["candidates"]) == dialogue_search.MAX_GENERAL_CANDIDATES
+    assert all(candidate["policy_id"] in {row["policy_key"] for row in suitable}
+               for candidate in result["candidates"])
+    assert all(candidate["status"] in {"potential_match", "needs_review"}
+               for candidate in result["candidates"])

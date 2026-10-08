@@ -1,6 +1,8 @@
 import { useI18n } from '../../shared/i18n/I18nProvider.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { authRequest } from './authApi.js';
+import Icon from '../../shared/ui/Icon.jsx';
+import PrivacyNoticeDialog from './PrivacyNoticeDialog.jsx';
 
 export const PRIVACY_NOTICE_VERSION = '2026-10-07.3';
 
@@ -14,7 +16,7 @@ export function PrivacyNoticeContent({ notice }) {
           { operator: notice.operator_name },
         )}
       </p>
-      <section aria-label={t('회원가입 개인정보 안내')}>
+      <section data-privacy-section="collection" aria-label={t('회원가입 개인정보 안내')}>
         <h3>{t('회원가입과 계정 관리 · 필수')}</h3>
         <dl>
           <div>
@@ -57,7 +59,7 @@ export function PrivacyNoticeContent({ notice }) {
           )}
         </p>
       </section>
-      <section aria-label={t('맞춤 안내용 개인정보 안내')}>
+      <section data-privacy-section="profile" aria-label={t('맞춤 안내용 개인정보 안내')}>
         <h3>{t('표시 이름과 맞춤 복지 안내 · 선택')}</h3>
         <dl>
           <div>
@@ -93,7 +95,7 @@ export function PrivacyNoticeContent({ notice }) {
           </div>
         </dl>
       </section>
-      <section aria-label={t('AI 개인정보 처리 안내')}>
+      <section data-privacy-section="ai" aria-label={t('AI 개인정보 처리 안내')}>
         <h3>{t('외부 AI 질문·답변 · 선택')}</h3>
         <p>
           {t(
@@ -214,12 +216,42 @@ export function usePrivacyNotice() {
   return { notice, error, retry: () => setAttempt((value) => value + 1) };
 }
 
+function ConsentChoice({ checked, onChange, label, title, viewLabel, required, onRead }) {
+  const { t } = useI18n();
+  return (
+    <div className="privacy-choice">
+      <label className="privacy-choice-toggle">
+        <input type="checkbox" checked={checked} onChange={onChange} aria-label={t(label)} />
+      </label>
+      <button
+        type="button"
+        className="privacy-choice-open"
+        aria-label={t(viewLabel)}
+        aria-haspopup="dialog"
+        onClick={onRead}
+      >
+        <span className="privacy-choice-name">
+          <span className={'privacy-choice-badge' + (required ? ' required' : '')}>
+            {t(required ? '[필수]' : '[선택]')}
+          </span>
+          <span>{t(title)}</span>
+        </span>
+        <span className="privacy-choice-view">
+          <span>{t('내용 보기')}</span>
+          <Icon name="right" size={15} />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export default function PrivacyConsent({ onAccept, buttonLabel = '동의하고 가입 방법 선택' }) {
   const { t } = useI18n();
   const { notice, error, retry } = usePrivacyNotice();
   const [collection, setCollection] = useState(false);
   const [profile, setProfile] = useState(false);
   const [ai, setAi] = useState(false);
+  const [openSection, setOpenSection] = useState(null);
   const headingRef = useRef(null);
   useEffect(() => {
     headingRef.current?.focus();
@@ -242,36 +274,44 @@ export default function PrivacyConsent({ onAccept, buttonLabel = '동의하고 �
       )}
       {notice && (
         <>
-          <PrivacyNoticeContent notice={notice} />
           <fieldset className="privacy-choices">
-            <legend>{t('아래 안내를 확인하고 동의 여부를 선택해 주세요')}</legend>
-            <label>
-              <input
-                type="checkbox"
-                checked={collection}
-                onChange={(event) => setCollection(event.target.checked)}
-              />
-              <span>{t('[필수] 회원가입 개인정보 수집·이용에 동의합니다.')}</span>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={profile}
-                onChange={(event) => setProfile(event.target.checked)}
-              />
-              <span>{t('[선택] 맞춤 안내용 개인정보 수집·이용에 동의합니다.')}</span>
-            </label>
+            <legend>{t('항목을 눌러 전문을 확인하고 동의해 주세요.')}</legend>
+            <ConsentChoice
+              checked={collection}
+              onChange={(event) => setCollection(event.target.checked)}
+              label="[필수] 회원가입 개인정보 수집·이용에 동의합니다."
+              title="회원가입 개인정보"
+              viewLabel="회원가입 개인정보 수집·이용 내용 보기"
+              required
+              onRead={() => setOpenSection('collection')}
+            />
+            <ConsentChoice
+              checked={profile}
+              onChange={(event) => setProfile(event.target.checked)}
+              label="[선택] 맞춤 안내용 개인정보 수집·이용에 동의합니다."
+              title="맞춤 안내용 개인정보"
+              viewLabel="맞춤 안내용 개인정보 수집·이용 내용 보기"
+              onRead={() => setOpenSection('profile')}
+            />
             {notice.ai?.enabled && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={ai}
-                  onChange={(event) => setAi(event.target.checked)}
-                />
-                <span>{t('[선택] 외부 AI 처리 및 개인정보 국외이전에 동의합니다.')}</span>
-              </label>
+              <ConsentChoice
+                checked={ai}
+                onChange={(event) => setAi(event.target.checked)}
+                label="[선택] 외부 AI 처리 및 개인정보 국외이전에 동의합니다."
+                title="외부 AI 처리 및 국외이전"
+                viewLabel="외부 AI 처리 및 국외이전 내용 보기"
+                onRead={() => setOpenSection('ai')}
+              />
             )}
           </fieldset>
+          <p className="privacy-choice-note">
+            {t('선택 항목에 동의하지 않아도 가입할 수 있어요.')}
+          </p>
+          {openSection && (
+            <PrivacyNoticeDialog initialSection={openSection} onClose={() => setOpenSection(null)}>
+              <PrivacyNoticeContent notice={notice} />
+            </PrivacyNoticeDialog>
+          )}
         </>
       )}
       <button

@@ -112,8 +112,6 @@ def context_missing(profile):
         missing.append("해당 연도의 공식 산정 규칙이 아직 등록되지 않았어요.")
     if not profile.household_scope_confirmed:
         missing.append("이 사업에서 함께 심사하는 가구원 범위를 확인해 주세요.")
-    if profile.additional_review:
-        missing.append("추가 공제·가구 분리·재산 특례는 담당 기관의 확인이 필요해요.")
     return missing
 
 
@@ -251,7 +249,8 @@ def recognized_assets(profile, *, financial_rate=D("0.0626")):
     missing, breakdown = [], []
     if profile.region not in REGIONAL_ALLOWANCES:
         missing.append(
-            "전남광주통합특별시에 적용할 기본재산 공제 기준을 담당 기관에 확인해 주세요."
+            "전남광주통합특별시의 기본재산 공제 기준은 현재 계산에서 지원하지 않아 "
+            "재산의 소득환산액을 계산하지 못했어요."
             if profile.region == "jeonnam_gwangju"
             else "기본재산 공제에 사용할 거주 지역을 선택해 주세요."
         )
@@ -301,7 +300,8 @@ def basic_assessment(profile):
     if income is not None and assets is not None and limit is not None:
         if D(limit) < income + assets < D(limit + 1):
             missing.append(
-                "선정 한도와 1원 미만 차이가 있어 담당 기관의 원 미만 처리를 확인해야 해요."
+                "선정 한도와 1원 미만 차이가 있어요. 원 미만 처리 기준은 현재 계산에서 "
+                "지원하지 않아 한도 비교를 제공하지 못했어요."
             )
     return {
         "rule_id": "basic-livelihood-2026",
@@ -335,7 +335,8 @@ def near_poor_assessment(profile):
     # This calculator does not collect pension contributions, qualifying tuition,
     # agricultural interest and all expense deductions specific to this program.
     missing.append(
-        "차상위 확인사업의 국민연금 본인부담·학비·농업 대출이자 등 추가 공제를 확인해야 해요."
+        "현재 계산은 차상위 확인사업의 국민연금 본인부담·학비·농업 대출이자 등 "
+        "추가 지출공제를 반영하지 못해요."
     )
     if any(
         car.kind == "passenger"
@@ -345,7 +346,7 @@ def near_poor_assessment(profile):
     ):
         assets = None
         missing.append(
-            "2,000~2,500cc 차량의 차상위 적용 조건은 생계급여와 달라 별도 확인이 필요해요."
+            "2,000~2,500cc 차량의 차상위 적용 조건은 현재 계산에서 지원하지 않아요."
         )
     value = None if income is None or assets is None else won(income + assets)
     limit = benefit_limit(profile.household_size, 50) if profile.reference_year == 2026 else None
@@ -454,9 +455,26 @@ def rules_catalog():
         "rules_version": RULES_VERSION,
         "reviewed_at": "2026-09-25",
         "sources": SOURCES,
+        "regional_property_rules": [
+            {
+                "region": region,
+                "status": "supported",
+                "basic_property_allowance": allowance,
+                "residential_property_limit": cap,
+            }
+            for region, (allowance, cap) in REGIONAL_ALLOWANCES.items()
+        ]
+        + [
+            {
+                "region": "jeonnam_gwangju",
+                "status": "unavailable",
+                "basic_property_allowance": None,
+                "residential_property_limit": None,
+            }
+        ],
         "programs": [
             {"id": "basic-livelihood-2026", "label": "생계급여 기본 산식"},
-            {"id": "near-poor-2026", "label": "차상위 확인사업 기본 산식 (추가 확인)"},
+            {"id": "near-poor-2026", "label": "차상위 확인사업 기본 산식 (추가 지출공제 전)"},
             {"id": "national-rental-2026", "label": "국민임대 일반 소득·자산"},
         ],
     }
@@ -513,8 +531,7 @@ def calculate(profile: FinancialProfile) -> dict:
             "공고별 공제 결과와 다를 수 있어요.",
             "차상위 여부는 입력한 자격 정보예요. "
             "차상위라는 이유로 중위소득 기준표를 높이지 않아요.",
-            "모르는 금액은 0원으로 처리하지 않아요. "
-            "결과는 입력한 정보에 따른 추정이며 최종 자격은 담당 기관이 확인해요.",
+            "모르는 금액은 0원으로 처리하지 않아요.",
         ],
     }
 

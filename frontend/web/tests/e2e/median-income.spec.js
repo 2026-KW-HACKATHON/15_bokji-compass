@@ -73,8 +73,19 @@ test('large-household inputs and easy mode retain values and fit a narrow screen
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto('/#calculator');
   await page.getByLabel('가구원 수', { exact: true }).selectOption('group');
-  await page.getByLabel('실제 가구원 수', { exact: true }).selectOption('manual');
-  await page.getByLabel('실제 가구원 수 직접 입력', { exact: true }).fill('13');
+  const count = page.getByLabel('실제 가구원 수 직접 입력', { exact: true });
+  await expect(count).toBeVisible();
+  await expect(count).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: '실제 가구원 수', exact: true })).toHaveCount(0);
+  await expect(page.locator('.median-thresholds')).toHaveCount(0);
+  await count.fill('7');
+  await expect(page.locator('.median-summary')).toContainText('9,515,150원');
+  for (const invalid of ['0', '-7', '7.5', 'abc']) {
+    await count.fill(invalid);
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.locator('.median-thresholds')).toHaveCount(0);
+  }
+  await count.fill('13');
   await expect(page.locator('.median-summary')).toContainText('15,270,338원');
   await page.getByLabel('실제 가구원 수 직접 입력', { exact: true }).fill('101');
   await expect(page.getByRole('alert')).toContainText('입력 범위');
@@ -87,6 +98,12 @@ test('large-household inputs and easy mode retain values and fit a narrow screen
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('6');
+  await expect(count).toHaveCount(0);
+  await expect(page.locator('.median-summary')).toContainText('8,555,952원');
+  await page.getByLabel('가구원 수', { exact: true }).selectOption('group');
+  await expect(count).toBeVisible();
+  await expect(count).toHaveValue('');
 });
 
 test('quick and detailed pages keep independent drafts and refresh clears financial inputs', async ({

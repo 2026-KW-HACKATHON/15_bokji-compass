@@ -3,9 +3,10 @@ import Icon from '../../shared/ui/Icon.jsx';
 import { officialSourceUrl } from './financeModel.js';
 
 export default function ResultView({ calculation, onRecommend, easy }) {
-  const { t, intlLocale, formatMoney, formatNumber, translateTitle } = useFinanceI18n();
+  const { t, formatMoney, formatNumber } = useFinanceI18n();
 
   const median = calculation.median;
+  const missing = [...new Set(calculation.assessments.flatMap((assessment) => assessment.missing))];
   return (
     <div className="finance-result">
       <p className="finance-reference">
@@ -182,16 +183,6 @@ export default function ResultView({ calculation, onRecommend, easy }) {
                 ))}
               </ul>
             )}
-            {assessment.missing.length > 0 && (
-              <div className="finance-missing">
-                <h4>{t('추가로 확인할 내용')}</h4>
-                <ul>
-                  {assessment.missing.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {assessment.notes.length > 0 && (
               <ul className="finance-note-list">
                 {assessment.notes.map((item, index) => (
@@ -215,6 +206,16 @@ export default function ResultView({ calculation, onRecommend, easy }) {
           </details>
         </article>
       ))}
+      {missing.length > 0 && (
+        <details className="finance-details finance-incomplete">
+          <summary>{t('계산에 반영하지 못한 정보')}</summary>
+          <ul className="finance-note-list">
+            {missing.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       <details className="finance-details" open={!easy}>
         <summary>{t('계산 기준과 공식 자료 보기')}</summary>
         {calculation.notes.length > 0 && (
@@ -224,12 +225,6 @@ export default function ResultView({ calculation, onRecommend, easy }) {
             ))}
           </ul>
         )}
-        <p className="finance-disclaimer">
-          <Icon name="info" />{' '}
-          {t(
-            '이 결과만으로 수급자·차상위계층 여부나 신청 자격이 확정되지 않습니다. 자동차 특례와 추가 공제는 담당 기관의 확인이 필요합니다.',
-          )}{' '}
-        </p>
         <div className="finance-sources">
           <h3>{t('계산 기준과 공식 자료')}</h3>
           <ul>
