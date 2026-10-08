@@ -2,6 +2,15 @@
 
 회원 주소 검색은 카카오 우편번호 SDK를 버튼 클릭 시 불러옵니다. `Caddyfile.tunnel`의 CSP에는 스크립트 `https://t1.kakaocdn.net`과 프레임 `https://postcode.map.kakao.com`, `https://postcode.map.daum.net`을 허용합니다. 별도 배포에서 CSP를 설정한다면 같은 출처를 허용해야 합니다. MySQL 배포에는 `python -m app.modules.auth init`으로 회원 주소 열도 준비합니다. [회원 주소 입력](../../docs/member-address.md).
 
+2026-10-08 HTML 캐시: Caddy의 `/`, `/index.html`은 `Cache-Control: no-store`로
+제공하고 ETag·Last-Modified 응답 헤더와 조건부 요청 검증자를 제거합니다. 이전 HTML의
+보안 정책이 304 응답으로 재사용되는 상황을 피하고 새 문서와 CSP를 함께 반환합니다.
+이 변경은 등록된 Caddy 웹 프로세스만 재시작해 공개 사이트에 적용했습니다. 실제 HTTPS
+조건부 요청의 200·no-store, API health 200과 Chrome의 카카오 주소 검색·선택·자동 입력을
+확인했습니다. 이미 열린 문서의 CSP는 새 문서를 열거나 새로고침할 때 갱신됩니다.
+[Caddy 응답 헤더](https://caddyserver.com/docs/caddyfile/directives/header),
+[요청 헤더](https://caddyserver.com/docs/caddyfile/directives/request_header).
+
 ## Windows PC 외부 시연
 
 `backend/scripts/share.ps1 start`는 빌드한 프론트와 별도 시연 API를 실행합니다. 로컬 터널 토큰 파일이 있으면 고정 주소 `https://bokji.commitnaru.com`, 없으면 Cloudflare Quick Tunnel HTTPS 주소를 사용합니다. 고정 도메인 연결은 [설정 안내](../../../backend/docs/fixed-domain.md)를 따르고 `start -TunnelMode fixed`로 실행합니다. 저장소 루트에서 `powershell -ExecutionPolicy Bypass -File backend/scripts/share.ps1 start`로 실행합니다. `status`는 프로세스와 주소 확인, `stop`은 이 스크립트가 실행한 프로세스만 종료합니다. Quick Tunnel 재실행 시 공개 주소가 바뀝니다. PC 절전·종료 시 접속할 수 없습니다.

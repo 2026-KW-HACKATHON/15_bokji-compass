@@ -9,6 +9,7 @@ import {
   reconcileCalendarResult,
   seoulToday,
   shiftMonth,
+  shiftCalendarDay,
 } from '../src/features/calendar/calendarModel.js';
 import { createPolicyRepository } from '../src/features/policies/policyRepository.js';
 
@@ -33,6 +34,16 @@ test('calendar uses Korea dates independently of browser timezone and handles le
   assert.equal(cells.length, 42);
   assert.equal(cells.filter((cell) => cell.current).length, 29);
   assert.equal(new Date(cells[0].date + 'T00:00:00Z').getUTCDay(), 0);
+});
+
+test('easy calendar day navigation preserves dates across leap years and allowed boundaries', () => {
+  assert.equal(shiftCalendarDay('2028-02-28', 1), '2028-02-29');
+  assert.equal(shiftCalendarDay('2028-03-01', -1), '2028-02-29');
+  assert.equal(shiftCalendarDay('2026-12-31', 1), '2027-01-01');
+  assert.equal(shiftCalendarDay('2000-01-01', -1), null);
+  assert.equal(shiftCalendarDay('2099-12-31', 1), null);
+  assert.equal(shiftCalendarDay('2026-02-30', 1), null);
+  assert.equal(shiftCalendarDay('2026-10-08', 0.5), null);
 });
 
 test('start/end markers and inclusive application windows do not invent dates for undated policies', () => {

@@ -7,6 +7,7 @@ import { financeMessages } from "./financeMessages.js";
 import { policyMessages } from "./policyMessages.js";
 import { explorerMessages } from "./explorerMessages.js";
 import { navigationMessages } from "./navigationMessages.js";
+import { localMessages } from "./localMessages.js";
 export { translateFinanceError } from "./financeErrors.js";
 
 export const localeStorageKey = "bokji.locale.v1";
@@ -30,6 +31,7 @@ export const messageCatalogs = Object.freeze({
   policyMessages,
   explorerMessages,
   navigationMessages,
+  localMessages,
 });
 export const messages = Object.freeze(
   Object.assign(
@@ -43,6 +45,7 @@ export const messages = Object.freeze(
     commonMessages,
     assistantMessages,
     navigationMessages,
+    localMessages,
   ),
 );
 

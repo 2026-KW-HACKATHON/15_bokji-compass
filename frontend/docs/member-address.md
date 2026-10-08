@@ -7,7 +7,7 @@
 ## 호출과 반환
 
 - `MemberAddressFields({value,onChange,idPrefix,label,disabled})`: `value`는 `region`, `postal_code`, `address`, `address_detail`을 가진 폼 초안입니다. 검색 선택 시 `onChange`에 네 필드를 전달하고, 상세 주소 변경은 `address_detail`만 전달합니다. 부모는 전달값을 기존 초안과 합칩니다. 검색 재선택은 이전 상세 주소를 비우고 상세 주소 입력칸으로 초점을 이동합니다. 지우기는 네 필드를 빈 문자열로 전달합니다. 컴포넌트 반환은 React 입력 화면입니다.
-- `loadPostcode()`: 공식 HTTPS SDK를 동적으로 로딩하고 `Promise<Postcode 생성자>`를 반환합니다. 이미 로딩한 SDK와 진행 중 요청을 재사용합니다. 네트워크 오류·15초 제한 실패 시 사용자 메시지를 반환하고 재시도를 허용합니다. PC·모바일에서 팝업 없이 페이지 내 iframe으로 검색합니다.
+- `loadPostcode()`: 공식 HTTPS SDK를 동적으로 로딩하고 `Promise<Postcode 생성자>`를 반환합니다. 이미 로딩한 SDK와 진행 중 요청을 재사용합니다. 브라우저가 오프라인으로 보고한 상태(`POSTCODE_OFFLINE`), 15초 시간 초과(`POSTCODE_TIMEOUT`), 외부 스크립트 실패(`POSTCODE_SCRIPT`), 생성자 초기화 실패(`POSTCODE_UNAVAILABLE`)를 `Error.code`와 사용자 메시지로 구분하고 재시도를 허용합니다. 실패한 시도의 늦은 이벤트는 새 요청을 초기화하지 않습니다. PC·모바일에서 팝업 없이 페이지 내 iframe으로 검색합니다.
 - `selectedMemberAddress(data)`: 서비스의 `zonecode`, `userSelectedType`, `roadAddress`/`jibunAddress`, `sido`를 사용해 네 주소 필드를 반환합니다. 5자리 우편번호의 앞자리 0을 보존하고 시·도 정식 이름을 기존 축약 지역으로 변환합니다. 잘못된 결과는 오류를 발생시킵니다.
 - `memberAddressError(draft)`: 선택 주소가 없거나 정상인 경우 빈 문자열, 부분 주소·우편번호 오류·200자 초과·제어문자 입력은 오류 안내를 반환합니다. 기존 시·도만 가진 회원은 그대로 저장할 수 있습니다.
 
@@ -20,6 +20,32 @@
 SQLite는 회원 API 초기화 시 선택 주소 열을 추가합니다. MySQL은 백엔드에서 `python -m app.modules.auth init`을 실행한 뒤 서버를 재시작합니다. 기존 회원의 시·도·세션·개인정보를 유지하며 주소 열은 처음에 `NULL`입니다. 회원 주소 저장 및 개인정보 안내는 [회원 API](../../backend/app/modules/auth/readme.md), [동의 안내](../../backend/docs/privacy-consent.md)를 따릅니다.
 
 ## 검증
+
+2026-10-08 오류 조사: 공개 사이트 `https://bokji.commitnaru.com/`와 로컬 Caddy의
+응답 CSP가 카카오 공식 SDK·검색 프레임 출처를 허용함을 확인했습니다. 공개 HTML에는
+Rocket Loader 변환이 없고, 제공 중인 번들에도 공식 SDK URL이 포함됩니다. 같은 PC에서
+공식 SDK는 HTTP 200으로 응답했고 공식 가이드 검색 화면도 로딩됐습니다. 사용자가 제공한
+Chrome 콘솔에는 `script-src 'self'` 정책에 의한 외부 스크립트 차단이 표시됐습니다.
+이는 현재 서버의 허용 정책과 달라 열려 있던 문서의 이전 정책이 남았을 가능성이 있습니다.
+다만 제공된 로그에서 요청 URL이 생략돼 그 줄이 주소 SDK를 가리키는지는 확정할 수 없습니다.
+인터넷 단절로 단정하던 오류 처리는 위 네 종류로 구분했습니다. 단위 테스트 144개,
+PC·모바일 주소 입력 E2E 14개와 별도 `tmp/postcode-build` 출력 빌드가 통과했습니다.
+초기 검증 빌드는 운영 `dist`를 덮어쓰지 않았습니다. 후속 조사에서 공개 사이트의 현재
+운영 번들에도 새 오류 안내가 포함돼 있음을 확인했습니다.
+
+2026-10-08 운영 후속: HTML `/`, `/index.html`을 no-store로 제공하고 응답 검증자와
+조건부 요청 검증자를 제거하는 Caddy 설정을 검증·적용했습니다. 등록된 웹 프로세스만
+재시작했고 API·QR·터널 프로세스는 유지했습니다. 공개 HTTPS 조건부 요청도 200과 새
+CSP를 반환하며 API health는 200입니다. 격리한 실제 Chrome에서 공개 사이트의 회원
+조회만 가상 응답으로 대체하고 카카오 SDK·검색은 실제 서비스를 호출했습니다. 서울시청
+주소 검색·선택, 우편번호 `04524`·기본 주소 자동 입력이 통과했습니다. 회원 저장은
+차단했으며 실제 계정 정보를 변경하지 않았습니다. 캡처는 `output/postcode-public/`입니다.
+Cloudflare 분석 beacon의 CSP 차단 로그는 별개로 남지만 주소 검색 공급자 요청은 200입니다.
+기존 사용자 탭의 문서 정책은 새로고침 또는 새 문서 열기 후 갱신됩니다.
+
+로컬 HTTP 진단 페이지에 운영 HTTPS 전용 CSP를 그대로 적용하면 SDK가 만드는 HTTP 검색
+iframe이 차단될 수 있습니다. 이는 공개 HTTPS 사이트에서 보고한 SDK 로딩 실패와 다른
+조건이므로 운영 장애의 근거로 사용하지 않습니다.
 
 웹 `npm test`, `npm run build`와 `npx playwright test tests/e2e/member-address.spec.js tests/e2e/auth.spec.js`로 확인합니다. 주소 변환·입력 검증·요약 단위 테스트와 PC/모바일 검색 선택, 상세 주소, 회원 저장·새로고침, 기존 회원, 주소 삭제, SDK 실패 후 재시도, 비회원 지역 선택, 가입·카카오 가입 후 설정 흐름을 검증합니다. 자동 E2E는 주소 공급자 SDK를 대역으로 처리하므로 실제 카카오 서비스 가용성은 별도 확인합니다.
 

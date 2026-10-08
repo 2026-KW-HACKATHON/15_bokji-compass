@@ -34,13 +34,14 @@ export default function Modal({ title, onClose, children, dismissible = true }) 
         <div className="modal-heading">
           <h2 id="dialog-title">{title}</h2>
           <button
-            className="icon-button"
+            className="icon-button modal-close"
             disabled={!dismissible}
             onClick={onClose}
             aria-label={t('닫기')}
             autoFocus
           >
             <Icon name="x" />
+            <span className="easy-control-label">{t('닫기')}</span>
           </button>
         </div>
         {children}

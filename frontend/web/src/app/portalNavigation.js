@@ -1,6 +1,7 @@
 // Keep public hashes stable while grouping destinations in the header.
 export const portalSections = [
   { id: 'home', label: '홈', links: [{ id: 'home', label: '홈으로 이동' }] },
+  { id: 'local', label: '우리 동네 복지', links: [{ id: 'local', label: '생활지역 서비스 보기' }] },
   {
     id: 'assistant',
     label: 'AI 비서',

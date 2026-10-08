@@ -25,6 +25,8 @@ import {
   policyApplicationWindows,
   policiesOnDay,
   reconcileCalendarResult,
+  isCalendarDate,
+  shiftCalendarDay,
   shiftMonth,
 } from './calendarModel.js';
 
@@ -49,6 +51,7 @@ function CalendarPolicyRow({
   saved,
   onOpen,
   onSave,
+  easy,
 }) {
   const { t } = useI18n();
   const translation = useVisibleTranslatedPolicy(original);
@@ -111,6 +114,7 @@ function CalendarPolicyRow({
         onClick={() => onSave(original)}
       >
         <Icon name="bookmark" />
+        {easy && <span>{saved ? t('저장됨') : t('저장')}</span>}
       </button>
     </article>
   );
@@ -211,6 +215,11 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
       if (window.innerWidth < 900) dayHeading.current?.scrollIntoView({ block: 'nearest' });
     });
   }
+  function chooseEasyDay(day) {
+    if (!isCalendarDate(day)) return;
+    if (day.slice(0, 7) === displayedMonth && month === displayedMonth) chooseDay(day);
+    else changeMonth(day.slice(0, 7), day);
+  }
   function reset() {
     setFilters(initialFilters);
     setQuery('');
@@ -229,6 +238,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
         saved={saved.some((item) => item.id === policy.id)}
         onOpen={onOpen}
         onSave={onSave}
+        easy={easy}
       />
     );
   }
@@ -418,6 +428,75 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
           </p>
         )}
         <div className="calendar-layout" aria-busy={state === 'loading'}>
+          {easy ? (
+            <div className="calendar-easy-picker">
+              <label htmlFor="calendar-easy-date">{t('날짜 선택')}</label>
+              <p id="calendar-easy-date-help">
+                {t('날짜를 고르면 아래에서 신청 가능한 공고를 확인할 수 있어요.')}
+              </p>
+              <input
+                id="calendar-easy-date"
+                type="date"
+                min="2000-01-01"
+                max="2099-12-31"
+                value={month === displayedMonth ? selected : pendingDay.current}
+                aria-describedby="calendar-easy-date-help"
+                onChange={(event) => chooseEasyDay(event.target.value)}
+              />
+              <div className="calendar-easy-day-navigation">
+                <button
+                  className="button secondary"
+                  disabled={state === 'loading' || !shiftCalendarDay(selected, -1)}
+                  onClick={() => chooseEasyDay(shiftCalendarDay(selected, -1))}
+                >
+                  <ChevronLeft size={20} aria-hidden="true" /> {t('이전 날짜')}
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={state === 'loading' || !shiftCalendarDay(selected, 1)}
+                  onClick={() => chooseEasyDay(shiftCalendarDay(selected, 1))}
+                >
+                  {t('다음 날짜')} <ChevronRight size={20} aria-hidden="true" />
+                </button>
+              </div>
+              <details className="calendar-easy-month">
+                <summary>{t('이달 날짜 모두 보기')}</summary>
+                <div className="calendar-easy-days">
+                  {calendarCells(displayedMonth)
+                    .filter((cell) => cell.current)
+                    .map((cell) => {
+                      const daily = eventsByDay.get(cell.date) || [];
+                      const starts = daily.filter((event) => event.type === 'start').length;
+                      const ends = daily.filter((event) => event.type === 'end').length;
+                      return (
+                        <button
+                          key={cell.date}
+                          type="button"
+                          disabled={month !== displayedMonth}
+                          aria-pressed={selected === cell.date}
+                          aria-current={cell.date === today ? 'date' : undefined}
+                          aria-label={t('{value1}{value2}, 신청 시작 {value3}건, 마감 {value4}건', {
+                            value1: dateText(cell.date),
+                            value2: cell.date === today ? ' ' + t('오늘') : '',
+                            value3: starts,
+                            value4: ends,
+                          })}
+                          onClick={() => chooseDay(cell.date)}
+                        >
+                          <strong>
+                            {new Intl.DateTimeFormat(intlLocale, {
+                              month: 'short', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul',
+                            }).format(new Date(`${cell.date}T00:00:00+09:00`))}
+                          </strong>
+                          {cell.date === today && <span>{t('오늘')}</span>}
+                          <span>{t('시작')} {starts} · {t('마감')} {ends}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </details>
+            </div>
+          ) : (
           <div className="calendar-board">
             <table
               className="month-grid"
@@ -501,6 +580,7 @@ export default function CalendarPage({ repository, easy, onOpen, saved, onSave }
               </tbody>
             </table>
           </div>
+          )}
           <section className="calendar-day-panel" aria-labelledby="calendar-day-heading">
             <h2 id="calendar-day-heading" ref={dayHeading} tabIndex={-1}>
               {dateText(selected)} {t('공고')}{' '}

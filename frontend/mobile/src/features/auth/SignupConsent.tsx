@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Button, Copy, Details, Notice, colors } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
 import { signupConsent, validNotice } from "./signupModel";
+import { Icon } from "../../components/Icon";
 
 type NoticeData = {
   version: string;
@@ -71,9 +72,9 @@ export function SignupConsent({
           borderRadius: easy ? 8 : 14,
         }}
       >
-        <Text style={{ fontSize: 22, color: colors.green }}>
-          {value ? "☑" : "☐"}
-        </Text>
+        <View accessible={false} aria-hidden style={{ width: 26, height: 26, borderRadius: 5, borderWidth: 2, borderColor: value ? colors.green : colors.easyLine, alignItems: "center", justifyContent: "center", backgroundColor: value ? colors.mint : colors.surface }}>
+          {value && <Icon name="check" size={20} color={colors.green} />}
+        </View>
         <View style={{ flex: 1 }}>
           <Copy>{label}</Copy>
         </View>

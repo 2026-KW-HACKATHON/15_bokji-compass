@@ -1,7 +1,7 @@
 import { useI18n } from "../../i18n/context";
 import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Pressable, ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { emptyVehicle } from "@bokji/core/finance-model";
 import { financeGroups } from "@bokji/core/finance-flow";
 import {
@@ -12,6 +12,7 @@ import {
   Notice,
   Screen,
   PageHeading,
+  Toggle,
   colors,
 } from "../../components/ui";
 import { useRuntime, useSession } from "../../services/runtime";
@@ -21,6 +22,7 @@ import { QuickCalculator } from "./QuickCalculator";
 import { QuestionFields } from "./FinanceFields";
 import { FinanceResult } from "./FinanceResult";
 import { financeError, questionTitle } from "./i18n";
+import { Icon } from "../../components/Icon";
 
 export default function FinanceScreen() {
   const { t, formatMoney } = useI18n();
@@ -122,7 +124,7 @@ export default function FinanceScreen() {
       {configError && <Notice>{configError}</Notice>}
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: easy ? "column" : "row",
           backgroundColor: "#E7ECF5",
           borderRadius: easy ? 8 : 16,
           padding: 4,
@@ -146,7 +148,9 @@ export default function FinanceScreen() {
             disabled={state.busy}
             onPress={() => form.show(view)}
             style={{
-              flex: 1,
+              flex: easy ? undefined : 1,
+              flexDirection: "row",
+              gap: 8,
               minHeight: easy ? 58 : 48,
               padding: 10,
               justifyContent: "center",
@@ -161,6 +165,7 @@ export default function FinanceScreen() {
               borderRadius: easy ? 6 : 12,
             }}
           >
+            {(view === "quick" ? state.view === "quick" : state.view !== "quick") && <Icon name="check" size={22} color={colors.green} />}
             <Text
               style={{
                 fontSize: easy ? 20 : 16,
@@ -206,13 +211,12 @@ export default function FinanceScreen() {
           />
           {auth.status === "signedIn" && (
             <Card>
-              <Copy>입력한 금융정보를 내 계정에 저장하는 데 동의합니다.</Copy>
-              <Switch
+              <Toggle
+                label="입력한 금융정보를 내 계정에 저장하는 데 동의합니다."
                 accessibilityLabel={t("금융정보 계정 저장 동의")}
                 value={consent}
                 onValueChange={setConsent}
                 disabled={state.busy}
-                trackColor={{ true: colors.green }}
               />
               <Button
                 label="내 계정에 저장"
@@ -248,9 +252,9 @@ export default function FinanceScreen() {
               />
             </View>
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
+              horizontal={!easy}
+              showsHorizontalScrollIndicator={!easy}
+              contentContainerStyle={{ gap: 8, ...(easy ? { flexDirection: "row", flexWrap: "wrap" } : {}) }}
             >
               {financeGroups.map((group: string, i: number) => (
                 <Pressable
@@ -268,13 +272,21 @@ export default function FinanceScreen() {
                   onPress={() => form.show("detail", i)}
                   style={{
                     minHeight: easy ? 56 : 46,
+                    paddingVertical: 10,
+                    maxWidth: "100%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
                     paddingHorizontal: 12,
                     justifyContent: "center",
                     borderRadius: easy ? 6 : 12,
+                    borderWidth: easy && i === state.step ? 2 : 0,
+                    borderColor: colors.green,
                     backgroundColor:
                       i === state.step ? colors.mint : "transparent",
                   }}
                 >
+                  {easy && i < state.step && <Icon name="check" size={20} color={colors.green} />}
                   <Text
                     style={{
                       color: i === state.step ? colors.green : colors.muted,

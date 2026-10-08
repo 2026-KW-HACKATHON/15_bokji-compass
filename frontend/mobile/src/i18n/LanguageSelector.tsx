@@ -4,15 +4,18 @@ import { locales } from "../../../packages/core/src/i18n/index.js";
 import { useI18n } from "./context";
 import { LocalizedText } from "./LocalizedText";
 import { colors } from "../components/theme";
+import { Icon } from "../components/Icon";
+import { useRuntime } from "../services/runtime";
 
 export function LanguageSelector({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale, t, storageError } = useI18n();
+  const { easy } = useRuntime();
   const [open, setOpen] = useState(!compact);
   const current = locales.find(
     (entry: { code: string }) => entry.code === locale,
   );
   return (
-    <View style={{ gap: 8, width: compact ? undefined : "100%" }}>
+    <View style={{ gap: 8, maxWidth: "100%", flexShrink: 1, width: !compact || open ? "100%" : undefined }}>
       {compact ? (
         <Pressable
           accessibilityRole="button"
@@ -21,16 +24,20 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
           aria-expanded={open}
           onPress={() => setOpen(!open)}
           style={{
-            minHeight: 48,
+            minHeight: easy ? 60 : 48,
             paddingHorizontal: 8,
             justifyContent: "center",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
           }}
         >
+          <Icon name="language" size={easy ? 24 : 20} color={colors.green} />
           <LocalizedText
             original
             style={{ color: colors.green, fontWeight: "700", fontSize: 14 }}
           >
-            🌐 {current?.nativeName}
+            {current?.nativeName}
           </LocalizedText>
         </Pressable>
       ) : (
@@ -43,6 +50,7 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
       {open && (
         <View
           accessibilityRole="radiogroup"
+          accessibilityLabel={t("언어 선택")}
           style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
         >
           {locales.map((entry: { code: string; nativeName: string }) => (
@@ -57,16 +65,23 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
                 if (compact) setOpen(false);
               }}
               style={{
-                minHeight: 48,
+                minHeight: easy ? 60 : 48,
                 justifyContent: "center",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                maxWidth: "100%",
+                width: easy ? "100%" : undefined,
+                paddingVertical: 10,
                 paddingHorizontal: 12,
                 borderWidth: 1,
                 borderRadius: 10,
-                borderColor: locale === entry.code ? colors.green : colors.line,
+                borderColor: locale === entry.code ? colors.green : easy ? colors.easyLine : colors.line,
                 backgroundColor:
                   locale === entry.code ? colors.mint : colors.surface,
               }}
             >
+              {locale === entry.code && <Icon name="check" size={20} color={colors.green} />}
               <LocalizedText
                 original
                 style={{ color: colors.ink, fontSize: 15 }}

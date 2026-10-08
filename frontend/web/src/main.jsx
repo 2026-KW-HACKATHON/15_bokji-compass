@@ -8,6 +8,7 @@ import './app/easy-mode.css';
 import './features/auth/auth.css';
 import './app/portal.css';
 import './app/portal-navigation.css';
+import './app/easy-shell.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

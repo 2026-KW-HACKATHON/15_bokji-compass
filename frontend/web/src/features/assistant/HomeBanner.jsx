@@ -9,10 +9,13 @@ export default function HomeBanner({ children, easy, onCalendar }) {
 
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(
-    () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => !easy && !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(!document.hidden);
+  useEffect(() => {
+    if (easy) setPlaying(false);
+  }, [easy]);
   useEffect(() => {
     const visibility = () => setVisible(!document.hidden);
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -27,10 +30,10 @@ export default function HomeBanner({ children, easy, onCalendar }) {
     };
   }, []);
   useEffect(() => {
-    if (!playing || hovered || !visible) return;
+    if (easy || !playing || hovered || !visible) return;
     const timer = setTimeout(() => setIndex((current) => (current + 1) % 2), 8000);
     return () => clearTimeout(timer);
-  }, [index, playing, hovered, visible]);
+  }, [index, playing, hovered, visible, easy]);
   function choose(next) {
     setPlaying(false);
     setIndex(next);
@@ -140,6 +143,7 @@ export default function HomeBanner({ children, easy, onCalendar }) {
         <div className="home-banner-pagination">
           <button aria-label={t('이전 배너')} onClick={() => choose((index + 1) % 2)}>
             <ChevronLeft size={19} aria-hidden="true" />
+            <span className="easy-control-label">{t('이전 배너')}</span>
           </button>
           <div className="home-banner-dots">
             {['추천 안내', '공고 캘린더 안내'].map((label, value) => (
@@ -157,19 +161,22 @@ export default function HomeBanner({ children, easy, onCalendar }) {
             {index + 1} / 2
           </span>
           <button aria-label={t('다음 배너')} onClick={() => choose((index + 1) % 2)}>
+            <span className="easy-control-label">{t('다음 배너')}</span>
             <ChevronRight size={19} aria-hidden="true" />
           </button>
-          <button
-            data-rotation-control
-            aria-label={playing ? t('배너 자동 전환 멈추기') : t('배너 자동 전환 시작하기')}
-            onClick={() => setPlaying((value) => !value)}
-          >
-            {playing ? (
-              <Pause size={17} aria-hidden="true" />
-            ) : (
-              <Play size={17} aria-hidden="true" />
-            )}
-          </button>
+          {!easy && (
+            <button
+              data-rotation-control
+              aria-label={playing ? t('배너 자동 전환 멈추기') : t('배너 자동 전환 시작하기')}
+              onClick={() => setPlaying((value) => !value)}
+            >
+              {playing ? (
+                <Pause size={17} aria-hidden="true" />
+              ) : (
+                <Play size={17} aria-hidden="true" />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </section>

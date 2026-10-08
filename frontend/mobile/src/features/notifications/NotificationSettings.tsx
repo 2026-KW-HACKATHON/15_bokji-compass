@@ -1,6 +1,6 @@
 import { useI18n } from "../../i18n/context";
-import { Switch, View } from "react-native";
-import { Button, Card, Copy, Notice, colors } from "../../components/ui";
+import { View } from "react-native";
+import { Button, Card, Copy, Notice, Toggle, colors } from "../../components/ui";
 import { useSession } from "../../services/runtime";
 import { useNotifications } from "./context";
 import { notificationTypes } from "./model";
@@ -118,12 +118,9 @@ function SettingRow({
   disabled: boolean;
   onChange: (value: boolean) => void;
 }) {
-  const { t } = useI18n();
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
         gap: 12,
         minHeight: 64,
         paddingVertical: 12,
@@ -131,18 +128,13 @@ function SettingRow({
         borderColor: colors.line,
       }}
     >
-      <View style={{ flex: 1, gap: 4 }}>
-        <Copy>{title}</Copy>
-        <Copy muted>{description}</Copy>
-      </View>
-      <Switch
-        accessibilityLabel={t(title)}
-        accessibilityHint={t(description)}
+      <Toggle
+        label={title}
         value={value}
         disabled={disabled}
         onValueChange={onChange}
-        trackColor={{ true: colors.green }}
       />
+      <Copy muted>{description}</Copy>
     </View>
   );
 }

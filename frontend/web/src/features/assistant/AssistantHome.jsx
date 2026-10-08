@@ -94,6 +94,7 @@ export default function AssistantHome({
   onLogin,
   onExplore,
   onSearch,
+  onLocal,
   onGuide,
   onCalendar,
   onAssistant,
@@ -146,7 +147,7 @@ export default function AssistantHome({
           }}
         >
           <label className="home-region">
-            <span className="sr-only">{t('공고를 찾을 지역')}</span>
+            <span className={easy ? 'easy-search-label' : 'sr-only'}>{t('공고를 찾을 지역')}</span>
             <select value={region} onChange={(event) => setRegion(event.target.value)}>
               {regions.map((value) => (
                 <option key={value} value={value}>
@@ -157,7 +158,7 @@ export default function AssistantHome({
           </label>
           <label className="home-search-input">
             <Icon name="search" size={22} />
-            <span className="sr-only">{t('찾고 싶은 복지')}</span>
+            <span className={easy ? 'easy-search-label' : 'sr-only'}>{t('찾고 싶은 복지')}</span>
             <input
               type="search"
               maxLength={200}
@@ -173,6 +174,7 @@ export default function AssistantHome({
             <span>{t('검색')}</span>
           </button>
         </form>
+        {easy && <p className="easy-topics-label">{t('관심 분야로 공고 찾기')}</p>}
         <div className="home-topics" aria-label={t('관심 분야로 공고 찾기')}>
           {topics.map((category) => (
             <button key={t(category)} onClick={() => onSearch({ category, region })}>
@@ -183,6 +185,17 @@ export default function AssistantHome({
         <button className="home-personal-link" onClick={onProfile}>
           {personalized ? t('맞춤 추천에 사용하는 내 정보 수정') : t('내 정보로 맞춤 공고 찾기')}{' '}
           <Icon name="arrow" size={18} />
+        </button>
+      </section>
+
+      <section className="home-local-entry" aria-labelledby="home-local-title">
+        <Icon name="pin" size={27} />
+        <div>
+          <h2 id="home-local-title">{t('동네에서 이용할 수 있는 도움을 찾아보세요.')}</h2>
+          <p>{t('무료버스·건강관리·동네 시설을 생활지역별로 살펴보세요.')}</p>
+        </div>
+        <button className="text-button" onClick={onLocal}>
+          {t('동네 복지 둘러보기')} <Icon name="arrow" size={18} />
         </button>
       </section>
 

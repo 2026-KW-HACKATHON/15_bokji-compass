@@ -6,6 +6,8 @@
 검증된 `{expression,period}` 또는 None, `resolve_calendar_schedule(fields,overview,rule=None,
 reference_year=None,reference_month=None)`는 원문 우선 달력 응답을 반환합니다.
 검증된 CLI 표준 표현은 원문과 별도로 저장·조회하고 날짜 숫자·인용·상대 기준을 재검증합니다.
+`catalog.list_calendar(repository, month=...)`는 시작일이 있는 예산 소진형 상시 공고도
+시작 이후의 모든 조회 월 `items`에 포함하며 마감일을 생성하지 않습니다.
 [날짜 계약·공식 검색 보강·검증](../../../docs/application-schedules.md).
 
 2026-10-08: `catalog.card(record, full=False)`의 `audience`는 연령만이 아니라 원천

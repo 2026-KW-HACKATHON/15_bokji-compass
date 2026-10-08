@@ -1,0 +1,466 @@
+/* Easy-mode feature layouts. Keep information in reading order and let text grow. */
+.easy-mode :is(.explorer, .calendar-page, .calculator-page, .profile-manager, .assistant-page) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Search settings use persistent labels and spacious, visibly selected choices. */
+.easy-mode .explorer-quick-filters,
+.easy-mode .explorer .explorer-filter-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 18px;
+}
+.easy-mode .explorer-quick-field {
+  padding: 20px;
+  border-radius: 14px;
+}
+.easy-mode .explorer-quick-field > span,
+.easy-mode .explorer-age-bands legend,
+.easy-mode .explorer-age-bands label,
+.easy-mode .explorer-age-range,
+.easy-mode .explorer-age-range .button {
+  font-size: 1rem;
+}
+.easy-mode .explorer-quick-field > span {
+  color: var(--ink);
+}
+.easy-mode .explorer-quick-field select {
+  font-size: 1rem;
+  padding: 12px;
+}
+.easy-mode .explorer .explorer-advanced > summary {
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 18px 20px;
+}
+.easy-mode .explorer-advanced .filter-summary-value {
+  flex: 1 1 16rem;
+  margin-left: 0;
+}
+.easy-mode :is(.explorer-eligibility p, .explorer-filter-note, .explorer-filter-footer p,
+  .explorer-options-error, .explorer-age-bands legend span, .filter-summary-value) {
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+.easy-mode .explorer-age-bands label {
+  min-height: 56px;
+  padding: 12px 16px;
+}
+.easy-mode .explorer-age-bands label:has(:checked),
+.easy-mode .interest-options label.selected,
+.easy-mode .monitoring-interests label:has(:checked),
+.easy-mode .search-alternatives button[aria-pressed='true'] {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+  font-weight: 700;
+  background: var(--soft);
+}
+.easy-mode .explorer-eligibility label {
+  min-height: 56px;
+}
+.easy-mode .explorer-search-settings input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+}
+.easy-mode .explorer-age-range input {
+  width: 5.25rem;
+  font-size: 1rem;
+}
+.easy-mode .policy-search-options-content label {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+/* Cards keep the action separate from the information, without clipping text. */
+.easy-mode .easy-policy-card {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 28px;
+}
+.easy-mode .easy-policy-card .card-summary {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.easy-mode .easy-policy-card :is(.policy-facts, .category-label, .saved-label) {
+  font-size: 0.94rem;
+}
+.easy-mode .easy-policy-card :is(.card-summary, .benefit, .easy-recommendation-reason,
+  .easy-policy-conditions) {
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.easy-mode .easy-policy-card .benefit {
+  align-items: baseline;
+}
+.easy-mode .easy-policy-card .easy-recommendation-reason > span {
+  font-size: 0.94rem;
+}
+.easy-mode .easy-policy-conditions {
+  padding: 18px;
+  margin-top: 18px;
+  gap: 12px;
+  background: #f5f8fb;
+  border-radius: 10px;
+}
+.easy-mode .easy-card-action {
+  justify-self: start;
+}
+.easy-mode .easy-card-action .detail-link {
+  min-height: 56px;
+  padding: 12px 20px;
+  border-color: var(--green);
+  color: var(--green);
+  background: white;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: normal;
+}
+.easy-mode :is(.detail-key-facts, .detail-highlight, .detail-more, .detail-related) {
+  overflow-wrap: anywhere;
+}
+.easy-mode :is(.detail-more, .detail-related) > summary {
+  font-size: 1rem;
+  padding-block: 14px;
+}
+
+/* The easy calendar offers native date entry and a reflowing date list. */
+.easy-mode .calendar-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.easy-mode .calendar-easy-picker,
+.easy-mode .calendar-day-panel {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+}
+.calendar-easy-picker > label {
+  display: block;
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.calendar-easy-picker > p {
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.calendar-easy-picker > input {
+  display: block;
+  width: min(100%, 24rem);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+}
+.calendar-easy-day-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+.calendar-easy-month {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.calendar-easy-month > summary {
+  padding-block: 12px;
+  color: var(--green);
+  font-weight: 650;
+  cursor: pointer;
+}
+.calendar-easy-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 10px;
+  padding-block: 8px;
+}
+.calendar-easy-days > button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  background: white;
+  font: inherit;
+}
+.calendar-easy-days > button > span {
+  font-size: 0.94rem;
+}
+.calendar-easy-days > button[aria-pressed='true'] {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 2px var(--green);
+  background: var(--soft);
+  color: var(--green);
+}
+.calendar-easy-days > button[aria-current='date'] strong {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.easy-mode .calendar-month-navigation {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: space-between;
+}
+.easy-mode .calendar-month-navigation > button {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.easy-mode .calendar-month-navigation h2 {
+  text-align: center;
+  white-space: normal;
+}
+.easy-mode .calendar-month-bar {
+  flex-wrap: wrap;
+}
+.easy-mode :is(.calendar-summary > p, .calendar-legend, .calendar-chip, .calendar-row-category,
+  .calendar-policy-row small, .calendar-day-caption, .calendar-panel-empty span,
+  .calendar-undated .section-heading p, .calendar-empty-month) {
+  font-size: 0.94rem;
+}
+.easy-mode .calendar-policy-row p {
+  font-size: 1rem;
+}
+.easy-mode .calendar-policy-summary {
+  white-space: normal;
+  overflow: visible;
+}
+.easy-mode .calendar-save {
+  display: inline-flex;
+  gap: 8px;
+  min-width: 56px;
+  width: auto;
+  height: auto;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  font-size: 0.94rem;
+}
+.easy-mode .calendar-save[aria-pressed='true'] {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+/* Forms group one decision at a time; help stays large enough to read. */
+.easy-mode :is(.profile-status, .profile-category-link, .profile-manage-footer,
+  .field-hint, .privacy-note, .assistant-profile-account-note,
+  .assistant-member-summary dt, .assistant-member-summary .text-button,
+  .assistant-profile-grid small, .assistant-profile-help,
+  .assistant-profile-optional > p, .assistant-profile-optional summary > span:last-child,
+  .assistant-profile-watch small, .assistant-profile-watch > span > span,
+  .assistant-profile-consent, .assistant-profile-permissions > .assistant-profile-help) {
+  font-size: 0.94rem;
+}
+.easy-mode .profile-category-preview {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.easy-mode .profile-tabs [role='tab'] {
+  min-height: 56px;
+}
+.easy-mode .profile-tabs [aria-selected='true'],
+.easy-mode .monitoring-dashboard-nav button[aria-pressed='true'] {
+  box-shadow: inset 0 -3px 0 var(--green);
+}
+.easy-mode :is(.assistant-profile-grid .field-label, .assistant-member-summary dd,
+  .assistant-profile-watch strong, .assistant-profile-interests span) {
+  font-size: 1rem;
+}
+.easy-mode .assistant-profile-interests span {
+  min-height: 56px;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.easy-mode .assistant-profile-interests input:checked + span {
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.easy-mode .assistant-profile-grid :is(select, input) {
+  min-height: 56px;
+  font-size: 1rem;
+}
+.easy-mode .assistant-profile-consent input {
+  width: 24px;
+  height: 24px;
+}
+.easy-mode .assistant-profile-optional summary {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.easy-mode :is(.assistant-profile-optional summary > span:last-child, .form-section legend small) {
+  white-space: normal;
+}
+.easy-mode :is(.finance-field label, .finance-field-label, .finance-field input,
+  .finance-field select, .finance-check, .finance-presence button) {
+  font-size: 1rem;
+}
+.easy-mode .finance-field :is(input, select) {
+  min-height: 56px;
+  height: auto;
+}
+.easy-mode .finance-presence {
+  gap: 12px;
+}
+.easy-mode :is(.finance-field small, .finance-guidance-list, .finance-help-links a,
+  .finance-optional, .median-summary strong small, .median-thresholds small) {
+  font-size: 0.94rem;
+}
+.easy-mode .finance-actions.finance-step-actions {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.easy-mode .finance-step-actions > .button {
+  white-space: normal;
+}
+.easy-mode :is(.finance-review-heading, .finance-progress-current) {
+  flex-wrap: wrap;
+}
+.easy-mode :is(.monitoring-service-note, .monitoring-dashboard-tools,
+  .monitoring-assistant .monitoring-heading p, .monitoring-status,
+  .monitoring-field-help, .monitoring-history-note, .monitoring-questions,
+  .monitoring-policy-facts, .monitoring-candidate-top, .monitoring-alerts small,
+  .monitoring-alert-label, .assistant-summary-counts > span,
+  .assistant-onboarding > .assistant-onboarding-note) {
+  font-size: 0.94rem;
+}
+.easy-mode :is(.monitoring-dashboard-nav button, .assistant-summary-counts button,
+  .assistant-next-information, .monitoring-questions-list article,
+  .monitoring-need > p, .monitoring-candidate-reason, .monitoring-alerts strong,
+  .monitoring-alerts p) {
+  font-size: 1rem;
+}
+.easy-mode .monitoring-panel :is(.button, .text-button),
+.easy-mode .monitoring-dashboard-nav button {
+  min-height: 56px;
+}
+.easy-mode .monitoring-policy-facts div {
+  grid-template-columns: 5em minmax(0, 1fr);
+}
+
+/* Dialogs keep controls labelled and readable at enlarged text sizes. */
+.chat-dialog-easy {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+.chat-dialog-easy :is(.chat-header p, .chat-toolbar button, .chat-toolbar > span,
+  .chat-footnote, .chat-footer, .chat-answer-tag, .chat-menu-item small,
+  .chat-policy-list small, .chat-history-list small, .chat-history-list time,
+  .guided-policy-context > span, .guided-candidate-status, .guided-history,
+  .guided-conversation .guided-note, .guided-conversation .guided-consent) {
+  font-size: 0.94rem;
+}
+.chat-dialog-easy .chat-header,
+.chat-dialog-easy .chat-toolbar {
+  flex-wrap: wrap;
+}
+.chat-dialog-easy .chat-close {
+  min-height: 56px;
+  min-width: 56px;
+  padding: 10px;
+}
+.chat-dialog-easy :is(button, .button, summary) {
+  min-height: 56px;
+  white-space: normal;
+}
+.chat-dialog-easy :is(.chat-content, .chat-menu-item, .chat-guide-answer, .guided-conversation) {
+  overflow-wrap: anywhere;
+}
+.chat-dialog-easy .chat-menu-item > svg,
+.chat-dialog-easy .chat-guide-list > button > svg {
+  flex-shrink: 0;
+}
+.chat-dialog-easy :is(.chat-search input, .policy-question textarea) {
+  font-size: 1rem;
+}
+.chat-dialog-easy .guided-sources a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 56px;
+}
+.easy-mode .guided-conversation,
+.easy-mode .guided-conversation :is(.guided-note, .guided-consent, .guided-history,
+  .guided-policy-context > span, .guided-candidate-status) {
+  font-size: 1rem;
+}
+.easy-mode .auth-surface {
+  grid-template-columns: minmax(0, 1fr);
+}
+.easy-mode .auth-story {
+  display: none;
+}
+.easy-mode :is(.auth-route-nav a, .auth-heading p, .auth-experience .kakao-login-section p,
+  .auth-experience .field-hint, .auth-experience .auth-error) {
+  font-size: 1rem;
+}
+.easy-mode .auth-route-nav a {
+  min-height: 56px;
+}
+
+@media (max-width: 680px) {
+  .easy-mode :is(.profile-overview-grid, .assistant-profile-grid,
+    .profile-form .form-grid, .explorer .explorer-filter-fields) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .easy-mode :is(.calendar-easy-picker, .calendar-day-panel, .calendar-undated,
+    .easy-policy-card, .auth-experience .auth-card) {
+    padding: 20px;
+  }
+  .easy-mode .calendar-policy-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .easy-mode .calendar-save {
+    align-self: flex-start;
+  }
+  .easy-mode :is(.easy-policy-conditions > div, .monitoring-policy-facts div) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .easy-mode .easy-policy-conditions {
+    padding: 14px;
+  }
+  .easy-mode .easy-card-action,
+  .easy-mode .easy-card-action .detail-link {
+    width: 100%;
+  }
+  .easy-mode .calendar-easy-day-navigation > .button {
+    flex: 1 1 9rem;
+  }
+  .easy-mode .calendar-filters .filter-summary-value {
+    display: block;
+    margin: 8px 0 0;
+  }
+  .easy-mode .interest-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .easy-mode .assistant-member-summary dl > div {
+    flex-wrap: wrap;
+  }
+  .easy-mode .assistant-profile-watch {
+    align-items: flex-start;
+  }
+  .chat-dialog-easy .chat-header .chat-agent-avatar {
+    display: none;
+  }
+  .chat-dialog-easy .chat-header > div {
+    flex-basis: 10rem;
+  }
+  .chat-dialog-easy .chat-search {
+    flex-wrap: wrap;
+  }
+  .chat-dialog-easy .chat-search .button {
+    width: 100%;
+  }
+}

@@ -55,7 +55,7 @@ export function PolicyCard({
             style={[
               styles.badgeText,
               { color: tone.color },
-              easy && { fontSize: 17 },
+              easy && { fontSize: 20, color: colors.ink },
             ]}
           >
             {policy.category}
@@ -153,7 +153,7 @@ export function PolicyFact({
 }) {
   const { easy } = useRuntime();
   return (
-    <View style={styles.fact}>
+    <View style={[styles.fact, easy && { flexWrap: "wrap" }]}>
       <Icon name={icon} size={18} color={colors.muted} />
       <Text
         style={[styles.factLabel, easy && { fontSize: 17, lineHeight: 27 }]}
@@ -162,8 +162,8 @@ export function PolicyFact({
       </Text>
       <Text
         original
-        numberOfLines={lines}
-        style={[styles.factValue, easy && { fontSize: 18, lineHeight: 27 }]}
+        numberOfLines={easy ? undefined : lines}
+        style={[styles.factValue, easy && { fontSize: 20, lineHeight: 30, width: "100%", flex: undefined }]}
       >
         {value}
       </Text>

@@ -60,36 +60,54 @@ export function selectedMemberAddress(data) {
 
 let pendingScript;
 const postcodeConstructor = () => window.kakao?.Postcode || window.daum?.Postcode;
+const isOffline = () => window.navigator?.onLine === false;
+const postcodeLoadMessages = {
+  offline: '브라우저가 오프라인 상태예요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
+  timeout: '주소 검색 서비스의 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.',
+  script:
+    '카카오 주소 검색을 불러오지 못했어요. 외부 서비스 연결이 차단되었거나 일시적으로 이용할 수 없을 수 있어요. 잠시 후 다시 시도해 주세요.',
+  unavailable: '주소 검색 기능을 시작하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해 주세요.',
+};
+
+function postcodeLoadError(reason) {
+  const error = new Error(postcodeLoadMessages[reason]);
+  error.code = `POSTCODE_${reason.toUpperCase()}`;
+  return error;
+}
 
 export function loadPostcode() {
   const loaded = postcodeConstructor();
   if (loaded) return Promise.resolve(loaded);
   if (pendingScript) return pendingScript;
+  if (isOffline()) return Promise.reject(postcodeLoadError('offline'));
   pendingScript = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = POSTCODE_SCRIPT_URL;
     script.async = true;
-    const timer = setTimeout(() => fail(), 15000);
+    let settled = false;
+    const timer = setTimeout(() => fail(isOffline() ? 'offline' : 'timeout'), 15000);
     const cleanup = () => {
       clearTimeout(timer);
       script.onload = null;
       script.onerror = null;
     };
-    function fail() {
+    function fail(reason) {
+      if (settled) return;
+      settled = true;
       cleanup();
       script.remove();
       pendingScript = undefined;
-      reject(
-        new Error('주소 검색을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'),
-      );
+      reject(postcodeLoadError(reason));
     }
     script.onload = () => {
+      if (settled) return;
       const Postcode = postcodeConstructor();
-      if (!Postcode) return fail();
+      if (!Postcode) return fail('unavailable');
+      settled = true;
       cleanup();
       resolve(Postcode);
     };
-    script.onerror = fail;
+    script.onerror = () => fail(isOffline() ? 'offline' : 'script');
     document.head.appendChild(script);
   });
   return pendingScript;

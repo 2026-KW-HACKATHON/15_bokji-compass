@@ -59,7 +59,8 @@ def test_explicit_year_is_shared_with_abbreviated_date(period, start, end):
         "2026-11-01 ~ 2026-10-01",
         "2026-02-29 ~ 2026-03-01",
         "2026-10-01 ~ 2026-10-31 / 추가 2026-11-03",
-        "2026-10-01부터 예산 소진 시까지",
+        "2026-10-01부터 공고 기한까지",
+        "공고일부터 예산 소진 시까지",
     ],
 )
 def test_ambiguous_invalid_and_partial_periods_are_not_invented(period):
@@ -67,6 +68,17 @@ def test_ambiguous_invalid_and_partial_periods_are_not_invented(period):
         "applicationStart": None,
         "applicationEnd": None,
         "scheduleStatus": "unknown",
+    }
+
+
+@pytest.mark.parametrize("period", [
+    "2026-10-01부터 예산 소진 시까지", "2026.10.1.~재원소진시까지(수시)",
+    "2026년 10월 1일부터 예산 소진시까지",
+])
+def test_budget_limited_ongoing_period_retains_its_exact_start_date(period):
+    assert application_schedule(period, reference_year=2027) == {
+        "applicationStart": "2026-10-01", "applicationEnd": None,
+        "scheduleStatus": "ongoing",
     }
 
 
@@ -85,7 +97,8 @@ def test_yearless_application_dates_use_selected_year_and_keep_absent_endpoints(
 
 
 @pytest.mark.parametrize(
-    "period", ["상시", "상시 신청", "연중", "수시 접수", "상시 신청(예산 소진 시까지)"]
+    "period", ["상시", "상시 신청", "연중", "수시 접수", "상시 신청(예산 소진 시까지)",
+               "월별 정기 모집 및 수시 모집"]
 )
 def test_ongoing_period_has_no_arbitrary_calendar_date(period):
     assert application_schedule(period)["scheduleStatus"] == "ongoing"

@@ -1,4 +1,38 @@
 /* Shared layout for the search-led web experience. Loaded after legacy page styles. */
+.home-local-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 26px 28px;
+  margin: 20px 0 32px;
+  border: 1px solid #d8e8f0;
+  border-radius: 16px;
+  background: #f3f8fb;
+}
+.home-local-entry > svg {
+  color: #326784;
+}
+.home-local-entry > div {
+  flex: 1 1 260px;
+}
+.home-local-entry h2 {
+  font-size: 1.08rem;
+  margin-bottom: 5px;
+}
+.home-local-entry p {
+  font-size: 0.88rem;
+  color: #5b6f82;
+}
+.home-local-entry button {
+  min-height: 44px;
+}
+.easy-mode .home-local-entry p {
+  font-size: 1rem;
+}
+.easy-mode .home-local-entry button {
+  min-height: 56px;
+}
 .home-assistant-entry {
   display: flex;
   align-items: center;

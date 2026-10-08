@@ -10,13 +10,13 @@ from app.modules.storage.application_dates import application_schedule, resolved
 
 _NUMBER = re.compile(r"[0-9]+")
 _RELATIVE = re.compile(
-    r"전\s*년(?:도)?|다음\s*해|익\s*년|사업\s*연도|당해\s*연도|해당\s*연도|"
+    r"전\s*년(?:도)?|다음\s*해|익\s*년|"
     r"올해|금년|내년|"
     r"(?:검진|출생|신고|공고|통지|선정|진단|퇴직|입원|사망|발생|지급)"
     r"\s*(?:일|날|시점)?\s*(?:이후|후|로부터|부터|기준)|"
     r"(?:일|개월|달|년)\s*(?:이내|이후|후)"
 )
-_ONGOING = re.compile(r"상\s*시|연\s*중(?:\s*수\s*시)?|언제\s*든지")
+_ONGOING = re.compile(r"상\s*시|연\s*중(?:\s*수\s*시)?|수\s*시|언제\s*든지")
 _DEADLINE = re.compile(r"기한|마감|종료|까지|이내|[0-9]\s*(?:년|월|일)|[0-9]\s*[./-]\s*[0-9]")
 _NUMERIC_DATE = re.compile(
     r"(?<![0-9])(?:(?:20[0-9]{2}|['’][0-9]{2}|[0-9]{2}\s*년)"
@@ -132,6 +132,13 @@ def build_calendar_rule(period: dict, expression: str | None, fields: dict) -> d
     schedule = application_schedule(expression, reference_year=2000, reference_month=1)
     if schedule["scheduleStatus"] not in {"dated", "ongoing"}:
         return None
+    quoted_schedules = [
+        application_schedule(quote, reference_year=2000, reference_month=1) for quote in quotes
+    ]
+    original_schedule = application_schedule(period["text"], reference_year=2000, reference_month=1)
+    if any(native["scheduleStatus"] != "unknown" and native != schedule
+           for native in [original_schedule, *quoted_schedules]):
+        return None
     if not _numbers(expression) <= (_numbers(evidence) | _year_numbers(evidence)):
         return None
     if not _year_numbers(expression) <= _year_numbers(evidence):
@@ -149,8 +156,10 @@ def build_calendar_rule(period: dict, expression: str | None, fields: dict) -> d
         return None
     if schedule["scheduleStatus"] == "ongoing":
         # A budget exhaustion condition does not itself supply a calendar deadline.
-        limited = re.sub(r"예산\s*(?:소진|소모)\s*(?:시|때)?\s*까지", "", evidence)
-        if not _ONGOING.search(evidence) or _DEADLINE.search(limited):
+        limited = re.sub(r"(?:예산|재원)\s*(?:소진|소모)\s*(?:시|때)?\s*까지", "", evidence)
+        preserves_native = all(native == schedule for native in quoted_schedules)
+        if (not preserves_native
+                and (not _ONGOING.search(evidence) or _DEADLINE.search(limited))):
             return None
     return {"expression": expression, "period": deepcopy(period)}
 

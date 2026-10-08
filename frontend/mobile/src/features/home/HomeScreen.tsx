@@ -1,7 +1,7 @@
 import { useI18n } from "../../i18n/context";
 import { LocalizedText as Text } from "../../i18n/LocalizedText";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import {
   Button,
@@ -28,6 +28,8 @@ const topics: { label: string; category: string; icon: IconName }[] = [
 export default function HomeScreen() {
   const { t } = useI18n();
   const { api, easy, configError } = useRuntime();
+  const { fontScale, width } = useWindowDimensions();
+  const singleColumn = easy && (fontScale > 1.3 || width < 350);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<ReturnType<typeof parsePolicyPage> | null>(
     null,
@@ -100,6 +102,7 @@ export default function HomeScreen() {
               style={({ pressed }) => [
                 styles.topic,
                 easy && styles.easyTopic,
+                singleColumn && { width: "100%", flexDirection: "row", justifyContent: "flex-start", gap: 16 },
                 { opacity: pressed ? 0.6 : 1 },
               ]}
             >
@@ -122,6 +125,7 @@ export default function HomeScreen() {
         style={({ pressed }) => [
           styles.calculator,
           easy && styles.easyCalculator,
+          singleColumn && { flexWrap: "wrap" },
           { opacity: pressed ? 0.8 : 1 },
         ]}
       >
@@ -136,12 +140,12 @@ export default function HomeScreen() {
             가구원 수로 바로 확인
           </Text>
         </View>
-        <View style={styles.calcIcon}>
+        {!easy && <View style={styles.calcIcon}>
           <Icon name="finance" size={42} color={easy ? colors.green : "#FFF"} />
-        </View>
+        </View>}
         <Icon name="next" size={20} color={easy ? colors.green : "#FFF"} />
       </Pressable>
-      <View style={styles.sectionRow}>
+      <View style={[styles.sectionRow, easy && { alignItems: "flex-start", flexDirection: "column" }]}>
         <View style={{ flex: 1, gap: 4 }}>
           <Text
             accessibilityRole="header"
@@ -154,7 +158,7 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => router.navigate("/policies")}
-          style={styles.more}
+          style={[styles.more, easy && { minHeight: 60, gap: 8 }]}
         >
           <Text style={[styles.moreText, easy && { fontSize: 18 }]}>
             전체 보기

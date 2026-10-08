@@ -201,7 +201,10 @@ const rows = String.raw`
 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요. | Connection failed. Please try again shortly. | 连接不畅，请稍后重试。 | Kết nối không ổn định. Vui lòng thử lại sau. | 接続が不安定です。しばらくしてから再試行してください。
 주소는 줄바꿈 없이 200자 이내로 입력해 주세요. | Enter the address within 200 characters without line breaks. | 地址请在200个字符以内输入，不要换行。 | Nhập địa chỉ tối đa 200 ký tự, không xuống dòng. | 住所は改行せず200文字以内で入力してください。
 선택한 주소의 지역을 확인하지 못했어요. 다른 주소를 선택해 주세요. | Could not identify the region of this address. Choose another address. | 无法确认所选地址的地区，请选择其他地址。 | Không xác định được khu vực của địa chỉ. Hãy chọn địa chỉ khác. | 選択した住所の地域を確認できませんでした。別の住所を選択してください。
-주소 검색을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요. | Could not load address search. Check your internet connection and try again. | 无法加载地址搜索，请检查网络连接后重试。 | Không thể tải tìm địa chỉ. Kiểm tra kết nối internet và thử lại. | 住所検索を読み込めませんでした。インターネット接続を確認して再試行してください。
+브라우저가 오프라인 상태예요. 인터넷 연결을 확인하고 다시 시도해 주세요. | Your browser is offline. Check your internet connection and try again. | 浏览器处于离线状态，请检查网络连接后重试。 | Trình duyệt đang ngoại tuyến. Kiểm tra kết nối internet và thử lại. | ブラウザーがオフラインです。インターネット接続を確認して再試行してください。
+주소 검색 서비스의 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요. | The address search service is taking too long to respond. Please try again shortly. | 地址搜索服务响应超时，请稍后重试。 | Dịch vụ tìm địa chỉ phản hồi quá chậm. Vui lòng thử lại sau. | 住所検索サービスの応答に時間がかかっています。しばらくしてから再試行してください。
+카카오 주소 검색을 불러오지 못했어요. 외부 서비스 연결이 차단되었거나 일시적으로 이용할 수 없을 수 있어요. 잠시 후 다시 시도해 주세요. | Could not load Kakao address search. The external service may be blocked or temporarily unavailable. Please try again shortly. | 无法加载Kakao地址搜索。外部服务连接可能被阻止或暂时不可用，请稍后重试。 | Không thể tải tìm địa chỉ Kakao. Kết nối dịch vụ bên ngoài có thể bị chặn hoặc tạm thời không khả dụng. Vui lòng thử lại sau. | Kakao住所検索を読み込めませんでした。外部サービスへの接続がブロックされているか、一時的に利用できない可能性があります。しばらくしてから再試行してください。
+주소 검색 기능을 시작하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해 주세요. | Could not start address search. Refresh the page and try again. | 无法启动地址搜索，请刷新页面后重试。 | Không thể khởi động tìm địa chỉ. Hãy tải lại trang và thử lại. | 住所検索を開始できませんでした。ページを再読み込みしてから再試行してください。
 `
   .trim()
   .split("\n")

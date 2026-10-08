@@ -1,6 +1,6 @@
 import { useI18n } from "../../i18n/context";
 import { LocalizedText as Text } from "../../i18n/LocalizedText";
-import { Switch, View } from "react-native";
+import { View } from "react-native";
 import { fieldValue, visibleFields } from "@bokji/core/finance-flow";
 import {
   moneyInput,
@@ -13,6 +13,7 @@ import {
   Copy,
   Details,
   Field,
+  Toggle,
   colors,
 } from "../../components/ui";
 import { useRuntime } from "../../services/runtime";
@@ -77,19 +78,13 @@ function FinanceField({
   if (field.type === "check")
     return (
       <View style={{ gap: 6 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <Copy>{field.label}</Copy>
-            {field.optional && <Copy muted>선택 · 필수 아님</Copy>}
-          </View>
-          <Switch
-            accessibilityLabel={t(field.label)}
+          <Toggle
+            label={field.label}
             disabled={busy}
             value={value === true}
             onValueChange={(next) => edit(field.path, next)}
-            trackColor={{ true: colors.green }}
           />
-        </View>
+          {field.optional && <Copy muted>선택 · 필수 아님</Copy>}
         {hint}
       </View>
     );
@@ -97,7 +92,7 @@ function FinanceField({
     return (
       <View style={{ gap: 10 }}>
         <Copy>{field.label}</Copy>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={t(field.label)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {field.options?.map(([key, label]) => (
             <Choice
               key={key}
@@ -126,7 +121,7 @@ function FinanceField({
       {money && <Copy>{field.label}</Copy>}
       {field.example && <Copy muted>{field.example}</Copy>}
       {money && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={t(field.label)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {[
             ["yes", "있어요"],
             ["none", "없어요 (0원)"],

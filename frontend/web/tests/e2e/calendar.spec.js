@@ -484,6 +484,75 @@ test('separate recurring rounds show every marker, omit gaps and retain the open
   await expect(dialog.locator('.policy-deadline')).toHaveText('D-28');
 });
 
+test('annual ongoing starts exclude earlier days, continue next month and keep calendar dates in refreshed details', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2027-01-08T03:00:00Z'));
+  const policy = {
+    ...base,
+    id: 'fixture-calendar-annual-budget',
+    revisionId: 'same-annual-budget-revision',
+    title: '테스트 연간 재원소진 시까지 지원',
+    applicationPeriod: '매년 1월 10일부터 재원소진 시까지(수시)',
+    applicationStart: '2027-01-10',
+    applicationEnd: null,
+    scheduleStatus: 'ongoing',
+    applicationRecurrence: 'yearly',
+    applicationYear: null,
+  };
+  await page.route('**/api/v1/policies/calendar?**', (route) => {
+    const month = new URL(route.request().url()).searchParams.get('month');
+    const items = ['2027-01', '2027-02'].includes(month) ? [policy] : [];
+    return route.fulfill({
+      json: {
+        month,
+        items,
+        total: items.length,
+        undatedItems: [],
+        undatedTotal: 0,
+        truncated: false,
+      },
+    });
+  });
+  await page.route('**/api/v1/policies/fixture-calendar-annual-budget', (route) =>
+    route.fulfill({
+      json: {
+        ...policy,
+        applicationStart: '2026-01-10',
+        content: '상세 조회로 불러온 재원소진 시까지 원문',
+      },
+    }),
+  );
+  await page.goto('/#calendar');
+  await expect(page.getByRole('status')).toContainText('신청 시작 1건 · 마감 0건');
+  await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
+  await page.getByRole('button', { name: /1월 9일, 신청 시작 0건, 마감 0건/ }).click();
+  await expect(page.locator('.calendar-day-panel')).not.toContainText(policy.title);
+  await page.getByRole('button', { name: /1월 10일, 신청 시작 1건, 마감 0건/ }).click();
+  await expect(page.locator('.calendar-day-panel .policy-deadline')).toHaveText('상시 접수');
+  await expect(page.locator('.calendar-day-panel')).toContainText(
+    '신청 시작 2027-01-10 · 마감 확인 필요',
+  );
+  await page.getByRole('button', { name: '다음 달', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '2027년 2월' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('신청 시작 0건 · 마감 0건');
+  const panel = page.locator('.calendar-day-panel');
+  await expect(panel.locator('.policy-deadline')).toHaveText('상시 접수');
+  await expect(panel).toContainText('신청 시작 2027-01-10 · 마감 확인 필요');
+  await panel.getByRole('button', { name: policy.title, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('상세 조회로 불러온 재원소진 시까지 원문');
+  await expect(dialog.locator('.policy-deadline')).toHaveText('상시 접수');
+  await dialog.getByRole('button', { name: '이 공고 저장하기', exact: true }).click();
+  const saved = await page.evaluate(
+    (id) => JSON.parse(localStorage.getItem('bokji.saved.v2.api')).find((item) => item.id === id),
+    policy.id,
+  );
+  expect(saved.applicationStart).toBe('2027-01-10');
+  expect(saved.applicationEnd).toBeNull();
+  expect(saved.calendarMonth).toBe('2027-02');
+});
+
 test('the home calendar shortcut remains keyboard accessible in easy mode at 320 pixels', async ({
   page,
 }, testInfo) => {

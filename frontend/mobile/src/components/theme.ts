@@ -8,7 +8,7 @@ export const colors = {
   paper: "#F3F5F9",
   surface: "#FFFFFF",
   line: "#E5EAF2",
-  easyLine: "#8290A6",
+  easyLine: "#68788E",
   easyPaper: "#F7F8FA",
   danger: "#A12622",
 };
@@ -22,8 +22,8 @@ export const typography = {
   },
   body: { fontSize: 16, lineHeight: 25 },
   easyTitle: {
-    fontSize: 26,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 40,
     fontWeight: "700" as const,
     letterSpacing: 0,
   },
@@ -31,5 +31,8 @@ export const typography = {
 };
 
 export function tabBarHeight(easy: boolean, fontScale = 1) {
-  return (easy ? 78 : 70) + Math.max(0, fontScale - 1) * 24;
+  // The label may wrap when Dynamic Type or translated labels need more room.
+  return easy
+    ? 96 + Math.max(0, fontScale - 1) * 96
+    : 70 + Math.max(0, fontScale - 1) * 72;
 }

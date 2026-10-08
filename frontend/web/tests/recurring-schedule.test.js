@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mergePolicyDetail, parsePolicy } from '../src/features/policies/policyModel.js';
 import { createPolicyRepository } from '../src/features/policies/policyRepository.js';
-import { calendarEvents, policiesOnDay } from '../src/features/calendar/calendarModel.js';
+import {
+  applicationWindowOnDay,
+  calendarEvents,
+  policiesOnDay,
+} from '../src/features/calendar/calendarModel.js';
 import { policyDeadline } from '../src/features/policies/deadlineModel.js';
 import {
   applyPolicyTranslation,
@@ -62,6 +66,78 @@ test('recurring end-only metadata stays canonical and calendar creates only a cl
       }).calendar('2027-04'),
     );
   }
+});
+
+test('annual ongoing schedules show only a start marker and daily policies from their start onward', async () => {
+  const ongoing = {
+    ...annual,
+    applicationPeriod: '매년 1월 ~ 재원소진 시까지(수시)',
+    applicationStart: '2027-01-01',
+    applicationEnd: null,
+    scheduleStatus: 'ongoing',
+    applicationPrecision: null,
+  };
+  const repo = (patch = {}) =>
+    createPolicyRepository({
+      mode: 'api',
+      request: async () => calendarPayload({ ...ongoing, ...patch }),
+    });
+  const result = await repo().calendar('2027-04');
+  const policy = result.items[0];
+  assert.equal(policy.applicationRecurrence, 'yearly');
+  assert.equal(policy.calendarMonth, '2027-04');
+  assert.deepEqual(
+    calendarEvents(result.items, '2027-01').map(({ date, type }) => ({ date, type })),
+    [{ date: '2027-01-01', type: 'start' }],
+  );
+  assert.equal(calendarEvents(result.items, '2027-04').length, 0);
+  assert.deepEqual(policiesOnDay(result.items, '2027-01-01'), result.items);
+  assert.deepEqual(policiesOnDay(result.items, '2027-04-15'), result.items);
+  assert.equal(policiesOnDay(result.items, '2026-12-31').length, 0);
+  assert.equal(policiesOnDay(result.items, '2027-04-15', 'start').length, 0);
+  assert.equal(policiesOnDay(result.items, '2027-04-15', 'end').length, 0);
+  assert.deepEqual(applicationWindowOnDay(policy, '2027-04-15'), {
+    applicationStart: '2027-01-01',
+    applicationEnd: null,
+  });
+  assert.equal(applicationWindowOnDay(policy, '2026-12-31'), null);
+  assert.deepEqual(policyDeadline(policy, '2026-12-31'), { state: 'ongoing', days: null });
+  for (const patch of [
+    { applicationStart: null },
+    { applicationStart: '2027-02-30' },
+    { applicationEnd: '2027-04-30' },
+    { applicationRecurrence: 'monthly' },
+    { applicationYear: 2027 },
+    { scheduleStatus: 'unknown' },
+  ]) {
+    await assert.rejects(repo(patch).calendar('2027-04'), { code: 'invalid_response' });
+  }
+});
+
+test('ongoing detail refresh preserves the selected calendar year without inventing a deadline', () => {
+  const selected = parsePolicy({
+    ...annual,
+    applicationPeriod: '매년 1월 ~ 재원소진 시까지(수시)',
+    applicationStart: '2027-01-01',
+    applicationEnd: null,
+    scheduleStatus: 'ongoing',
+    applicationPrecision: null,
+    calendarMonth: '2027-04',
+  });
+  const detail = parsePolicy({
+    ...selected,
+    applicationStart: '2026-01-01',
+    calendarMonth: null,
+    content: '보강된 상시접수 본문',
+  });
+  const merged = mergePolicyDetail(selected, detail);
+  assert.equal(merged.applicationStart, '2027-01-01');
+  assert.equal(merged.applicationEnd, null);
+  assert.equal(merged.content, detail.content);
+  assert.equal(merged.calendarMonth, '2027-04');
+  assert.deepEqual(policyDeadline(merged, '2027-04-15'), { state: 'ongoing', days: null });
+  const revised = { ...detail, revisionId: 'changed-ongoing-revision' };
+  assert.equal(mergePolicyDetail(selected, revised), revised);
 });
 
 test('detail refresh preserves the selected calendar year while updating full content', () => {

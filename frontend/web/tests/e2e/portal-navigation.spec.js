@@ -14,7 +14,7 @@ test('full menu groups the calculator and separates assistant destinations', asy
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1466, height: 643 });
   await page.goto('/#home');
   const nav = page.getByRole('navigation', { name: '주 메뉴', exact: true });
-  await expect(nav.locator('.portal-nav > .portal-nav-group')).toHaveCount(6);
+  await expect(nav.locator('.portal-nav > .portal-nav-group')).toHaveCount(7);
   await expect(
     nav.locator('.portal-nav').getByRole('link', { name: '계산기', exact: true }),
   ).toHaveCount(0);

@@ -12,7 +12,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   StyleSheet,
   TextInput,
   TextInputProps,
@@ -96,7 +95,7 @@ export function Screen({ children }: React.PropsWithChildren) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             styles.page,
-            easy && { padding: 16, gap: 14, paddingBottom: 100 },
+            easy && { padding: 16, gap: 24, paddingBottom: 120 },
           ]}
         >
           <ScreenScroll.Provider value={scroll}>
@@ -195,29 +194,37 @@ function EasyModeBar() {
           </Text>
         </View>
         <LanguageSelector compact />
-        <Text
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel={t("쉬운 화면")}
+          accessibilityState={{ checked: easy }}
+          onPress={() => setEasy(!easy)}
           style={{
-            flex: stacked ? 1 : 0,
-            fontSize: easy ? 18 : 12,
-            color: colors.muted,
-            fontWeight: "600",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            minHeight: easy ? 60 : 48,
+            paddingHorizontal: 8,
+            borderWidth: easy ? 1.5 : 0,
+            borderColor: colors.green,
+            borderRadius: 8,
+            backgroundColor: easy ? colors.mint : "transparent",
+            flexShrink: 1,
           }}
         >
-          쉬운 화면
-        </Text>
-        <Switch
-          accessibilityLabel={t("쉬운 화면")}
-          value={easy}
-          onValueChange={setEasy}
-          trackColor={{ false: "#CDD4DA", true: colors.green }}
-        />
+          <Text style={{ fontSize: 14, color: colors.ink, fontWeight: "700" }}>
+            쉬운 화면
+          </Text>
+          <ToggleMark value={easy} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("전체 메뉴 열기")}
           onPress={openMenu}
           style={{
             minWidth: easy ? 52 : 44,
-            minHeight: 48,
+            minHeight: easy ? 60 : 48,
             alignItems: "center",
             justifyContent: "center",
             gap: 5,
@@ -246,6 +253,54 @@ export function Card({ children }: React.PropsWithChildren) {
   const { easy } = useRuntime();
   return <View style={[styles.card, easy && styles.easyCard]}>{children}</View>;
 }
+
+function ToggleMark({ value }: { value: boolean }) {
+  return (
+    <View
+      accessible={false}
+      aria-hidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 48,
+        height: 28,
+        padding: 3,
+        borderRadius: 16,
+        backgroundColor: value ? colors.green : colors.easyLine,
+        alignItems: value ? "flex-end" : "flex-start",
+        flexShrink: 0,
+      }}
+    >
+      <View style={{ width: 22, height: 22, borderRadius: 12, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
+        {value && <Icon name="check" size={16} color={colors.green} />}
+      </View>
+    </View>
+  );
+}
+
+// The label and control form one large target for touch and screen readers.
+export function Toggle({ label, accessibilityLabel = label, value, onValueChange, disabled = false }: {
+  label: string;
+  accessibilityLabel?: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const { easy } = useRuntime();
+  const { t } = useI18n();
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={t(accessibilityLabel)}
+      accessibilityState={{ checked: value, disabled }}
+      disabled={disabled}
+      onPress={() => onValueChange(!value)}
+      style={{ minHeight: easy ? 60 : 48, padding: 12, gap: 14, flexDirection: "row", alignItems: "center", borderWidth: easy ? 1.5 : 1, borderColor: value ? colors.green : easy ? colors.easyLine : colors.line, borderRadius: easy ? 8 : 14, backgroundColor: value ? colors.mint : colors.surface }}
+    >
+      <View style={{ flex: 1 }}><Copy>{label}</Copy></View>
+      <ToggleMark value={value} />
+    </Pressable>
+  );
+}
 // Secondary information stays available without filling the first mobile screen.
 export function Details({
   label,
@@ -270,7 +325,7 @@ export function Details({
         aria-expanded={open}
         onPress={() => setOpen(!open)}
         style={{
-          minHeight: 56,
+          minHeight: easy ? 60 : 56,
           paddingVertical: 10,
           paddingHorizontal: 14,
           backgroundColor: colors.surface,
@@ -385,7 +440,8 @@ export function Button({
               ? colors.surface
               : "#EEF2F4"
             : colors.green,
-          opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
+          opacity: pressed ? 0.8 : 1,
+          ...(disabled || busy ? { backgroundColor: "#E2E7EF" } : {}),
         },
         easy && {
           minHeight: 60,
@@ -395,11 +451,11 @@ export function Button({
         },
       ]}
     >
-      {busy && <ActivityIndicator color={secondary ? colors.green : "#FFF"} />}
+      {busy && <ActivityIndicator color={colors.muted} />}
       <Text
         original={original}
         style={{
-          color: secondary ? colors.ink : "#FFF",
+          color: disabled || busy ? colors.muted : secondary ? colors.ink : "#FFF",
           fontSize: easy ? 20 : 16,
           lineHeight: easy ? 30 : 24,
           fontWeight: "700",
@@ -416,6 +472,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const { easy } = useRuntime();
   const { t } = useI18n();
   const [focused, setFocused] = useState(false);
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={{ gap: 6 }}>
       <Copy>{label}</Copy>
@@ -436,9 +493,11 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         style={[
           styles.input,
           easy && styles.easyInput,
+          { minHeight: Math.max(easy ? 64 : 56, (easy ? 30 : 26) * fontScale + 32) },
           focused && {
             borderColor: colors.green,
             backgroundColor: colors.surface,
+            borderWidth: 3,
           },
           props.style,
         ]}
@@ -528,13 +587,17 @@ export function Choice({
               ? colors.easyLine
               : colors.line,
           backgroundColor: selected ? colors.mint : colors.surface,
-          opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
+          opacity: pressed ? 0.7 : 1,
+          width: easy ? "100%" : undefined,
+          justifyContent: easy ? "flex-start" : "center",
         },
       ]}
     >
-      {selected && (
-        <Icon name="check" size={easy ? 22 : 18} color={colors.green} />
-      )}
+      {easy ? (
+        <View style={{ width: 26, height: 26, borderRadius: 14, borderWidth: 2, borderColor: selected ? colors.green : colors.easyLine, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          {selected && <Icon name="check" size={18} color={colors.green} />}
+        </View>
+      ) : selected && <Icon name="check" size={18} color={colors.green} />}
       <Text
         style={{
           color: selected ? colors.green : colors.ink,
@@ -569,7 +632,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.easyLine,
     padding: 16,
-    gap: 14,
+    gap: 20,
   },
   button: {
     minHeight: 54,

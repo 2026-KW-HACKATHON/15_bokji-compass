@@ -33,7 +33,7 @@ export const recipientTypes = [
   ['unknown', '모름'],
   ['none', '해당 없음'],
   ['near_poor', '차상위계층'],
-  ['basic', '기초생활수급자'],
+  ['basic', '국민기초생활수급자'],
 ];
 export const vehicleKinds = [
   ['unknown', '모름'],
@@ -207,7 +207,7 @@ export function toFinancialProfile(draft) {
     region: choice(draft.region, financeRegions, '지역'),
     household_scope_confirmed: draft.household_scope_confirmed === true,
     minor_children,
-    recipient_status: choice(draft.recipient_status, recipientTypes, '수급 상태'),
+    recipient_status: choice(draft.recipient_status, recipientTypes, '지원 대상 구분'),
     members: draft.members.map((member, index) => ({
       age: parseInteger(member.age, '가구원 ' + (index + 1) + ' 나이', {
         max: 120,

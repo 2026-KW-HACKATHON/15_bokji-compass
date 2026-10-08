@@ -1,5 +1,7 @@
 # 웹·모바일 공통 금융 모델
 
+2026-10-08: `financeQuestions(draft)`의 가구 정보는 ‘지원 대상 구분’과 ‘국민기초생활수급자·차상위계층’ 명칭을 사용합니다. 선택 체크박스 두 개의 보조 안내 문구는 제거했으며 선택 여부와 `recipient_status` 전송 값은 유지합니다.
+
 2026-10-07: `@bokji/core/i18n`에 다섯 언어 UI 사전, 언어 감지·fallback·변수 처리를 제공합니다. `src/i18n/policyTranslation.js`는 표시 전용 공고 번역의 HTTP 요청·캐시·취소·응답 검증을 공유합니다. 함수 계약과 사용법은 [공통 번역](src/i18n/readme.md), 범위는 [다국어 UI와 공고 번역](../../docs/internationalization.md)를 참고하세요.
 
 담당: 프론트엔드. 기존 웹의 `financeModel.js`, `financeFlow.js`를 옮긴 플랫폼 독립 JavaScript입니다. DOM·기기 저장·네트워크 호출·서버 계산 산식이 없습니다. 웹의 기존 경로는 재내보내기로 호환하며 모바일은 `@bokji/core/finance-model`, `@bokji/core/finance-flow`를 사용합니다.

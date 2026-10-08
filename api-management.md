@@ -1,5 +1,15 @@
 # 백엔드 엔드포인트·연동 관리
 
+## 생활반경 지역 복지 (2026-10-08)
+
+공개 `GET /v1/local-services?region=서울&district=노원구&neighborhood=월계1동`는
+검토된 공식기관 서비스 요약을 반환합니다. `category=all|transport|health|care|culture`,
+`scope=all|neighborhood`, `neighborhood_type=unknown|administrative|legal`을 지원합니다.
+전국·시도·시군구 범위와 명시한 동네를 구분하며 행정동/법정동을 추정 변환하지 않습니다.
+응답은 `items,total,coverage,focus,checkedAt`. DB/회원정보/네트워크 없이 버전 관리된 JSON을
+검증해 읽으며 입력 오류 422, 카탈로그 오류 503, no-store를 적용합니다.
+[전체 계약·확장·갱신 방법](backend/docs/local-services.md).
+
 ## 공개 공고 다국어 번역 (2026-10-07)
 
 GET `/v1/policies/{policy_id}/translation?language=ko|en|zh|vi|ja`는 현재 공개된 공고의

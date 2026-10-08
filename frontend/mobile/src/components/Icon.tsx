@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   ArrowUpRight,
   Info,
+  Languages,
 } from "lucide-react-native";
 import { ColorValue, View } from "react-native";
 import { colors } from "./theme";
@@ -50,6 +51,7 @@ const icons = {
   filter: SlidersHorizontal,
   external: ArrowUpRight,
   info: Info,
+  language: Languages,
 };
 export type IconName = keyof typeof icons;
 
@@ -69,7 +71,7 @@ export function Icon({
       aria-hidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Glyph size={size} color={color} strokeWidth={1.8} />
+      <Glyph size={size} color={color} strokeWidth={2} />
     </View>
   );
 }

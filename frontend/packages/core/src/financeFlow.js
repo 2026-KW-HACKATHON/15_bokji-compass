@@ -116,14 +116,13 @@ export function financeQuestions(draft) {
           exactLabel: "실제 자녀 수",
         },
       },
-      select("recipient_status", "recipient", "현재 수급 상태", recipientTypes),
+      select("recipient_status", "recipient", "지원 대상 구분", recipientTypes),
       {
         ...check(
           "household_scope_confirmed",
           "계산할 사업의 가구원 범위를 확인했어요",
         ),
         optional: true,
-        hint: "선택하지 않아도 다음 단계로 갈 수 있어요. 확인하지 않은 가구원 범위는 결과에서 확인할 항목으로 안내합니다.",
       },
       {
         ...check(
@@ -131,7 +130,6 @@ export function financeQuestions(draft) {
           "추가로 적용받을 수 있는 혜택이나 소득·재산 공제를 확인하고 싶어요",
         ),
         optional: true,
-        hint: "선택하지 않아도 다음 단계로 갈 수 있어요. 추가 혜택이나 공제가 있는지 더 알아보고 싶을 때 선택하세요.",
       },
     ]),
     ...draft.members.flatMap((member, i) => {

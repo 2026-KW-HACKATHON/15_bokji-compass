@@ -20,6 +20,14 @@ export function shiftMonth(month, amount) {
   return new Date(Date.UTC(year, number - 1 + amount, 1)).toISOString().slice(0, 7);
 }
 
+export function shiftCalendarDay(day, amount) {
+  if (!isCalendarDate(day) || !Number.isInteger(amount)) return null;
+  const date = new Date(day + 'T00:00:00Z');
+  date.setUTCDate(date.getUTCDate() + amount);
+  const next = date.toISOString().slice(0, 10);
+  return isCalendarDate(next) ? next : null;
+}
+
 export function calendarCells(month) {
   const [year, number] = month.split('-').map(Number);
   const first = new Date(Date.UTC(year, number - 1, 1));
@@ -37,7 +45,7 @@ export function policyApplicationWindows(policy) {
     : [{ applicationStart: policy.applicationStart, applicationEnd: policy.applicationEnd }];
 }
 
-function windowMatchesDay(window, day, type = 'all') {
+function windowMatchesDay(window, day, type = 'all', ongoing = false) {
   return type === 'start'
     ? window.applicationStart === day
     : type === 'end'
@@ -45,9 +53,9 @@ function windowMatchesDay(window, day, type = 'all') {
       : window.applicationStart === day ||
         window.applicationEnd === day ||
         (window.applicationStart &&
-          window.applicationEnd &&
           window.applicationStart <= day &&
-          day <= window.applicationEnd);
+          ((window.applicationEnd && day <= window.applicationEnd) ||
+            (ongoing && !window.applicationEnd)));
 }
 
 export function applicationWindowOnDay(policy, day, type = 'all') {
@@ -58,7 +66,9 @@ export function applicationWindowOnDay(policy, day, type = 'all') {
         (type !== 'end' && window.applicationStart === day) ||
         (type !== 'start' && window.applicationEnd === day),
     ) ||
-    windows.find((window) => windowMatchesDay(window, day, type)) ||
+    windows.find((window) =>
+      windowMatchesDay(window, day, type, policy.scheduleStatus === 'ongoing'),
+    ) ||
     null
   );
 }
@@ -95,7 +105,9 @@ export function calendarEvents(items, month, type = 'all') {
 
 export function policiesOnDay(items, day, type = 'all') {
   return items.filter((policy) =>
-    policyApplicationWindows(policy).some((window) => windowMatchesDay(window, day, type)),
+    policyApplicationWindows(policy).some((window) =>
+      windowMatchesDay(window, day, type, policy.scheduleStatus === 'ongoing'),
+    ),
   );
 }
 

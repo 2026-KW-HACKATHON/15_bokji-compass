@@ -96,6 +96,19 @@ def test_expired_exact_dates_and_explicit_month_year_remain_in_original_calendar
     assert catalog.list_calendar(repository, month="2025-05")["total"] == 0
 
 
+def test_budget_ongoing_with_start_remains_visible_in_later_months(repository):
+    add_policy(repository, "budget", "매년 5월 ~ 재원소진 시까지(수시)")
+    assert catalog.list_calendar(repository, month="2027-04")["total"] == 0
+    for month in ("2027-05", "2027-06", "2027-12", "2028-05"):
+        result = catalog.list_calendar(repository, month=month)
+        assert ids(result) == {"budget"}
+        assert result["undatedTotal"] == 0
+        item = result["items"][0]
+        assert item["scheduleStatus"] == "ongoing"
+        assert item["applicationStart"] == month[:4] + "-05-01"
+        assert item["applicationEnd"] is None
+
+
 def test_cited_month_period_is_shared_by_list_detail_calendar_and_filters(repository):
     add_policy(repository, "assistive-device", "", overview_period={
         "status": "specified", "text": "3~4월",

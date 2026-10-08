@@ -50,6 +50,17 @@ http://:8080 {
 			respond 404
 		}
 	}
+	@entryDocument path / /index.html
+	handle @entryDocument {
+		request_header -If-None-Match
+		request_header -If-Modified-Since
+		header {
+			Cache-Control no-store
+			-ETag
+			-Last-Modified
+		}
+		file_server
+	}
 	handle {
 		header Cache-Control no-cache
 		file_server

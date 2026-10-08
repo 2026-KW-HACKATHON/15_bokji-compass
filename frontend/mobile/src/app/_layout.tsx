@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router/js-tabs";
-import { ColorValue, View, useWindowDimensions } from "react-native";
+import { ColorValue, Text, View, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RuntimeProvider, useRuntime } from "../services/runtime";
@@ -46,6 +46,8 @@ function Navigation() {
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: focused ? colors.mint : "transparent",
+          borderBottomWidth: focused ? 3 : 0,
+          borderColor: colors.green,
         }}
       >
         <Icon name={name} size={23} color={color} />
@@ -58,11 +60,11 @@ function Navigation() {
         headerShown: false,
         tabBarActiveTintColor: colors.green,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: {
-          fontSize: easy ? 15 : 12,
-          fontWeight: "600",
-          marginTop: 3,
-        },
+        tabBarLabel: ({ children, color, focused }) => (
+          <Text allowFontScaling style={{ color, fontSize: easy ? 18 : 12, lineHeight: easy ? 25 : 18, fontWeight: focused ? "800" : "600", textAlign: "center", alignSelf: "stretch", flexShrink: 1, marginTop: 3 }}>
+            {children}
+          </Text>
+        ),
         tabBarLabelPosition: "below-icon",
         tabBarHideOnKeyboard: true,
         tabBarStyle: {

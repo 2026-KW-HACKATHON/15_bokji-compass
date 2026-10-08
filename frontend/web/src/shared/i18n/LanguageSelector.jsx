@@ -1,13 +1,14 @@
 import { locales } from '../../../../packages/core/src/i18n/index.js';
 import { useI18n } from './I18nProvider.jsx';
+import Icon from '../ui/Icon.jsx';
 
 export default function LanguageSelector() {
   const { locale, setLocale, t, storageError } = useI18n();
   return (
     <div className="language-control">
       <label className="language-selector">
-        <span aria-hidden="true">🌐</span>
-        <span className="sr-only">{t('언어 선택')}</span>
+        <Icon name="languages" size={22} />
+        <span className="language-selector-label sr-only">{t('언어 선택')}</span>
         <select value={locale} onChange={(event) => setLocale(event.target.value)}>
           {locales.map((item) => (
             <option key={item.code} value={item.code} lang={item.intlLocale}>

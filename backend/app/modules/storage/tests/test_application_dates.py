@@ -238,11 +238,44 @@ def test_application_windows_parse_source_prose_and_keep_explicit_years(period, 
 
 @pytest.mark.parametrize("period", [
     "연중신청가능", "연중 신청 가능", "연중수시", "연중수시신청",
-    "출생 신고 후 언제든지 신청 가능",
+    "출생 신고 후 언제든지 신청 가능", "연 중", "예산의 범위에서 수시 모집",
+    "연중 (지자체별 예산 소진시 조기 마감)",
 ])
 def test_explicit_ongoing_phrases_remain_without_fabricated_deadline(period):
     assert application_schedule(period) == {
         "applicationStart": None, "applicationEnd": None, "scheduleStatus": "ongoing",
+    }
+
+
+@pytest.mark.parametrize(("period", "year", "start", "end"), [
+    ("사업연도 2월말까지", 2027, None, "2027-02-28"),
+    ("사업연도 2월말까지", 2028, None, "2028-02-29"),
+    ("당해연도 1월", 2027, "2027-01-01", "2027-01-31"),
+    ("신청 기한: 해당연도 2월 말까지", 2028, None, "2028-02-29"),
+    ("2월 이내", 2028, None, "2028-02-29"),
+    ("2026년 2월 이내", 2028, None, "2026-02-28"),
+])
+def test_business_calendar_year_and_month_deadline_use_selected_year(period, year, start, end):
+    schedule = application_schedule(period, reference_year=year)
+    assert schedule["scheduleStatus"] == "dated"
+    assert (schedule["applicationStart"], schedule["applicationEnd"]) == (start, end)
+
+
+@pytest.mark.parametrize("period", [
+    "매년 1월 ~ 재원소진 시까지(수시)", "매년 1월부터 상시 신청", "매년 1월~상시",
+])
+def test_budget_exhaustion_keeps_known_start_without_a_fabricated_end(period):
+    for year in (2025, 2027, 2028):
+        schedule = application_schedule(period, reference_year=year, reference_month=4)
+        assert schedule == {
+            "applicationStart": f"{year}-01-01", "applicationEnd": None,
+            "scheduleStatus": "ongoing", "applicationYear": None,
+            "applicationRecurrence": "yearly",
+        }
+    explicit = application_schedule("2025년 신청기간: 1월~예산 소진 시까지", reference_year=2027)
+    assert explicit == {
+        "applicationStart": "2025-01-01", "applicationEnd": None,
+        "scheduleStatus": "ongoing", "applicationYear": 2025,
     }
 
 
@@ -280,7 +313,7 @@ def test_ongoing_parentheses_do_not_erase_unresolved_or_invalid_limits(period):
 
 
 @pytest.mark.parametrize("period", [
-    "지급일: 매년 4월 말까지", "발표일: 2027년 4월 30일", "사업연도 2월말까지",
+    "지급일: 매년 4월 말까지", "발표일: 2027년 4월 30일", "당해 연도 1월경", "2개월 이내",
     "검진 다음해 3월 31일까지", "1월~2월초", "매년 2월 30일까지",
     "3월 31일~3월 1일", "4월 말까지 / 추가 5월까지",
 ])

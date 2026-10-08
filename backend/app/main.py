@@ -21,6 +21,7 @@ from app.api.auth import router as auth_router
 from app.api.finance import router as finance_router
 from app.api.health import router
 from app.api.kakao_auth import router as kakao_auth_router
+from app.api.local_services import router as local_services_router
 from app.api.mobile_auth import router as mobile_auth_router
 from app.api.mobile_oauth import router as mobile_oauth_router
 from app.api.monitoring import router as monitoring_router
@@ -219,6 +220,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
                 "/v1/monitoring",
                 "/v1/assistant/",
                 "/v1/policies",
+                "/v1/local-services",
                 "/v1/recommendations",
                 "/v1/admin/",
                 "/v1/server-admin/",
@@ -250,6 +252,7 @@ def create_app(settings: Settings | None = None, *, config_path: Path | None = N
     application.include_router(notifications_router)
     application.include_router(monitoring_router)
     application.include_router(finance_router)
+    application.include_router(local_services_router)
     application.include_router(policies_router)
     application.include_router(assistant_router)
     application.include_router(assistant_dialogue_router)

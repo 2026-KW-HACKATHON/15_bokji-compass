@@ -34,15 +34,17 @@ import {
 import { readStoredValue, writeStoredValue, removeStoredValue } from '../shared/storage.js';
 import { appConfig } from '../shared/config.js';
 import Icon from '../shared/ui/Icon.jsx';
-import { policyRepository, recommendationRepository } from './services.js';
+import { localServiceRepository, policyRepository, recommendationRepository } from './services.js';
 import { recommendationFailure } from '../features/assistant/recommendationFeedback.js';
 import SourceFooter from './SourceFooter.jsx';
 import usePolicyRefresh from '../features/policies/usePolicyRefresh.js';
 import MonitoringPanel from '../features/monitoring/MonitoringPanel.jsx';
 import PortalNavigation from './PortalNavigation.jsx';
+import EasyNavigation from './EasyNavigation.jsx';
 import { portalRoutes } from './portalNavigation.js';
 const GuidePage = lazy(() => import('../features/guide/GuidePage.jsx'));
 const AssistantPage = lazy(() => import('../features/assistant/AssistantPage.jsx'));
+const LocalWelfarePage = lazy(() => import('../features/local/LocalWelfarePage.jsx'));
 
 const profileKey = 'bokji.profile.v2';
 const savedKey = 'bokji.saved.v2.' + appConfig.dataMode;
@@ -91,6 +93,10 @@ export default function App() {
   const { t } = useI18n();
   const [route, setRoute] = useState(readRoute);
   const [user, setUser] = useState(null);
+  const localSelection = useRef({ owner: null, value: null });
+  if (localSelection.current.owner !== (user?.id || null)) {
+    localSelection.current = { owner: user?.id || null, value: null };
+  }
   const financeOwner = useRef(null);
   financeOwner.current = user?.id ?? null;
   const financeEditRevision = useRef(0);
@@ -559,7 +565,11 @@ export default function App() {
               <small>{t('나를 위한 복지 비서')}</small>
             </span>
           </a>
-          <PortalNavigation page={route.page} savedCount={saved.length} />
+          {easy ? (
+            <EasyNavigation page={route.page} savedCount={saved.length} />
+          ) : (
+            <PortalNavigation page={route.page} savedCount={saved.length} />
+          )}
           <div className="header-actions">
             <LanguageSelector />
             <button className="mode-switch" role="switch" aria-checked={easy} onClick={toggleEasy}>
@@ -631,11 +641,27 @@ export default function App() {
               onLogin={() => navigate('login')}
               onExplore={() => navigate('explore')}
               onSearch={searchPolicies}
+              onLocal={() => navigate('local')}
               onGuide={() => navigate('guide')}
               onCalendar={() => navigate('calendar')}
               onAssistant={() => openAssistantPage()}
               mode={appConfig.dataMode}
             />
+          )}
+          {route.page === 'local' && (
+            <Suspense fallback={<p role="status">{t('동네 복지를 불러오고 있어요.')}</p>}>
+              <LocalWelfarePage
+                key={user?.id || 'guest'}
+                user={user}
+                profile={profile}
+                repository={localServiceRepository}
+                onSearch={searchPolicies}
+                initialSelection={localSelection.current.value}
+                onSelectionChange={(value) => {
+                  localSelection.current = { owner: user?.id || null, value };
+                }}
+              />
+            </Suspense>
           )}
           {['assistant', 'assistant-intro', 'assistant-overview'].includes(route.page) && (
             <Suspense fallback={<p role="status">{t('AI 복지비서를 불러오고 있어요.')}</p>}>

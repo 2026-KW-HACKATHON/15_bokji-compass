@@ -61,6 +61,7 @@ def test_liveness_is_not_database_readiness():
             "/v1/mobile/auth/me",
             "/v1/mobile/auth/logout",
             "/v1/policies",
+            "/v1/local-services",
             "/v1/policies/options",
             "/v1/policies/{policy_key}",
             "/v1/policies/{policy_key}/translation",

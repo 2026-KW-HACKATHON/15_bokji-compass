@@ -16,6 +16,7 @@ import {
   Headset,
   House,
   Info,
+  Languages,
   LayoutGrid,
   MapPin,
   Search,
@@ -49,6 +50,7 @@ const icons = {
   headset: Headset,
   house: House,
   info: Info,
+  languages: Languages,
   grid: LayoutGrid,
   pin: MapPin,
   search: Search,
@@ -67,5 +69,7 @@ const icons = {
 };
 export default function Icon({ name, size = 20, ...props }) {
   const Component = icons[name] || Compass;
-  return <Component size={size} strokeWidth={1.7} aria-hidden="true" {...props} />;
+  return (
+    <Component size={size} strokeWidth={1.7} aria-hidden="true" focusable="false" {...props} />
+  );
 }

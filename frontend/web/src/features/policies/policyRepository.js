@@ -99,6 +99,12 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
         })),
         undatedItems = result.undatedItems.map(parsePolicy);
       for (const policy of [...result.items, ...result.undatedItems]) {
+        const recurringOngoing =
+          policy.scheduleStatus === 'ongoing' &&
+          policy.applicationRecurrence === 'yearly' &&
+          policy.applicationYear === null &&
+          isCalendarDate(policy.applicationStart) &&
+          policy.applicationEnd === null;
         if (
           (policy.applicationPrecision === 'month_end' &&
             (policy.scheduleStatus !== 'dated' ||
@@ -106,7 +112,7 @@ export function createPolicyRepository({ mode, request, path = '/v1/policies' })
               !isCalendarDate(policy.applicationEnd))) ||
           (policy.applicationRecurrence &&
             (!['yearly', 'monthly'].includes(policy.applicationRecurrence) ||
-              policy.scheduleStatus !== 'dated' ||
+              (policy.scheduleStatus !== 'dated' && !recurringOngoing) ||
               ![policy.applicationStart, policy.applicationEnd].some(isCalendarDate)))
         )
           throw new ApiError('공고 일정을 다시 확인해야 해요.', 'invalid_response');

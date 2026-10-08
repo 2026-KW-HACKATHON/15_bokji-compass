@@ -71,6 +71,7 @@ def _clean_period(value):
     )
     value = re.sub(r"(?<![0-9])['’]([0-9]{2})(?=\s*[./년-])", r"20\1", value)
     value = re.sub(r"(?<![0-9])([0-9]{2})\s*년", r"20\1년", value)
+    value = re.sub(r"^(?:사업|당해|해당)\s*연도\s*", "", value)
     label = re.match(
         r"^(?:(20[0-9]{2})\s*년(?:도)?\s*)?"
         r"((?:신청|접수|모집)\s*(?:기간|기한|마감일?|시작일|개시일|일정)?|마감일)"
@@ -82,6 +83,8 @@ def _clean_period(value):
         context_year, name, value = label.groups()
         role = ("end" if re.search(r"기한|마감", name) else
                 "start" if re.search(r"시작|개시", name) else None)
+    value = re.sub(r"^(?:사업|당해|해당)\s*연도\s*", "", value)
+    value = re.sub(r"^(?:예산|재원)\s*(?:의\s*)?범위\s*(?:내(?:에서)?|에서)\s*", "", value)
     value = re.sub(
         r"\s*(?:(?:신청|접수)\s*)?(?:가능합니다|가능|할\s*수\s*있습니다|"
         r"하시면\s*됩니다|해\s*주세요|하세요|합니다|됩니다|입니다|임)\s*[.。]?\s*$",
@@ -153,9 +156,9 @@ def _date_schedule(value, role, annual, reference_year, reference_month):
             "applicationEnd": end.isoformat(), "scheduleStatus": "dated"},
             annual=annual and yearless, yearless=yearless,
             month_end=first.month_end or last.month_end)
-    until = bool(re.search(r"까지\s*$", value))
+    until = bool(re.search(r"(?:까지|이내)\s*$", value))
     beginning = bool(re.search(r"부터\s*$", value))
-    endpoint_value = re.sub(r"\s*(?:까지|부터)\s*$", "", value)
+    endpoint_value = re.sub(r"\s*(?:까지|이내|부터)\s*$", "", value)
     endpoint = _endpoint(endpoint_value)
     if endpoint is None and (until or role == "end"):
         month_only = re.fullmatch(MONTH + r"월", endpoint_value)
@@ -328,6 +331,25 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
     if not isinstance(value, str):
         return result
     value, role, annual, context_year = _clean_period(value)
+    open_end = re.fullmatch(
+        r"(.+?)\s*(?:~|부터)\s*(?:(?:예산|재원)\s*(?:소진|소모)\s*(?:시|때)?\s*까지"
+        r"(?:\s*\((?:수\s*시|상\s*시)(?:\s*(?:신청|접수|모집))?\))?|"
+        r"(?:상\s*시|연\s*중\s*(?:수\s*시)?)(?:\s*(?:신청|접수|모집))?)", value,
+    )
+    if open_end:
+        start = application_schedule(
+            "신청 시작일: " + ("매년 " if annual else "") + open_end[1],
+            reference_year=context_year or reference_year, reference_month=reference_month,
+        )
+        if start["scheduleStatus"] != "dated" or not start["applicationStart"]:
+            return result
+        known = {key: start[key] for key in ("applicationYear", "applicationRecurrence")
+                 if key in start}
+        if context_year is not None:
+            known["applicationYear"] = context_year
+            known.pop("applicationRecurrence", None)
+        return {"applicationStart": start["applicationStart"], "applicationEnd": None,
+                "scheduleStatus": "ongoing", **known}
     if re.fullmatch(
         r"(?:분기별\s*(?:신청|접수)?\s*)?(?:\(\s*)?"
         r"매\s*분기\s*말\s*(?:의\s*)?다음\s*달\s*\)?", value,
@@ -340,8 +362,9 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
         except (TypeError, ValueError):
             return result
     ongoing = re.fullmatch(
-        r"(?:상시\s*(?:신청|접수)?|연중\s*(?:수시\s*)?(?:신청|접수)?|"
-        r"수시\s*(?:신청|접수)?|출생\s*신고\s*후\s*언제든지)"
+        r"(?:상\s*시\s*(?:신청|접수|모집)?|연\s*중\s*(?:수\s*시\s*)?(?:신청|접수|모집)?|"
+        r"(?:월별\s*정기\s*모집\s*및\s*)?수\s*시\s*(?:신청|접수|모집)?|"
+        r"출생\s*신고\s*후\s*언제든지)"
         r"(?:\s*\(([^()\n]*)\))?", value,
     )
     if ongoing:
@@ -349,7 +372,9 @@ def application_schedule(value, *, reference_year=None, reference_month=None):
         if condition:
             # Keep finite application limits instead of dropping their parentheses.
             condition = re.sub(
-                r"예산\s*(?:(?:소진|소모)\s*(?:시|때)?\s*까지|범위\s*내(?:에서)?)",
+                r"(?:예산|재원)\s*(?:의\s*)?"
+                r"(?:(?:소진|소모)\s*(?:시|때)?\s*(?:까지|(?:신청|접수|지원)?\s*"
+                r"(?:조기\s*)?(?:마감|종료))?|범위\s*(?:내(?:에서)?|에서))",
                 "", condition,
             ).strip(" ,;/|:")
             condition = re.sub(r"\s*마감(?:합니다|됩니다|됨)?\s*$", "까지", condition)
